@@ -23,6 +23,8 @@
 #include <boost/dynamic_bitset.hpp>
 #include <iomanip>
 #include <atomic> // 引入原子操作头文件
+#include <ThreadPool.h>
+#include <shared_mutex>
 
 #include "utils.h"
 #include "vamana/vamana.h"
@@ -30,8 +32,18 @@
 #include <roaring/roaring.h>
 #include <roaring/roaring.hh>
 
+#include <mutex>
+#include <cstdarg>
+#include <cstdlib>
+#include <string>
+#include <sstream>
+#include <stdexcept>
+
+
 namespace fs = boost::filesystem;
 using BitsetType = boost::dynamic_bitset<>;
+
+std::shared_timed_mutex lock_m;
 
 // 文件格式常量
 const std::string FVEC_EXT = ".fvecs";
@@ -54,6 +66,88 @@ struct TreeInfo
       return coverage_count > other.coverage_count;
    }
 };
+
+
+
+namespace {
+   
+   //my add
+   static constexpr const char* kProfLogDir = "/home/graphdb/Codes/FilterVectorResultsCUDA/prof";
+   static constexpr const char* kProfLogFile = "ung_prof.log";
+
+   // 日志文件路径（支持用环境变量 UNG_PROF_LOG 覆盖；否则落当前目录）
+   inline const std::string& prof_log_path() {
+      static std::string path = []{
+          namespace fs = std::filesystem;
+          std::error_code ec;
+          fs::create_directories(kProfLogDir, ec);
+  
+          // 简单时间戳：YYYYMMDD_HHMMSS
+          auto now = std::chrono::system_clock::now();
+          std::time_t t = std::chrono::system_clock::to_time_t(now);
+          std::tm tm{};
+          localtime_r(&t, &tm);
+          char ts[32];
+          std::snprintf(ts, sizeof(ts), "%04d%02d%02d_%02d%02d%02d",
+              tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+  
+          // 文件名：ung_prof_时间戳_进程号.log
+          char fname[128];
+          std::snprintf(fname, sizeof(fname), "ung_prof_%s_%d.log", ts, (int)getpid());
+          return (fs::path(kProfLogDir) / fname).string();
+      }();
+      return path;
+  }
+   
+   static std::mutex g_prof_mtx;
+   
+   // 线程安全追加一行
+   inline void prof_log_line(const std::string& line) {
+       std::lock_guard<std::mutex> lk(g_prof_mtx);
+       std::ofstream ofs(prof_log_path(), std::ios::app);
+       ofs << line << '\n';
+   }
+   
+   // printf 风格
+   inline void prof_logf(const char* fmt, ...) {
+       char buf[1024];
+       va_list ap; va_start(ap, fmt);
+       vsnprintf(buf, sizeof(buf), fmt, ap);
+       va_end(ap);
+       prof_log_line(buf);
+   }
+
+   inline int read_env_int_clamped(const char *key, int fallback, int min_v, int max_v)
+   {
+      const char *s = std::getenv(key);
+      if (!s || !*s)
+         return fallback;
+      char *end = nullptr;
+      long v = std::strtol(s, &end, 10);
+      if (end == s || *end != '\0')
+         return fallback;
+      if (v < (long)min_v)
+         v = (long)min_v;
+      if (v > (long)max_v)
+         v = (long)max_v;
+      return (int)v;
+   }
+   
+   // RAII 计时器：离开作用域即落盘
+   struct ScopedTimerMs {
+       const char* tag;
+       std::chrono::high_resolution_clock::time_point t0;
+       double* acc; // 可选：把耗时累计到某个变量
+       explicit ScopedTimerMs(const char* t, double* accumulate = nullptr)
+           : tag(t), t0(std::chrono::high_resolution_clock::now()), acc(accumulate) {}
+       ~ScopedTimerMs() {
+           using namespace std::chrono;
+           double ms = duration<double, std::milli>(high_resolution_clock::now() - t0).count();
+           if (acc) *acc += ms;
+           prof_logf("[PROF] %s %.3f", tag, ms);
+       }
+   };
+} // anonymous namespace
 
 namespace ANNS
 {
@@ -106,12 +200,28 @@ namespace ANNS
          // build the label navigating graph
          build_label_nav_graph();
          get_descendants_info(); // fxy_add
+         {
+            std::cout << "\n--- [分析] 正在统计 LNG 边数 ---" << std::endl;
+            uint64_t total_lng_edges = 0;
+            for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)// 遍历所有组，累加它们的“出度”（即子节点/超集数量）
+            {
+               total_lng_edges += _label_nav_graph->out_neighbors[group_id].size();
+            }
+            std::cout << "  - 组 (Nodes) 总数: " << _num_groups << std::endl;
+            std::cout << "  - LNG 边 (Edges) 总数: " << total_lng_edges << std::endl;
+            if (_num_groups > 0) {
+                 std::cout << "  - 平均出度 (边/组): " << static_cast<double>(total_lng_edges) / _num_groups << std::endl;
+            }
+            std::cout << "--- [分析] LNG 边数统计完毕 ---\n" << std::endl;
+         }
 
          // calculate the coverage ratio
          cal_f_coverage_ratio(); // fxy_add
 
          // initialize_lng_descendants_coverage_bitsets();
+         auto roaring_start_time = std::chrono::high_resolution_clock::now();
          initialize_roaring_bitsets();
+         _build_roaring_bitsets_time = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - roaring_start_time).count();
 
          // precompute the node depths in the label navigating graph,used in hard sandwitch
          // _precompute_lng_node_depths();
@@ -170,6 +280,22 @@ namespace ANNS
       std::vector<std::shared_ptr<TrieNode>> candidates;
       _trie_index.get_super_set_entrances(query_label_set, candidates, avoid_self, need_containment); // 搜索候选超集
 
+      // ================= [DEBUG] =================
+      // 如果候选集数量超过1000000，说明这个组非常容易导致卡死
+      if (candidates.size() > 1000000) 
+      {
+         #pragma omp critical
+         {
+            std::cout << "[WARNING] Performance Hazard! Group Label Size: " << query_label_set.size()
+                        << " | Candidates Found: " << candidates.size() 
+                        << " (This will be slow!)" << std::endl;
+            if (!query_label_set.empty()) {
+                  std::cout << "   -> Labels: " << query_label_set[0] << " ... " << std::endl;
+            }
+         }
+      }
+      // ===================================================
+
       // special cases
       if (candidates.empty())
          return;
@@ -218,7 +344,8 @@ namespace ANNS
    void UniNavGraph::get_min_super_sets_debug(const std::vector<LabelType> &query_label_set,
                                               std::vector<IdxType> &min_super_set_ids,
                                               bool avoid_self, bool need_containment,
-                                              std::atomic<int> &print_counter, bool is_new_trie_method, bool is_rec_more_start, QueryStats &stats)
+                                              std::atomic<int> &print_counter, bool is_new_trie_method, bool is_rec_more_start, QueryStats &stats,
+                                              bool skip_group_id_check)
    {
 #if ENABLE_ENTRY_DEBUG_OUTPUT
       // --- 计时器变量定义 ---
@@ -265,7 +392,7 @@ namespace ANNS
       {
          // --- 调用旧方法 (Shortcut) ---
          TrieMethod1Metrics trie_metrics_m1 = {};
-         _trie_index.get_super_set_entrances_debug(query_label_set, candidates, avoid_self, need_containment, print_counter, trie_metrics_m1);
+         _trie_index.get_super_set_entrances_debug(query_label_set, candidates, avoid_self, need_containment, print_counter, trie_metrics_m1, skip_group_id_check);
          stats.successful_checks = trie_metrics_m1.successful_checks;
          stats.trie_nodes_traversed = trie_metrics_m1.upward_traversals + trie_metrics_m1.bfs_nodes_processed;
          stats.redundant_upward_steps = trie_metrics_m1.redundant_upward_steps;
@@ -1070,7 +1197,7 @@ namespace ANNS
                 trie_debug_print_counter,
                 is_new_trie_method,
                 is_rec_more_start,
-                dummy_stats);
+                dummy_stats,false);
 
             // 3. 利用分组ID高效计算bitmap
             all_bitmaps[id] = index.compute_bitmap_from_groups(entry_group_ids);
@@ -1507,7 +1634,7 @@ namespace ANNS
          write_labels_txt(query_attr_path, final_query_vec_labels);
          std::string output_neighbors_file = new_cross_edge.acorn_in_ung_output_path + "/R_neighbors_with_vectors.txt";
          std::stringstream cmd_ss;
-         cmd_ss << "/data/fxy/FilterVector/FilterVectorCode/ACORN/run_acorn_for_ung.sh "
+         cmd_ss << "/home/fengxiaoyao/1023FilterVector/FilterVectorCode/ACORN/run_acorn_for_ung.sh "
                 << dataset << " " << new_cross_edge.R_in_add_new_edge << " " << _base_storage->get_num_points() << " "
                 << new_cross_edge.M << " " << new_cross_edge.M_beta << " " << new_cross_edge.gamma << " " << new_cross_edge.efs << " "
                 << num_threads << " "
@@ -1911,6 +2038,36 @@ namespace ANNS
 
    // =====================================begin 添加新的跨组边=========================================
 
+//    void UniNavGraph::build_label_nav_graph()
+//    {
+//       std::cout << "Building label navigation graph... " << std::endl;
+//       auto start_time = std::chrono::high_resolution_clock::now();
+//       _label_nav_graph = std::make_shared<LabelNavGraph>(_num_groups + 1);
+//       omp_set_num_threads(_num_threads);
+
+// // obtain out-neighbors
+// #pragma omp parallel for schedule(dynamic, 256)
+//       for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+//       {
+//          // if (group_id % 100 == 0)
+//          //    std::cout << "\r" << (100.0 * group_id) / _num_groups << "%" << std::flush;
+//          std::vector<IdxType> min_super_set_ids;
+//          get_min_super_sets(_group_id_to_label_set[group_id], min_super_set_ids, true);
+//          _label_nav_graph->out_neighbors[group_id] = min_super_set_ids;
+//       }
+
+//       // obtain in-neighbors
+//       for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+//          for (auto each : _label_nav_graph->out_neighbors[group_id])
+//             _label_nav_graph->in_neighbors[each].emplace_back(group_id);
+
+//       _build_LNG_time = std::chrono::duration<double, std::milli>(
+//                             std::chrono::high_resolution_clock::now() - start_time)
+//                             .count();
+//       std::cout << "\r- Finished in " << _build_LNG_time << " ms" << std::endl;
+//    }
+
+   // fxy_add : 打印信息的build_label_nav_graph
    void UniNavGraph::build_label_nav_graph()
    {
       std::cout << "Building label navigation graph... " << std::endl;
@@ -1918,97 +2075,71 @@ namespace ANNS
       _label_nav_graph = std::make_shared<LabelNavGraph>(_num_groups + 1);
       omp_set_num_threads(_num_threads);
 
-// obtain out-neighbors
+      // 监控变量
+      std::atomic<size_t> processed_count{0};
+      size_t total_groups = _num_groups;
+      size_t log_interval = 100000; 
+
+      // ===========================================================
+      // Phase 1: Obtain Out-Neighbors (并行)
+      // ===========================================================
+      std::cout << "--- Phase 1: Calculating Out-Neighbors (Parallel) ---" << std::endl;
 #pragma omp parallel for schedule(dynamic, 256)
       for (auto group_id = 1; group_id <= _num_groups; ++group_id)
       {
-         // if (group_id % 100 == 0)
-         //    std::cout << "\r" << (100.0 * group_id) / _num_groups << "%" << std::flush;
          std::vector<IdxType> min_super_set_ids;
+         // 核心计算
          get_min_super_sets(_group_id_to_label_set[group_id], min_super_set_ids, true);
          _label_nav_graph->out_neighbors[group_id] = min_super_set_ids;
+
+         // 进度监控
+         size_t current = ++processed_count;
+         
+         // 逻辑：
+         // 1. 正常阶段：每 10 万打印一次
+         // 2. 冲刺阶段（最后 1% 或 最后 10万）：每 1000 个打印一次，看到它在动
+         bool normal_log = (current % log_interval == 0);
+         bool final_sprint = (current > total_groups - 100000) && (current % 1000 == 0); 
+
+         if (normal_log || final_sprint || current == total_groups)
+         {
+            #pragma omp critical 
+            {
+               double percentage = (double)current / total_groups * 100.0;
+               std::cout << "[Phase 1] Processed " << current << " / " << total_groups 
+                         << " (" << std::fixed << std::setprecision(4) << percentage << "%)" // 精度提高到4位
+                         << std::endl;
+            }
+         }
       }
 
-      // obtain in-neighbors
+      // ===========================================================
+      // Phase 2: Obtain In-Neighbors (串行)
+      // ===========================================================
+      std::cout << "--- Phase 2: Calculating In-Neighbors (Serial) ---" << std::endl;
+      
+      processed_count = 0; 
       for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+      {
          for (auto each : _label_nav_graph->out_neighbors[group_id])
             _label_nav_graph->in_neighbors[each].emplace_back(group_id);
+
+         size_t current = ++processed_count;
+         if (current % log_interval == 0 || current == total_groups)
+         {
+             double percentage = (double)current / total_groups * 100.0;
+             std::cout << "[Phase 2] Processed " << current << " / " << total_groups 
+                       << " (" << std::fixed << std::setprecision(1) << percentage << "%)" 
+                       << std::endl;
+         }
+      }
 
       _build_LNG_time = std::chrono::duration<double, std::milli>(
                             std::chrono::high_resolution_clock::now() - start_time)
                             .count();
-      std::cout << "\r- Finished in " << _build_LNG_time << " ms" << std::endl;
+      std::cout << "- Finished building LNG in " << _build_LNG_time << " ms" << std::endl;
    }
 
-   // fxy_add : 打印信息的build_label_nav_graph
-   //    void UniNavGraph::build_label_nav_graph()
-   //    {
-   //       std::cout << "Building label navigation graph... " << std::endl;
-   //       auto start_time = std::chrono::high_resolution_clock::now();
-   //       _label_nav_graph = std::make_shared<LabelNavGraph>(_num_groups + 1);
-   //       omp_set_num_threads(_num_threads);
-   //       std::ofstream outfile("lng_structure.txt");
-   //       if (!outfile.is_open())
-   //       {
-   //          std::cerr << "Error: Could not open lng_structure.txt for writing!" << std::endl;
-   //          return;
-   //       }
-   //       outfile << "Label Navigation Graph (LNG) Structure\n";
-   //       outfile << "=====================================\n";
-   //       outfile << "Format: [GroupID] {LabelSet} -> [OutNeighbor1]{LabelSet}, [OutNeighbor2]{LabelSet}, ...\n\n";
-   // // obtain out-neighbors
-   // #pragma omp parallel for schedule(dynamic, 256)
-   //       for (auto group_id = 1; group_id <= _num_groups; ++group_id)
-   //       {
-   //          if (group_id % 100 == 0)
-   //          {
-   // #pragma omp critical
-   //             std::cout << "\r" << (100.0 * group_id) / _num_groups << "%" << std::flush;
-   //          }
-   //          std::vector<IdxType> min_super_set_ids;
-   //          get_min_super_sets(_group_id_to_label_set[group_id], min_super_set_ids, true);
-   //          _label_nav_graph->out_neighbors[group_id] = min_super_set_ids;
-   //          _label_nav_graph->out_degree[group_id] = min_super_set_ids.size();
-   // #pragma omp critical
-   //          {
-   //             outfile << "[" << group_id << "] {";
-   //             // 打印标签集
-   //             for (const auto &label : _group_id_to_label_set[group_id])
-   //                outfile << label << ",";
-   //             outfile << "} -> ";
-   //             // 打印出边（包含目标节点的标签集）
-   //             for (size_t i = 0; i < min_super_set_ids.size(); ++i)
-   //             {
-   //                auto target_id = min_super_set_ids[i];
-   //                outfile << "[" << target_id << "] {";
-   //                // 打印目标节点的标签集
-   //                for (const auto &label : _group_id_to_label_set[target_id])
-   //                {
-   //                   outfile << label << ",";
-   //                }
-   //                outfile << "}";
-   //                if (i != min_super_set_ids.size() - 1)
-   //                   outfile << ", ";
-   //             }
-   //             outfile << "\n";
-   //          }
-   //       }
-   //       // obtain in-neighbors (不需要打印入边，但保留原有逻辑)
-   //       for (auto group_id = 1; group_id <= _num_groups; ++group_id)
-   //       {
-   //          for (auto each : _label_nav_graph->out_neighbors[group_id])
-   //          {
-   //             _label_nav_graph->in_neighbors[each].emplace_back(group_id);
-   //             _label_nav_graph->in_degree[group_id] += 1;
-   //          }
-   //       }
-   //       // outfile.close();
-   //       _build_LNG_time = std::chrono::duration<double, std::milli>(
-   //                             std::chrono::high_resolution_clock::now() - start_time)
-   //                             .count();
-   //       std::cout << "\r- Finished in " << _build_LNG_time << " ms" << std::endl;
-   //       std::cout << "- LNG structure saved to lng_structure.txt" << std::endl;
-   //    }
 
    // fxy_add:初始化求flag的几个数据结构
    void UniNavGraph::initialize_lng_descendants_coverage_bitsets()
@@ -2099,6 +2230,93 @@ namespace ANNS
             neighbor += _group_id_to_range[_new_vec_id_to_group_id[i]].first;
    }
 
+   UniNavGraph::CrossEdgeBackend UniNavGraph::resolve_cross_edge_backend() const
+   {
+      const int v = read_env_int_clamped("UNG_CROSS_EDGE_BACKEND", 1, 0, 1);
+      return v == 0 ? CrossEdgeBackend::CPU : CrossEdgeBackend::GPU;
+   }
+
+   void UniNavGraph::build_cross_edges_generate_cpu_baseline(std::vector<SearchQueue> &cross_group_neighbors,
+                                                             SearchCacheList &search_cache_list)
+   {
+      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+      {
+         if (_label_nav_graph->in_neighbors[group_id].empty())
+            continue;
+
+         const IdxType offset = _group_id_to_range[group_id].first;
+         auto index = _vamana_instances[group_id];
+         if (_num_cross_edges > _Lbuild)
+         {
+            std::cerr << "Error: num_cross_edges should be less than or equal to Lbuild" << std::endl;
+            exit(-1);
+         }
+
+         for (auto in_group_id : _label_nav_graph->in_neighbors[group_id])
+         {
+            const auto &range = _group_id_to_range[in_group_id];
+
+#pragma omp parallel for schedule(dynamic, 1)
+            for (IdxType vec_id = range.first; vec_id < range.second; ++vec_id)
+            {
+               const char *query = _base_storage->get_vector(vec_id);
+               auto search_cache = search_cache_list.get_free_cache();
+               index->iterate_to_fixed_point(query, search_cache);
+
+               for (int k = 0; k < search_cache->search_queue.size(); ++k)
+                  cross_group_neighbors[vec_id].insert(search_cache->search_queue[k].id + offset,
+                                                       search_cache->search_queue[k].distance);
+               search_cache_list.release_cache(search_cache);
+            }
+         }
+      }
+   }
+
+   bool UniNavGraph::build_cross_edges_generate_gpu_optimized(std::vector<SearchQueue> &cross_group_neighbors,
+                                                              double *h2d_ms_sum,
+                                                              double *kernel_ms_sum,
+                                                              double *d2h_ms_sum)
+   {
+      std::vector<IdxType> groups_to_process;
+      groups_to_process.reserve(_num_groups);
+      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+         if (!_label_nav_graph->in_neighbors[group_id].empty())
+            groups_to_process.push_back(group_id);
+
+      std::cout << "[cross_edges] backend=GPU, target_groups=" << groups_to_process.size() << std::endl;
+      if (groups_to_process.empty())
+         return true;
+
+      bool gpu_prepared = false;
+      try
+      {
+         gpu_prepare_all_vectors_on_device(h2d_ms_sum, nullptr);
+         gpu_prepared = true;
+         gpu_cross_groups_search_all_batched(groups_to_process, _base_storage->get_dim(), _num_cross_edges,
+                                             cross_group_neighbors, h2d_ms_sum, kernel_ms_sum, d2h_ms_sum);
+      }
+      catch (const std::exception &e)
+      {
+         std::cerr << "[cross_edges][GPU] failed: " << e.what() << std::endl;
+         prof_logf("[PROF] cross_edges.gpu_exception what=%s", e.what());
+         if (gpu_prepared)
+            gpu_release_all_vectors_on_device();
+         return false;
+      }
+      catch (...)
+      {
+         std::cerr << "[cross_edges][GPU] failed: unknown exception" << std::endl;
+         prof_logf("[PROF] cross_edges.gpu_exception what=unknown");
+         if (gpu_prepared)
+            gpu_release_all_vectors_on_device();
+         return false;
+      }
+
+      if (gpu_prepared)
+         gpu_release_all_vectors_on_device();
+      return true;
+   }
+
    void UniNavGraph::build_cross_group_edges()
    {
       std::cout << "Building cross-group edges ..." << std::endl;
@@ -2117,58 +2335,58 @@ namespace ANNS
       SearchCacheList search_cache_list(_num_threads, max_group_size, _Lbuild);
       omp_set_num_threads(_num_threads);
 
-      // for each group
-      for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+      //my add
+      //分项统计容器
+      double gen_ms = 0.0;            // 候选生成总耗时（你的主要关注）
+      double add_ms = 0.0;            // 生成“附加跨组边”耗时
+      double merge_cross_ms = 0.0;    // 合并 cross_group_neighbors 到 _graph 的耗时
+      double merge_add_ms = 0.0;      // 合并附加边的耗时
+      double add_offset_ms = 0.0;     // add_offset_for_uni_nav_graph 的耗时
+      //GPU细分累计槽（由 .cu 内的 cudaEvent 回传）
+      double h2d_ms_sum = 0.0, kernel_ms_sum = 0.0, d2h_ms_sum = 0.0;
+
+   {
+      ScopedTimerMs t("cross_edges.generate_ms", &gen_ms);
+      if (_index_name != "Vamana")
       {
-         if (_label_nav_graph->in_neighbors[group_id].size() > 0)
+         std::cerr << "Error: invalid index name " << _index_name << std::endl;
+         exit(-1);
+      }
+
+      // UNG_CROSS_EDGE_BACKEND: 0=CPU baseline, 1=GPU optimized.
+      const CrossEdgeBackend backend = resolve_cross_edge_backend();
+      // UNG_CROSS_EDGE_GPU_STRICT: 1=GPU失败直接报错; 0=失败自动回退CPU.
+      const bool gpu_strict = read_env_int_clamped("UNG_CROSS_EDGE_GPU_STRICT", 0, 0, 1) == 1;
+
+      // 可切换主线：
+      // - CPU baseline: build_cross_edges_generate_cpu_baseline
+      // - GPU optimized: build_cross_edges_generate_gpu_optimized（失败可回退）
+      if (backend == CrossEdgeBackend::GPU)
+      {
+         const bool gpu_ok = build_cross_edges_generate_gpu_optimized(cross_group_neighbors,
+                                                                       &h2d_ms_sum,
+                                                                       &kernel_ms_sum,
+                                                                       &d2h_ms_sum);
+         if (!gpu_ok)
          {
-            // if (group_id % 100 == 0)
-            //    std::cout << "\r" << (100.0 * group_id) / _num_groups << "%" << std::flush;
-            IdxType offset = _group_id_to_range[group_id].first;
-
-            // query vamana index
-            if (_index_name == "Vamana")
-            {
-               auto index = _vamana_instances[group_id];
-               if (_num_cross_edges > _Lbuild)
-               {
-                  std::cerr << "Error: num_cross_edges should be less than or equal to Lbuild" << std::endl;
-                  exit(-1);
-               }
-
-               // for each in-neighbor group
-               for (auto in_group_id : _label_nav_graph->in_neighbors[group_id])
-               {
-                  const auto &range = _group_id_to_range[in_group_id];
-
-// take each vector in the group as the query
-#pragma omp parallel for schedule(dynamic, 1)
-                  for (auto vec_id = range.first; vec_id < range.second; ++vec_id)
-                  {
-                     const char *query = _base_storage->get_vector(vec_id);
-                     auto search_cache = search_cache_list.get_free_cache();
-                     index->iterate_to_fixed_point(query, search_cache);
-
-                     // update the cross-group edges for vec_id
-                     for (auto k = 0; k < search_cache->search_queue.size(); ++k)
-                        cross_group_neighbors[vec_id].insert(search_cache->search_queue[k].id + offset,
-                                                             search_cache->search_queue[k].distance);
-                     search_cache_list.release_cache(search_cache);
-                  }
-               }
-
-               // if none of the above
-            }
-            else
-            {
-               std::cerr << "Error: invalid index name " << _index_name << std::endl;
-               exit(-1);
-            }
+            if (gpu_strict)
+               throw std::runtime_error("GPU cross-edge generation failed in strict mode.");
+            std::cout << "[cross_edges] fallback to CPU baseline path." << std::endl;
+            build_cross_edges_generate_cpu_baseline(cross_group_neighbors, search_cache_list);
          }
       }
+      else
+      {
+         std::cout << "[cross_edges] backend=CPU" << std::endl;
+         build_cross_edges_generate_cpu_baseline(cross_group_neighbors, search_cache_list);
+      }
+
+   }
 
       // add additional edges
       std::vector<std::vector<std::pair<IdxType, IdxType>>> additional_edges(_num_groups + 1);
+{
+      ScopedTimerMs t("cross_edges.additional_edges_ms", &add_ms);
 #pragma omp parallel for schedule(dynamic, 256)
       for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
       {
@@ -2200,28 +2418,53 @@ namespace ANNS
                }
             }
       }
-
+}
       // add offset for uni-nav graph
+   {
+      ScopedTimerMs t("cross_edges.add_offset_ms", &add_offset_ms);  // 【添加】
       add_offset_for_uni_nav_graph();
+   }
 
 // merge cross-group edges
+   {
+      ScopedTimerMs t("cross_edges.merge_cross_ms", &merge_cross_ms);
 #pragma omp parallel for schedule(dynamic, 4096)
       for (auto point_id = 0; point_id < _num_points; ++point_id)
          for (auto k = 0; k < cross_group_neighbors[point_id].size(); ++k)
             _graph->neighbors[point_id].emplace_back(cross_group_neighbors[point_id][k].id);
+   }
 
 // merge additional cross-group edges
+   {
+      ScopedTimerMs t("cross_edges.merge_additional_ms", &merge_add_ms);  // 【添加】
 #pragma omp parallel for schedule(dynamic, 256)
       for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
       {
          for (const auto &[from_id, to_id] : additional_edges[group_id])
             _graph->neighbors[from_id].emplace_back(to_id);
       }
+   }
 
+         std::cout << "[GPU GEMM] H2D(ms)=" << h2d_ms_sum
+          << "  Kernel(ms)=" << kernel_ms_sum
+          << "  D2H(ms)=" << d2h_ms_sum
+          << std::endl;
+          
       _build_cross_edges_time = std::chrono::duration<double, std::milli>(
                                     std::chrono::high_resolution_clock::now() - start_time)
                                     .count();
       std::cout << "\r- Finish in " << _build_cross_edges_time << " ms" << std::endl;
+
+      //my add
+      // 统一写一条汇总到文件（包含关键参数，方便复现实验）
+      prof_logf("[PROF] cross_edges.summary total_ms=%.3f gen_ms=%.3f add_ms=%.3f add_offset_ms=%.3f merge_cross_ms=%.3f merge_add_ms=%.3f "
+      "num_points=%u num_groups=%u num_cross_edges=%u Lbuild=%u threads=%u",
+      _build_cross_edges_time, gen_ms, add_ms, add_offset_ms, merge_cross_ms, merge_add_ms,
+      (unsigned)_num_points, (unsigned)_num_groups, (unsigned)_num_cross_edges, (unsigned)_Lbuild, (unsigned)_num_threads);
+      // GPU细分总览（H2D/Kernel/D2H 累计）
+      prof_logf("[PROF] cross_edges.gpu_breakdown_sum h2d_ms=%.3f kernel_ms=%.3f d2h_ms=%.3f",
+         h2d_ms_sum, kernel_ms_sum, d2h_ms_sum);
+
    }
 
    /*void UniNavGraph::search(std::shared_ptr<IStorage> query_storage, std::shared_ptr<DistanceHandler> distance_handler,
@@ -2375,42 +2618,47 @@ namespace ANNS
       // const float query_size_sq = query_size * query_size; // 'QuerySize_sq'
       // const float log_cand_x_log_query = log_cand_size * log_query_size; // 'LogCand_x_LogQuery'
 
-      // --- 仅为 celeba 数据集计算特定特征 ---
       if (_dataset == "celeba")
       {
          features.reserve(7);
          features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
          features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
-         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
          features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
          features.push_back(cand_size);                                                           // 5. CandSize
          features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
          features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // 7. Cand_Selectivity   
+      }
+      else if (_dataset == "bigann")
+      {
+         features.reserve(7);
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // 7. Cand_Selectivity
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         features.push_back(cand_size);                                                           // 5. CandSize
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+      }
+      else if (_dataset == "Genome")
+      {
+         features.reserve(7);
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // 7. Cand_Selectivity
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(cand_size);                                                           // 5. CandSize
+         
 
-      }
-      else if (_dataset == "biganndata")
-      {
-         features.reserve(7);
-         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
-         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
-         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // 7. Cand_Selectivity
-         features.push_back(cand_size);                                                           // 5. CandSize
-         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
-         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
-         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
-         // features.push_back(query_size / (cand_size + epsilon));                                  // 7. Query_Cand_Ratio
-      }
-      else if (_dataset == "visualgenome")
-      {
-         features.reserve(7);
-         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
-         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
-         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // 7. Cand_Selectivity
-         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
-         features.push_back(cand_size);                                                           // 5. CandSize
-         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
-         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
-         // features.push_back(query_size / (cand_size + epsilon));                                  // 7. Query_Cand_Ratio
+         // features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+         // features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
+         // features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         // features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+         // features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         // features.push_back(cand_size);                                                           // 5. CandSize
+         // features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // 7. Cand_Selectivity
       }
       else if (_dataset == "words")
       {
@@ -2418,32 +2666,168 @@ namespace ANNS
          features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
          features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
          features.push_back(query_size);                                                          // 8. QuerySize
-         features.push_back(trie_branching * query_size);                                         // 3. Branching_x_QuerySize
          features.push_back(query_size * trie_branching);                                         // 9. Query_Path_Density
          features.push_back(query_size / (trie_cardinality + epsilon));                           // 7. Query_Cardinality_Ratio
+         features.push_back(trie_branching * query_size);                                         // 3. Branching_x_QuerySize
          features.push_back(query_size * query_size);                                             // 4. QuerySize_sq
       }
       else if (_dataset == "MTG")
       {
          features.reserve(7);
-         features.push_back(std::log1p(cand_size) * std::log1p(query_size)); // 2. LogCand_x_LogQuery
-         features.push_back(query_size / (cand_size + epsilon));             // 7. Query_Cand_Ratio
          features.push_back(cand_size * query_size);                         // 1. Cand_x_Query_Interaction
-         features.push_back(trie_branching * query_size);                    // 3. Branching_x_QuerySize
-         features.push_back(query_size * trie_branching);                    // 9. Query_Path_Density
-         features.push_back(query_size);                                     // 8. QuerySize
-         features.push_back(query_size * query_size);                        // 4. QuerySize_sq         
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size)); // 2. LogCand_x_LogQuery
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         features.push_back(cand_size);                                                           // 5. CandSize
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize    
       }
-      else if (_dataset == "app_reviews")
+      else if (_dataset == "Reviews")
       {
          features.reserve(7);
          features.push_back(std::log1p(cand_size) * std::log1p(query_size)); // 2. LogCand_x_LogQuery
-         features.push_back(cand_size * query_size);                         // 1. Cand_x_Query_Interaction
          features.push_back(query_size);                                     // 8. QuerySize
-         features.push_back(query_size * trie_branching);                    // 9. Query_Path_Density
+         features.push_back(query_size * trie_branching);                    // 9. Query_Path_Density 
+         features.push_back(query_size / (trie_cardinality + epsilon));      // 7. Query_Cardinality_Ratio
          features.push_back(trie_branching * query_size);                     // 3. Branching_x_QuerySize
-         features.push_back(cand_size / (trie_nodes + epsilon));             // 6. Cand_Coverage_Ratio
          features.push_back(query_size * query_size);                        // 4. QuerySize_sq
+         features.push_back(cand_size * query_size);                         // 1. Cand_x_Query_Interaction  
+      }
+      else if (_dataset == "Amazon")
+      {
+         features.reserve(7);
+         features.push_back(cand_size * query_size);                         // 1. Cand_x_Query_Interaction
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size)); // 2. LogCand_x_LogQuery
+         features.push_back(query_size);                                     // 8. QuerySize
+         features.push_back(query_size * trie_branching);                    // 9. Query_Path_Density 
+         features.push_back(query_size / (trie_cardinality + epsilon));      // 7. Query_Cardinality_Ratio
+         features.push_back(trie_branching * query_size);                    // 3. Branching_x_QuerySize
+         features.push_back(query_size * query_size);                        // 4. QuerySize_sq
+
+         // features.push_back(cand_size * query_size);                         // 1. Cand_x_Query_Interaction
+         // features.push_back(std::log1p(cand_size) * std::log1p(query_size)); // 2. LogCand_x_LogQuery
+         // features.push_back(query_size);                                     // 8. QuerySize
+         // features.push_back(query_size * trie_branching);                    // 9. Query_Path_Density 
+         // features.push_back(query_size / (trie_cardinality + epsilon));      // 7. Query_Cardinality_Ratio
+         // features.push_back(trie_branching * query_size);                    // 3. Branching_x_QuerySize
+         // features.push_back(query_size * query_size);                        // 4. QuerySize_sq
+      }
+      else if (_dataset == "Music")
+      {
+         features.reserve(7);
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
+         features.push_back(query_size);                                                          // 8. QuerySize
+         features.push_back(query_size * trie_branching);                                         // 9. Query_Path_Density
+         features.push_back(query_size / (trie_cardinality + epsilon));                           // 7. Query_Cardinality_Ratio
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio  
+      }
+      else if (_dataset == "openpmc")
+      {
+         features.reserve(7);
+         features.push_back(query_size / (cand_size + epsilon));                                  // 7. Query_Cand_Ratio
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+         features.push_back(cand_size);                                                           // 5. CandSize
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery                                                       // 8. QuerySize   
+      }
+      else if (_dataset == "AllNews")
+      {
+         features.reserve(7);
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
+         features.push_back(cand_size);                                                           // 5. CandSize
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
+         
+         // features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+         // features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
+         // features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
+         // features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         // features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         // features.push_back(cand_size);                                                           // 5. CandSize
+         // features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+      }
+      else if (_dataset == "Russian")
+      {
+         features.reserve(7);
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+         features.push_back(cand_size);                                                           // 5. CandSize
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
+         features.push_back(query_size / (cand_size + epsilon));                                  // 7. Query_Cand_Ratio
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+      }
+      else if (_dataset == "VariousImg")
+      {
+         features.reserve(7);
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery 
+         features.push_back(cand_size);                                                           // 5. CandSize
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio 
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
+          
+      }
+      else if (_dataset == "Tiktok")
+      {
+         features.reserve(7);
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery 
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         features.push_back(cand_size);                                                           // 5. CandSize
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+  
+      }
+      else if (_dataset == "cord_19")
+      {
+         features.reserve(7);
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+         features.push_back(cand_size);                                                           // 5. CandSize
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
+      }
+      else if (_dataset == "Laion")
+      {
+         features.reserve(7);
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(cand_size);                                                           // 5. CandSize
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction 
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery   
+      }
+      else if (_dataset == "BookReviews")
+      {
+         features.reserve(7);
+         features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction 
+         features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
+         features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         features.push_back(cand_size);                                                           // 5. CandSize
+         features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+         features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
+
+         // features.push_back(cand_size * query_size);                                              // 1. Cand_x_Query_Interaction 
+         // features.push_back(std::log1p(cand_size) * std::log1p(query_size));                      // 2. LogCand_x_LogQuery
+         // features.push_back(cand_size / (trie_nodes + epsilon));                                  // 6. Cand_Coverage_Ratio
+         // features.push_back(cand_size * cand_size);                                               // 4. CandSize_sq
+         // features.push_back(trie_branching * cand_size);                                          // 3. Branching_x_CandSize
+         // features.push_back(cand_size);                                                           // 5. CandSize
+         // features.push_back((trie_nodes / (trie_cardinality + epsilon)) / (cand_size + epsilon)); // Cand_Selectivity
       }
       else {
          std::cerr << "Warning: Dataset name not recognized for Idea1 feature calculation." << std::endl;
@@ -2475,51 +2859,219 @@ namespace ANNS
       {
          features.reserve(6);
          features.push_back(total_coverage * total_coverage);   // 2. CoverageSquared
-         features.push_back(std::log1p(total_coverage));        // 3. LogTotalCoverage
-         features.push_back(total_coverage);                    // 6. TotalCoverage
          features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         features.push_back(total_coverage);                    // 6. TotalCoverage
+         features.push_back(std::log1p(total_coverage));        // 3. LogTotalCoverage
          features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
          features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
       }
-      else if (_dataset == "biganndata")
+      else if (_dataset == "bigann")
       {
          features.reserve(6);
          features.push_back(std::log1p(total_coverage));        // 3. LogTotalCoverage
-         features.push_back(total_coverage);                    // 6. TotalCoverage
          features.push_back(total_coverage * total_coverage);   // 2. CoverageSquared
-         features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
          features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
-         features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         features.push_back(total_coverage);                    // 6. TotalCoverage
+         features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared   
       }
-      else if (_dataset == "visualgenome")
+      else if (_dataset == "Genome")
       {
          features.reserve(6);
-         features.push_back(num_entries * total_coverage);  // 1. EntriesCovInteraction
-         features.push_back(std::log1p(total_coverage));    // 2. LogTotalCoverage
-         features.push_back(total_coverage);                // 3. TotalCoverage
-         features.push_back(num_entries);                   // 4. NumEntries
-         features.push_back(std::log1p(num_entries));       // 5. LogNumEntries
-         features.push_back(num_entries * num_descendants); // 6. EntriesDescInteraction
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         features.push_back(total_coverage);                   // TotalCoverage
+         features.push_back(std::log1p(total_coverage));       // LogTotalCoverage
+         features.push_back(std::log1p(num_descendants));      // LogNumDescendants
+         features.push_back(num_descendants * total_coverage); // DescCovInteraction
+         features.push_back(num_entries * num_descendants);    // EntriesDescInteraction
+         
+         // features.push_back(num_entries * num_descendants);    // EntriesDescInteraction
+         // features.push_back(num_descendants * total_coverage); // DescCovInteraction
+         // features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         // features.push_back(std::log1p(total_coverage));       // LogTotalCoverage
+         // features.push_back(std::log1p(num_descendants));      // LogNumDescendants
+         // features.push_back(total_coverage);                   // TotalCoverage
       }
       else if (_dataset == "words")
       {
          features.reserve(6);
-         features.push_back(num_entries * num_descendants); // EntriesDescInteraction
-         features.push_back(num_descendants * total_coverage);  // DescCovInteraction
-         features.push_back(std::log1p(num_descendants));       // LogNumDescendants
-         features.push_back(num_entries * total_coverage);      // EntriesCovInteraction
-         features.push_back(num_descendants);                 // NumDescendants
-         features.push_back(num_descendants * num_descendants); // DescendantsSquared
+         features.push_back(num_descendants * total_coverage); // DescCovInteraction
+         features.push_back(num_entries * num_descendants);    // EntriesDescInteraction
+         features.push_back(num_entries * total_coverage);     // EntriesCovInteraction
+         features.push_back(std::log1p(total_coverage));       // LogTotalCoverage
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         features.push_back(total_coverage / (num_entries + epsilon)); // CovPerEntry
       }
       else if (_dataset == "MTG")
       {
          features.reserve(6);
-         features.push_back(num_entries);                       // 4. NumEntries
          features.push_back(std::log1p(num_entries));           // 5. LogNumEntries
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         features.push_back(num_entries);                       // 4. NumEntries
+         features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
          features.push_back(num_entries * total_coverage);      // EntriesCovInteraction
+         features.push_back(total_coverage);                           // 3. TotalCoverage
+      }
+      else if (_dataset == "Reviews")
+      {
+         features.reserve(6);
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         features.push_back(total_coverage);                           // 3. TotalCoverage 
          features.push_back(total_coverage / (num_entries + epsilon)); // CovPerEntry
+         features.push_back(num_descendants * total_coverage); // DescCovInteraction
+         features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+  
+         // features.push_back(num_entries);                       // 4. NumEntries
+         // features.push_back(std::log1p(num_entries));           // 5. LogNumEntries
+         // features.push_back(num_entries * total_coverage);  // 1. EntriesCovInteraction
+         // features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         // features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         // features.push_back(total_coverage);                           // 3. TotalCoverage  
+      }
+      else if (_dataset == "Amazon")
+      {
+         features.reserve(6);
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         features.push_back(num_descendants);       // NumDescendants
+
+         // features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         // features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         // features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         // features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         // features.push_back(total_coverage);                           // 3. TotalCoverage
+         // features.push_back(num_descendants);       // NumDescendants
+      }
+      else if (_dataset == "Music")
+      {
+         features.reserve(6);
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         features.push_back(num_descendants);       // NumDescendants
+         features.push_back(total_coverage);                           // 3. TotalCoverage
+
+         // features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         // features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         // features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         // features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         // features.push_back(total_coverage);                           // 3. TotalCoverage
+         // features.push_back(num_descendants);       // NumDescendants
+      }
+      else if (_dataset == "openpmc")
+      {
+         features.reserve(6);
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
          features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
          features.push_back(total_coverage);                           // 3. TotalCoverage
+         features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         features.push_back(num_entries);                       // 4. NumEntries
+         features.push_back(num_entries * num_descendants); // 6. EntriesDescInteraction
+      }
+      else if (_dataset == "AllNews")
+      {
+         features.reserve(6);
+         features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         features.push_back(num_descendants);       // NumDescendants
+         features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+
+         // features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         // features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         // features.push_back(total_coverage);               // TotalCoverage
+         // features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         // features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         // features.push_back(num_descendants);       // NumDescendants
+      }
+      else if (_dataset == "Russian")
+      {
+         features.reserve(6);
+         features.push_back(num_descendants * total_coverage);  // DescCovInteraction
+         features.push_back(total_coverage * total_coverage);   // CoverageSquared
+         features.push_back(num_entries * total_coverage);      // EntriesCovInteraction
+         features.push_back(std::log1p(total_coverage));        // LogTotalCoverage
+         features.push_back(total_coverage);                    // TotalCoverage
+         features.push_back(num_entries);                       // NumEntries   
+      }
+      else if (_dataset == "VariousImg")
+      {
+         features.reserve(6);
+         features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         features.push_back(total_coverage * total_coverage);   // CoverageSquared
+         features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         features.push_back(num_descendants / (num_entries + epsilon));// DescPerEntry
+
+      }
+      else if (_dataset == "Tiktok")
+      {
+         features.reserve(6);
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         features.push_back(total_coverage);               // TotalCoverage
+         features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         
+         // features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         // features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         // features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         // features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         // features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         // features.push_back(total_coverage);               // TotalCoverage
+      }
+      else if (_dataset == "cord_19")
+      {
+         features.reserve(6);
+         features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         features.push_back(num_descendants);       // NumDescendants
+         features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared    
+      }
+      else if (_dataset == "Laion")
+      {
+         features.reserve(6);
+         features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         features.push_back(num_descendants);       // NumDescendants
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         features.push_back(total_coverage);               // TotalCoverage
+  
+
+         // features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         // features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         // features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared  
+         // features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         // features.push_back(total_coverage);               // TotalCoverage
+         // features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage    
+      }
+      else if (_dataset == "BookReviews")
+      {
+         features.reserve(6);
+         features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         features.push_back(total_coverage);               // TotalCoverage 
+         features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+           
+         // features.push_back(std::log1p(num_descendants));       // 4. LogNumDescendants
+         // features.push_back(total_coverage * total_coverage);  // CoverageSquared
+         // features.push_back(num_descendants * num_descendants); // 5. DescendantsSquared
+         // features.push_back(std::log1p(total_coverage));               // 2. LogTotalCoverage
+         // features.push_back(num_descendants * total_coverage);  // 1. DescCovInteraction
+         // features.push_back(total_coverage);               // TotalCoverage   
       }
       else{
          std::cerr << "Warning: Dataset name not recognized for Idea2 feature calculation." << std::endl;
@@ -2529,7 +3081,7 @@ namespace ANNS
    }
 
    // fxy_add
-   void UniNavGraph::calculate_query_features_only(
+   /*void UniNavGraph::calculate_query_features_only(
        std::shared_ptr<IStorage> query_storage,
        uint32_t num_threads,
        const std::string &output_csv_path,
@@ -2567,7 +3119,7 @@ namespace ANNS
          // 1. 获取入口组 (这是计算后续特征的前提)
          std::vector<IdxType> entry_group_ids;
          static std::atomic<int> temp_counter{0}; // 临时的计数器以满足函数签名
-         get_min_super_sets_debug(query_labels, entry_group_ids, false, true, temp_counter, is_new_trie_method, is_rec_more_start, stats);
+         get_min_super_sets_debug(query_labels, entry_group_ids, false, true, temp_counter, is_new_trie_method, is_rec_more_start, stats,false);
 
          // 2. 计算 NumDescendants 和 TotalCoverage
          if (!entry_group_ids.empty())
@@ -2635,11 +3187,235 @@ namespace ANNS
 
       outfile.close();
       std::cout << "Successfully saved all features to " << output_csv_path << std::endl;
+   }*/
+
+#include <future>   
+#include <chrono>   
+#include <ctime>    
+#include <iomanip>  
+#include <atomic>   
+#include <algorithm> 
+
+// fxy_add
+void UniNavGraph::calculate_query_features_only(
+    std::shared_ptr<IStorage> query_storage,
+    uint32_t num_threads,
+    const std::string &output_csv_path,
+    bool is_new_trie_method,
+    bool is_rec_more_start)
+{
+    std::cout << "Starting unified feature calculation (Monitor: Label [1] Completion)..." << std::endl;
+    auto num_queries = query_storage->get_num_points();
+    std::vector<QueryStats> query_stats(num_queries);
+
+    // 设置慢查询监控阈值
+    const double SLOW_QUERY_THRESHOLD_MS = 500000.0; 
+
+    // 设置进度打印间隔
+    size_t log_interval = std::max((size_t)1, (size_t)(num_queries * 0.05)); 
+    std::atomic<size_t> processed_count{0}; 
+
+    omp_set_num_threads(num_threads);
+#pragma omp parallel for schedule(dynamic, 1)
+    for (auto id = 0; id < num_queries; ++id)
+    {
+        auto &stats = query_stats[id];
+        const auto &query_labels = query_storage->get_label_set(id);
+
+        // --- 计算 Idea1 特征 ---
+        stats.query_length = query_labels.size(); 
+        if (!query_labels.empty())
+        {
+            stats.candidate_set_size = _trie_index.get_candidate_count_for_label(query_labels.back());
+        }
+        const auto &trie_metrics = _trie_static_metrics;
+        stats.trie_total_nodes = trie_metrics.total_nodes;
+        stats.trie_label_cardinality = trie_metrics.label_cardinality;
+        stats.trie_avg_path_length = trie_metrics.avg_path_length;
+        stats.trie_avg_branching_factor = trie_metrics.avg_branching_factor;
+
+        // --- 计算 Idea2 特征 (带实时监控) ---
+        std::vector<IdxType> entry_group_ids;
+        static std::atomic<int> temp_counter{0}; 
+
+        // 1. 启动异步计算
+        auto future_result = std::async(std::launch::async, [&]() {
+            get_min_super_sets_debug(query_labels, entry_group_ids, false, true, 
+                                     temp_counter, is_new_trie_method, is_rec_more_start, stats, false);
+        });
+
+        // 2. 监控超时打印
+        std::future_status status = future_result.wait_for(std::chrono::milliseconds((long long)SLOW_QUERY_THRESHOLD_MS));
+        if (status == std::future_status::timeout)
+        {
+            #pragma omp critical
+            {
+                auto now = std::chrono::system_clock::now();
+                std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+                std::cout << "\n[SLOW QUERY DETECTED - STILL RUNNING] " 
+                          << std::put_time(std::localtime(&now_c), "%H:%M:%S") 
+                          << " | ID: " << id << std::endl;
+                
+                std::cout << "  - Labels (" << query_labels.size() << "): [ ";
+                for (size_t i = 0; i < query_labels.size(); ++i) {
+                    std::cout << query_labels[i] << (i < query_labels.size() - 1 ? ", " : "");
+                    if (i >= 10) { std::cout << "... "; break; } 
+                }
+                std::cout << " ]" << std::endl;
+            }
+        }
+
+        // 3. 等待任务彻底完成
+        future_result.get(); 
+
+        // ============================================================
+        // 特定标签 (Label 1) 完成时的监控打印
+        // ============================================================
+        if (query_labels.size() == 1 && query_labels[0] == 1)
+        {
+            #pragma omp critical
+            {
+                 // 获取当前时间
+                auto now = std::chrono::system_clock::now();
+                std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+                
+                std::cout << "[Monitor] \033[1;32mTarget Query Finished\033[0m: ID " << id 
+                          << " with Label [1] at " << std::put_time(std::localtime(&now_c), "%H:%M:%S") 
+                          << " (Entry Groups: " << entry_group_ids.size() << ")"
+                          << std::endl;
+            }
+        }
+        // ============================================================
+
+        // --- 后续 Bitmap 计算 ---
+        if (!entry_group_ids.empty())
+        {
+            stats.num_entry_points = entry_group_ids.size();
+            stats.num_lng_descendants = [&]
+            {
+                roaring::Roaring desc;
+                for (auto gid : entry_group_ids)
+                    if (gid > 0 && gid <= _num_groups)
+                        desc |= _lng_descendants_rb[gid];
+                return desc.cardinality();
+            }(); 
+
+            stats.entry_group_total_coverage = [&]
+            {
+                roaring::Roaring cov;
+                for (auto gid : entry_group_ids)
+                    if (gid > 0 && gid <= _num_groups)
+                        cov |= _covered_sets_rb[gid];
+                return static_cast<float>(cov.cardinality()) / _num_points;
+            }(); 
+        }
+        else
+        {
+            stats.num_entry_points = 0;
+            stats.num_lng_descendants = 0;
+            stats.entry_group_total_coverage = 0.0f;
+        }
+
+        // 进度打印
+        size_t current_processed = processed_count.fetch_add(1, std::memory_order_relaxed) + 1;
+        if (current_processed % log_interval == 0 || current_processed == num_queries)
+        {
+            #pragma omp critical
+            {
+                float progress = (float)current_processed / num_queries * 100.0f;
+                auto now = std::chrono::system_clock::now();
+                std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+                std::cout << "[Progress " << std::put_time(std::localtime(&now_c), "%H:%M:%S") << "] " 
+                          << current_processed << " / " << num_queries 
+                          << " (" << std::fixed << std::setprecision(1) << progress << "%)" 
+                          << std::endl;
+            }
+        }
+    }
+    
+    std::cout << "In-memory feature calculation finished for " << num_queries << " queries." << std::endl;
+
+    // =================================================================
+    // 阶段二: 写入 CSV
+    // =================================================================
+    std::cout << "Now writing all features to CSV file: " << output_csv_path << std::endl;
+    std::ofstream outfile(output_csv_path);
+    if (!outfile.is_open())
+    {
+        std::cerr << "FATAL ERROR: Could not open file to save features: " << output_csv_path << std::endl;
+        return; 
+    }
+
+    outfile << "QueryID,QuerySize,CandSize,TrieTotalNodes,TrieLabelCardinality,TrieAvgBranchingFactor,"
+            << "NumEntries,NumDescendants,TotalCoverage\n";
+
+    for (size_t i = 0; i < query_stats.size(); ++i)
+    {
+        const auto &stats = query_stats[i];
+
+        outfile << i << ","
+                << stats.query_length << ","
+                << stats.candidate_set_size << ","
+                << stats.trie_total_nodes << ","
+                << stats.trie_label_cardinality << ","
+                << stats.trie_avg_branching_factor << ","
+                << stats.num_entry_points << ","
+                << stats.num_lng_descendants << ","
+                << stats.entry_group_total_coverage << "\n";
+    }
+
+    outfile.close();
+    std::cout << "Successfully saved all features to " << output_csv_path << std::endl;
+}
+
+
+
+
+   //fxy_add: 在idea2之前，看看入口组个数，决定是否强制执行acorn
+   std::optional<bool> UniNavGraph::check_idea2_heuristic_override(const std::string& dataset_name, size_t num_entry_groups) const
+   {
+      size_t entry_max= 1000;
+      if (dataset_name == "AllNews") entry_max = 1000; 
+         
+      if (num_entry_groups > entry_max)
+         {
+               return true; // 返回 true = 强制使用 ACORN
+         }
+      return std::nullopt; 
    }
 
-   // fxy_add
-   void UniNavGraph::search_hybrid(std::shared_ptr<IStorage> query_storage,
-                                   std::shared_ptr<DistanceHandler> distance_handler,
+   //fxy_add:决定是否跳过 Entry Group 计算和 idea 决策
+   std::optional<bool> UniNavGraph::check_pre_trie_heuristic(const std::string& dataset_name, size_t query_length, size_t candidate_set_size) const
+   {
+
+      if (query_length <= 1)
+      {
+         return true; // 强制使用 ACORN
+      }
+
+      if (dataset_name == "Russian" && query_length <=2)
+      {
+          //std::cout<<"2"<<std::endl;
+          return true; 
+      }
+      
+      return std::nullopt; // 没有命中任何规则，返回空，让 AI 来决策
+   }
+
+   size_t UniNavGraph::get_candidate_count_for_label(LabelType label) const
+   {
+      // 步骤1: 检查标签ID是否在 _label_to_nodes 向量的有效范围内
+      if (label >= _trie_index._label_to_nodes.size())
+      {
+         return 0; // 标签越界，不可能有对应的候选集
+      }
+      // 步骤2: 直接通过索引访问并返回内部向量的大小
+      return _trie_index._label_to_nodes[label].size();
+   }
+
+// fxy_add 
+    void UniNavGraph::thread_function(std::queue<int>& Qid_595,std::shared_ptr<IStorage> &query_storage,
+                                   std::shared_ptr<DistanceHandler> &distance_handler,
                                    uint32_t num_threads, IdxType Lsearch,
                                    IdxType num_entry_points, std::string scenario,
                                    IdxType K, std::pair<IdxType, float> *results,
@@ -2649,44 +3425,33 @@ namespace ANNS
                                    bool is_new_trie_method, bool is_rec_more_start,
                                    bool is_ung_more_entry,
                                    int lsearch_start, int lsearch_step,
-                                   int efs_start, int efs_step_slow,int efs_step_fast,int lsearch_threshold, 
-                                   int force_use_alg, const std::vector<IdxType> &true_query_group_ids)
-   {
-      // --- Initializations ---
-      auto num_queries = query_storage->get_num_points();
-      _query_storage = query_storage;
-      _distance_handler = distance_handler;
-      _scenario = scenario;
-      query_stats.resize(num_queries);
+                                   int efs_start, int efs_step_slow,int efs_step_fast,int lsearch_threshold,
+                                   int force_use_alg, bool is_bfs_filter, IdxType num_queries, 
+                                   const std::vector<IdxType> &true_query_group_ids){
+         omp_set_num_threads(1);
 
-      if (K > Lsearch)
-      {
-         std::cerr << "Error: K should be less than or equal to Lsearch" << std::endl;
-         exit(-1);
-      }
+         lock_m.lock();
+         int id = Qid_595.front();
+         Qid_595.pop();
+         lock_m.unlock();
 
-      const float COVERAGE_THRESHOLD = 0.8f;
-      const int MIN_LNG_DESCENDANTS_THRESHOLD = _num_points / 2.5;
-      SearchCacheList search_cache_list(num_threads, _num_points, Lsearch);
-
-      omp_set_num_threads(num_threads);
-#pragma omp parallel for schedule(dynamic, 1)
-      for (auto id = 0; id < num_queries; ++id)
-      {
          auto &stats = query_stats[id];
          auto total_search_start_time = std::chrono::high_resolution_clock::now();
 
+         SearchCacheList search_cache_list(1, _num_points, Lsearch);
          auto search_cache = search_cache_list.get_free_cache();
          const char *query = _query_storage->get_vector(id);
          SearchQueue cur_result;
          cur_result.reserve(K);
          const auto &query_labels = _query_storage->get_label_set(id);
+      
 
          // ======================= STAGE 1: DECISION MAKING =======================
 
          // --- 1.1 Initialize decision variables ---
          bool final_use_nT_true = false;       // Final decision for Trie method
-         bool final_use_acorn = false;         // Final decision for search framework
+         // bool final_use_acorn = false;         // Final decision for search framework
+         int final_algo_choice = 0;            // 0: UNG, 1: ACORN(BFS), 2: ACORN(NoBFS)
          bool entry_groups_calculated = false; // Flag to prevent recalculation
          std::vector<IdxType> entry_group_ids;
 
@@ -2694,10 +3459,29 @@ namespace ANNS
          stats.query_length = query_labels.size();
          if (!query_labels.empty())
          {
-            stats.candidate_set_size = _trie_index.get_candidate_count_for_label(query_labels.back());
+            stats.candidate_set_size = get_candidate_count_for_label(query_labels.back());
+         }
+         else
+         {
+            stats.candidate_set_size = 0; 
          }
 
-         if (force_use_alg == 0)
+         // --- PRE-TRIE 启发式规则 ---
+         std::optional<bool> pre_heuristic_decision = std::nullopt;
+         bool is_method3_mode = (force_use_alg == 0 && is_idea2_available && is_new_trie_method);
+         if (is_method3_mode)
+         {
+            pre_heuristic_decision = check_pre_trie_heuristic(_dataset, stats.query_length, stats.candidate_set_size);
+         }
+         if (pre_heuristic_decision.has_value())
+         {
+            //final_use_acorn = pre_heuristic_decision.value(); // (设为 true)
+            final_algo_choice = pre_heuristic_decision.value() ? 1 : 0;// 如果启发式决定用 ACORN (true)，默认给 1 (ACORN-Gamma/BFS)，否则给 0 (UNG)
+            final_use_nT_true = true; 
+            stats.is_idea1_used = final_use_nT_true;
+            stats.is_idea2_used = static_cast<float>(final_algo_choice);
+         }
+         else if (force_use_alg == 0)
          {
             // --- Idea1 Selector Logic ---
             if (_trie_method_selector != nullptr && force_use_alg == 0 && is_new_trie_method)
@@ -2727,7 +3511,6 @@ namespace ANNS
                   std::cout<<"[Warning] No Idea1 features for dataset " << _dataset << ". Reverting to default behavior." << std::endl;
                   final_use_nT_true = is_new_trie_method;
                }
-
                stats.idea1_flag_time_ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - idea1_flag_start_time).count();
             }
             else
@@ -2735,9 +3518,8 @@ namespace ANNS
                // 如果模型不存在或被强制，则遵循原来的逻辑
                final_use_nT_true = is_new_trie_method;
             }
-
             // --- Idea2 Selector Logic ---
-            if (is_idea2_available)
+            if (is_idea2_available) //method2, method3
             {
                static std::atomic<int> temp_counter{0};
                QueryStats temp_stats;
@@ -2747,12 +3529,13 @@ namespace ANNS
                   use_nT_for_group_get = true; // 强制设置为 true
                else
                   use_nT_for_group_get = (force_use_alg == 0) ? final_use_nT_true : is_new_trie_method;
-               get_min_super_sets_debug(query_labels, entry_group_ids, false, true, temp_counter, use_nT_for_group_get, is_rec_more_start, temp_stats);
+               get_min_super_sets_debug(query_labels, entry_group_ids, false, true, temp_counter, use_nT_for_group_get, is_rec_more_start, temp_stats,is_new_trie_method);
                entry_groups_calculated = true;
                stats.get_min_super_sets_time_ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - get_entry_group_start_time).count();
 
 
                auto idea2_flag_start_time = std::chrono::high_resolution_clock::now();
+
 
                // 计算 Idea2 所需的原始特征并存入 stats
                if (!entry_group_ids.empty())
@@ -2775,20 +3558,38 @@ namespace ANNS
                      return static_cast<float>(cov.cardinality()) / _num_points;
                   }();
                }
-
-               // 调用独立的特征计算函数
-               std::vector<float> idea2_features = calculate_idea2_features(stats);
-
-               // 使用模型进行预测 (仅当特征成功生成且未被强制时)
-               if (!idea2_features.empty() && _ung_acorn_selector != nullptr && force_use_alg == 0)
+               // 检查启发式规则 (仅在method3)
+               std::optional<bool> heuristic_decision = std::nullopt;
+               // if (is_method3_mode) // (force_use_alg=0 && is_idea2_available && is_new_trie_method)
+               // {
+               //     heuristic_decision = check_idea2_heuristic_override(_dataset, stats.num_entry_points); //
+               // }
+               if (heuristic_decision.has_value())
                {
-                  auto idea2_selector_start_time = std::chrono::high_resolution_clock::now();
-                  final_use_acorn = _ung_acorn_selector->predict(idea2_features);
-                  stats.idea2_selector_pred_time_ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - idea2_selector_start_time).count();
+                  //  final_use_acorn = heuristic_decision.value(); 
+                   stats.idea2_selector_pred_time_ms = 0.0; 
                }
-               // 如果模型不存在、数据集不匹配或被强制，final_use_acorn 保持默认值 false，最终由 force_use_alg 的逻辑覆盖
-               
+               else
+               {
+                  // 调用独立的特征计算函数
+                  std::vector<float> idea2_features = calculate_idea2_features(stats);
+
+                  // 使用模型进行预测 (仅当特征成功生成且未被强制时)
+                  if (!idea2_features.empty() && _ung_acorn_selector != nullptr && force_use_alg == 0)
+                  {
+                     auto idea2_selector_start_time = std::chrono::high_resolution_clock::now();
+
+                     //final_use_acorn = _ung_acorn_selector->predict(idea2_features);
+                     float pred_val = _ung_acorn_selector->predict(idea2_features);
+                     final_algo_choice = static_cast<int>(std::round(pred_val));
+
+                     stats.idea2_selector_pred_time_ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - idea2_selector_start_time).count();
+                  }
+                  // 如果模型不存在、数据集不匹配或被强制，final_use_acorn 保持默认值 false，最终由 force_use_alg 的逻辑覆盖
+               }
                stats.idea2_flag_time_ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - idea2_flag_start_time).count();
+
+               
             }
          }
 
@@ -2800,33 +3601,42 @@ namespace ANNS
             {
             case 1:
                final_use_nT_true = false;
-               final_use_acorn = false;
+               final_algo_choice = 0;
                break;
             case 2:
                final_use_nT_true = true;
-               final_use_acorn = false;
+               final_algo_choice = 0;
                break;
-            case 3:
-            case 4: // Also handle ACORN-1
-               final_use_acorn = true;
+            case 3: // ACORN (分为 Standard 和 Imp)
+            case 4: // ACORN-1
+               // 这里实现了对 Imp 的强制支持：
+               // 如果脚本传参 is_bfs_filter=true，则对应类别 1
+               // 如果脚本传参 is_bfs_filter=false，则对应类别 2 (Imp)
+               if (is_bfs_filter) {
+                  final_algo_choice = 1; //ACORN-gamma
+               } else {
+                  final_algo_choice = 2; //Imp
+               }
                break;
             }
          }
          stats.is_idea1_used = final_use_nT_true;
-         stats.is_idea2_used = final_use_acorn;
+         // stats.is_idea2_used = final_use_acorn;
+         stats.is_idea2_used = static_cast<float>(final_algo_choice); 
 
          // ======================= STAGE 2: EXECUTION STAGE =======================
 
-         if (!entry_groups_calculated)
+         // if (!entry_groups_calculated && (force_use_alg != 3 && force_use_alg != 4) && !pre_heuristic_decision.has_value())
+         if (!entry_groups_calculated && final_algo_choice == 0)
          {
             auto get_entry_group_start_time = std::chrono::high_resolution_clock::now();
             static std::atomic<int> counter{0};
-            get_min_super_sets_debug(query_labels, entry_group_ids, false, true, counter, final_use_nT_true, is_rec_more_start, stats);
+            get_min_super_sets_debug(query_labels, entry_group_ids, false, true, counter, final_use_nT_true, is_rec_more_start, stats,false);
             stats.get_min_super_sets_time_ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - get_entry_group_start_time).count();
          }
 
          // Apply entry point expansion logic if needed for the UNG path
-         if (is_ung_more_entry && !final_use_acorn)
+         if (is_ung_more_entry && final_algo_choice == 0)
          {
             IdxType true_group_id = 0;
             if (id < true_query_group_ids.size())
@@ -2838,7 +3648,7 @@ namespace ANNS
          }
          stats.num_entry_points = entry_group_ids.size();
 
-         if (final_use_acorn)
+         if (final_algo_choice > 0)
          {
             auto search_time_start_ms = std::chrono::high_resolution_clock::now();
             std::shared_ptr<faiss::IndexACORNFlat> selected_acorn_index = nullptr; // <--- 使用一个临时指针
@@ -2858,7 +3668,7 @@ namespace ANNS
                std::cerr << "ERROR: ACORN index not loaded for query " << id << ". Skipping." << std::endl;
                for (auto k = 0; k < K; ++k)
                   results[id * K + k].first = -1;
-               continue;
+               return;
             }
 
             int current_efs;
@@ -2893,18 +3703,28 @@ namespace ANNS
             const float *query_vector_float = reinterpret_cast<const float *>(query);
             std::vector<faiss::idx_t> result_original_ids(K);
             std::vector<float> result_dists(K);
+
+            // [在 search 调用前，确定本次是否使用 BFS]
+            // 如果是自动模式 (force=0): 看模型预测结果 (1是BFS, 2是Imp/NoBFS)
+            // 如果是强制模式 (force>0): 看命令行参数 is_bfs_filter
+            bool current_use_bfs_filter = true;
+            if (force_use_alg == 0) {
+               current_use_bfs_filter = (final_algo_choice == 1);
+            } else {
+               current_use_bfs_filter = is_bfs_filter;
+            }
+
             
-            if (force_use_alg == 3 || force_use_alg == 4)
+            if (pre_heuristic_decision.has_value() || force_use_alg == 3 || force_use_alg == 4)
             {// 强制使用ACORN-gamma时，调用ACORN原始的、基于倒排索引的过滤方法。
 
                // 将UNG的查询标签 (uint16_t) 转换为ACORN search函数期望的格式 (vector<vector<int>>)
                std::vector<std::vector<int>> query_attrs_for_acorn(1);
-               const auto &query_labels = _query_storage->get_label_set(id);
                query_attrs_for_acorn[0].assign(query_labels.begin(), query_labels.end());
 
                auto core_search_start_time = std::chrono::high_resolution_clock::now();
                selected_acorn_index->search_old_bitmap(
-                   1, query_vector_float, K, result_dists.data(), result_original_ids.data(), query_attrs_for_acorn, nullptr, nullptr, nullptr, true);
+                   1, query_vector_float, K, result_dists.data(), result_original_ids.data(), query_attrs_for_acorn, nullptr, nullptr, nullptr, current_use_bfs_filter);
                stats.core_search_time_ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - core_search_start_time).count();
             }
             else
@@ -2922,10 +3742,9 @@ namespace ANNS
                }
                stats.bitmap_time_ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - bitmap_start_time).count();
                auto core_search_start_time = std::chrono::high_resolution_clock::now();
-               selected_acorn_index->search(1, query_vector_float, K, result_dists.data(), result_original_ids.data(), filter_map.data(), nullptr, nullptr, nullptr, true);
+               selected_acorn_index->search(1, query_vector_float, K, result_dists.data(), result_original_ids.data(), filter_map.data(), nullptr, nullptr, nullptr, current_use_bfs_filter);
                stats.core_search_time_ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - core_search_start_time).count();
             }
-
             cur_result.clear();
             for (size_t i = 0; i < K; ++i)
             {
@@ -2952,7 +3771,7 @@ namespace ANNS
             if (entry_points.empty())
             {
                stats.num_distance_calcs = 0;
-               continue;
+               return;
             }
 
             auto core_search_start_time = std::chrono::high_resolution_clock::now();
@@ -2981,7 +3800,66 @@ namespace ANNS
 
          stats.time_ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - total_search_start_time).count();
          search_cache_list.release_cache(search_cache);
+    }
+   
+   // fxy_add
+   void UniNavGraph::search_hybrid(std::shared_ptr<IStorage> &query_storage,
+                                   std::shared_ptr<DistanceHandler> &distance_handler,
+                                   uint32_t num_threads, IdxType Lsearch,
+                                   IdxType num_entry_points, std::string scenario,
+                                   IdxType K, std::pair<IdxType, float> *results,
+                                   std::vector<float> &num_cmps,
+                                   std::vector<QueryStats> &query_stats,
+                                   bool is_idea2_available,
+                                   bool is_new_trie_method, bool is_rec_more_start,
+                                   bool is_ung_more_entry,
+                                   int lsearch_start, int lsearch_step,
+                                   int efs_start, int efs_step_slow,int efs_step_fast,int lsearch_threshold, 
+                                   int force_use_alg,bool is_bfs_filter, const std::vector<IdxType> &true_query_group_ids)
+   {
+      // --- Initializations ---
+      auto num_queries = query_storage->get_num_points();
+      _query_storage = query_storage;
+      _distance_handler = distance_handler;
+      _scenario = scenario;
+      query_stats.resize(num_queries);
+
+      if (K > Lsearch)
+      {
+         std::cerr << "Error: K should be less than or equal to Lsearch" << std::endl;
+         exit(-1);
       }
+
+      // const float COVERAGE_THRESHOLD = 0.8f;
+      // const int MIN_LNG_DESCENDANTS_THRESHOLD = _num_points / 2.5;
+      //SearchCacheList search_cache_list(num_threads, _num_points, Lsearch);
+
+//       omp_set_num_threads(num_threads);
+// #pragma omp parallel for schedule(dynamic, 1)
+      std::queue<int> Qid_595;
+      for (auto id = 0; id < num_queries; ++id)
+         {Qid_595.push(id);}
+            
+      ThreadPool pool(num_threads);
+      std::vector<std::future<int>> tp_results;
+      for (auto id = 0; id < num_queries; ++id)
+      {
+         
+         tp_results.emplace_back(
+               
+                pool.enqueue([this,&Qid_595,&query_storage,&distance_handler,&num_threads,&Lsearch,&num_entry_points,&scenario,&K, results,&num_cmps,&query_stats,&is_idea2_available,
+                                   &is_new_trie_method, &is_rec_more_start,&is_ung_more_entry,&lsearch_start,&lsearch_step,
+                                   &efs_start, &efs_step_slow,&efs_step_fast,&lsearch_threshold,
+                                   &force_use_alg, &is_bfs_filter,&num_queries,  &true_query_group_ids] { // pass const type value j to thread; [] can be empty
+                    this->thread_function(Qid_595,query_storage,distance_handler,num_threads,Lsearch,num_entry_points,scenario,K, results,num_cmps,query_stats,is_idea2_available,
+                                   is_new_trie_method, is_rec_more_start,is_ung_more_entry,lsearch_start,lsearch_step,
+                                   efs_start, efs_step_slow,efs_step_fast,lsearch_threshold,
+                                   force_use_alg, is_bfs_filter, num_queries, true_query_group_ids);
+                    return 1; // return to results; the return type must be the same with results
+                }));   
+      }
+      for (auto &&tp_result : tp_results)			
+         tp_result.get(); // result.get() makes sure this thread has been finished here;
    }
 
    std::vector<IdxType> UniNavGraph::get_entry_points(const std::vector<LabelType> &query_label_set,
@@ -3170,7 +4048,8 @@ namespace ANNS
       meta_data["LNG_num_edges"] = std::to_string(_LNG_num_edges);
       meta_data["index_size(MB)"] = std::to_string(_index_size);
       meta_data["_index_size_add_rb(MB)"] = std::to_string(_index_size_add_rb);
-      meta_data["index_time(ms)"] = std::to_string(_index_time);
+      meta_data["index_time(ms)"] = std::to_string(_index_time - _build_roaring_bitsets_time);
+      meta_data["index_time_add_rb(ms)"] = std::to_string(_index_time);
       meta_data["label_processing_time(ms)"] = std::to_string(_label_processing_time);
       meta_data["build_graph_time(ms)"] = std::to_string(_build_graph_time);
       meta_data["build_vector_attr_graph_time(ms)"] = std::to_string(_build_vector_attr_graph_time);
@@ -3671,9 +4550,8 @@ namespace ANNS
       std::cout << "- Index loaded in " << std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time).count() << " ms" << std::endl;
    }
 
-   void UniNavGraph::statistics()
+   /*void UniNavGraph::statistics()
    {
-
       // number of edges in the unified navigating graph
       _graph_num_edges = 0;
       for (IdxType i = 0; i < _num_points; ++i)
@@ -3709,6 +4587,76 @@ namespace ANNS
          for (const auto &rb : _covered_sets_rb)
          {
             _index_size_add_rb += rb.getSizeInBytes();
+         }
+      }
+
+      // return as MB
+      _index_size /= 1024 * 1024;
+      _index_size_add_rb /= 1024 * 1024;
+   }*/
+   void UniNavGraph::statistics()
+   {
+      // number of edges in the unified navigating graph
+      _graph_num_edges = 0;
+      for (IdxType i = 0; i < _num_points; ++i)
+         _graph_num_edges += _graph->neighbors[i].size();
+
+      // number of edges in the label navigating graph
+      _LNG_num_edges = 0;
+      if (_label_nav_graph != nullptr)
+         for (IdxType i = 1; i <= _num_groups; ++i)
+               _LNG_num_edges += _label_nav_graph->out_neighbors[i].size();
+
+      // index size
+      _index_size = 0;
+      for (IdxType i = 1; i <= _num_groups; ++i)
+         _index_size += _group_id_to_label_set[i].size() * sizeof(LabelType);
+      _index_size += _group_id_to_range.size() * sizeof(IdxType) * 2;
+      _index_size += _group_entry_points.size() * sizeof(IdxType);
+      _index_size += _new_to_old_vec_ids.size() * sizeof(IdxType);
+      _index_size += _trie_index.get_index_size();
+      _index_size += _graph->get_index_size();
+
+      // --- 统计 _label_nav_graph (LNG) 的大小 ---
+      size_t lng_graph_size = 0;
+      if (_label_nav_graph != nullptr)
+      {
+         // 1. 统计 out_neighbors (基于 .size())
+         for (const auto &neighbors : _label_nav_graph->out_neighbors)
+         {
+               lng_graph_size += neighbors.size() * sizeof(ANNS::IdxType);
+         }
+         // 2. 统计 in_neighbors (基于 .size())
+         for (const auto &neighbors : _label_nav_graph->in_neighbors)
+         {
+               lng_graph_size += neighbors.size() * sizeof(ANNS::IdxType);
+         }
+      }
+      _index_size += lng_graph_size;
+
+      // --- 统计 _group_id_to_vec_ids 的大小 ---
+      size_t group_to_vec_size = 0;
+      for (const auto &vec_ids : _group_id_to_vec_ids)
+      {
+         group_to_vec_size += vec_ids.size() * sizeof(ANNS::IdxType);
+      }
+      _index_size += group_to_vec_size;
+
+      // fxy_add:计算为混合搜索策略预处理的 Roaring Bitmaps 的大小
+      _index_size_add_rb = _index_size; 
+      
+      if (!_lng_descendants_rb.empty())
+      {
+         for (const auto &rb : _lng_descendants_rb)
+         {
+               _index_size_add_rb += rb.getSizeInBytes();
+         }
+      }
+      if (!_covered_sets_rb.empty())
+      {
+         for (const auto &rb : _covered_sets_rb)
+         {
+               _index_size_add_rb += rb.getSizeInBytes();
          }
       }
 

@@ -12,9 +12,11 @@
 #include "../../../ACORN/faiss/index_io.h"
 #include <unordered_map>
 #include <bitset>
+#include <optional>
 #include <boost/dynamic_bitset.hpp>
 #include <roaring/roaring.h>
 #include <roaring/roaring.hh>
+
 
 using BitsetType = boost::dynamic_bitset<>;
 
@@ -42,7 +44,7 @@ namespace ANNS
       long long trie_nodes_traversed; // 存储两种方法的总遍历节点数
 
       bool is_idea1_used = false;
-      bool is_idea2_used = false;
+      int is_idea2_used = 0; // 0 (UNG), 1 (ACORN-gamma), 2 (ACORN-gamma-improved)
 
       // Trie 静态特征
       size_t trie_total_nodes;
@@ -124,8 +126,8 @@ namespace ANNS
                  uint32_t num_threads, IdxType Lsearch, IdxType num_entry_points, std::string scenario,
                  IdxType K, std::pair<IdxType, float> *results, std::vector<float> &num_cmps,
                  std::vector<std::bitset<10000001>> &bitmap);
-      void search_hybrid(std::shared_ptr<IStorage> query_storage,
-                         std::shared_ptr<DistanceHandler> distance_handler,
+      void search_hybrid(std::shared_ptr<IStorage> &query_storage,
+                         std::shared_ptr<DistanceHandler> &distance_handler,
                          uint32_t num_threads, IdxType Lsearch,
                          IdxType num_entry_points, std::string scenario,
                          IdxType K, std::pair<IdxType, float> *results,
@@ -136,7 +138,7 @@ namespace ANNS
                          bool is_ung_more_entry,
                          int lsearch_start, int lsearch_step,
                          int efs_start, int efs_step_slow,int efs_step_fast,int lsearch_threshold, 
-                         int force_use_alg,  const std::vector<IdxType> &true_query_group_ids = {}); // 包含每个查询其真实来源组ID的向量
+                         int force_use_alg,  bool is_bfs_filter,const std::vector<IdxType> &true_query_group_ids = {}); // 包含每个查询其真实来源组ID的向量
 
       // I/O
       void save(std::string index_path_prefix, std::string results_path_prefix);
@@ -248,11 +250,28 @@ namespace ANNS
       void get_min_super_sets_debug(const std::vector<LabelType> &query_label_set,
                                     std::vector<IdxType> &min_super_set_ids,
                                     bool avoid_self, bool need_containment,
-                                    std::atomic<int> &print_counter, bool is_new_trie_method, bool is_rec_more_start, QueryStats &stats);
+                                    std::atomic<int> &print_counter, bool is_new_trie_method, bool is_rec_more_start, QueryStats &stats,
+                                    bool skip_group_id_check);
 
       void warmup_selectors(uint32_t num_threads);//预热selector模型，避免首次查询时的延迟
 
    private:
+
+      void thread_function(std::queue<int>& Qid_595,std::shared_ptr<IStorage> &query_storage,
+                                   std::shared_ptr<DistanceHandler> &distance_handler,
+                                   uint32_t num_threads, IdxType Lsearch,
+                                   IdxType num_entry_points, std::string scenario,
+                                   IdxType K, std::pair<IdxType, float> *results,
+                                   std::vector<float> &num_cmps,
+                                   std::vector<QueryStats> &query_stats,
+                                   bool is_idea2_available,
+                                   bool is_new_trie_method, bool is_rec_more_start,
+                                   bool is_ung_more_entry,
+                                   int lsearch_start, int lsearch_step,
+                                   int efs_start, int efs_step_slow,int efs_step_fast,int lsearch_threshold,
+                                   int force_use_alg,bool is_bfs_filter, IdxType num_queries, 
+                                   const std::vector<IdxType> &true_query_group_ids);
+      size_t get_candidate_count_for_label(LabelType label) const;
       // data
       std::shared_ptr<IStorage> _base_storage,
           _query_storage;
@@ -267,6 +286,35 @@ namespace ANNS
       std::vector<std::vector<IdxType>> _group_id_to_vec_ids;
       std::vector<std::vector<LabelType>> _group_id_to_label_set;
       void build_trie_and_divide_groups();
+
+    
+        //my add
+        //step 2
+        // ----------------- place into uni_nav_graph.h (class ANNS::UniNavGraph) -----------------
+
+        // Prepare / release full dataset copy on device. Call prepare once before multi-group GPU usage.
+        void gpu_prepare_all_vectors_on_device(double* h2d_ms = nullptr, double* d2h_ms = nullptr);
+        void gpu_release_all_vectors_on_device();
+
+        // Main new API: process multiple target groups in one GPU batched call.
+        // - target_group_ids: list of group_id to process
+        // - topk: number of cross-group neighbors to return per query
+        // - cross_group_neighbors: output container (unchanged semantics)
+        // - timing outputs optional
+        void gpu_cross_groups_search_all_batched(
+            const std::vector<IdxType>& target_group_ids,
+            int dim,
+            int topk,
+            std::vector<SearchQueue>& cross_group_neighbors,
+            double* h2d_ms = nullptr,
+            double* kernel_ms = nullptr,
+            double* d2h_ms = nullptr);
+        //add additional edges
+        void gpu_build_additional_cross_edges_batched(
+            std::vector<std::vector<std::pair<IdxType, IdxType>>>& additional_edges,
+            std::vector<SearchQueue>& cross_group_neighbors); 
+
+
 
       // label navigating graph
       std::shared_ptr<LabelNavGraph> _label_nav_graph = nullptr;
@@ -328,9 +376,29 @@ namespace ANNS
       std::string _scenario;
 
       // cross-group edges
+      enum class CrossEdgeBackend : int
+      {
+         CPU = 0,
+         GPU = 1,
+      };
       IdxType _num_cross_edges;
       std::vector<SearchQueue> _cross_group_neighbors;
       void build_cross_group_edges();
+      CrossEdgeBackend resolve_cross_edge_backend() const;
+      void build_cross_edges_generate_cpu_baseline(std::vector<SearchQueue> &cross_group_neighbors,
+                                                   SearchCacheList &search_cache_list);
+      bool build_cross_edges_generate_gpu_optimized(std::vector<SearchQueue> &cross_group_neighbors,
+                                                    double *h2d_ms_sum,
+                                                    double *kernel_ms_sum,
+                                                    double *d2h_ms_sum);
+
+      //add
+      void build_cross_edges_pair_gpu(
+            IdxType group_id,
+            IdxType in_group_id,
+            IdxType offset,
+            std::vector<SearchQueue>& cross_group_neighbors
+        );
 
       // obtain the final unified navigating graph
       void add_offset_for_uni_nav_graph();
@@ -354,6 +422,7 @@ namespace ANNS
       // statistics
       float _index_time = 0, _label_processing_time = 0, _build_graph_time = 0, _build_vector_attr_graph_time = 0, _cal_descendants_time = 0, _cal_coverage_ratio_time = 0;
       float _build_LNG_time = 0, _build_cross_edges_time = 0;
+      double _build_roaring_bitsets_time;
       float _index_size, _index_size_add_rb;
       IdxType _graph_num_edges, _LNG_num_edges;
 
@@ -376,6 +445,8 @@ namespace ANNS
       std::shared_ptr<faiss::IndexACORNFlat> _acorn_1_index;
       std::unique_ptr<MethodSelector> _ung_acorn_selector;
       std::vector<float> calculate_idea2_features(const QueryStats &stats) const;
+      std::optional<bool> check_idea2_heuristic_override(const std::string& dataset_name, size_t num_entry_groups) const;
+      std::optional<bool> check_pre_trie_heuristic(const std::string& dataset_name, size_t query_length, size_t candidate_set_size) const;
    };
 }
 
