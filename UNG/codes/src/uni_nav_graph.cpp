@@ -277,7 +277,9 @@ namespace ANNS
       min_super_set_ids.clear();
 
       // obtain the candidates
-      std::vector<std::shared_ptr<TrieNode>> candidates;
+      // 复用线程本地缓存，避免每次调用反复分配/释放候选容器。
+      thread_local std::vector<std::shared_ptr<TrieNode>> candidates;
+      candidates.clear();
       _trie_index.get_super_set_entrances(query_label_set, candidates, avoid_self, need_containment); // 搜索候选超集
 
       // ================= [DEBUG] =================
@@ -305,29 +307,34 @@ namespace ANNS
          return;
       }
 
-      // obtain the minimum size
-      // 所有candidates 按照其标签集的尺寸 label_set_size 从小到大排序
-      std::sort(candidates.begin(), candidates.end(),
-                [](const std::shared_ptr<TrieNode> &a, const std::shared_ptr<TrieNode> &b)
-                {
-                   return a->label_set_size < b->label_set_size;
-                });
-      auto min_size = _group_id_to_label_set[candidates[0]->group_id].size();
-
-      // get the minimum super sets
-      for (auto candidate : candidates)
+      thread_local std::vector<TrieNode*> candidate_nodes;
+      candidate_nodes.clear();
+      candidate_nodes.reserve(candidates.size());
+      LabelType min_size = candidates[0]->label_set_size;
+      LabelType max_size = min_size;
+      for (const auto &sp : candidates)
       {
-         const auto &cur_group_id = candidate->group_id;
+         TrieNode *node = sp.get();
+         candidate_nodes.push_back(node);
+         min_size = std::min(min_size, node->label_set_size);
+         max_size = std::max(max_size, node->label_set_size);
+      }
+
+      thread_local std::vector<const std::vector<LabelType>*> min_label_sets;
+      min_label_sets.clear();
+      min_super_set_ids.reserve(candidate_nodes.size());
+
+      auto try_add_candidate = [&](const TrieNode *candidate) {
+         const auto cur_group_id = candidate->group_id;
          const auto &cur_label_set = _group_id_to_label_set[cur_group_id];
          bool is_min = true;
 
          // check whether contains existing minimum super sets (label ids are in ascending order)
-         if (cur_label_set.size() > min_size)
+         if (candidate->label_set_size > min_size)
          {
-            for (auto min_group_id : min_super_set_ids)
+            for (const auto *min_label_set : min_label_sets)
             {
-               const auto &min_label_set = _group_id_to_label_set[min_group_id];
-               if (std::includes(cur_label_set.begin(), cur_label_set.end(), min_label_set.begin(), min_label_set.end()))
+               if (std::includes(cur_label_set.begin(), cur_label_set.end(), min_label_set->begin(), min_label_set->end()))
                {
                   is_min = false;
                   break;
@@ -335,9 +342,42 @@ namespace ANNS
             }
          }
 
-         // add to the minimum super sets
          if (is_min)
+         {
             min_super_set_ids.emplace_back(cur_group_id);
+            min_label_sets.emplace_back(&cur_label_set);
+         }
+      };
+
+      // 当 label_set_size 跨度较小时，使用桶化遍历替代 O(n log n) 排序。
+      static constexpr LabelType kBucketSpanThreshold = 256;
+      if (max_size >= min_size && (max_size - min_size) <= kBucketSpanThreshold)
+      {
+         const size_t bucket_span = static_cast<size_t>(max_size - min_size + 1);
+         thread_local std::vector<std::vector<TrieNode*>> size_buckets;
+         if (size_buckets.size() < bucket_span)
+            size_buckets.resize(bucket_span);
+         for (size_t i = 0; i < bucket_span; ++i)
+            size_buckets[i].clear();
+
+         for (TrieNode *node : candidate_nodes)
+            size_buckets[static_cast<size_t>(node->label_set_size - min_size)].push_back(node);
+
+         for (size_t i = 0; i < bucket_span; ++i)
+            for (const TrieNode *candidate : size_buckets[i])
+               try_add_candidate(candidate);
+      }
+      else
+      {
+         // 跨度较大时回退原排序路径，保证稳定性。
+         std::sort(candidate_nodes.begin(), candidate_nodes.end(),
+                   [](const TrieNode *a, const TrieNode *b)
+                   {
+                      return a->label_set_size < b->label_set_size;
+                   });
+
+         for (const TrieNode *candidate : candidate_nodes)
+            try_add_candidate(candidate);
       }
    }
 
@@ -1269,58 +1309,108 @@ namespace ANNS
    {
       std::cout << "Calculating coverage ratio..." << std::endl;
       auto start_time = std::chrono::high_resolution_clock::now();
+      int coverage_threads = _num_threads;
+      if (const char* env = std::getenv("UNG_COVERAGE_THREADS")) {
+         int v = std::atoi(env);
+         if (v > 0) coverage_threads = std::min<int>(v, _num_threads);
+      }
+      std::cout << "- coverage threads: " << coverage_threads << std::endl;
 
       // Step 0: 初始化covered_sets
       _label_nav_graph->coverage_ratio.clear();
       _label_nav_graph->covered_sets.clear();
       _label_nav_graph->covered_sets.resize(_num_groups + 1);
 
-      // Step 1: 初始化每个 group 的覆盖集合
-      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
-      {
-         const auto &vec_ids = _group_id_to_vec_ids[group_id];
-         if (vec_ids.empty())
-            continue;
+      // Step 1-3: 直接基于已计算的 descendants 构建覆盖集合，避免拓扑传播中的重复哈希合并。
+      bool use_descendants_direct = false;
 
-         _label_nav_graph->covered_sets[group_id].insert(vec_ids.begin(), vec_ids.end());
+      if (const char* env = std::getenv("UNG_COVERAGE_IMPL")) {
+         // 0=legacy(topological merge), 1=descendants_direct
+         use_descendants_direct = (std::atoi(env) != 0);
       }
 
-      // Step 2: 找出所有叶子节点（出度为 0）
-      std::queue<IdxType> q;
-      std::vector<int> out_degree(_num_groups + 1, 0); // 复制一份出度用于拓扑传播
-
-      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+      if (use_descendants_direct)
       {
-         out_degree[group_id] = _label_nav_graph->out_neighbors[group_id].size();
-         if (out_degree[group_id] == 0)
-            q.push(group_id);
-      }
-      std::cout << "- Number of leaf nodes: " << q.size() << std::endl;
-
-      // Step 3: 自底向上合并集合
-      while (!q.empty())
-      {
-         IdxType current = q.front();
-         q.pop();
-
-         for (auto parent : _label_nav_graph->in_neighbors[current])
+         std::cout << "- coverage impl: descendants_direct" << std::endl;
+#pragma omp parallel for schedule(dynamic, 64) num_threads(coverage_threads)
+         for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
          {
-            // 将当前节点的集合合并到父节点中
-            _label_nav_graph->covered_sets[parent].insert(
-                _label_nav_graph->covered_sets[current].begin(),
-                _label_nav_graph->covered_sets[current].end());
+            auto &coverage = _label_nav_graph->covered_sets[group_id];
+            const auto &self_vec_ids = _group_id_to_vec_ids[group_id];
+            const auto &descendants = _label_nav_graph->_lng_descendants[group_id];
 
-            // 减少父节点剩余未处理的子节点数
-            out_degree[parent]--;
-            if (out_degree[parent] == 0)
+            size_t reserve_n = self_vec_ids.size();
+            for (const auto desc_group_id : descendants)
             {
-               q.push(parent);
+               reserve_n += _group_id_to_vec_ids[desc_group_id].size();
+            }
+
+            coverage.reserve(reserve_n);
+            coverage.insert(self_vec_ids.begin(), self_vec_ids.end());
+            for (const auto desc_group_id : descendants)
+            {
+               const auto &vec_ids = _group_id_to_vec_ids[desc_group_id];
+               coverage.insert(vec_ids.begin(), vec_ids.end());
+            }
+         }
+      }
+      else
+      {
+         std::cout << "- coverage impl: legacy_topological_merge" << std::endl;
+         // Step 1: 初始化每个 group 的覆盖集合（并行）
+#pragma omp parallel for schedule(dynamic, 256) num_threads(coverage_threads)
+         for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+         {
+            const auto &vec_ids = _group_id_to_vec_ids[group_id];
+            if (vec_ids.empty())
+               continue;
+
+            auto &coverage = _label_nav_graph->covered_sets[group_id];
+            coverage.reserve(vec_ids.size());
+            coverage.insert(vec_ids.begin(), vec_ids.end());
+         }
+
+         // Step 2: 找出所有叶子节点（出度为 0）
+         std::vector<IdxType> q;
+         q.reserve((size_t)_num_groups);
+         std::vector<int> out_degree(_num_groups + 1, 0); // 复制一份出度用于拓扑传播
+
+         for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+         {
+            out_degree[group_id] = _label_nav_graph->out_neighbors[group_id].size();
+            if (out_degree[group_id] == 0)
+               q.push_back(group_id);
+         }
+         std::cout << "- Number of leaf nodes: " << q.size() << std::endl;
+
+         // Step 3: 自底向上合并集合
+         for (size_t qi = 0; qi < q.size(); ++qi)
+         {
+            IdxType current = q[qi];
+            const auto &current_set = _label_nav_graph->covered_sets[current];
+
+            for (auto parent : _label_nav_graph->in_neighbors[current])
+            {
+               // 将当前节点的集合合并到父节点中
+               auto &parent_set = _label_nav_graph->covered_sets[parent];
+               if (!current_set.empty())
+               {
+                  parent_set.insert(current_set.begin(), current_set.end());
+               }
+
+               // 减少父节点剩余未处理的子节点数
+               out_degree[parent]--;
+               if (out_degree[parent] == 0)
+               {
+                  q.push_back(parent);
+               }
             }
          }
       }
 
       // Step 4: 计算最终覆盖率
       _label_nav_graph->coverage_ratio.resize(_num_groups + 1, 0.0);
+#pragma omp parallel for schedule(static) num_threads(coverage_threads)
       for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
       {
          size_t covered_count = _label_nav_graph->covered_sets[group_id].size();
@@ -1347,33 +1437,59 @@ namespace ANNS
 
       auto start_time = std::chrono::high_resolution_clock::now();
 
-#pragma omp parallel for schedule(dynamic)
-      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+#pragma omp parallel
       {
-         std::vector<bool> visited(_num_groups + 1, false);
-         std::queue<IdxType> q;
-         std::unordered_set<IdxType> temp_set;
-
-         visited[group_id] = true;
-         q.push(group_id);
-
-         while (!q.empty())
+#pragma omp for schedule(dynamic, 16)
+         for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
          {
-            IdxType u = q.front();
-            q.pop();
+            // 线程本地复用：避免每个 group 反复分配 visited/queue/set。
+            thread_local std::vector<uint32_t> visited_epoch;
+            thread_local uint32_t epoch = 1u;
+            thread_local std::vector<IdxType> q;
+            thread_local std::vector<IdxType> discovered;
 
-            for (const auto &v : _label_nav_graph->out_neighbors[u])
+            if (visited_epoch.size() != _num_groups + 1)
             {
-               if (!visited[v])
+               visited_epoch.assign(_num_groups + 1, 0u);
+               epoch = 1u;
+               q.clear();
+               discovered.clear();
+               q.reserve(256);
+               discovered.reserve(256);
+            }
+            if (epoch == 0u)
+            {
+               std::fill(visited_epoch.begin(), visited_epoch.end(), 0u);
+               epoch = 1u;
+            }
+
+            q.clear();
+            discovered.clear();
+
+            visited_epoch[group_id] = epoch;
+            q.push_back(group_id);
+
+            for (size_t head = 0; head < q.size(); ++head)
+            {
+               const IdxType u = q[head];
+               for (const auto &v : _label_nav_graph->out_neighbors[u])
                {
-                  visited[v] = true;
-                  temp_set.insert(v);
-                  q.push(v);
+                  if (visited_epoch[v] == epoch)
+                     continue;
+                  visited_epoch[v] = epoch;
+                  discovered.push_back(v);
+                  q.push_back(v);
                }
             }
+
+            descendants_num[group_id] = PairType(group_id, (int)discovered.size());
+            auto &dst = descendants_set[group_id];
+            dst.clear();
+            dst.reserve(discovered.size());
+            dst.insert(discovered.begin(), discovered.end());
+
+            ++epoch;
          }
-         descendants_num[group_id] = PairType(group_id, temp_set.size());
-         descendants_set[group_id] = std::move(temp_set);
       }
 
       // 单线程写入类成员变量
