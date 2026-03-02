@@ -64,6 +64,51 @@ Conclusion:
   - median `Index time`: `58044.5 -> 83180 ms`
 - Revert commit: `14a0fa9`
 
+### 2026-03-03 - `216cd6c` (high-impact)
+- Commit: `perf(lng): replace hash sets with vectors for descendants/coverage`
+- Files changed:
+  - `UNG/codes/include/label_nav_graph.h`
+  - `UNG/codes/src/uni_nav_graph.cpp`
+- Core changes:
+  - `LabelNavGraph::covered_sets`:
+    - `std::vector<std::unordered_set<IdxType>>` -> `std::vector<std::vector<IdxType>>`
+  - `LabelNavGraph::_lng_descendants`:
+    - `std::vector<std::unordered_set<IdxType>>` -> `std::vector<std::vector<IdxType>>`
+  - `get_descendants_info`:
+    - remove hash insert path; write BFS discovered ids directly to vector container
+  - `cal_f_coverage_ratio`:
+    - descendants-direct path writes contiguous vectors (no hash build)
+    - legacy path appends vectors then `sort + unique` for correctness under DAG multi-path overlap
+  - `initialize_roaring_bitsets`:
+    - parallelized over groups
+    - switched from per-element `add` loop to batched `addMany`
+    - removed verbose debug prints
+
+Validation:
+- GPU/CPU structural checks after change:
+  - `lng_descendants_rb.bin`, `covered_sets_rb.bin`, `vector_attr_graph`, `lng_descendants_num`, `lng_coverage_ratio` are md5-identical between:
+    - `/home/graphdb/FilterVectorResultsRefactor/opt_vecset_gpu_20260303_003040/index_files`
+    - `/home/graphdb/FilterVectorResultsRefactor/opt_vecset_cpu_20260303_003205/index_files`
+
+Performance:
+- Single-run reference:
+  - before: `/home/graphdb/FilterVectorResultsRefactor/baseline_head_20260303_002418/others/ung_build.log`
+    - `Index time: 49982 ms`
+  - after: `/home/graphdb/FilterVectorResultsRefactor/opt_vecset_gpu_20260303_003040/others/ung_build.log`
+    - `Index time: 42214 ms`
+
+- A/B (2 runs each, same params/env):
+  - CSV: `/home/graphdb/FilterVectorResultsRefactor/ab_vecset_20260303_003348.csv`
+  - compared commits:
+    - `before`: `dcd5dee`
+    - `after`: `216cd6c`
+  - median results (ms):
+    - `Finished building LNG`: `39002.6 -> 32308.1` (`-17.2%`)
+    - `descendants`: `3059.7 -> 104.6` (`-96.6%`)
+    - `coverage`: `29665.9 -> 219.1` (`-99.3%`)
+    - `cross-group edges`: `1540.2 -> 1414.0` (`-8.2%`)
+    - `Index time`: `84115.0 -> 35314.5` (`-58.0%`)
+
 ### Correctness Smoke
 - GPU backend smoke:
   - `/home/graphdb/FilterVectorResultsRefactor/refactor_mig_smoke_gpu_20260302_235333/others/ung_build.log`

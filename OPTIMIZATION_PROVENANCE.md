@@ -24,3 +24,18 @@
   - attempted to stabilize `descendants_direct` by capping coverage threads and changing OMP schedule
 - Reverted by: `14a0fa9`
 - Reason: reproducible regression in `coverage` and end-to-end index time (see `HISTORY_MAP.md` benchmark links)
+
+## High-impact LNG/coverage Optimization (2026-03-03)
+
+- Commit: `216cd6c` (current `optimized-clean-v2`)
+- Scope:
+  - `UNG/codes/include/label_nav_graph.h`
+  - `UNG/codes/src/uni_nav_graph.cpp`
+- Summary:
+  - converted descendants/coverage containers from hash-set layout to contiguous vectors
+  - rewired descendants and coverage construction to avoid hash insertion hot paths
+  - kept legacy coverage branch correctness via post-merge dedup (`sort + unique`)
+  - switched Roaring bitmap init to batched `addMany` + OMP parallel over groups
+- Expected effect:
+  - remove large hash-table construction overhead and reduce memory traffic
+  - significantly reduce volatility in `descendants/coverage` stage timing
