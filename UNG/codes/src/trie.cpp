@@ -137,7 +137,8 @@ namespace ANNS
    void TrieIndex::get_super_set_entrances_debug(const std::vector<LabelType> &label_set,
                                                  std::vector<std::shared_ptr<TrieNode>> &super_set_entrances,
                                                  bool avoid_self, bool need_containment,
-                                                 std::atomic<int> &print_counter, TrieMethod1Metrics &metrics) const // 1. 添加 print_counter 参数
+                                                 std::atomic<int> &print_counter, TrieMethod1Metrics &metrics,
+                                                 bool skip_group_id_check) const // 1. 添加 print_counter 参数
    {
       super_set_entrances.clear();
       metrics = {};
@@ -236,10 +237,13 @@ namespace ANNS
          q.pop();
          bfs_nodes_processed++; // [METRIC]
 
-         if (cur->group_id > 0 && cur != avoided_node && group_ids.find(cur->group_id) == group_ids.end())
+         if (cur->group_id > 0 && cur != avoided_node)
          {
-            group_ids.insert(cur->group_id);
-            super_set_entrances.push_back(cur);
+            if (skip_group_id_check || group_ids.find(cur->group_id) == group_ids.end())
+            {
+               group_ids.insert(cur->group_id);
+               super_set_entrances.push_back(cur);
+            }
          }
          else
          {

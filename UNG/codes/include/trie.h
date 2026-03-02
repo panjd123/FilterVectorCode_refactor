@@ -86,7 +86,8 @@ namespace ANNS
       void get_super_set_entrances_debug(const std::vector<LabelType> &label_set,
                                          std::vector<std::shared_ptr<TrieNode>> &super_set_entrances,
                                          bool avoid_self, bool need_containment,
-                                         std::atomic<int> &print_counter, TrieMethod1Metrics &metrics) const;
+                                         std::atomic<int> &print_counter, TrieMethod1Metrics &metrics,
+                                         bool skip_group_id_check) const;
       void get_super_set_entrances_new_debug(const std::vector<LabelType> &label_set,
                                              std::vector<std::shared_ptr<TrieNode>> &super_set_entrances,
                                              bool avoid_self, bool need_containment,
