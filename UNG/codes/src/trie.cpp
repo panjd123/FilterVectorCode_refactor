@@ -35,9 +35,9 @@ namespace ANNS
             if (label > _max_label_id)
             {
                _max_label_id = label;
-               //_label_to_nodes.resize(_max_label_id + 1);
             }
-            _label_to_nodes.resize(_max_label_id + 1);
+            if (_label_to_nodes.size() <= static_cast<size_t>(label))
+               _label_to_nodes.resize(static_cast<size_t>(label) + 1);
             _label_to_nodes[label].push_back(cur->children[label]);
          }
          cur = cur->children[label];
@@ -85,13 +85,15 @@ namespace ANNS
       std::shared_ptr<TrieNode> avoided_node = nullptr;
       if (avoid_self)
          avoided_node = find_exact_match(label_set);
-      std::queue<std::shared_ptr<TrieNode>> q;
+      std::vector<std::shared_ptr<TrieNode>> q;
+      q.reserve(128);
+      size_t head = 0;
 
       // if the label set is empty, find all children of the root
       if (label_set.empty())
       {
          for (const auto &child : _root->children)
-            q.push(child.second);
+            q.push_back(child.second);
       }
       else
       {
@@ -99,36 +101,43 @@ namespace ANNS
          // if need containing the input label set, obtain candidate nodes for the last label
          if (need_containment)
          {
-            for (auto node : _label_to_nodes[label_set[label_set.size() - 1]])
-               if (examine_containment(label_set, node))
-                  q.push(node);
+            const LabelType last_label = label_set.back();
+            if (last_label < _label_to_nodes.size())
+            {
+               for (const auto &node : _label_to_nodes[last_label])
+                  if (examine_containment(label_set, node))
+                     q.push_back(node);
+            }
          }
          else // if no need for containing the whole label set
          {
             for (auto label : label_set)
-               for (auto node : _label_to_nodes[label])
+            {
+               if (label >= _label_to_nodes.size())
+                  continue;
+               for (const auto &node : _label_to_nodes[label])
                   if (examine_smallest(label_set, node))
-                     q.push(node);
+                     q.push_back(node);
+            }
          }
       }
 
       // search in the trie tree to find the candidate super sets
-      std::set<IdxType> group_ids;
-      while (!q.empty())
+      std::unordered_set<IdxType> group_ids;
+      group_ids.reserve(q.size() * 2 + 1);
+      while (head < q.size())
       {
-         auto cur = q.front();
-         q.pop();
+         const auto &cur = q[head++];
 
          // add to candidates if it is a terminal node
-         if (cur->group_id > 0 && cur != avoided_node && group_ids.find(cur->group_id) == group_ids.end())
+         if (cur->group_id > 0 && cur != avoided_node && group_ids.insert(cur->group_id).second)
          {
-            group_ids.insert(cur->group_id);
             super_set_entrances.push_back(cur);
          }
          else
          {
             for (const auto &child : cur->children)
-               q.push(child.second);
+               q.push_back(child.second);
          }
       }
    }

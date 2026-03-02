@@ -2217,10 +2217,12 @@ namespace ANNS
 #pragma omp parallel for schedule(dynamic, 256)
       for (auto group_id = 1; group_id <= _num_groups; ++group_id)
       {
-         std::vector<IdxType> min_super_set_ids;
+         // 线程本地复用，减少每个group反复构造/析构临时vector的开销。
+         thread_local std::vector<IdxType> min_super_set_ids;
          // 核心计算
          get_min_super_sets(_group_id_to_label_set[group_id], min_super_set_ids, true);
-         _label_nav_graph->out_neighbors[group_id] = min_super_set_ids;
+         _label_nav_graph->out_neighbors[group_id].swap(min_super_set_ids);
+         min_super_set_ids.clear();
 
          // 进度监控
          size_t current = ++processed_count;
