@@ -39,3 +39,17 @@
 - Expected effect:
   - remove large hash-table construction overhead and reduce memory traffic
   - significantly reduce volatility in `descendants/coverage` stage timing
+
+## Safe Trie/Phase1 Optimization (2026-03-03)
+
+- Commit: `d68f3a0`
+- Scope:
+  - `UNG/codes/src/trie.cpp`
+  - `UNG/codes/src/uni_nav_graph.cpp`
+- Summary:
+  - reduced repeated temporary allocations in LNG Phase1 (`swap` with thread-local buffer)
+  - reduced trie candidate traversal overhead in superset search (vector queue + hash dedup)
+  - removed redundant resize work during trie insertion
+- Effect profile:
+  - primary gain in `build_label_nav_graph` time
+  - no observed change in LNG structural counts on CelebA benchmark

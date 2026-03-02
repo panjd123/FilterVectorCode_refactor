@@ -109,6 +109,41 @@ Performance:
     - `cross-group edges`: `1540.2 -> 1414.0` (`-8.2%`)
     - `Index time`: `84115.0 -> 35314.5` (`-58.0%`)
 
+### 2026-03-03 - `d68f3a0` (safe trie/phase1 follow-up)
+- Commit: `perf(lng): cut trie and Phase1 allocation overhead`
+- Files changed:
+  - `UNG/codes/src/trie.cpp`
+  - `UNG/codes/src/uni_nav_graph.cpp`
+- Core changes (semantics-preserving):
+  - `build_label_nav_graph` Phase1:
+    - use thread-local reusable `min_super_set_ids` buffer
+    - write by `swap` to avoid repeated allocation/copy
+  - `TrieIndex::insert`:
+    - avoid redundant `_label_to_nodes.resize(...)` on every new node; resize only when needed
+  - `TrieIndex::get_super_set_entrances`:
+    - replace `std::queue` with vector+head-index traversal
+    - replace `std::set` dedup with `std::unordered_set` dedup
+    - add label bound checks before indexing `_label_to_nodes`
+
+Validation (graph semantics stayed aligned):
+- for before/after A/B logs:
+  - `Average number of descendants per group` remained `275.4`
+  - `LNG edges` remained `946138`
+  - `target_groups` remained `115073`
+
+Performance A/B (2 runs each):
+- CSV:
+  - `/home/graphdb/FilterVectorResultsRefactor/ab_safe_trie_20260303_005332.csv`
+- compared commits:
+  - `before`: `8d1a549`
+  - `after`: `d68f3a0`
+- median results (ms):
+  - `Finished building LNG`: `45746.45 -> 33878.15` (`-25.9%`)
+  - `descendants`: `131.75 -> 117.6` (`-10.7%`)
+  - `coverage`: `261.2 -> 329.75` (`+26.2%`, small absolute +68.6ms)
+  - `cross-group edges`: `1518.25 -> 1354.85` (`-10.8%`)
+  - `Index time`: `49100.5 -> 36969.5` (`-24.7%`)
+
 ### Correctness Smoke
 - GPU backend smoke:
   - `/home/graphdb/FilterVectorResultsRefactor/refactor_mig_smoke_gpu_20260302_235333/others/ung_build.log`
