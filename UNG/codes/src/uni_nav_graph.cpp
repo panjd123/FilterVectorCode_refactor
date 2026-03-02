@@ -1310,9 +1310,11 @@ namespace ANNS
       std::cout << "Calculating coverage ratio..." << std::endl;
       auto start_time = std::chrono::high_resolution_clock::now();
       int coverage_threads = _num_threads;
-      if (const char* env = std::getenv("UNG_COVERAGE_THREADS")) {
+      if (const char *env = std::getenv("UNG_COVERAGE_THREADS"))
+      {
          int v = std::atoi(env);
-         if (v > 0) coverage_threads = std::min<int>(v, _num_threads);
+         if (v > 0)
+            coverage_threads = std::min<int>(v, _num_threads);
       }
       std::cout << "- coverage threads: " << coverage_threads << std::endl;
 
@@ -1324,7 +1326,8 @@ namespace ANNS
       // Step 1-3: 直接基于已计算的 descendants 构建覆盖集合，避免拓扑传播中的重复哈希合并。
       bool use_descendants_direct = false;
 
-      if (const char* env = std::getenv("UNG_COVERAGE_IMPL")) {
+      if (const char *env = std::getenv("UNG_COVERAGE_IMPL"))
+      {
          // 0=legacy(topological merge), 1=descendants_direct
          use_descendants_direct = (std::atoi(env) != 0);
       }
@@ -1336,6 +1339,7 @@ namespace ANNS
          for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
          {
             auto &coverage = _label_nav_graph->covered_sets[group_id];
+            coverage.clear();
             const auto &self_vec_ids = _group_id_to_vec_ids[group_id];
             const auto &descendants = _label_nav_graph->_lng_descendants[group_id];
 
@@ -1346,11 +1350,11 @@ namespace ANNS
             }
 
             coverage.reserve(reserve_n);
-            coverage.insert(self_vec_ids.begin(), self_vec_ids.end());
+            coverage.insert(coverage.end(), self_vec_ids.begin(), self_vec_ids.end());
             for (const auto desc_group_id : descendants)
             {
                const auto &vec_ids = _group_id_to_vec_ids[desc_group_id];
-               coverage.insert(vec_ids.begin(), vec_ids.end());
+               coverage.insert(coverage.end(), vec_ids.begin(), vec_ids.end());
             }
          }
       }
@@ -1366,8 +1370,9 @@ namespace ANNS
                continue;
 
             auto &coverage = _label_nav_graph->covered_sets[group_id];
+            coverage.clear();
             coverage.reserve(vec_ids.size());
-            coverage.insert(vec_ids.begin(), vec_ids.end());
+            coverage.insert(coverage.end(), vec_ids.begin(), vec_ids.end());
          }
 
          // Step 2: 找出所有叶子节点（出度为 0）
@@ -1395,7 +1400,7 @@ namespace ANNS
                auto &parent_set = _label_nav_graph->covered_sets[parent];
                if (!current_set.empty())
                {
-                  parent_set.insert(current_set.begin(), current_set.end());
+                  parent_set.insert(parent_set.end(), current_set.begin(), current_set.end());
                }
 
                // 减少父节点剩余未处理的子节点数
@@ -1405,6 +1410,17 @@ namespace ANNS
                   q.push_back(parent);
                }
             }
+         }
+
+         // legacy path needs dedup because DAG may merge through multiple paths.
+#pragma omp parallel for schedule(dynamic, 64) num_threads(coverage_threads)
+         for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+         {
+            auto &coverage = _label_nav_graph->covered_sets[group_id];
+            if (coverage.size() <= 1)
+               continue;
+            std::sort(coverage.begin(), coverage.end());
+            coverage.erase(std::unique(coverage.begin(), coverage.end()), coverage.end());
          }
       }
 
@@ -1433,7 +1449,7 @@ namespace ANNS
       using PairType = std::pair<IdxType, int>;
 
       std::vector<PairType> descendants_num(_num_groups + 1);
-      std::vector<std::unordered_set<IdxType>> descendants_set(_num_groups + 1);
+      std::vector<std::vector<IdxType>> descendants_set(_num_groups + 1);
 
       auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -1484,9 +1500,7 @@ namespace ANNS
 
             descendants_num[group_id] = PairType(group_id, (int)discovered.size());
             auto &dst = descendants_set[group_id];
-            dst.clear();
-            dst.reserve(discovered.size());
-            dst.insert(discovered.begin(), discovered.end());
+            dst = discovered;
 
             ++epoch;
          }
@@ -2293,9 +2307,6 @@ namespace ANNS
    {
       std::cout << "enter initialize_roaring_bitsets" << std::endl;
 
-      // 打印 _num_groups 的值，确保它是一个预期的、合理的值
-      std::cout << "_num_groups = " << _num_groups << std::endl;
-
       // 检查指针是否为空
       if (!_label_nav_graph)
       {
@@ -2305,31 +2316,21 @@ namespace ANNS
 
       _lng_descendants_rb.resize(_num_groups + 1);
       _covered_sets_rb.resize(_num_groups + 1);
-
-      // 关键诊断：打印所有容器的大小
-      std::cout << "_lng_descendants_rb.size() = " << _lng_descendants_rb.size() << std::endl;
-      std::cout << "_covered_sets_rb.size() = " << _covered_sets_rb.size() << std::endl;
-      std::cout << "_label_nav_graph->_lng_descendants.size() = " << _label_nav_graph->_lng_descendants.size() << std::endl;
-      std::cout << "_label_nav_graph->covered_sets.size() = " << _label_nav_graph->covered_sets.size() << std::endl;
-
-      // std::cout << "begin for " << std::endl;
-
+#pragma omp parallel for schedule(dynamic, 128)
       for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
       {
-         // std::cout << "group_id: " << group_id << std::endl;
          const auto &descendants = _label_nav_graph->_lng_descendants[group_id];
          const auto &coverage = _label_nav_graph->covered_sets[group_id];
 
-         // 初始化后代 bitset
-         for (auto id : descendants)
+         auto &desc_rb = _lng_descendants_rb[group_id];
+         auto &cov_rb = _covered_sets_rb[group_id];
+         if (!descendants.empty())
          {
-            _lng_descendants_rb[group_id].add(id);
+            desc_rb.addMany(descendants.size(), descendants.data());
          }
-
-         // 初始化覆盖 bitset
-         for (auto id : coverage)
+         if (!coverage.empty())
          {
-            _covered_sets_rb[group_id].add(id);
+            cov_rb.addMany(coverage.size(), coverage.data());
          }
       }
 

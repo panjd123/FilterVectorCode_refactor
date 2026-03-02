@@ -2,7 +2,6 @@
 #define LABEL_NAV_GRAPH_H
 
 #include <vector>
-#include <unordered_set>
 #include "config.h"
 
 namespace ANNS
@@ -25,13 +24,13 @@ namespace ANNS
       };
 
       std::vector<std::vector<IdxType>> in_neighbors, out_neighbors;
-      std::vector<double> coverage_ratio;                    // 每个 label set 的覆盖比例
-      std::vector<std::unordered_set<IdxType>> covered_sets; // 每个 group 的覆盖向量集合
-      std::vector<int> in_degree, out_degree;                // 入度和出度
+      std::vector<double> coverage_ratio;                // 每个 label set 的覆盖比例
+      std::vector<std::vector<IdxType>> covered_sets;    // 每个 group 的覆盖向量集合
+      std::vector<int> in_degree, out_degree;            // 入度和出度
 
       std::vector<std::pair<IdxType, int>> _lng_descendants_num; // group_id, descendants_count
       double avg_descendants;                                    // 平均后代数量
-      std::vector<std::unordered_set<IdxType>> _lng_descendants; // 每个 group 的覆盖的group的集合
+      std::vector<std::vector<IdxType>> _lng_descendants;        // 每个 group 的覆盖的group的集合
       ~LabelNavGraph() = default;
 
    private:
