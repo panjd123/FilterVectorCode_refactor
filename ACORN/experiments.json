@@ -1,0 +1,20 @@
+{
+   "experiments": [
+      {
+         "dataset": "words",
+         "mode": "search",
+         "N": 8000,
+         "M": 32,
+         "M_beta": 64,
+         "gamma": 80,
+         "query_dir_name": "query_1",
+         "threads": 80,
+         "efs_start": 10,
+         "efs_end": 20,
+         "efs_step": 5,
+         "repeat_num": 1,
+         "if_bfs_filter": true,
+         "k":10
+      }
+   ]
+}
