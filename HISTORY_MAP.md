@@ -15,6 +15,10 @@
 - `patches/aaagpu_core_optimization.patch`
 - `patches/aaagpu_optimization_buildable_full.patch`
 
+## Optimization Docs
+- Step-by-step optimization and performance ledger:
+  - `OPTIMIZATION_STEP_BY_STEP.md`
+
 ## Recent Migration Log
 
 ### 2026-03-02 - `076d990`
