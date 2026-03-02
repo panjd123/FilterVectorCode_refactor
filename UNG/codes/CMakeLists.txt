@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.15)
 project(ANNS)
 
+# Enable CUDA for GPU cross-group edge kernels.
+enable_language(CUDA)
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 86)
+endif()
+
 # cmake setting
 set(CMAKE_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
@@ -52,7 +60,9 @@ find_library(ROARING_LIB
     NO_DEFAULT_PATH
 )
 if(NOT ROARING_LIB)
-    message(FATAL_ERROR "CRoaring library not found. Searched in ${ROARING_LIB_DIR} and subdirectories. Please check the build or path.")
+    message(WARNING "CRoaring prebuilt library not found in ${ROARING_LIB_DIR}. Falling back to building bundled CRoaring.")
+    add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/CRoaring ${CMAKE_BINARY_DIR}/croaring_build)
+    set(ROARING_LIB roaring)
 else()
     message(STATUS "CRoaring library found at: ${ROARING_LIB}")
 endif()
