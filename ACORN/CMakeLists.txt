@@ -73,8 +73,17 @@ endif()
 
 # FetchContent_GetProperties(nlohmann_json)
 include(FetchContent)
+set(FILTERVECTOR_THIRDPARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty" CACHE PATH "Path to local thirdparty artifacts")
+set(JSON_TARBALL "${FILTERVECTOR_THIRDPARTY_DIR}/json-3.10.4.tar.gz")
+if(NOT EXISTS "${JSON_TARBALL}")
+  # Backward-compatible fallback for old absolute layout.
+  set(JSON_TARBALL "/data/fxy/FilterVector/FilterVectorCode/thirdparty/json-3.10.4.tar.gz")
+endif()
+if(NOT EXISTS "${JSON_TARBALL}")
+  message(FATAL_ERROR "nlohmann_json tarball not found. Tried ${FILTERVECTOR_THIRDPARTY_DIR} and legacy /data/fxy path.")
+endif()
 FetchContent_Declare(nlohmann_json
-    URL "file:///data/fxy/FilterVector/FilterVectorCode/thirdparty/json-3.10.4.tar.gz"
+    URL "file://${JSON_TARBALL}"
 )
 FetchContent_MakeAvailable(nlohmann_json)
 if(NOT nlohmann_json_POPULATED)
@@ -93,4 +102,3 @@ target_link_libraries(faiss PUBLIC ${ZLIB_LIBRARIES})
 find_package(OpenMP REQUIRED)
 target_link_libraries(faiss PRIVATE OpenMP::OpenMP_CXX)
 target_link_libraries(faiss_avx2 PRIVATE OpenMP::OpenMP_CXX)
-
