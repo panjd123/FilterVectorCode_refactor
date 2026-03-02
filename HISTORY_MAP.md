@@ -52,6 +52,18 @@ Conclusion:
 - Full index time regressed under `UNG_COVERAGE_IMPL=1`, dominated by unstable coverage time.
 - This optimization point is kept for audit and follow-up tuning; use A/B logs above for reproduction.
 
+### 2026-03-03 - Stability attempt (reverted)
+- Attempted commit: `ff47638`
+  - change: in `descendants_direct` coverage path, auto-cap threads to 16 and switch to `guided` schedule.
+- A/B benchmark:
+  - CSV: `/home/graphdb/FilterVectorResultsRefactor/ab_covcap_20260303_001148.csv`
+  - baseline code commit: `5985bb1` (same core code as `076d990`)
+  - tested commit: `ff47638`
+- Result: regression, so reverted.
+  - median `coverage`: `4738.65 -> 21245.55 ms`
+  - median `Index time`: `58044.5 -> 83180 ms`
+- Revert commit: `14a0fa9`
+
 ### Correctness Smoke
 - GPU backend smoke:
   - `/home/graphdb/FilterVectorResultsRefactor/refactor_mig_smoke_gpu_20260302_235333/others/ung_build.log`

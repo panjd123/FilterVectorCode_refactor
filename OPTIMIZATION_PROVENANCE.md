@@ -17,3 +17,10 @@
   - `get_min_super_sets` container reuse + bucketized candidate traversal
   - `get_descendants_info` thread-local BFS buffers
   - `cal_f_coverage_ratio` threaded and `descendants_direct` path with env toggles
+
+## Reverted Experiment (2026-03-03)
+
+- Tested commit: `ff47638`
+  - attempted to stabilize `descendants_direct` by capping coverage threads and changing OMP schedule
+- Reverted by: `14a0fa9`
+- Reason: reproducible regression in `coverage` and end-to-end index time (see `HISTORY_MAP.md` benchmark links)
