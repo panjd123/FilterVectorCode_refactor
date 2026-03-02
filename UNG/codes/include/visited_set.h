@@ -2,6 +2,7 @@
 #define VISITED_SET_H
 
 #include <cstring>
+#include <limits>
 #include "config.h"
 
 
@@ -12,7 +13,7 @@ namespace ANNS {
             VisitedSet() = default;
 
             void init(IdxType num_elements) {
-                _curValue = -1;
+                _curValue = std::numeric_limits<MarkType>::max();
                 _num_elements = num_elements;
                 if (_marks != nullptr)
                     delete[] _marks;

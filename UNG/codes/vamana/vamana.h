@@ -5,6 +5,7 @@
 #include "distance.h"
 #include "graph.h"
 #include "search_cache.h"
+#include <limits>
 
 namespace ANNS
 {
@@ -31,7 +32,8 @@ namespace ANNS
       // search the graph
       IdxType get_entry_point() { return _entry_point; }
       IdxType iterate_to_fixed_point(const char *query, std::shared_ptr<SearchCache> search_cache,
-                                     bool record_expanded = false, IdxType target_id = -1);
+                                     bool record_expanded = false,
+                                     IdxType target_id = std::numeric_limits<IdxType>::max());
 
       // stats and I/O
       void statistics();
