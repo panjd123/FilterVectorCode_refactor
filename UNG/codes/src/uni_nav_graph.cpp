@@ -1310,15 +1310,11 @@ namespace ANNS
       std::cout << "Calculating coverage ratio..." << std::endl;
       auto start_time = std::chrono::high_resolution_clock::now();
       int coverage_threads = _num_threads;
-      bool coverage_threads_forced = false;
       if (const char* env = std::getenv("UNG_COVERAGE_THREADS")) {
          int v = std::atoi(env);
-         if (v > 0)
-         {
-            coverage_threads = std::min<int>(v, _num_threads);
-            coverage_threads_forced = true;
-         }
+         if (v > 0) coverage_threads = std::min<int>(v, _num_threads);
       }
+      std::cout << "- coverage threads: " << coverage_threads << std::endl;
 
       // Step 0: 初始化covered_sets
       _label_nav_graph->coverage_ratio.clear();
@@ -1333,23 +1329,10 @@ namespace ANNS
          use_descendants_direct = (std::atoi(env) != 0);
       }
 
-      // descendants_direct 路径存在大量并发哈希插入，默认限制线程并发以降低内存争用和抖动。
-      if (use_descendants_direct && !coverage_threads_forced)
-      {
-         static constexpr int kDefaultCoverageDirectThreadCap = 16;
-         coverage_threads = std::min(coverage_threads, kDefaultCoverageDirectThreadCap);
-      }
-      std::cout << "- coverage threads: " << coverage_threads;
-      if (use_descendants_direct && !coverage_threads_forced)
-      {
-         std::cout << " (auto-capped for descendants_direct)";
-      }
-      std::cout << std::endl;
-
       if (use_descendants_direct)
       {
          std::cout << "- coverage impl: descendants_direct" << std::endl;
-#pragma omp parallel for schedule(guided, 16) num_threads(coverage_threads)
+#pragma omp parallel for schedule(dynamic, 64) num_threads(coverage_threads)
          for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
          {
             auto &coverage = _label_nav_graph->covered_sets[group_id];
