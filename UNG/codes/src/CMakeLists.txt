@@ -19,7 +19,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 target_link_libraries(${PROJECT_NAME} PRIVATE faiss ${ROARING_LIB} cuda cudart cublas cublasLt)
 
 # 给 CUDA 源文件单独设置编译选项（避免吃到 CXX 的 avx/openmp flags）
-set_source_files_properties(gpu_knn_bf.cu PROPERTIES
+set_source_files_properties(gpu_gemm_topk.cu PROPERTIES
     LANGUAGE CUDA
 )
 
