@@ -3404,13 +3404,7 @@ void UniNavGraph::calculate_query_features_only(
 
    size_t UniNavGraph::get_candidate_count_for_label(LabelType label) const
    {
-      // 步骤1: 检查标签ID是否在 _label_to_nodes 向量的有效范围内
-      if (label >= _trie_index._label_to_nodes.size())
-      {
-         return 0; // 标签越界，不可能有对应的候选集
-      }
-      // 步骤2: 直接通过索引访问并返回内部向量的大小
-      return _trie_index._label_to_nodes[label].size();
+      return _trie_index.get_candidate_count_for_label(label);
    }
 
 // fxy_add 
