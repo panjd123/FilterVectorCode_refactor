@@ -20,6 +20,8 @@
   - `OPTIMIZATION_STEP_BY_STEP.md`
 - Testing and benchmark reproduction guide:
   - `TESTING_GUIDE.md`
+- Direct test runner script:
+  - `scripts/run_ung_tests.sh`
 
 ## Recent Migration Log
 

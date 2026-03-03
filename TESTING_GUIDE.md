@@ -1,6 +1,38 @@
 # 测试文档（FilterVectorCode_refactor）
 
-本文档用于统一“怎么测”，覆盖功能正确性、GPU/CPU对照、性能A/B回归。
+本文档用于统一“怎么测”，覆盖功能正确性、GPU/CPU对照、性能A/B回归。  
+推荐优先使用脚本：`scripts/run_ung_tests.sh`。
+
+## 0. 一键脚本（推荐）
+
+脚本路径：`scripts/run_ung_tests.sh`
+
+```bash
+cd /home/graphdb/FilterVectorCode_refactor
+scripts/run_ung_tests.sh --help
+```
+
+常用命令：
+
+```bash
+# 单次 GPU 构建测试（含日志摘要）
+scripts/run_ung_tests.sh gpu --label quick_gpu
+
+# 单次 CPU 对照测试
+scripts/run_ung_tests.sh cpu --label quick_cpu
+
+# A/B 回归（HEAD^ vs HEAD，各 3 轮）
+scripts/run_ung_tests.sh ab --label ab_check --runs 3 --before-ref HEAD^ --after-ref HEAD
+
+# GPU/CPU 结果一致性对比
+scripts/run_ung_tests.sh compare --gpu-dir /path/to/gpu_run --cpu-dir /path/to/cpu_run
+```
+
+说明：
+
+- `ab` 模式会自动切换 git 版本并恢复现场，要求工作区干净（无未提交改动）。
+- 输出默认写到：`/home/graphdb/FilterVectorResultsRefactor`
+- 如果你已经编译好，可加 `--skip-build` 跳过构建步骤。
 
 ## 1. 环境与前置条件
 
