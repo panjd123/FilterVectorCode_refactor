@@ -18,6 +18,8 @@
 ## Optimization Docs
 - Step-by-step optimization and performance ledger:
   - `OPTIMIZATION_STEP_BY_STEP.md`
+- Testing and benchmark reproduction guide:
+  - `TESTING_GUIDE.md`
 
 ## Recent Migration Log
 
