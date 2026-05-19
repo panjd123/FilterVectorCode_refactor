@@ -5,6 +5,7 @@ set(CPP_SOURCES utils.cpp storage.cpp trie.cpp distance.cpp search_queue.cpp fil
 
 set(CUDA_SOURCES
     gpu_gemm_topk.cu
+    fixed_pool_graph.cu
 )
 
 

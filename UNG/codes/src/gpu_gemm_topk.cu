@@ -17,9 +17,17 @@
 #include <cstdint>
 #include <omp.h>
 #include <unordered_map>
+#include <mma.h>
 
 struct UngGroupQueryDesc {
     uint32_t qi;
+    uint32_t x_off;
+    uint32_t nx;
+};
+
+struct UngGroupTileDesc {
+    uint32_t q_start;
+    uint32_t q_count;
     uint32_t x_off;
     uint32_t nx;
 };
@@ -92,6 +100,8 @@ static uint32_t* g_d_singleton_xoff = nullptr; // device：singleton 对应的�
 static size_t g_singleton_cap_nq = 0;
 static UngGroupQueryDesc* g_d_group_desc = nullptr; // device：小/中组批处理描述符
 static size_t g_group_desc_cap = 0;
+static UngGroupTileDesc* g_d_group_tile_desc = nullptr; // device：TF32 批处理 group tile 描述符
+static size_t g_group_tile_desc_cap = 0;
 
 // 申请/扩容 pinned host buffer：Q、idx、dist
 inline void ensure_host_q_buffers(size_t need_nq, int need_k, int dim, bool need_q) {
@@ -158,6 +168,13 @@ inline void ensure_device_group_desc_buffer(size_t need_desc) {
     if (g_d_group_desc) cudaFree(g_d_group_desc);
     g_group_desc_cap = std::max(need_desc, g_group_desc_cap * 2 + 1);
     cudaMalloc(&g_d_group_desc, (size_t)g_group_desc_cap * sizeof(UngGroupQueryDesc));
+}
+
+inline void ensure_device_group_tile_desc_buffer(size_t need_desc) {
+    if (need_desc <= g_group_tile_desc_cap && g_d_group_tile_desc) return;
+    if (g_d_group_tile_desc) cudaFree(g_d_group_tile_desc);
+    g_group_tile_desc_cap = std::max(need_desc, g_group_tile_desc_cap * 2 + 1);
+    cudaMalloc(&g_d_group_tile_desc, (size_t)g_group_tile_desc_cap * sizeof(UngGroupTileDesc));
 }
 
 // ============================================================
@@ -425,6 +442,422 @@ extern "C" __global__ void ung_singleton_top1_global_kernel(
         size_t base = (size_t)qi * (size_t)topk;
         out_idx[base] = 0;
         out_dist[base] = dist;
+    }
+}
+
+__device__ __forceinline__
+void ung_topk_insert32(float* best_dist, int* best_idx, int K, float dist, int idx)
+{
+    if (dist >= best_dist[K - 1]) return;
+    int pos = K - 1;
+    while (pos > 0 && dist < best_dist[pos - 1]) {
+        best_dist[pos] = best_dist[pos - 1];
+        best_idx[pos] = best_idx[pos - 1];
+        --pos;
+    }
+    best_dist[pos] = dist;
+    best_idx[pos] = idx;
+}
+
+__device__ __forceinline__
+void ung_topk_insert16(float* best_dist, int* best_idx, int K, float dist, int idx)
+{
+    if (dist >= best_dist[K - 1]) return;
+    int pos = K - 1;
+    while (pos > 0 && dist < best_dist[pos - 1]) {
+        best_dist[pos] = best_dist[pos - 1];
+        best_idx[pos] = best_idx[pos - 1];
+        --pos;
+    }
+    best_dist[pos] = dist;
+    best_idx[pos] = idx;
+}
+
+extern "C" __global__ void ung_large_group_warp_fused_topk_global_kernel(
+    const float* __restrict__ Q,          // [nq, dim]
+    const float* __restrict__ q_norm,     // [nq]
+    const float* __restrict__ X,          // [nx, dim]
+    const float* __restrict__ x_norm,     // [nx]
+    int nq,
+    int nx,
+    int dim,
+    int topk,
+    int* __restrict__ out_idx,            // [nq, topk]
+    float* __restrict__ out_dist)         // [nq, topk]
+{
+    const int qi = blockIdx.x;
+    if (qi >= nq || topk <= 0 || topk > 32) return;
+
+    const int lane = threadIdx.x & 31;
+    const int wid = threadIdx.x >> 5;
+    const int nwarps = blockDim.x >> 5;
+    if (nwarps <= 0) return;
+
+    extern __shared__ unsigned char lg_smem_raw[];
+    float* s_dist = reinterpret_cast<float*>(lg_smem_raw);       // [nwarps, topk]
+    int* s_idx = reinterpret_cast<int*>(s_dist + (size_t)nwarps * (size_t)topk);
+
+    constexpr int KMAX = 32;
+    float best_d[KMAX];
+    int best_i[KMAX];
+    #pragma unroll
+    for (int k = 0; k < KMAX; ++k) {
+        best_d[k] = FLT_MAX;
+        best_i[k] = -1;
+    }
+
+    const float* q = Q + (size_t)qi * (size_t)dim;
+    const float qn = q_norm[qi];
+
+    // Each warp owns a strided subset of X. Dot products are reduced inside
+    // the warp; only lane 0 maintains that warp's register-resident topK.
+    for (int j = wid; j < nx; j += nwarps) {
+        const float* x = X + (size_t)j * (size_t)dim;
+        float acc = 0.f;
+
+        if ((dim & 3) == 0) {
+            const int dim4 = dim >> 2;
+            const float4* q4 = reinterpret_cast<const float4*>(q);
+            const float4* x4 = reinterpret_cast<const float4*>(x);
+            for (int d4 = lane; d4 < dim4; d4 += 32) {
+                const float4 qv = q4[d4];
+                const float4 xv = x4[d4];
+                acc += qv.x * xv.x + qv.y * xv.y + qv.z * xv.z + qv.w * xv.w;
+            }
+        } else {
+            for (int d = lane; d < dim; d += 32) {
+                acc += q[d] * x[d];
+            }
+        }
+
+        #pragma unroll
+        for (int offset = 16; offset > 0; offset >>= 1) {
+            acc += __shfl_down_sync(0xffffffff, acc, offset);
+        }
+
+        if (lane == 0) {
+            float dist = qn + x_norm[j] - 2.f * acc;
+            ung_topk_insert32(best_d, best_i, topk, dist, j);
+        }
+    }
+
+    if (lane == 0) {
+        size_t off = (size_t)wid * (size_t)topk;
+        for (int k = 0; k < topk; ++k) {
+            s_dist[off + (size_t)k] = best_d[k];
+            s_idx[off + (size_t)k] = best_i[k];
+        }
+    }
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+        float final_d[KMAX];
+        int final_i[KMAX];
+        #pragma unroll
+        for (int k = 0; k < KMAX; ++k) {
+            final_d[k] = FLT_MAX;
+            final_i[k] = -1;
+        }
+        for (int w = 0; w < nwarps; ++w) {
+            size_t off = (size_t)w * (size_t)topk;
+            for (int k = 0; k < topk; ++k) {
+                int idx = s_idx[off + (size_t)k];
+                if (idx >= 0) {
+                    ung_topk_insert32(final_d, final_i, topk, s_dist[off + (size_t)k], idx);
+                }
+            }
+        }
+
+        size_t out_base = (size_t)qi * (size_t)topk;
+        for (int k = 0; k < topk; ++k) {
+            out_idx[out_base + (size_t)k] = final_i[k];
+            out_dist[out_base + (size_t)k] = final_d[k];
+        }
+    }
+}
+
+extern "C" __global__ void ung_large_group_warp_query_topk_global_kernel(
+    const float* __restrict__ Q,          // [nq, dim]
+    const float* __restrict__ q_norm,     // [nq]
+    const float* __restrict__ X,          // [nx, dim]
+    const float* __restrict__ x_norm,     // [nx]
+    int nq,
+    int nx,
+    int dim,
+    int topk,
+    int* __restrict__ out_idx,            // [nq, topk]
+    float* __restrict__ out_dist)         // [nq, topk]
+{
+    const int lane = threadIdx.x & 31;
+    const int wid = threadIdx.x >> 5;
+    const int nwarps = blockDim.x >> 5;
+    const int qi = blockIdx.x * nwarps + wid;
+    if (qi >= nq || topk <= 0 || topk > 32) return;
+
+    constexpr int KMAX = 32;
+    float best_d[KMAX];
+    int best_i[KMAX];
+    #pragma unroll
+    for (int k = 0; k < KMAX; ++k) {
+        best_d[k] = FLT_MAX;
+        best_i[k] = -1;
+    }
+
+    const float* q = Q + (size_t)qi * (size_t)dim;
+    const float qn = q_norm[qi];
+
+    for (int j = 0; j < nx; ++j) {
+        const float* x = X + (size_t)j * (size_t)dim;
+        float acc = 0.f;
+
+        if ((dim & 3) == 0) {
+            const int dim4 = dim >> 2;
+            const float4* q4 = reinterpret_cast<const float4*>(q);
+            const float4* x4 = reinterpret_cast<const float4*>(x);
+            for (int d4 = lane; d4 < dim4; d4 += 32) {
+                const float4 qv = q4[d4];
+                const float4 xv = x4[d4];
+                acc += qv.x * xv.x + qv.y * xv.y + qv.z * xv.z + qv.w * xv.w;
+            }
+        } else {
+            for (int d = lane; d < dim; d += 32) {
+                acc += q[d] * x[d];
+            }
+        }
+
+        #pragma unroll
+        for (int offset = 16; offset > 0; offset >>= 1) {
+            acc += __shfl_down_sync(0xffffffff, acc, offset);
+        }
+
+        if (lane == 0) {
+            const float dist = qn + x_norm[j] - 2.f * acc;
+            ung_topk_insert32(best_d, best_i, topk, dist, j);
+        }
+    }
+
+    if (lane == 0) {
+        const size_t out_base = (size_t)qi * (size_t)topk;
+        for (int k = 0; k < topk; ++k) {
+            out_idx[out_base + (size_t)k] = best_i[k];
+            out_dist[out_base + (size_t)k] = best_d[k];
+        }
+    }
+}
+
+extern "C" __global__ void ung_large_group_tf32_wmma_topk_global_kernel(
+    const float* __restrict__ Q,          // [nq, dim]
+    const float* __restrict__ q_norm,     // [nq]
+    const float* __restrict__ X,          // [nx, dim]
+    const float* __restrict__ x_norm,     // [nx]
+    int nq,
+    int nx,
+    int dim,
+    int topk,
+    int* __restrict__ out_idx,            // [nq, topk]
+    float* __restrict__ out_dist)         // [nq, topk]
+{
+    using namespace nvcuda;
+    constexpr int M = 16;
+    constexpr int N = 16;
+    constexpr int K = 8;
+    constexpr int KMAX = 16;
+
+    const int lane = threadIdx.x & 31;
+    const int wid = threadIdx.x >> 5;
+    const int nwarps = blockDim.x >> 5;
+    if (topk <= 0 || topk > KMAX || nwarps <= 0) return;
+
+    const int q_base = (blockIdx.x * nwarps + wid) * M;
+    if (q_base >= nq) return;
+
+    extern __shared__ float smem[];
+    const size_t per_warp = (size_t)M * K + (size_t)K * N + (size_t)M * N;
+    float* sA = smem + (size_t)wid * per_warp;
+    float* sB = sA + (size_t)M * K;
+    float* sC = sB + (size_t)K * N;
+
+    float best_d[KMAX];
+    int best_i[KMAX];
+    #pragma unroll
+    for (int k = 0; k < KMAX; ++k) {
+        best_d[k] = FLT_MAX;
+        best_i[k] = -1;
+    }
+
+    const int row_lane = lane; // lanes 0..15 own topK for rows 0..15.
+    const bool owns_row = (row_lane < M && q_base + row_lane < nq);
+    const float qn = owns_row ? q_norm[q_base + row_lane] : 0.f;
+
+    for (int x_base = 0; x_base < nx; x_base += N) {
+        wmma::fragment<wmma::matrix_a, M, N, K, wmma::precision::tf32, wmma::row_major> a_frag;
+        wmma::fragment<wmma::matrix_b, M, N, K, wmma::precision::tf32, wmma::col_major> b_frag;
+        wmma::fragment<wmma::accumulator, M, N, K, float> c_frag;
+        wmma::fill_fragment(c_frag, 0.0f);
+
+        for (int k0 = 0; k0 < dim; k0 += K) {
+            for (int t = lane; t < M * K; t += 32) {
+                const int r = t / K;
+                const int kk = t - r * K;
+                const int qid = q_base + r;
+                const int d = k0 + kk;
+                float v = 0.f;
+                if (qid < nq && d < dim) {
+                    v = Q[(size_t)qid * (size_t)dim + (size_t)d];
+                }
+                sA[t] = wmma::__float_to_tf32(v);
+            }
+
+            // B is KxN in column-major layout: B[kk + col*K] = X[x_base+col, k0+kk].
+            for (int t = lane; t < K * N; t += 32) {
+                const int col = t / K;
+                const int kk = t - col * K;
+                const int xid = x_base + col;
+                const int d = k0 + kk;
+                float v = 0.f;
+                if (xid < nx && d < dim) {
+                    v = X[(size_t)xid * (size_t)dim + (size_t)d];
+                }
+                sB[t] = wmma::__float_to_tf32(v);
+            }
+            __syncwarp();
+
+            wmma::load_matrix_sync(a_frag, sA, K);
+            wmma::load_matrix_sync(b_frag, sB, K);
+            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            __syncwarp();
+        }
+
+        wmma::store_matrix_sync(sC, c_frag, N, wmma::mem_row_major);
+        __syncwarp();
+
+        if (owns_row) {
+            const int valid_cols = min(N, nx - x_base);
+            const float* row = sC + (size_t)row_lane * N;
+            for (int col = 0; col < valid_cols; ++col) {
+                const int xid = x_base + col;
+                const float dist = qn + x_norm[xid] - 2.f * row[col];
+                ung_topk_insert16(best_d, best_i, topk, dist, xid);
+            }
+        }
+        __syncwarp();
+    }
+
+    if (owns_row) {
+        const size_t out_base = (size_t)(q_base + row_lane) * (size_t)topk;
+        for (int k = 0; k < topk; ++k) {
+            out_idx[out_base + (size_t)k] = best_i[k];
+            out_dist[out_base + (size_t)k] = best_d[k];
+        }
+    }
+}
+
+extern "C" __global__ void ung_group_tile_tf32_wmma_topk_global_kernel(
+    const UngGroupTileDesc* __restrict__ descs,
+    int num_desc,
+    const float* __restrict__ Q,          // [total_queries, dim]
+    const float* __restrict__ q_norm,     // [total_queries]
+    const float* __restrict__ all_x,      // [total_points, dim]
+    const float* __restrict__ all_norm,   // [total_points]
+    int dim,
+    int topk,
+    int* __restrict__ out_idx,            // [total_queries, topk], local index within target group
+    float* __restrict__ out_dist)         // [total_queries, topk]
+{
+    using namespace nvcuda;
+    constexpr int M = 16;
+    constexpr int N = 16;
+    constexpr int K = 8;
+    constexpr int KMAX = 16;
+
+    const int lane = threadIdx.x & 31;
+    const int wid = threadIdx.x >> 5;
+    const int nwarps = blockDim.x >> 5;
+    const int did = blockIdx.x * nwarps + wid;
+    if (did >= num_desc || topk <= 0 || topk > KMAX || nwarps <= 0) return;
+
+    const UngGroupTileDesc desc = descs[did];
+    if (desc.q_count == 0 || desc.nx == 0) return;
+
+    extern __shared__ float smem[];
+    const size_t per_warp = (size_t)M * K + (size_t)K * N + (size_t)M * N;
+    float* sA = smem + (size_t)wid * per_warp;
+    float* sB = sA + (size_t)M * K;
+    float* sC = sB + (size_t)K * N;
+
+    float best_d[KMAX];
+    int best_i[KMAX];
+    #pragma unroll
+    for (int k = 0; k < KMAX; ++k) {
+        best_d[k] = FLT_MAX;
+        best_i[k] = -1;
+    }
+
+    const int row_lane = lane;
+    const bool owns_row = (row_lane < M && (uint32_t)row_lane < desc.q_count);
+    const uint32_t qi = desc.q_start + (uint32_t)row_lane;
+    const float qn = owns_row ? q_norm[qi] : 0.f;
+    const float* x_base_ptr = all_x + (size_t)desc.x_off * (size_t)dim;
+    const float* x_norm_ptr = all_norm + (size_t)desc.x_off;
+
+    for (uint32_t x_base = 0; x_base < desc.nx; x_base += N) {
+        wmma::fragment<wmma::matrix_a, M, N, K, wmma::precision::tf32, wmma::row_major> a_frag;
+        wmma::fragment<wmma::matrix_b, M, N, K, wmma::precision::tf32, wmma::col_major> b_frag;
+        wmma::fragment<wmma::accumulator, M, N, K, float> c_frag;
+        wmma::fill_fragment(c_frag, 0.0f);
+
+        for (int k0 = 0; k0 < dim; k0 += K) {
+            for (int t = lane; t < M * K; t += 32) {
+                const int r = t / K;
+                const int kk = t - r * K;
+                const uint32_t qrow = desc.q_start + (uint32_t)r;
+                const int d = k0 + kk;
+                float v = 0.f;
+                if ((uint32_t)r < desc.q_count && d < dim) {
+                    v = Q[(size_t)qrow * (size_t)dim + (size_t)d];
+                }
+                sA[t] = wmma::__float_to_tf32(v);
+            }
+            for (int t = lane; t < K * N; t += 32) {
+                const int col = t / K;
+                const int kk = t - col * K;
+                const uint32_t xlocal = x_base + (uint32_t)col;
+                const int d = k0 + kk;
+                float v = 0.f;
+                if (xlocal < desc.nx && d < dim) {
+                    v = x_base_ptr[(size_t)xlocal * (size_t)dim + (size_t)d];
+                }
+                sB[t] = wmma::__float_to_tf32(v);
+            }
+            __syncwarp();
+
+            wmma::load_matrix_sync(a_frag, sA, K);
+            wmma::load_matrix_sync(b_frag, sB, K);
+            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            __syncwarp();
+        }
+
+        wmma::store_matrix_sync(sC, c_frag, N, wmma::mem_row_major);
+        __syncwarp();
+
+        if (owns_row) {
+            const int valid_cols = min((uint32_t)N, desc.nx - x_base);
+            const float* row = sC + (size_t)row_lane * N;
+            for (int col = 0; col < valid_cols; ++col) {
+                const uint32_t xlocal = x_base + (uint32_t)col;
+                const float dist = qn + x_norm_ptr[xlocal] - 2.f * row[col];
+                ung_topk_insert16(best_d, best_i, topk, dist, (int)xlocal);
+            }
+        }
+        __syncwarp();
+    }
+
+    if (owns_row) {
+        const size_t out_base = (size_t)qi * (size_t)topk;
+        for (int k = 0; k < topk; ++k) {
+            out_idx[out_base + (size_t)k] = best_i[k];
+            out_dist[out_base + (size_t)k] = best_d[k];
+        }
     }
 }
 
@@ -1215,6 +1648,7 @@ void ANNS::UniNavGraph::gpu_release_all_vectors_on_device() {
     if (g_d_singleton_qi) { cudaFree(g_d_singleton_qi); g_d_singleton_qi = nullptr; }
     if (g_d_singleton_xoff) { cudaFree(g_d_singleton_xoff); g_d_singleton_xoff = nullptr; }
     if (g_d_group_desc) { cudaFree(g_d_group_desc); g_d_group_desc = nullptr; }
+    if (g_d_group_tile_desc) { cudaFree(g_d_group_tile_desc); g_d_group_tile_desc = nullptr; }
     if (g_hostreg_all_x_ptr) {
         cudaHostUnregister(const_cast<float*>(g_hostreg_all_x_ptr));
         g_hostreg_all_x_ptr = nullptr;
@@ -1260,6 +1694,11 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
     vector<int> target_group_nx(target_group_ids.size(), 0);
     vector<int> cpu_tiny_group_indices;
     const auto t_count_start = std::chrono::high_resolution_clock::now();
+    const int bench_min_nx = read_env_int("UNG_BENCH_MIN_NX", 0, 0, 1048576);
+    const int bench_max_nx = read_env_int("UNG_BENCH_MAX_NX", 1048576, 0, 1048576);
+    const long long bench_min_work =
+        (long long)read_env_int("UNG_BENCH_MIN_WORK_M", 0, 0, 2000000000) * 1000000LL;
+    size_t bench_skipped_groups = 0;
 
     for (size_t gi = 0; gi < target_group_ids.size(); ++gi) {
         IdxType tgt = target_group_ids[gi];
@@ -1291,6 +1730,15 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
         const size_t cnt = target_counts_raw[gi];
         const int nx = target_group_nx[gi];
         const unsigned long long est_work = (unsigned long long)cnt * (unsigned long long)std::max(nx, 0) * (unsigned long long)dim;
+        const bool skip_for_bench =
+            nx < bench_min_nx ||
+            nx > bench_max_nx ||
+            est_work < (unsigned long long)bench_min_work;
+        if (skip_for_bench) {
+            target_counts[gi] = 0;
+            bench_skipped_groups += 1;
+            continue;
+        }
         const bool route_cpu_tiny =
             cpu_tiny_groups &&
             nx > 1 &&
@@ -1311,6 +1759,8 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
     }
 
     int total_queries = (int)total_queries_sz;
+    prof_logf("[PROF] cross_edges.bench_filter min_nx=%d max_nx=%d min_work=%lld skipped_groups=%zu active_queries=%d",
+              bench_min_nx, bench_max_nx, bench_min_work, bench_skipped_groups, total_queries);
 
     // ------------------------------------------------------------
     // 第二步：为每个 target group 分配 Q 的连续区间（prefix offsets）
@@ -1530,10 +1980,13 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
     const bool naive_vec4 = (read_env_int("UNG_NAIVE_VEC4", 1, 0, 1) == 1);
     const int naive_x_cols_per_block_req = read_env_int("UNG_NAIVE_X_COLS_PER_BLOCK", 1, 1, 4);
     const int naive_shared_kb = read_env_int("UNG_NAIVE_SHARED_KB", 48, 16, 164);
-    const bool naive_heavy_sgemm = (read_env_int("UNG_NAIVE_HEAVY_SGEMM", 0, 0, 1) == 1);
-    const int naive_heavy_nx = read_env_int("UNG_NAIVE_HEAVY_NX", 96, 16, 1048576);
+    // Large groups are compute-heavy enough for cuBLAS to outperform the custom
+    // CUDA-core dot kernel. Keep this as an env-tunable split point so small and
+    // medium groups can still use the fused topK kernels below.
+    const bool naive_heavy_sgemm = (read_env_int("UNG_NAIVE_HEAVY_SGEMM", 1, 0, 1) == 1);
+    const int naive_heavy_nx = read_env_int("UNG_NAIVE_HEAVY_NX", 256, 16, 1048576);
     const int naive_heavy_nq = read_env_int("UNG_NAIVE_HEAVY_NQ", 256, 16, 1048576);
-    const long long naive_heavy_work_thresh = (long long)read_env_int("UNG_NAIVE_HEAVY_WORK_M", 96, 1, 2000000000) * 1000000LL;
+    const long long naive_heavy_work_thresh = (long long)read_env_int("UNG_NAIVE_HEAVY_WORK_M", 1, 1, 2000000000) * 1000000LL;
     const int topk_block_threads = read_env_int("UNG_TOPK_BLOCK_THREADS", (topk <= 8 ? 32 : (topk <= 16 ? 64 : 128)), 32, 256);
     const bool naive_group_fused = (read_env_int("UNG_NAIVE_GROUP_FUSED", 0, 0, 1) == 1);
     const int naive_group_threads = read_env_int("UNG_NAIVE_GROUP_THREADS", 128, 64, 256);
@@ -1545,11 +1998,21 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
     const int medium_group_max_nx = read_env_int("UNG_MEDIUM_GROUP_MAX_NX", 64, 9, 256);
     const int medium_group_warps = read_env_int("UNG_MEDIUM_GROUP_WARPS", 8, 1, 16);
     const bool bucket_group_fused = (read_env_int("UNG_BUCKET_GROUP_FUSED", 1, 0, 1) == 1);
+    const bool large_group_fused = (read_env_int("UNG_LARGE_GROUP_FUSED", 1, 0, 1) == 1);
+    const int large_group_min_nx = read_env_int("UNG_LARGE_GROUP_MIN_NX", 128, 65, 1048576);
+    const int large_group_max_nx = read_env_int("UNG_LARGE_GROUP_MAX_NX", 1023, 65, 1048576);
+    const int large_group_warps = read_env_int("UNG_LARGE_GROUP_WARPS", 2, 1, 16);
+    // 0: one CTA/query CUDA-core fused, 1: one warp/query CUDA-core fused,
+    // 2: TF32 Tensor Core 16x16 WMMA fused topK.
+    const int large_group_fused_mode = read_env_int("UNG_LARGE_GROUP_FUSED_MODE", 2, 0, 2);
     const char* gemm_mode = use_sgemm_strided ? "sgemm_strided_batched" : (use_naive_cuda ? "naive_cuda_core" : "cublasLt");
     const bool naive_debug_dot = (read_env_int("UNG_NAIVE_DEBUG_DOT", 0, 0, 1) == 1);
     bool naive_debug_logged = false;
     prof_logf("[PROF] cross_edges.gemm_impl mode=%s(%d) force_custom=%d req_impl=%d", gemm_mode, gemm_impl, force_custom_kernel ? 1 : 0, gemm_impl_req);
     prof_logf("[PROF] cross_edges.topk_kernel_threads value=%d", topk_block_threads);
+    prof_logf("[PROF] cross_edges.large_group_fused_cfg enabled=%d mode=%d min_nx=%d max_nx=%d warps=%d",
+              large_group_fused ? 1 : 0, large_group_fused_mode,
+              large_group_min_nx, large_group_max_nx, large_group_warps);
     if (use_naive_cuda) {
         prof_logf("[PROF] cross_edges.naive_cfg warps_per_block=%d shared_x=%d vec4=%d x_cols=%d shared_kb=%d",
                   naive_warps_per_block, naive_shared_x ? 1 : 0, naive_vec4 ? 1 : 0, naive_x_cols_per_block_req, naive_shared_kb);
@@ -1569,11 +2032,14 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
     size_t small_group_fused_query_count = 0;
     size_t medium_group_fused_group_count = 0;
     size_t medium_group_fused_query_count = 0;
+    size_t large_group_fused_group_count = 0;
+    size_t large_group_fused_query_count = 0;
     size_t heavy_sgemm_group_count = 0;
     size_t heavy_sgemm_query_count = 0;
-    std::vector<uint8_t> bucket_group_kind(target_group_ids.size(), (uint8_t)0); // 0=none,1=small,2=medium
+    std::vector<uint8_t> bucket_group_kind(target_group_ids.size(), (uint8_t)0); // 0=none,1=small,2=medium,3=tf32 tile
     std::vector<UngGroupQueryDesc> small_group_descs;
     std::vector<UngGroupQueryDesc> medium_group_descs;
+    std::vector<UngGroupTileDesc> tf32_tile_descs;
 
     // qnorm 与 topk 初始化都只和 query 有关，提前全量做一次，避免每个 group 启动一次 kernel
     {
@@ -1620,6 +2086,13 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
             if (nx <= 0) continue;
             if (singleton_fastpath && nx == 1) continue;
 
+            const bool tf32_tile_route =
+                large_group_fused &&
+                large_group_fused_mode == 2 &&
+                topk <= 16 &&
+                nx >= large_group_min_nx &&
+                nx <= large_group_max_nx;
+
             bool heavy_route = false;
             if (naive_heavy_sgemm) {
                 const unsigned long long work = (unsigned long long)nq_g * (unsigned long long)nx * (unsigned long long)dim;
@@ -1627,9 +2100,15 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
                                nq_g >= naive_heavy_nq &&
                                work >= (unsigned long long)naive_heavy_work_thresh);
             }
-            if (heavy_route) continue;
+            if (tf32_tile_route) {
+                bucket_group_kind[gi] = (uint8_t)3;
+            } else if (heavy_route) {
+                continue;
+            }
 
-            if (small_group_fused && nx <= small_group_max_nx) {
+            if (bucket_group_kind[gi] == 3) {
+                // Batched TF32 path builds tile descriptors below.
+            } else if (small_group_fused && nx <= small_group_max_nx) {
                 bucket_group_kind[gi] = (uint8_t)1;
                 small_desc_offsets[gi + 1] = (size_t)nq_g;
             } else if (medium_group_fused && nx > small_group_max_nx && nx <= medium_group_max_nx) {
@@ -1642,12 +2121,20 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
         for (size_t i = 1; i < medium_desc_offsets.size(); ++i) medium_desc_offsets[i] += medium_desc_offsets[i - 1];
         small_group_descs.resize(small_desc_offsets.back());
         medium_group_descs.resize(medium_desc_offsets.back());
+        size_t tf32_tile_count = 0;
+        for (size_t gi = 0; gi < target_group_ids.size(); ++gi) {
+            if (bucket_group_kind[gi] == 3) {
+                tf32_tile_count += ((size_t)target_counts[gi] + 15u) / 16u;
+            }
+        }
+        tf32_tile_descs.reserve(tf32_tile_count);
 
         #pragma omp parallel for schedule(static, 256)
         for (int gi_i = 0; gi_i < (int)target_group_ids.size(); ++gi_i) {
             size_t gi = (size_t)gi_i;
             const uint8_t kind = bucket_group_kind[gi];
             if (kind == 0) continue;
+            if (kind == 3) continue;
 
             const size_t q_start = target_offsets[gi];
             const uint32_t x_off = (uint32_t)_group_id_to_range[target_group_ids[gi]].first;
@@ -1672,6 +2159,22 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
                     desc.nx = nx;
                     medium_group_descs[base + (size_t)q_local] = desc;
                 }
+            }
+        }
+
+        for (size_t gi = 0; gi < target_group_ids.size(); ++gi) {
+            if (bucket_group_kind[gi] != 3) continue;
+            const size_t q_start = target_offsets[gi];
+            const uint32_t x_off = (uint32_t)_group_id_to_range[target_group_ids[gi]].first;
+            const uint32_t nx = (uint32_t)target_group_nx[gi];
+            const int nq_g = (int)target_counts[gi];
+            for (int q_local = 0; q_local < nq_g; q_local += 16) {
+                UngGroupTileDesc desc;
+                desc.q_start = (uint32_t)(q_start + (size_t)q_local);
+                desc.q_count = (uint32_t)std::min(16, nq_g - q_local);
+                desc.x_off = x_off;
+                desc.nx = nx;
+                tf32_tile_descs.push_back(desc);
             }
         }
     }
@@ -1701,7 +2204,18 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
         bool group_use_sgemm = use_sgemm_strided;
         bool group_use_naive = use_naive_cuda;
         bool group_use_lt = use_cublas_lt;
-        if (use_naive_cuda && naive_heavy_sgemm) {
+
+        // dQ 指向本组 Q 子矩阵：[nq_g, dim]
+        const float* dQ = g_d_Q + (size_t)q_start * dim;
+
+        // dX 指向目标组 X：[nx, dim]
+        const float* dX = g_d_all_X + (size_t)x_off * dim;
+        const float* dXnorm_group = (g_d_all_norm ? (g_d_all_norm + (size_t)x_off) : nullptr);
+        const bool use_large_group_fused_for_group =
+            large_group_fused && topk <= 32 && dXnorm_group != nullptr &&
+            nx >= large_group_min_nx && nx <= large_group_max_nx;
+
+        if (use_naive_cuda && naive_heavy_sgemm && !use_large_group_fused_for_group) {
             const unsigned long long work = (unsigned long long)nq_g * (unsigned long long)nx * (unsigned long long)dim;
             if (nx >= naive_heavy_nx &&
                 nq_g >= naive_heavy_nq &&
@@ -1714,13 +2228,6 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
             }
         }
 
-        // dQ 指向本组 Q 子矩阵：[nq_g, dim]
-        const float* dQ = g_d_Q + (size_t)q_start * dim;
-
-        // dX 指向目标组 X：[nx, dim]
-        const float* dX = g_d_all_X + (size_t)x_off * dim;
-        const float* dXnorm_group = (g_d_all_norm ? (g_d_all_norm + (size_t)x_off) : nullptr);
-
         // 本组 topK 输出在全局输出数组中的位置（也是一个连续子区间）
         int*   dBestI = g_d_idx + (size_t)q_start * topk;
         float* dBestD = g_d_dis + (size_t)q_start * topk;
@@ -1728,6 +2235,70 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
         // 1) 目标组 X 的 norm^2（写到 g_d_x_norm[0..nx-1]）
         // [改动点] 这里不再对每个 group 重算 xnorm，而是直接使用全量缓存 g_d_all_norm 的对应切片
         // 原来的 per-group xnorm kernel 被移除，避免 11 万组重复 kernel 启动开销
+
+        if (bucket_group_fused && bucket_group_kind[gi] == 3) {
+            large_group_fused_group_count += 1;
+            large_group_fused_query_count += (size_t)nq_g;
+            continue;
+        }
+
+        if (use_large_group_fused_for_group) {
+            int launch_warps = large_group_warps;
+            if (launch_warps < 1) launch_warps = 1;
+            if (launch_warps > 16) launch_warps = 16;
+            dim3 lg_block((unsigned)(launch_warps * 32), 1u, 1u);
+            if (large_group_fused_mode == 2 && topk <= 16) {
+                dim3 lg_grid((unsigned)((nq_g + launch_warps * 16 - 1) / (launch_warps * 16)), 1u, 1u);
+                size_t lg_smem = (size_t)launch_warps * ((size_t)16 * 8 + (size_t)8 * 16 + (size_t)16 * 16) * sizeof(float);
+                ung_large_group_tf32_wmma_topk_global_kernel<<<lg_grid, lg_block, lg_smem>>>(
+                    dQ,
+                    g_d_q_norm + q_start,
+                    dX,
+                    dXnorm_group,
+                    nq_g,
+                    nx,
+                    dim,
+                    topk,
+                    dBestI,
+                    dBestD);
+            } else if (large_group_fused_mode == 1) {
+                dim3 lg_grid((unsigned)((nq_g + launch_warps - 1) / launch_warps), 1u, 1u);
+                ung_large_group_warp_query_topk_global_kernel<<<lg_grid, lg_block, 0>>>(
+                    dQ,
+                    g_d_q_norm + q_start,
+                    dX,
+                    dXnorm_group,
+                    nq_g,
+                    nx,
+                    dim,
+                    topk,
+                    dBestI,
+                    dBestD);
+            } else {
+                dim3 lg_grid((unsigned)nq_g, 1u, 1u);
+                size_t lg_smem = (size_t)launch_warps * (size_t)topk * (sizeof(float) + sizeof(int));
+                ung_large_group_warp_fused_topk_global_kernel<<<lg_grid, lg_block, lg_smem>>>(
+                    dQ,
+                    g_d_q_norm + q_start,
+                    dX,
+                    dXnorm_group,
+                    nq_g,
+                    nx,
+                    dim,
+                    topk,
+                    dBestI,
+                    dBestD);
+            }
+            cudaError_t large_fused_err = cudaGetLastError();
+            if (large_fused_err != cudaSuccess) {
+                prof_logf("[ERROR] large_group_fused launch failed: %s (nq=%d nx=%d dim=%d topk=%d warps=%d mode=%d)",
+                          cudaGetErrorString(large_fused_err), nq_g, nx, dim, topk, launch_warps, large_group_fused_mode);
+                throw std::runtime_error("large_group_fused launch failed.");
+            }
+            large_group_fused_group_count += 1;
+            large_group_fused_query_count += (size_t)nq_g;
+            continue;
+        }
 
         if (group_use_naive && naive_group_fused && topk <= 32 && nx <= 1024) {
             size_t fused_smem = (size_t)dim * sizeof(float)
@@ -2205,6 +2776,36 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
     }
 
     if (bucket_group_fused && g_d_all_norm != nullptr) {
+        if (!tf32_tile_descs.empty()) {
+            ensure_device_group_tile_desc_buffer(tf32_tile_descs.size());
+            cudaMemcpy(g_d_group_tile_desc,
+                       tf32_tile_descs.data(),
+                       tf32_tile_descs.size() * sizeof(UngGroupTileDesc),
+                       cudaMemcpyHostToDevice);
+            int launch_warps = large_group_warps;
+            if (launch_warps < 1) launch_warps = 1;
+            if (launch_warps > 16) launch_warps = 16;
+            dim3 tg_grid((unsigned)((tf32_tile_descs.size() + (size_t)launch_warps - 1) / (size_t)launch_warps), 1u, 1u);
+            dim3 tg_block((unsigned)(launch_warps * 32), 1u, 1u);
+            size_t tg_smem = (size_t)launch_warps * ((size_t)16 * 8 + (size_t)8 * 16 + (size_t)16 * 16) * sizeof(float);
+            ung_group_tile_tf32_wmma_topk_global_kernel<<<tg_grid, tg_block, tg_smem>>>(
+                g_d_group_tile_desc,
+                (int)tf32_tile_descs.size(),
+                g_d_Q,
+                g_d_q_norm,
+                g_d_all_X,
+                g_d_all_norm,
+                dim,
+                topk,
+                g_d_idx,
+                g_d_dis);
+            cudaError_t tf32_batch_err = cudaGetLastError();
+            if (tf32_batch_err != cudaSuccess) {
+                prof_logf("[ERROR] tf32_tile_fused launch failed: %s (tiles=%zu dim=%d topk=%d warps=%d)",
+                          cudaGetErrorString(tf32_batch_err), tf32_tile_descs.size(), dim, topk, launch_warps);
+                throw std::runtime_error("tf32_tile_fused launch failed.");
+            }
+        }
         if (!small_group_descs.empty()) {
             ensure_device_group_desc_buffer(small_group_descs.size());
             cudaMemcpy(g_d_group_desc,
@@ -2325,8 +2926,11 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_all_batched(
               small_group_fused_group_count, small_group_fused_query_count, small_group_max_nx);
     prof_logf("[PROF] cross_edges.medium_group_fused groups=%zu queries=%zu max_nx=%d",
               medium_group_fused_group_count, medium_group_fused_query_count, medium_group_max_nx);
-    prof_logf("[PROF] cross_edges.bucket_group_fused enabled=%d small_desc=%zu medium_desc=%zu",
-              bucket_group_fused ? 1 : 0, small_group_descs.size(), medium_group_descs.size());
+    prof_logf("[PROF] cross_edges.large_group_fused groups=%zu queries=%zu min_nx=%d max_nx=%d warps=%d",
+              large_group_fused_group_count, large_group_fused_query_count,
+              large_group_min_nx, large_group_max_nx, large_group_warps);
+    prof_logf("[PROF] cross_edges.bucket_group_fused enabled=%d small_desc=%zu medium_desc=%zu tf32_tile_desc=%zu",
+              bucket_group_fused ? 1 : 0, small_group_descs.size(), medium_group_descs.size(), tf32_tile_descs.size());
     prof_logf("[PROF] cross_edges.heavy_sgemm groups=%zu queries=%zu",
               heavy_sgemm_group_count, heavy_sgemm_query_count);
     prof_logf("[PROF] cross_edges.cpu_tiny groups=%zu queries=%zu ms=%.3f enabled=%d nx_max=%d nq_max=%d ops_thresh=%lld",

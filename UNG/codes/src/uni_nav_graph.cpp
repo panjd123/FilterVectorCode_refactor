@@ -29,6 +29,7 @@
 #include "utils.h"
 #include "vamana/vamana.h"
 #include "include/uni_nav_graph.h"
+#include "fixed_pool_graph.h"
 #include <roaring/roaring.h>
 #include <roaring/roaring.hh>
 
@@ -707,8 +708,8 @@ namespace ANNS
       omp_set_num_threads(_num_threads);
       auto start_time = std::chrono::high_resolution_clock::now();
 
-      // build vamana index
-      if (_index_name == "Vamana")
+      // build group-level proximity graphs
+      if (_index_name == "Vamana" || _index_name == "FixedPoolGPU")
       {
          _vamana_instances.resize(_num_groups + 1);
          _group_entry_points.resize(_num_groups + 1);
@@ -729,11 +730,21 @@ namespace ANNS
 
                // build the vamana graph
             }
-            else
+            else if (_index_name == "Vamana")
             {
                _vamana_instances[group_id] = std::make_shared<Vamana>(false);
                _vamana_instances[group_id]->build(_group_storages[group_id], _distance_handler,
                                                   _group_graphs[group_id], _max_degree, _Lbuild, _alpha, 1);
+            }
+            else
+            {
+               const uint32_t fixed_pool_iters = 4;
+               const uint64_t fixed_pool_seed = 0x9e3779b97f4a7c15ULL + static_cast<uint64_t>(group_id);
+               build_fixed_pool_graph_gpu(_group_storages[group_id], _distance_handler,
+                                          _group_graphs[group_id], _max_degree, _Lbuild,
+                                          _alpha, fixed_pool_iters, fixed_pool_seed);
+               _vamana_instances[group_id] = std::make_shared<Vamana>(_group_storages[group_id], _distance_handler,
+                                                                      _group_graphs[group_id], 0);
             }
 
             // set entry point
@@ -2466,7 +2477,7 @@ namespace ANNS
 
    {
       ScopedTimerMs t("cross_edges.generate_ms", &gen_ms);
-      if (_index_name != "Vamana")
+      if (_index_name != "Vamana" && _index_name != "FixedPoolGPU")
       {
          std::cerr << "Error: invalid index name " << _index_name << std::endl;
          exit(-1);

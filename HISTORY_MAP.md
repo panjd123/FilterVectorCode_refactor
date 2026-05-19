@@ -18,6 +18,10 @@
 ## Optimization Docs
 - Step-by-step optimization and performance ledger:
   - `OPTIMIZATION_STEP_BY_STEP.md`
+- 中文深度交接文档（端到端流程 + 代码职责 + 当前实现 + 优化潜力）:
+  - `REFACTOR_DEEP_DIVE_CN.md`
+- 优化来源追踪（中文）:
+  - `OPTIMIZATION_PROVENANCE.md`
 - Testing and benchmark reproduction guide:
   - `TESTING_GUIDE.md`
 - Direct test runner script:
