@@ -19,9 +19,9 @@ RUNBOOK_OPTIMIZED_FEATURES_CN.md
 
 这一节是目前做过的关键实验台账，避免只保留泛泛结论。更详细的运行命令见 `RUNBOOK_OPTIMIZED_FEATURES_CN.md`。
 
-### 0.1 最初 refactor 基线版本：各阶段耗时
+### 0.1 CPU 原始版本基线：各阶段耗时
 
-这组数据是最初可运行 refactor 基线的一次完整构建结果，用来回答“最开始每个部分到底耗时多少”。它不是 SIFT30 实验，而是早期优化主线使用的 CelebA 基线，因此只能和同数据集的历史优化结果比较，不能直接和后面的 SIFT30 GPU cross-edge 数字横向比较。
+这组数据来自旧 CPU 原始版本重新运行得到的完整构建结果，用来回答“最原始 CPU 版本每个部分到底耗时多少”。它不是 refactor 初始版本，也不是 SIFT30 实验，而是旧仓库 CPU 路径在 CelebA 上的基线。因此它适合用来解释早期 CPU 优化为什么优先针对 LNG / coverage / cross-edge，不能直接和后面的 SIFT30 GPU cross-edge 数字横向比较。
 
 数据集与规模：
 
@@ -38,40 +38,40 @@ RUNBOOK_OPTIMIZED_FEATURES_CN.md
 结果文件：
 
 ```text
-/home/graphdb/FilterVectorResultsRefactor/baseline_head_20260303_002418/results/build_time.csv
-/home/graphdb/FilterVectorResultsRefactor/baseline_head_20260303_002418/others/ung_build.log
+/home/graphdb/FilterVectorCode_old_rerun_results/celeba_c2_20260519_111420/results/build_time.csv
+/home/graphdb/FilterVectorCode_old_rerun_results/celeba_c2_20260519_111420/others/ung_build.log
 ```
 
 完整阶段耗时：
 
 | 阶段 | `build_time.csv` 字段 | 耗时 |
 | --- | --- | ---: |
-| 总构建 | `index_time` | `49982.7 ms` |
-| 标签处理、分组、trie 准备 | `label_processing_time` | `559.27 ms` |
-| 组内 PG 构建 | `build_graph_time` | `216.269 ms` |
-| vector-attribute bipartite graph | `build_vector_attr_graph_time` | `108.823 ms` |
-| LNG 构建 | `build_LNG_time` | `32407.3 ms` |
-| descendants 计算 | `cal_descendants_time` | `1114.85 ms` |
-| coverage ratio 计算 | `cal_coverage_ratio_time` | `4499.17 ms` |
-| cross-group edges | `build_cross_edges_time` | `1566.44 ms` |
+| 总构建 | `index_time` | `85028.9 ms` |
+| 标签处理、分组、trie 准备 | `label_processing_time` | `557.93 ms` |
+| 组内 PG 构建 | `build_graph_time` | `169.522 ms` |
+| vector-attribute bipartite graph | `build_vector_attr_graph_time` | `105.21 ms` |
+| LNG 构建 | `build_LNG_time` | `28241.5 ms` |
+| descendants 计算 | `cal_descendants_time` | `3273.92 ms` |
+| coverage ratio 计算 | `cal_coverage_ratio_time` | `11075.4 ms` |
+| cross-group edges | `build_cross_edges_time` | `30139 ms` |
 
 占总 `index_time` 的比例：
 
 | 阶段 | 占比 |
 | --- | ---: |
-| `build_LNG_time` | `64.8%` |
-| `cal_coverage_ratio_time` | `9.0%` |
-| `build_cross_edges_time` | `3.1%` |
-| `cal_descendants_time` | `2.2%` |
-| `label_processing_time` | `1.1%` |
-| `build_graph_time` | `0.4%` |
-| `build_vector_attr_graph_time` | `0.2%` |
+| `build_cross_edges_time` | `35.4%` |
+| `build_LNG_time` | `33.2%` |
+| `cal_coverage_ratio_time` | `13.0%` |
+| `cal_descendants_time` | `3.9%` |
+| `label_processing_time` | `0.7%` |
+| `build_graph_time` | `0.2%` |
+| `build_vector_attr_graph_time` | `0.1%` |
 
 解释：
 
 ```text
-最初 refactor/CelebA 基线里，最大瓶颈不是 GPU cross-edge，而是 LNG 构建。
-这也是为什么早期大量工作集中在 trie、LNG Phase1、descendants 和 coverage 数据结构上。
+CPU 原始版本/CelebA 基线里，最大两块是 cross-group edges 和 LNG 构建。
+coverage 和 descendants 也明显占时间，因此早期 CPU 优化重点放在 LNG Phase1、descendants/coverage 数据结构和 cross-edge 上。
 build_time.csv 里的 cross_edge_step1_time 等子字段是未初始化垃圾值，不能使用；只看 build_cross_edges_time。
 ```
 
