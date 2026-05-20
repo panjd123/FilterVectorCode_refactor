@@ -19,7 +19,63 @@ RUNBOOK_OPTIMIZED_FEATURES_CN.md
 
 这一节是目前做过的关键实验台账，避免只保留泛泛结论。更详细的运行命令见 `RUNBOOK_OPTIMIZED_FEATURES_CN.md`。
 
-### 0.1 稳定主线：SIFT30 CPU/GPU cross-edge A/B
+### 0.1 最初 refactor 基线版本：各阶段耗时
+
+这组数据是最初可运行 refactor 基线的一次完整构建结果，用来回答“最开始每个部分到底耗时多少”。它不是 SIFT30 实验，而是早期优化主线使用的 CelebA 基线，因此只能和同数据集的历史优化结果比较，不能直接和后面的 SIFT30 GPU cross-edge 数字横向比较。
+
+数据集与规模：
+
+| 项 | 数值 |
+| --- | ---: |
+| 数据集 | `celeba` |
+| base vectors | `202599` |
+| 维度 | `512` |
+| labels | `40` |
+| groups | `115114` |
+| vector-attribute edges | `1830201` |
+| average descendants/group | `275.4` |
+
+结果文件：
+
+```text
+/home/graphdb/FilterVectorResultsRefactor/baseline_head_20260303_002418/results/build_time.csv
+/home/graphdb/FilterVectorResultsRefactor/baseline_head_20260303_002418/others/ung_build.log
+```
+
+完整阶段耗时：
+
+| 阶段 | `build_time.csv` 字段 | 耗时 |
+| --- | --- | ---: |
+| 总构建 | `index_time` | `49982.7 ms` |
+| 标签处理、分组、trie 准备 | `label_processing_time` | `559.27 ms` |
+| 组内 PG 构建 | `build_graph_time` | `216.269 ms` |
+| vector-attribute bipartite graph | `build_vector_attr_graph_time` | `108.823 ms` |
+| LNG 构建 | `build_LNG_time` | `32407.3 ms` |
+| descendants 计算 | `cal_descendants_time` | `1114.85 ms` |
+| coverage ratio 计算 | `cal_coverage_ratio_time` | `4499.17 ms` |
+| cross-group edges | `build_cross_edges_time` | `1566.44 ms` |
+
+占总 `index_time` 的比例：
+
+| 阶段 | 占比 |
+| --- | ---: |
+| `build_LNG_time` | `64.8%` |
+| `cal_coverage_ratio_time` | `9.0%` |
+| `build_cross_edges_time` | `3.1%` |
+| `cal_descendants_time` | `2.2%` |
+| `label_processing_time` | `1.1%` |
+| `build_graph_time` | `0.4%` |
+| `build_vector_attr_graph_time` | `0.2%` |
+
+解释：
+
+```text
+最初 refactor/CelebA 基线里，最大瓶颈不是 GPU cross-edge，而是 LNG 构建。
+这也是为什么早期大量工作集中在 trie、LNG Phase1、descendants 和 coverage 数据结构上。
+build_time.csv 里的 cross_edge_step1_time 等子字段是未初始化垃圾值，不能使用；只看 build_cross_edges_time。
+```
+
+### 0.2 稳定主线：SIFT30 CPU/GPU cross-edge A/B
 
 数据集：`sift30_zipf_origstyle`
 
@@ -43,7 +99,7 @@ GPU: /home/graphdb/FilterVectorResultsRefactor/sift30_gpu_default_heavy_sgemm_20
 端到端加速没有 cross-edge 加速高，因为 group 内 PG / LNG / I/O 等阶段仍占时间。
 ```
 
-### 0.2 历史稳定优化：descendants / coverage
+### 0.3 历史稳定优化：descendants / coverage
 
 来源：`OPTIMIZATION_STEP_BY_STEP.md`
 
@@ -59,7 +115,7 @@ GPU: /home/graphdb/FilterVectorResultsRefactor/sift30_gpu_default_heavy_sgemm_20
 这是 CPU 侧最明确的一轮优化，收益来自把 hash set 式 descendants/coverage 构造换成连续 vector + 批量 Roaring 写入。
 ```
 
-### 0.3 Trie / LNG Phase1 优化
+### 0.4 Trie / LNG Phase1 优化
 
 来源：历史 A/B 记录。
 
@@ -75,7 +131,7 @@ GPU: /home/graphdb/FilterVectorResultsRefactor/sift30_gpu_default_heavy_sgemm_20
 之前 exact BFS 快路径会把 LNG edges 从 946138 降到 20007，判定为错误路径。
 ```
 
-### 0.4 FixedPoolGPU：失败实验
+### 0.5 FixedPoolGPU：失败实验
 
 结果目录：
 
@@ -94,7 +150,7 @@ GPU: /home/graphdb/FilterVectorResultsRefactor/sift30_gpu_default_heavy_sgemm_20
 naive 固定邻居池 GPU builder 没有解决 per-group malloc/copy/launch 和访存问题，当前不应作为主线。
 ```
 
-### 0.5 Tagore GPU 建图：中大 group 实验
+### 0.6 Tagore GPU 建图：中大 group 实验
 
 结果目录：
 
@@ -137,7 +193,7 @@ Tagore 对中大 group 的 GPU 建图有潜力。
 但这个实验不是完整替代 CPU Vamana 的等价 A/B：只测了 nx>=1024，且图结构/剪枝语义不保证和 UNG CPU Vamana 完全一致。
 ```
 
-### 0.6 Tagore 图 + GPU ANN batch query
+### 0.7 Tagore 图 + GPU ANN batch query
 
 benchmark 源码：
 
@@ -174,7 +230,7 @@ ANN = 复用 Tagore 建好的 graph 后做 GPU graph search
 如果 build 时间必须计入单次请求，当前还不划算。
 ```
 
-### 0.7 数据分布实验
+### 0.8 数据分布实验
 
 已看过的代表性分布：
 
