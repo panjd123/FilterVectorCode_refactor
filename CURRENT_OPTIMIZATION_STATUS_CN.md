@@ -832,6 +832,73 @@ singleton group 仍然太多，p50=1
 如果目标是中等 group ANN，这个版本还不理想
 ```
 
+### 6.5 Amazon root 扇出数据集
+
+详细报告见：
+
+```text
+CROSS_GROUP_CELEBA_RESULTS_CN.md
+```
+
+结果与统计文件：
+
+```text
+/home/graphdb/FilterVectorResultsRefactor/amazon_m32_lb100_cpu/others/ung_build_cpu.log
+/home/graphdb/FilterVectorResultsRefactor/amazon_m32_lb100_cpu/analysis/amazon_nq_stats_by_nx_bin.csv
+/home/graphdb/FilterVectorResultsRefactor/amazon_m32_lb100_cpu/analysis/amazon_cross_edge_nq_nx_by_group.csv
+/home/graphdb/FilterVectorResultsRefactor/amazon_m32_lb100_cpu/analysis/amazon_depth_vector_share.csv
+/home/graphdb/FilterVectorResultsRefactor/amazon_m32_lb100_cpu/analysis/amazon_depth_outdegree_stats.csv
+```
+
+静态结构：
+
+```text
+groups = 482388
+LNG edges = 4022490
+roots = 1
+leaves = 377039
+root group = 44
+root nx = 20336
+root out_degree = 29341
+```
+
+逐层结构摘要：
+
+```text
+max depth = 153
+depth 0: vector_pct = 3.38%, avg_out_degree = 29341.00
+depth 2: avg_out_degree = 105.06
+depth 3: avg_out_degree = 84.82
+depth 4: avg_out_degree = 37.19, sum_out_degree = 1192397
+depth 7: vector_pct = 10.62%, avg_out_degree = 5.84
+depth >= 13: avg_out_degree 基本低于 1，逐渐进入叶子层
+```
+
+完整 CPU 构建：
+
+```text
+cross-edge CPU = 694401.1 ms
+Index time = 934407 ms
+wall time = 16:08.27
+peak RSS = 47610484 KB
+```
+
+按 `nx` 分桶的关键结论：
+
+| nx bin | group_count | group_pct | avg_nq | sum_nq_pct | work_pct |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `1` | `458017` | `94.95%` | `1326.78` | `98.27%` | `89.77%` |
+| `2-3` | `20411` | `4.23%` | `451.32` | `1.49%` | `2.86%` |
+| `512-1023` | `17` | `0.004%` | `1595.06` | `0.00%` | `3.55%` |
+
+结论：
+
+```text
+Amazon 的主耗时不是少量大 nx group，而是 root 大组扇出造成的海量 nx=1/tiny target group。
+root group 44 的 20336 个向量扇出到 29341 个目标组，导致 nq=20336 的目标组贡献 96.49% 的 sum(nq)。
+优化重点应优先处理“大源组 -> 大量 singleton/tiny 目标组”的批处理/合并。
+```
+
 ## 7. 当前主要挑战
 
 ### 7.1 数据集目标不一致
