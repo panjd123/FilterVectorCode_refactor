@@ -239,6 +239,8 @@ SIFT30 CPU/GPU A/B 的 `index_time` 拆解如下。这里的 `unaccounted residu
 
 结论：`8.9x` 是 `cross_edges` 单项加速，端到端 `index_time` 是 `2.72x`。GPU 版里瓶颈从 cross-edge 转移到 CPU group 内 PG (`build_graph`) 和 coverage。
 
+注意：这次 SIFT30 A/B 的日志显示 `coverage impl: legacy_topological_merge`，没有启用我们后续加入的 `descendants_direct` 路径。因此表里的 `coverage=5656.04 ms` 不能代表最快 coverage 优化结果；它说明的是在只切换 GPU cross-edge 的口径下，剩余 CPU 阶段仍会限制端到端加速。
+
 ### 2.2 descendants / coverage：哈希集合改连续布局
 
 结果：
@@ -254,9 +256,15 @@ SIFT30 CPU/GPU A/B 的 `index_time` 拆解如下。这里的 `unaccounted residu
 
 - `_lng_descendants` 与 `covered_sets` 从 `unordered_set` 改为连续 `vector` 布局。
 - descendants 构建直接写 BFS 发现序列，避免大量 hash insert。
-- coverage 的 descendants-direct 路径改为连续 append。
+- coverage 的 `descendants_direct` 路径是我们引入的优化路径，不是原始默认实现。它直接利用已计算好的 `_lng_descendants`，按 `self vectors + descendant groups vectors` 连续 append 构造 coverage。
 - legacy 路径保留 `sort + unique`，保证 DAG 合并语义。
 - Roaring 初始化改成并行 + `addMany` 批量写入。
+
+运行时开关：
+
+```bash
+export UNG_COVERAGE_IMPL=1   # 1=descendants_direct, 0/未设置=legacy_topological_merge
+```
 
 对应代码范围：
 
@@ -305,6 +313,8 @@ GPU: /home/graphdb/FilterVectorResultsRefactor/sift30_gpu_default_heavy_sgemm_20
 
 - 将跨组边精确 topK 的距离计算从 CPU 搬到 GPU。
 - group 批次化：按 target group 组织 `Q x X`，其中 `X` 是目标组内点，`Q` 是指向该 target group 的 in-neighbor groups 的点。
+- 语义上，LNG 中每条父子边 `parent_group -> child_group` 都会展开：父组里的点作为 query `q`，到子组的点集 `X` 中找 group-local topK，并加边 `q -> topK(X)`。
+- 这里不是所有孩子合并后取一个全局 topK，而是每个 child group 分别取 topK；如果 `nx < K`，最多只能连 `nx` 个点。
 - 预先 flatten/gather query，减少每组重复准备开销。
 - 对足够大的矩阵走 cuBLAS / cuBLASLt / SGEMM 路径。
 - 对小中 group 引入 fused kernel，减少中间 dot 矩阵写出和单独 topK kernel launch。
@@ -875,6 +885,8 @@ work(tgt) = nq(tgt) * nx(tgt)
 ```
 
 也就是说，`nq` 不是 query 文件里的查询数，而是这个目标组需要处理的跨组源向量数。
+
+LNG 是 label-set 包含关系上的 DAG，不是每个孩子只有一个父亲的树。一个孩子 group 可能有多个最小父超/子集来源，例如 `{A,B}` 可以同时由 `{A}` 和 `{B}` 指向。cross-edge 会对每条父子关系分别展开：父组点作为 `q`，孩子组点作为 `x`，每个孩子组单独取 topK。因此父组 label 条件更宽时，常见形态是 `nq > nx`；Amazon root 扇出就是 `nq` 很大的父组反复连向大量 `nx=1`/tiny child groups。
 
 总体分布：
 

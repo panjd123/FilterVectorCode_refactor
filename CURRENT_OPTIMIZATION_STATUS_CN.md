@@ -115,6 +115,8 @@ GPU: /home/graphdb/FilterVectorResultsRefactor/sift30_gpu_default_heavy_sgemm_20
 端到端加速没有 cross-edge 加速高，因为 group 内 PG / coverage / LNG 等阶段仍占时间。
 ```
 
+注意：这次 SIFT30 A/B 的 coverage 日志是 `coverage impl: legacy_topological_merge`，没有设置 `UNG_COVERAGE_IMPL=1`。因此 `coverage=5656.04 ms` 反映的是 legacy coverage 在该口径下的剩余开销，不代表我们后续加入的 `descendants_direct` 最快路径。
+
 ### 0.3 历史稳定优化：descendants / coverage
 
 来源：`OPTIMIZATION_STEP_BY_STEP.md`
@@ -129,6 +131,18 @@ GPU: /home/graphdb/FilterVectorResultsRefactor/sift30_gpu_default_heavy_sgemm_20
 
 ```text
 这是 CPU 侧最明确的一轮优化，收益来自把 hash set 式 descendants/coverage 构造换成连续 vector + 批量 Roaring 写入。
+```
+
+其中 `descendants_direct` 是我们引入的 coverage 优化路径，不是原始默认实现。它直接使用已经算好的 `_lng_descendants` 拼出 coverage：
+
+```text
+coverage(group) = group 自身 vectors + 所有 descendant groups 的 vectors
+```
+
+运行时需要显式打开：
+
+```bash
+export UNG_COVERAGE_IMPL=1
 ```
 
 ### 0.4 Trie / LNG Phase1 优化
@@ -386,6 +400,8 @@ Q: 来自 in-neighbor groups 的点，数量 nq
 X: target group 内点，数量 nx
 计算每个 q 在 X 中的 topK
 ```
+
+这里的 LNG 是 label-set 包含关系 DAG，不是严格树。一个 child group 可以有多个 parent groups。cross-edge 会对每条 `parent_group -> child_group` 分别展开：父组点作为 query `q`，孩子组点作为候选 `x`，在每个孩子组内单独取 topK 并加边 `q -> topK(X)`。它不是把所有孩子合并后取一个全局 topK。
 
 当前主要实现位于：
 
