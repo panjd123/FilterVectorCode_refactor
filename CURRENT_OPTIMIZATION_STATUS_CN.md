@@ -92,11 +92,27 @@ CPU: /home/graphdb/FilterVectorResultsRefactor/sift30_zipf_origstyle_current_cpu
 GPU: /home/graphdb/FilterVectorResultsRefactor/sift30_gpu_default_heavy_sgemm_20260519_135430/results/build_time.csv
 ```
 
+`index_time` 阶段拆解：
+
+| 阶段 | CPU baseline ms | CPU 占比 | GPU cross-edge ms | GPU 占比 |
+| --- | ---: | ---: | ---: | ---: |
+| `label_processing` | `626.10` | `0.98%` | `616.57` | `2.62%` |
+| `build_graph` | `11,322.50` | `17.66%` | `10,001.60` | `42.46%` |
+| `build_vector_attr_graph` | `232.53` | `0.36%` | `193.91` | `0.82%` |
+| `build_LNG` | `1,732.00` | `2.70%` | `1,716.85` | `7.29%` |
+| `descendants` | `41.74` | `0.07%` | `84.38` | `0.36%` |
+| `coverage` | `5,259.98` | `8.21%` | `5,656.04` | `24.01%` |
+| `cross_edges` | `44,560.00` | `69.51%` | `5,002.32` | `21.24%` |
+| `unaccounted residual` | `329.75` | `0.51%` | `283.43` | `1.20%` |
+| `index_time` | `64,104.60` | `100%` | `23,555.10` | `100%` |
+
+说明：`unaccounted residual = index_time - build_time.csv 已显式记录阶段之和`。它不是写盘时间，也不是单独算法阶段，而是 `index.build(...)` 内未插桩的 glue code、容器初始化/收尾和阶段间调度开销。`save()` 写盘在 `Index time` 打印之后单独发生，不计入 `index_time`。
+
 结论：
 
 ```text
 当前最稳定、最可信的加速来自 cross-edge 精确 topK 的 GPU 化。
-端到端加速没有 cross-edge 加速高，因为 group 内 PG / LNG / I/O 等阶段仍占时间。
+端到端加速没有 cross-edge 加速高，因为 group 内 PG / coverage / LNG 等阶段仍占时间。
 ```
 
 ### 0.3 历史稳定优化：descendants / coverage
@@ -415,6 +431,26 @@ CPU index_time: 64104.6 ms
 GPU index_time: 23555.1 ms
 端到端约 2.7x
 ```
+
+阶段拆解：
+
+| 阶段 | CPU ms | GPU ms | 说明 |
+| --- | ---: | ---: | --- |
+| `build_graph` | `11322.50` | `10001.60` | 仍是 CPU group 内 PG/Vamana |
+| `coverage` | `5259.98` | `5656.04` | 未被 cross-edge GPU 化覆盖 |
+| `build_LNG` | `1732.00` | `1716.85` | 基本同量级 |
+| `cross_edges` | `44560.00` | `5002.32` | 主要加速来源，`8.91x` |
+| `unaccounted residual` | `329.75` | `283.43` | `index_time` 减去显式阶段合计 |
+| `index_time` | `64104.60` | `23555.10` | 端到端 `2.72x` |
+
+GPU cross-edge 内部日志：
+
+```text
+[GPU GEMM] H2D(ms)=67.9  Kernel(ms)=2294.8  D2H(ms)=46.4
+build_cross_edges_time = 5002.32 ms
+```
+
+解释：GPU 显式 kernel/H2D/D2H 约 `2409.1 ms`，cross-edge 总时间还有约 `2593.2 ms` 是 host 侧准备、分组调度、结果回写、additional edges、add offset 和 merge 等 CPU 侧开销。
 
 生效条件：
 
@@ -878,10 +914,14 @@ depth >= 13: avg_out_degree 基本低于 1，逐渐进入叶子层
 
 ```text
 cross-edge CPU = 694401.1 ms
+explicit measured build stages = 934031.3 ms
+unaccounted residual = 375.7 ms
 Index time = 934407 ms
 wall time = 16:08.27
 peak RSS = 47610484 KB
 ```
+
+说明：Amazon 的 `load data = 3021 ms` 发生在 `Index time` 计时之前，不计入 `index_time`；`Index saved in 29564.6 ms` 发生在 `Index time` 打印之后，也不计入 `index_time`。这里的 residual 只表示 `index.build(...)` 内未单独插桩的少量 glue code 和阶段间开销。
 
 按 `nx` 分桶的关键结论：
 

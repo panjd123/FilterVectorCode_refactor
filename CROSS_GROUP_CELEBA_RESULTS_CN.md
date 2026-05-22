@@ -223,6 +223,22 @@ cross_edge_time ≈ a * active_target_groups + b * active_queries
 
 > 说明：前三项可用于解释 CelebA CPU 路径的优化逻辑；第四项是当前最稳定的 GPU cross-edge 证据，但数据集是 `sift30_zipf_origstyle`，不能和 CelebA 原始 CPU 基线直接横向相除。
 
+SIFT30 CPU/GPU A/B 的 `index_time` 拆解如下。这里的 `unaccounted residual` 是 `index_time` 减去 `build_time.csv` 已显式记录阶段之和，不包含 `index.save(...)` 写盘。
+
+| 阶段 | CPU baseline ms | CPU 占比 | GPU cross-edge ms | GPU 占比 |
+| --- | ---: | ---: | ---: | ---: |
+| `label_processing` | `626.10` | `0.98%` | `616.57` | `2.62%` |
+| `build_graph` | `11,322.50` | `17.66%` | `10,001.60` | `42.46%` |
+| `build_vector_attr_graph` | `232.53` | `0.36%` | `193.91` | `0.82%` |
+| `build_LNG` | `1,732.00` | `2.70%` | `1,716.85` | `7.29%` |
+| `descendants` | `41.74` | `0.07%` | `84.38` | `0.36%` |
+| `coverage` | `5,259.98` | `8.21%` | `5,656.04` | `24.01%` |
+| `cross_edges` | `44,560.00` | `69.51%` | `5,002.32` | `21.24%` |
+| `unaccounted residual` | `329.75` | `0.51%` | `283.43` | `1.20%` |
+| `index_time` | `64,104.60` | `100%` | `23,555.10` | `100%` |
+
+结论：`8.9x` 是 `cross_edges` 单项加速，端到端 `index_time` 是 `2.72x`。GPU 版里瓶颈从 cross-edge 转移到 CPU group 内 PG (`build_graph`) 和 coverage。
+
 ### 2.2 descendants / coverage：哈希集合改连续布局
 
 结果：
@@ -690,9 +706,13 @@ scripts/benchmarks/run_ung_cross_edge_ab.sh fused
 | descendants | `37.0 ms` |
 | coverage | `206.889 s` |
 | cross-edge CPU | `694.401 s` |
+| explicit measured build stages | `934.031 s` |
+| unaccounted residual | `0.376 s` |
 | Index time | `934.407 s` |
 | `/usr/bin/time` wall time | `16:08.27` |
 | peak RSS | `47,610,484 KB` |
+
+说明：`load data` 发生在 `Index time` 计时之前；`index.save(...)` 写盘发生在 `Index time` 打印之后。Amazon 这次 `Index saved in 29.565 s`，不计入 `Index time`。`unaccounted residual` 只表示 `index.build(...)` 内部未单独插桩的少量 glue code 和阶段间开销。
 
 与旧日志相比：
 
