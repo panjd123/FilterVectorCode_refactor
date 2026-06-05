@@ -113,7 +113,6 @@ namespace ANNS
       search_queue.clear();
       visited_set.clear();
       expanded_list.clear();
-      std::vector<IdxType> neighbors;
 
       // entry point
       search_queue.insert(_entry_point, _distance_handler->compute(query, _base_storage->get_vector(_entry_point), dim));
@@ -127,11 +126,8 @@ namespace ANNS
             expanded_list.push_back(cur);
 
          // iterate neighbors
-         {
-            std::lock_guard<std::mutex> lock(_graph->neighbor_locks[cur.id]);
-            neighbors = _graph->neighbors[cur.id];
-         }
-         for (auto i = 0; i < neighbors.size(); ++i)
+         const auto &neighbors = _graph->neighbors[cur.id];
+         for (size_t i = 0; i < neighbors.size(); ++i)
          {
 
             // prefetch

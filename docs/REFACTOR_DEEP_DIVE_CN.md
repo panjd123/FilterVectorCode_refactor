@@ -19,6 +19,17 @@
 
 - LNG 构建及派生统计（descendants / coverage）
 - 跨组边构建（cross-group edges）中的 GPU 路径
+- 组内图构建（group graph）的 workload-aware GPU/CPU router
+- GPU 结果回填到 CPU-compatible graph 的 output boundary
+
+当前最新主线快照：
+
+| 模块 | 当前实现定位 | 关键证据 / 边界 |
+|---|---|---|
+| cross-edge | `UNG_UNIVERSAL_GPU=1` universal flat double-buffer：target-centric descriptor batching + double-buffer + GPU global merge + flat-id output | SIFT30 skip-additional cross `3180.63 ms`；Amazon 1% x200 full-quality cross `2494.21 ms`、L1000/L5000 `0.871/0.911`；Amazon 1% x100 是 boundary result，不能写成无条件端到端加速 |
+| source-centric | no-lock 遍历方向保留为 future direction | 修复 id-only null-distance 写入和 stream error check 后，SIFT30 source CUDA-core cross `5926.67 ms`，慢于 universal；后续应做 two-stage source grouped GEMM + reduce |
+| group graph | `UNG_GROUP_GRAPH_IMPL=4` adaptive route / `3` FastGrnndCuda：小组 CPU/bounded fallback，中组 packed exact-anchor，大组 FastGrnndCuda/reverse-tail | packed exact-anchor x200 group `3827.28 ms`、L1000/L5000 `0.869/0.908`；x400 reverse-tail+repair 是质量增强 Pareto 点；不能写成 CPU Vamana 的无损普遍替代 |
+| output boundary | `NeighborList64`、reserve、direct-H2D 等已降低 host allocator/pack/fill 成本 | 仍保留 CPU-compatible `Graph::neighbors` / `SearchQueue` / Vamana 语义；flat adjacency/CSR/GraphView 还未完成 |
 
 ---
 
@@ -88,7 +99,9 @@
 | 标签索引 | `UNG/codes/include/trie.h`, `UNG/codes/src/trie.cpp` | 插入标签集、查超集入口 | 标签集 | 候选 group 终止节点 |
 | LNG容器 | `UNG/codes/include/label_nav_graph.h` | 存 LNG 结构与派生量 | group 总数 | out/in/desc/coverage |
 | UNG主逻辑 | `UNG/codes/include/uni_nav_graph.h`, `UNG/codes/src/uni_nav_graph.cpp` | 构建、保存、加载、搜索 | base storage + 参数 | 完整索引 |
-| GPU跨组边 | `UNG/codes/src/gpu_gemm_topk.cu` | 跨组 brute-force topk GPU 实现 | group 批次 + base vectors | cross_group_neighbors |
+| GPU跨组边 | `UNG/codes/src/gpu_gemm_topk.cu` | 跨组 brute-force topk GPU 实现；包含 direct-qid、double-buffer、universal flat-id、source-centric 实验路径 | group 批次 + resident base vectors + qid descriptors | cross_group_neighbors / flat-id edge buffers |
+| GPU组内图 | `UNG/codes/include/tagore_graph_builder.h`, `UNG/codes/src/tagore_graph_builder.cu` | Tagore/FastGrnndCuda/packed exact-anchor group graph 后端 | group storage views + route config | 每组邻接图或 packed graph buffer |
+| 构建开关 | `UNG/codes/include/ung_build_config.h`, `UNG/codes/src/ung_build_config.cpp` | 统一读取 CPU/GPU/group graph/cross-edge 实现开关 | 环境变量 | `UngBuildConfig` |
 
 ---
 
@@ -145,13 +158,21 @@
 
 当前写法：
 
-- `#pragma omp parallel for schedule(dynamic,1)`。
-- 小组（`size <= max_degree`）直接建完全图。
-- 大组调用 Vamana 构建。
+- 默认 CPU baseline 是 `UNG_GROUP_GRAPH_IMPL=0`：`#pragma omp parallel for schedule(dynamic,1)`，小组 complete graph，大组 CPU Vamana。
+- GPU/workload-aware route 通过 `UNG_GROUP_GRAPH_IMPL` 切换：
+  - `1`：TagoreCuda，进程内直接调用 Tagore CUDA kernels；
+  - `3`：FastGrnndCuda，Tagore GNN-Descent 候选 + reverse-augmented local pruning / light prune；
+  - `4`：AdaptiveCuda，小组 CPU fallback，中组 packed exact-anchor，大组 FastGrnndCuda，并发 CPU fallback 与 GPU batch。
+
+当前边界：
+
+- 这些路径不是 CPU Vamana 的逐边等价替代，必须用 full-quality search recall A/B 证明。
+- x200/x400 coverage-query 支持 packed exact-anchor 是强候选；x100 证明 conservative adaptive route 兼容；真实多标签和更多 x400 参数仍是缺口。
 
 潜力：
 
 - 组大小分布极不均衡时，动态调度仍会有尾部长任务；可引入分层队列或 work-stealing。
+- 更大收益需要 flat adjacency/CSR，减少 GPU 图回填到 CPU per-node object 的成本。
 
 ### 阶段 D：向量-属性二分图
 
@@ -302,22 +323,16 @@
 `gpu_cross_groups_search_all_batched(...)` 当前流程：
 
 1. 统计每个目标组 query 数（来自其 `in_neighbors`）。
-2. 可选把 tiny 组分流到 CPU（`UNG_CPU_TINY_*`）。
-3. 给每组分配 flatten Q 的 offset。
-4. 构建映射：
-   - `query_global_ids[qi]`
-   - `query_target_index[qi]`
-5. 上传 Q：
-   - 模式0：host 打包 Q 后 H2D
-   - 模式1（默认）：上传 qid 后在设备端 gather（`UNG_Q_UPLOAD_MODE=1`）
-6. 预计算 `q_norm`，初始化 `topk` 缓冲。
-7. 对每个目标组执行：
-   - 选择路径（naive / strided batched sgemm / cublasLt）
-   - 大块走 tile + grouped tiles
-   - 小组走 fused kernel（small / medium / group-desc）
-   - singleton（`nx==1`）走专门 fastpath
-8. D2H 一次性回传 `topk idx/dist`。
-9. 写回 `cross_group_neighbors`（局部 idx 加目标组 offset）。
+2. 构建 target/source/qid descriptors；当前推荐 route 是 `UNG_UNIVERSAL_GPU=1`。
+3. base vectors 和 base norms 通过 `gpu_prepare_all_vectors_on_device(...)` 常驻 GPU，query 主要以 qid 形式传输和解析。
+4. double-buffer descriptor batch 分 chunk 执行，使 H2D/descriptor 准备、kernel 和 D2H/merge 尽量流水化。
+5. 对每个 target descriptor 执行 fused exact topK：
+   - singleton / small / medium / group-desc kernel；
+   - direct-qid resident-vector 路径；
+   - unsupported 大组可按阈值 fallback。
+6. universal route 使用 GPU global merge + flat-id output，减少 `SearchQueue` / per-group container 物化。
+7. full-quality 配置仍会执行 `additional_edges`；当前主证据中 additional_edges 仍是 CPU Vamana。
+8. 最终把 cross edges 合并到 `_graph`，这一步仍受 CPU-compatible output boundary 约束。
 
 ### 6.4 关键缓存复用
 
@@ -327,6 +342,7 @@
 - Device：`g_d_Q / g_d_idx / g_d_dis / g_d_dot / g_d_q_norm`
 - 全量向量常驻：`g_d_all_X`
 - 全量 norm 常驻：`g_d_all_norm`
+- universal / flat-id 相关 descriptor、id-only output 和 merge buffers
 
 `gpu_prepare_all_vectors_on_device` 会：
 
@@ -382,15 +398,30 @@
 - 原始思路：
   - 组粒度细碎，频繁 H2D/D2H 与 kernel 启动，GPU 利用率受限。
 - 当前写法：
-  - 一次 flatten Q 批量上传；
-  - 全量 `X` 与 `x_norm` 常驻；
+  - 全量 `X` 与 `x_norm` 常驻，query 尽量以 qid/direct-qid 方式消费；
   - grouped tile GEMM + grouped topk update；
   - 小/中/单点组专门路径；
-  - 可选 tiny 组转 CPU，降低 GPU 过碎任务成本。
+  - universal flat double-buffer route 用 descriptor batch + GPU global merge + flat-id output 降低输出边界开销；
+  - source-centric no-lock 目前只是 future direction，可信复测慢于 universal。
 - 收益类型：
   - 降低 launch 与拷贝开销；
   - 降低全局重复计算（尤其 `x_norm`）；
   - 提升长批次吞吐。
+
+### 7.4 组内图 GPU / exact-anchor router
+
+- 原始思路：
+  - 每组 CPU Vamana，长尾大组和大量中组会拖慢 build；
+  - 直接全量上 GPU 又会被小组 kernel launch、pack、fill 和质量问题拖住。
+- 当前写法：
+  - `UNG_GROUP_GRAPH_IMPL=4` conservative adaptive：小组 CPU fallback，中组 packed exact-anchor，大组 FastGrnndCuda；
+  - `UNG_FAST_EXACT_DIRECT_H2D=1` 跳过 exact-anchor 的 host pack；
+  - `UNG_TAGORE_FILL_THREADS=min(num_threads,16)` 降低 host allocator 竞争；
+  - `NeighborList64` 和 reserve 降低 `Graph::neighbors` per-node object 成本。
+- 收益类型：
+  - x200/x400 coverage-query 上 packed exact-anchor 达到 CPU 级 L5000 recall；
+  - direct-H2D 证明旧 exact-anchor 慢主要是外围，不是 GPU exact kernel；
+  - 但最终 search 仍消费 CPU-compatible graph，flat/CSR 是下一阶段。
 
 ---
 
@@ -398,8 +429,11 @@
 
 优化过程与 A/B 数据详见：
 
-- `OPTIMIZATION_STEP_BY_STEP.md`
-- `OPTIMIZATION_PROVENANCE.md`
+- `docs/reports/OPTIMIZATION_STEP_BY_STEP.md`
+- `docs/archive/OPTIMIZATION_PROVENANCE.md`
+- `docs/reports/TECHNICAL_REPORT_OPTIMIZATION_SPEEDUP_CN.md`
+- `docs/papers/EVIDENCE_MATRIX_CN.md`
+- `docs/papers/REBUTTAL_CHECKLIST_CN.md`
 
 关键结论（历史记录）：
 
@@ -414,6 +448,8 @@
 - GPU 路径支持抽样验证：
   - `UNG_GEMM_VERIFY_SAMPLES`
   - `UNG_GEMM_VERIFY_STRICT`
+- 论文 claim / artifact gate：
+  - `python3 tools/benchmarks/run_submission_gate.py --final`
 
 ---
 
@@ -535,13 +571,12 @@ GPU 跨组边常用：
 
 ## 14. 建议接手顺序（最快上手）
 
-1. 先读：`OPTIMIZATION_STEP_BY_STEP.md`
+1. 先读：`docs/reports/OPTIMIZATION_STEP_BY_STEP.md`
 2. 再读：本文件（全貌+当前实现）
 3. 然后看代码：
    - `UNG/codes/src/uni_nav_graph.cpp`
    - `UNG/codes/src/gpu_gemm_topk.cu`
    - `UNG/codes/src/trie.cpp`
-4. 最后按 `TESTING_GUIDE.md` 复现 A/B
+4. 最后按 `docs/runbooks/TESTING_GUIDE.md` 复现 A/B
 
 这样可以先建立“证据链”再动代码，避免重复做已回退方案。
-

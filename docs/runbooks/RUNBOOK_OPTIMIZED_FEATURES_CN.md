@@ -1,6 +1,6 @@
 # 优化功能运行手册
 
-本文和 `CURRENT_OPTIMIZATION_STATUS_CN.md` 配套，目标是回答：
+本文和 `../reports/CURRENT_OPTIMIZATION_STATUS_CN.md` 配套，目标是回答：
 
 ```text
 这些优化怎么跑起来？
@@ -12,7 +12,7 @@
 如果你只想了解“目前做到了什么、效果如何、哪些方向失败了”，先看：
 
 ```text
-CURRENT_OPTIMIZATION_STATUS_CN.md
+docs/reports/CURRENT_OPTIMIZATION_STATUS_CN.md
 ```
 
 如果你要复现实验、改参数、跑 benchmark，就看本文。
@@ -23,13 +23,13 @@ CURRENT_OPTIMIZATION_STATUS_CN.md
 | --- | --- | --- | --- |
 | 编译当前 UNG 构建程序 | 1 | `cmake -S UNG/codes -B build_ung_test_225902` | `build_ung_test_225902/apps/build_UNG_index` |
 | 跑一次完整 UNG build | 2 | `build_UNG_index ...` | `$OUT/results/build_time.csv` |
-| 对比 CPU/GPU cross-edge | 4 | `UNG_CROSS_EDGE_BACKEND=0/1` | `build_cross_edges_time` |
-| 开启 fused/custom GPU topK | 5 | `UNG_SMALL_GROUP_FUSED=1`, `UNG_LARGE_GROUP_FUSED_MODE=2` | 日志中的 `[PROF] cross_edges` |
+| 对比 CPU/GPU cross-edge | 4 | `UNG_CROSS_EDGE_IMPL=0/1`, `UNG_GPU_TOPK_IMPL=3` | `build_cross_edges_time` |
+| 开启当前 universal cross-edge 路线 | 5 | `UNG_UNIVERSAL_GPU=1`, `UNG_GPU_TOPK_IMPL=3` | `[GPU DB]`, `flat_id_active=1` |
+| 对比 cuVS / SGEMM / fused baseline | `../scripts/benchmarks/README.md` | `summarize_cross_baselines.py` | CPU exact / cuVS / SGEMM+topK / fused 表 |
 | 开启 descendants/coverage 优化 | 6 | `UNG_COVERAGE_IMPL=1` | `cal_descendants_time`, `cal_coverage_ratio_time` |
-| 复现 FixedPoolGPU 失败路径 | 7 | `UNG_FIXED_POOL_L`, `UNG_FIXED_POOL_ITERS` | `build_graph_time` |
-| 跑 Tagore GPU 建图 | 8 | `run_tagore_all_large.py` | `tagore_all_large_build_times.csv` |
-| 跑 Tagore 图 + GPU ANN 查询 | 9 | `tagore_index_gpu_query_bench` | `recall_at_k`, `ann_e2e_reuse_ms` |
-| 生成 power-Zipf 标签数据 | 10 | `tools_generate_powerzipf_labels.py` | `.txt` 标签文件和 `.manifest.json` |
+| 启用 workload-aware group graph router | `UNG_BUILD_MODE_SWITCHES_CN.md` | `UNG_GROUP_GRAPH_IMPL=4` | group graph time + recall A/B |
+| 跑历史 Tagore 图 + GPU ANN 查询微基准 | 9 | `tagore_index_gpu_query_bench` | `recall_at_k`, `ann_e2e_reuse_ms` |
+| 生成 power-Zipf 标签数据 | 10 | `tools/datasets/generate_powerzipf_labels.py` | `.txt` 标签文件和 `.manifest.json` |
 | 统计 group / nq / nx 分布 | 11 | 内联 Python 统计脚本 | `p50/p90/p95/p99/max`, `nq/nx` |
 | 跑封装 build 脚本 | 12 | `build_hybrid.sh` | 完整结果目录 |
 
@@ -68,9 +68,45 @@ ls -lh build_ung_test_225902/tools/generate_query_labels
 
 ```bash
 nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used --format=csv,noheader
+nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader
 ```
 
-性能测试建议只在 `utilization.gpu=0%` 时跑。
+性能测试建议只在 `utilization.gpu=0%`、没有 compute app、显存占用低于 `GPU_IDLE_MAX_MEMORY_MB` 时跑。benchmark 脚本默认 `GPU_IDLE_MAX_MEMORY_MB=1024` MiB；只做命令检查时用 `DRY_RUN=1`。
+
+### 当前推荐口径
+
+如果目的是复现当前论文/报告主线，而不是复现历史 ablation，优先使用下面两个组合：
+
+```bash
+# 只替换 cross-edge，保留 CPU Vamana group graph 和 CPU additional_edges。
+UNG_GROUP_GRAPH_IMPL=0 \
+UNG_LNG_IMPL=0 \
+UNG_DESCENDANTS_IMPL=0 \
+UNG_COVERAGE_IMPL=1 \
+UNG_CROSS_EDGE_IMPL=1 \
+UNG_GPU_TOPK_IMPL=3 \
+UNG_UNIVERSAL_GPU=1 \
+UNG_ADDITIONAL_EDGES_IMPL=0 \
+UNG_CROSS_EDGE_GPU_STRICT=1 \
+build_UNG_index ...
+```
+
+```bash
+# 系统级 group graph router：小组 fallback，中组 packed exact-anchor，大组 FastGrnndCuda。
+UNG_GROUP_GRAPH_IMPL=4 \
+UNG_TAGORE_MIN_GROUP_SIZE=128 \
+UNG_ADAPTIVE_EXACT_MAX_NX=512 \
+UNG_TAGORE_OVERLAP_FALLBACK=1 \
+UNG_TAGORE_FILL_FAST=1 \
+UNG_CROSS_EDGE_IMPL=1 \
+UNG_GPU_TOPK_IMPL=3 \
+UNG_UNIVERSAL_GPU=1 \
+UNG_ADDITIONAL_EDGES_IMPL=0 \
+UNG_CROSS_EDGE_GPU_STRICT=1 \
+build_UNG_index ...
+```
+
+注意：`UNG_ADDITIONAL_EDGES_IMPL=1` 表示跳过 additional edges，只能用于阶段拆分、kernel/output-boundary ablation 或 smoke test；所有涉及 search recall / full-quality 的结果都应使用 `UNG_ADDITIONAL_EDGES_IMPL=0`。
 
 ## 2. 直接跑一次 UNG 构建
 
@@ -93,15 +129,18 @@ mkdir -p "$OUT/index_files" "$OUT/results" "$OUT/others"
 : > "$DATA_DIR/${DATASET}_base_labels_info.log"
 : > "$DATA_DIR/tree_roots.txt"
 
-UNG_CROSS_EDGE_BACKEND=1 \
+UNG_CROSS_EDGE_IMPL=1 \
+UNG_GPU_TOPK_IMPL=3 \
+UNG_UNIVERSAL_GPU=1 \
 UNG_CROSS_EDGE_GPU_STRICT=1 \
+UNG_ADDITIONAL_EDGES_IMPL=0 \
 UNG_COVERAGE_IMPL=1 \
-UNG_COVERAGE_THREADS=32 \
+UNG_COVERAGE_THREADS=128 \
 "$BIN" \
   --dataset "$DATASET" \
   --data_type float \
   --dist_fn L2 \
-  --num_threads 32 \
+  --num_threads 128 \
   --max_degree 32 \
   --Lbuild 100 \
   --alpha 1.2 \
@@ -135,7 +174,9 @@ cat "$OUT/results/build_time.csv"
 Number of points: 1000000
 Number of labels: 与数据集一致
 Number of groups: 与标签构造统计大致一致
-[cross_edges] backend=GPU
+[cross_edges] backend=GPU 或 GPU/universal 相关日志
+[GPU DB] double_buffer ...
+flat_id_active=1
 results/build_time.csv 存在
 ```
 
@@ -220,19 +261,23 @@ DATASET=sift_hiermedium
 ### 4.1 GPU cross-edge
 
 ```bash
-UNG_CROSS_EDGE_BACKEND=1 \
+UNG_CROSS_EDGE_IMPL=1 \
+UNG_GPU_TOPK_IMPL=3 \
+UNG_UNIVERSAL_GPU=1 \
 UNG_CROSS_EDGE_GPU_STRICT=1 \
+UNG_ADDITIONAL_EDGES_IMPL=0 \
 UNG_COVERAGE_IMPL=1 \
-UNG_COVERAGE_THREADS=32 \
+UNG_COVERAGE_THREADS=128 \
 ... build_UNG_index ...
 ```
 
 ### 4.2 CPU cross-edge baseline
 
 ```bash
-UNG_CROSS_EDGE_BACKEND=0 \
+UNG_CROSS_EDGE_IMPL=0 \
+UNG_ADDITIONAL_EDGES_IMPL=0 \
 UNG_COVERAGE_IMPL=1 \
-UNG_COVERAGE_THREADS=32 \
+UNG_COVERAGE_THREADS=128 \
 ... build_UNG_index ...
 ```
 
@@ -258,11 +303,32 @@ GPU cross-edge: 5002 ms
 cross-edge 约 8.9x
 ```
 
+当前 universal route 的代表证据：
+
+```text
+SIFT30 skip-additional: 4918.9 -> 3180.63 ms
+Amazon 1% x200 full-quality: cross 2494.21 ms, L1000/L5000 0.871/0.911
+Amazon 1% x100 full-quality: cross 1689.40 ms, L100/L500/L1000 0.826/0.868/0.891，但 Index 变慢
+```
+
+因此 universal route 可以写成 x200 正结果和 x100 boundary result，不能写成所有 workload 的无条件端到端加速。
+
 ## 5. GPU cross-edge 内部实现开关
 
 这些变量控制 `UNG/codes/src/gpu_gemm_topk.cu` 的精确 topK 路径。
 
 ### 5.1 后端选择
+
+当前论文/报告主线优先使用高层开关：
+
+```bash
+export UNG_CROSS_EDGE_IMPL=1
+export UNG_GPU_TOPK_IMPL=3
+export UNG_UNIVERSAL_GPU=1
+export UNG_CROSS_EDGE_GPU_STRICT=1
+```
+
+底层变量仍可用于 ablation，但不再作为默认推荐入口。
 
 ```bash
 export UNG_FORCE_CUSTOM_KERNEL=1
@@ -324,10 +390,13 @@ export UNG_LARGE_GROUP_FUSED_MODE=2
 对 SIFT30 长尾数据：
 
 ```bash
-export UNG_CROSS_EDGE_BACKEND=1
+export UNG_CROSS_EDGE_IMPL=1
+export UNG_GPU_TOPK_IMPL=3
+export UNG_UNIVERSAL_GPU=1
 export UNG_CROSS_EDGE_GPU_STRICT=1
+export UNG_ADDITIONAL_EDGES_IMPL=0
 export UNG_COVERAGE_IMPL=1
-export UNG_COVERAGE_THREADS=32
+export UNG_COVERAGE_THREADS=128
 export UNG_SMALL_GROUP_FUSED=1
 export UNG_MEDIUM_GROUP_FUSED=1
 export UNG_BUCKET_GROUP_FUSED=1
@@ -378,59 +447,18 @@ md5sum "$GPU/index_files/lng_descendants_num" "$CPU/index_files/lng_descendants_
 md5sum "$GPU/index_files/lng_coverage_ratio" "$CPU/index_files/lng_coverage_ratio"
 ```
 
-## 7. FixedPoolGPU 实验路径
+## 8. Tagore / FastGrnndCuda 组内图
 
-这条路径目前不是推荐主线，只用于复现实验和对照。
-
-### 7.1 开启方式
-
-查看当前 `uni_nav_graph.cpp` 中 build graph backend 的开关。如果使用 FixedPoolGPU，需要确保已编译：
-
-```bash
-cmake --build build_ung_test_225902 -j 32 --target build_UNG_index
-```
-
-可调变量：
-
-```bash
-export UNG_FIXED_POOL_L=64
-export UNG_FIXED_POOL_ITERS=8
-export UNG_FIXED_POOL_SEED=20260519
-export UNG_FIXED_POOL_THREADS=128
-```
-
-含义：
+当前 UNG 主流程里，单独的 `UNG_GROUP_GRAPH_IMPL=1` TagoreCuda 已不是论文主线。它主要用于历史对比和理解 GPU GNN-Descent/pruning 的性能边界。当前更推荐的可写口径在 `docs/runbooks/UNG_BUILD_MODE_SWITCHES_CN.md`：
 
 ```text
-UNG_FIXED_POOL_L       固定邻居池容量，范围 [max_degree, 128]
-UNG_FIXED_POOL_ITERS   邻居的邻居 refine 轮数
-UNG_FIXED_POOL_SEED    初始化随机种子
-UNG_FIXED_POOL_THREADS refine kernel 每点线程数
+UNG_GROUP_GRAPH_IMPL=3  FastGrnndCuda
+UNG_GROUP_GRAPH_IMPL=4  AdaptiveCuda：小组 fallback，中组 packed exact-anchor，大组 FastGrnndCuda
 ```
 
-### 7.2 已知结论
+其中 `UNG_GROUP_GRAPH_IMPL=4` 是目前更接近系统级替代的入口，但仍只能写成 workload-aware speed/quality router，不能写成 CPU Vamana 的无损普遍替代。
 
-历史对比：
-
-```text
-CPU Vamana: build_graph_time = 2773.15 ms
-FixedPoolGPU: build_graph_time = 129447 ms
-```
-
-结果目录：
-
-```text
-/home/graphdb/FilterVectorResultsRefactor/pg_build_compare_20260519_172008
-```
-
-所以：
-
-```text
-不要把 FixedPoolGPU 当生产路径。
-它主要说明 naive per-group GPU builder 会被 malloc/copy/launch 开销打爆。
-```
-
-## 8. Tagore GPU 建图 benchmark
+## 8.1 历史 Tagore GPU 建图 benchmark
 
 Tagore 仓库位置：
 
@@ -444,7 +472,7 @@ Python module：
 /home/graphdb/Tagore/build/Tagore.cpython-310-x86_64-linux-gnu.so
 ```
 
-### 8.1 单独跑 Tagore 中大 group 建图
+### 8.1.1 单独跑 Tagore 中大 group 建图
 
 已有脚本和结果目录：
 
@@ -464,7 +492,7 @@ grep '^SUMMARY' "$OUT/run_all_large.log"
 tail -20 "$OUT/tagore_all_large_build_times.csv"
 ```
 
-### 8.2 结果解读
+### 8.1.2 结果解读
 
 看：
 
@@ -487,8 +515,8 @@ max=427.15ms
 适用判断：
 
 ```text
-Tagore 对中大 group 有潜力
-但当前 Python API + 文件 I/O + index 落盘，不适合直接嵌入主线
+Tagore 对中大 group 有潜力。
+但 Python API + 文件 I/O + index 落盘的历史跑法不适合直接嵌入主线；当前 C++ 主流程已通过 `TagoreCuda/FastGrnndCuda/AdaptiveCuda` 后端调用相关 CUDA 构图逻辑。
 ```
 
 ## 9. Tagore 图 + GPU ANN batch query benchmark
@@ -587,13 +615,13 @@ ann_e2e_once=373.82ms
 生成脚本：
 
 ```text
-/home/graphdb/FilterVectorCode_refactor/tools_generate_powerzipf_labels.py
+/home/graphdb/FilterVectorCode_refactor/tools/datasets/generate_powerzipf_labels.py
 ```
 
 ### 10.1 生成当前版本
 
 ```bash
-python3 /home/graphdb/FilterVectorCode_refactor/tools_generate_powerzipf_labels.py \
+python3 /home/graphdb/FilterVectorCode_refactor/tools/datasets/generate_powerzipf_labels.py \
   --output /home/graphdb/aaaGPU/FilterVectorData/sift/sift_base_30_labels_powerzipf_a0.85_c0.75_p0.9_seed20260519.txt \
   --manifest /home/graphdb/aaaGPU/FilterVectorData/sift/sift_base_30_labels_powerzipf_a0.85_c0.75_p0.9_seed20260519.manifest.json \
   --num-points 1000000 \

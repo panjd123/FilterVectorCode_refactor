@@ -217,8 +217,8 @@ cross_edge_time ≈ a * active_target_groups + b * active_queries
 | 优化阶段 | 主要目标 | 优化前 | 优化后 | 变化 | 证据来源 |
 | --- | --- | ---: | ---: | ---: | --- |
 | 原始 CPU 基线 | 建立阶段耗时画像 | `85028.9 ms` | - | - | old rerun CelebA |
-| descendants / coverage 容器重构 | 降低集合构造和 Roaring 写入开销 | `84115.0 ms` | `35314.5 ms` | `-58.0%` | `OPTIMIZATION_STEP_BY_STEP.md` |
-| Trie / LNG Phase1 优化 | 压缩超集枚举和容器分配开销 | `49100.5 ms` | `36969.5 ms` | `-24.7%` | `CURRENT_OPTIMIZATION_STATUS_CN.md` |
+| descendants / coverage 容器重构 | 降低集合构造和 Roaring 写入开销 | `84115.0 ms` | `35314.5 ms` | `-58.0%` | `docs/reports/OPTIMIZATION_STEP_BY_STEP.md` |
+| Trie / LNG Phase1 优化 | 压缩超集枚举和容器分配开销 | `49100.5 ms` | `36969.5 ms` | `-24.7%` | `docs/reports/CURRENT_OPTIMIZATION_STATUS_CN.md` |
 | cross-edge GPU 化（稳定主线，SIFT30 A/B） | 将精确 topK 距离计算搬到 GPU | `64104.6 ms` | `23555.1 ms` | `2.7x` 端到端 | SIFT30 CPU/GPU A/B |
 
 > 说明：前三项可用于解释 CelebA CPU 路径的优化逻辑；第四项是当前最稳定的 GPU cross-edge 证据，但数据集是 `sift30_zipf_origstyle`，不能和 CelebA 原始 CPU 基线直接横向相除。

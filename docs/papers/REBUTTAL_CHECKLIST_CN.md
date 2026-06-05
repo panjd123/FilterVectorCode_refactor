@@ -1,0 +1,92 @@
+# Reviewer Rebuttal 检查表
+
+本文档用于投稿前自查。它不是新的实验报告，而是把最可能出现的 reviewer attack 转成可执行的 rebuttal checklist：每个回答必须能追溯到 artifact、脚本或明确的 missing experiment。没有证据的内容只能写成 limitation、ablation 或 future work。
+
+## 总体立场
+
+当前论文可以主张：
+
+- grouped fused topK 是针对 UNG irregular group topK workload 的稳定 cross-edge 加速器。
+- FastGrnndCuda 是 workload-aware group graph backend，可以在部分 workload 上以很小 recall 损失换取构建加速。
+- 完整系统必须区分算法贡献、router/fallback 策略和外围工程优化。
+
+当前论文不能主张：
+
+- FastGrnndCuda 无损、普遍替代 CPU Vamana。
+- packed exact-anchor graph 已经在所有数据集上替代 Vamana-style navigability。
+- x400 repair/reverse-tail 或 mixed exact/GNN router 已经无条件解决所有质量问题。
+- skip additional_edges 的构建时间代表 full-quality end-to-end 系统。
+
+## 高风险 Reviewer Attack
+
+| Attack | 当前 rebuttal | 证据 / 入口 | 仍缺什么 | 主文边界 |
+|---|---|---|---|---|
+| `22x` 是否只打了弱 CPU Vamana baseline？ | 已补强 baseline：CPU exact 128T、cuVS per-group、SGEMM+topK、final fused。final fused 相对 CPU exact `2.82x`，相对 SGEMM+topK `1.64x`。 | `/home/graphdb/fv_runs/baseline_fairness_x100_20260602/cross_baselines.md`；`tools/benchmarks/summarize_cross_baselines.py` | CPU exact 1/32/64/128 thread scaling。 | 摘要可写 `22.07x`，但正文必须同时报告强 baseline。 |
+| grouped fused topK 是不是只是少调库、没有贡献？ | 贡献应表述为 workload-level fusion：减少 per-group pack/API/writeback/intermediate topK，而不是“自研 GEMM 普遍更快”。 | x100 fairness table；cross breakdown 中 `prepare_all/resident/H2D/kernel/D2H`。 | resident vectors、direct-qid、id-only writeback、SGEMM+topK ablation。 | 不写“custom GEMM kernel dominates cuBLAS”。 |
+| FastGrnndCuda 是否破坏最终 filtered-search recall？ | 已有 Amazon PF、SIFT30、x100 adaptive、x200、10%x40、x400 gather-Q 和 x400 reverse-tail A/B。10%x40 full-quality `1.53x` 且 L50/100/200/500/1000/2000/5000 recall 基本不降；x400 reverse-tail+repair 将 L5000 从 light512 `0.9574` 补到 `0.9659`，接近同脚本 CPU `0.965`。 | `docs/reports/END_TO_END_RECALL_STATUS_CN.md`；`/home/graphdb/fv_runs/tenx40_lsearch_sweep_20260602_043657/tenx40_lsearch_sweep_summary.md`；`/home/graphdb/fv_runs/x400_reverse_tail_ab_20260602_030908/x400_ab_summary.md`；`/home/graphdb/fv_runs/x400_cpu_only_neighborlist_20260602_082814/x400_ab_summary.md` | CelebA/真实多标签；x400 更多参数扫。 | 写 speed/quality tradeoff，不写 lossless replacement。 |
+| x400 已经证明方法不稳定，为什么还能投稿？ | x400 被正面作为压力测试报告：heavy 质量接近但慢，light 快但 L5000 drop `0.0081`；reverse-tail+repair 在 Index `33044.9 ms` 下达到 L1000/L5000 `0.945567/0.9659`，相对同脚本 CPU `36257.3 ms`、`0.946/0.965` 是质量增强 Pareto 点，Index 约 `1.10x`。compact-D2H A/B 已补，结论是负/不稳定，不能作为主收益。 | `/home/graphdb/fv_runs/graph_diagnostics_x400_20260602/summary_table.md`；`/home/graphdb/fv_runs/x400_reverse_tail_ab_20260602_030908/x400_ab_summary.md`；`/home/graphdb/fv_runs/x400_cpu_only_neighborlist_20260602_082814/x400_ab_summary.md`；`/home/graphdb/fv_runs/x400_compact_ab_20260602_080045/x400_ab_summary.md` | 更多参数扫。 | x400 支持 quality-enhanced Pareto，不支持“所有路径无损替代”。 |
+| x400 degree repair 是否只是人工补边？ | A/B 显示 repair 单独确实修复 zero/low-degree：zero `0.001912 -> 1.66e-6`、low<=4 `0.00937 -> 9.67e-5`，但 Index `30128.1 -> 36310.5`，L5000 只 `+0.000367`。这应写成负/partial；有效的是 reverse-tail+repair。 | `/home/graphdb/fv_runs/x400_reverse_tail_ab_20260602_030908/x400_ab_summary.md` | 可补 repair-only search profile/visited nodes 解释为什么结构改善不等于 recall 大幅提升。 | 不把 repair 单独写成主方法。 |
+| compact-D2H 是否只是工程优化？ | 是，而且当前 x400 A/B 是负/不稳定：compact-on `Index=39759.1 ms`、`D2H=294.133 ms`、`fill=249.144 ms`，compact-off `Index=33019.7 ms`、`D2H=292.299 ms`、`fill=70.4478 ms`；build-only rerun compact-on 仍慢于 compact-off。它不能算图质量贡献，也不能算 x400 主加速来源。 | `/home/graphdb/fv_runs/x400_compact_ab_20260602_080045`；`/home/graphdb/fv_runs/x400_compact_on_buildonly_20260602_080513` | 如主文仍要提，只放 overhead negative ablation；不再作为阻塞实验。 | 只在系统外围/反例中报告。 |
+| 早期 pure exact kNN 低 recall 和新 packed exact 高 recall 矛盾，哪个可信？ | 新结构诊断显示旧 x200 exact-anchor 与新 packed exact 的组内图结构相同，差异是 cross edges：旧 `1,038,000`，CPU/new packed `1,093,224`。因此旧 L5000 `0.8199/0.829` 是 cross/additional 口径混杂，不能再作为组内 exact 不可行证据。 | `/home/graphdb/fv_runs/packed_exact_graph_diag_20260602_034031/summary_with_cpu.md` | 需要把旧表标为 obsolete/confounded，并补 same-script rebuild 验证。 | 不隐藏旧负结果，但重解释为实验口径问题。 |
+| packed exact-anchor router 能否替代 CPU Vamana？ | x200 repeat=3 L1000/L5000 `0.869/0.908`，与 CPU `0.869/0.908` 对齐；旧 packed-buffer group `3827.28 ms`，对 CPU `8511.72 ms` 为 `2.22x`。进一步 direct-H2D A/B 证明旧 `3827.28 ms` 仍不是 kernel 上限：旧 exact path group `8999.26 ms` 中 `pack=4140.61 ms`、kernel `931.72 ms`、fill `2849.50 ms`；direct-H2D + GPU lookup + fill16 后 group `3204.88 ms`、`pack=0.04 ms`、kernel `928.67 ms`、fill `1383.53 ms`，L1000 recall 仍为 `0.867`。x400 repeat=3 L1000/L5000 `0.945/0.967`，接近/略高历史 CPU `0.946/0.966`，group `11588.4 ms`，对 CPU `17537.3 ms` 为 `1.51x`。 | `/home/graphdb/fv_runs/packed_exact_search_sweep_20260602_033900_x200`；`/home/graphdb/fv_runs/packed_exact_search_sweep_20260602_033926_x400`；direct-H2D A/B `/home/graphdb/fv_runs/direct_h2d_exact_ab_20260602_old`、`/home/graphdb/fv_runs/direct_h2d_exact_ab_20260602_fill16`、`/home/graphdb/fv_runs/direct_h2d_exact_ab_20260602_default` | x100、10%x40、真实多标签；same-script CPU baseline；阈值 sweep；flat adjacency/CSR 以进一步消除 fill。 | 可以写成当前最强候选，不写成所有 workload 的无条件替代；direct-H2D 是外围优化，不能替代质量验证。 |
+| x100 上是否能把 FastGrnnd、exact-anchor 和 CPU fallback 收敛成一个更普遍 route？ | 新增 conservative `adaptive_cuda`：小组保留 CPU fallback，中组 packed exact-anchor，大组 FastGrnndCuda，并发 CPU fallback 与 GPU batch。x100 full-quality 下 Index `5450 ms`、group `2773.35 ms`、L100/L500/L1000 `0.829/0.870/0.895`，相对历史 FastGrnnd full-quality `6370.67 ms`、`3216.21 ms`、`0.828/0.871/0.896` 有 build 改善且 recall 基本一致。 | `/home/graphdb/fv_runs/adaptive_cuda_x100_fulladd_min128_exact512_20260602_042853/build.log`；`/home/graphdb/fv_runs/adaptive_cuda_x100_fulladd_min128_exact512_20260602_042853/search_eval/search_time_summary.csv` | 需要同样 route 在 10%x40/x200/x400/真实多标签上复测；需要自动阈值选择，而不是固定 `128/512`。 | 写成 conservative route 证据；不能写成普遍无损替代。 |
+| 直接把小组 fallback 也替换掉能否大幅加速？ | 激进 bounded fallback 是负结果：x100 skip-additional build 中 group graph 可到 `1953.07 ms`，但 L100/L500/L1000 只有 `0.816/0.823/0.827`。这证明小组 CPU Vamana 是剩余瓶颈，也证明不能靠简单 bounded-complete 作为 full-quality 主线。 | `/home/graphdb/fv_runs/adaptive_cuda_x100_bounded_fallback_20260602_042540/build.log`；`/home/graphdb/fv_runs/adaptive_cuda_x100_bounded_fallback_20260602_042540/search_eval/search_time_summary.csv` | 若要继续推进，需要设计保持小组可导航性的轻量构图，而不是仅环形强连通。 | 作为 negative ablation 和未来工作。 |
+| mixed exact/GNN router 会不会重新引入低质量 exact 图？ | 旧担忧被新 x200/x400 L5000 sweep 缓解；更准确的问题变成：哪些大组需要 GNN/reverse-tail，哪些可以走 packed exact-anchor。 | router A/B 和 packed exact sweeps | repeat=3 router sweep；按 group size/label coverage 分桶。 | router 仍需质量感知，不应只按一个固定阈值泛化。 |
+| additional_edges 是否被偷偷跳过？ | 原始 Amazon PF 已证明 skip 后 recall 约 `0.61`，full-quality 才回到 `0.91~0.97`。主表必须使用 full-quality 口径或明确标注 ablation。 | `docs/reports/END_TO_END_RECALL_STATUS_CN.md` | 若 additional_edges 成为瓶颈，需 CPU exact/GPU exact additional-edge backend。 | skip 结果不能作为最终端到端质量结论。 |
+| 如果 additional_edges 已经比 GPU kernel 慢，为什么还强调 fused topK？ | fused topK 解决的是主 cross-edge topK 生成；full-quality 系统仍有 additional_edges 兼容层。Amazon 1% x100 smoke 中 CPU Vamana additional 为 `1269.257 ms`，GPU kernel event 为 `655.969 ms`，说明下一轮大幅优化必须把 additional_edges 和输出边界一起 GPU/CSR 化。CPU exact additional 可把 additional 本体降到 `207.893 ms`，但 total cross `2568.729 ms` 仍略慢，不能当作简单替代。 | `docs/reports/TECHNICAL_REPORT_OPTIMIZATION_SPEEDUP_CN.md` §12.2；profiler `/home/graphdb/Codes/FilterVectorResultsCUDA/prof/ung_prof_20260602_064111_103566.log`、`ung_prof_20260602_064200_103859.log` | GPU exact/additional backend；flat adjacency/CSR 下的 full-quality recall A/B；保留 CPU Vamana additional 作为兼容 baseline。 | fused topK 是 cross-edge 主算子的贡献；full-quality 加速上限受 additional_edges 限制，不能只报 kernel speedup。 |
+| Amazon sampled+jitter-repeat 是否过拟合？ | SIFT30 已有端到端 A/B；10%x40 是 many-group 压力测试。但仍缺真实多标签端到端。 | SIFT30 run logs；`docs/reports/END_TO_END_RECALL_STATUS_CN.md` | CelebA 或真实多标签 recall。 | 泛化主张必须克制。 |
+| direct-qid 在 x400 崩溃是否说明系统不可用？ | x400 主结果使用稳定 gather-Q；direct-qid 是中等规模优化，x400 strict 修复前写 limitation。 | x400 gather-Q full-quality results；direct-qid failure notes。 | strict rerun、sanitizer 或 formal gather/direct router。 | 不把 fallback CPU 时间冒充 GPU 性能。 |
+| 现有 GPU backend 能否作为“普遍替代”直接提交？ | 不能写成已经完成。当前证据支持 workload-aware backend，但输出边界仍是 CPU/Vamana 兼容结构：GPU 结果要回填 `std::vector<IdxType>`，cross-edge 还要经过 `SearchQueue/cross_group_neighbors`，additional_edges full-quality 仍依赖 CPU 语义。最新 direct-H2D A/B 去掉了 exact-anchor host pack，但剩余 fill 仍为 `1.38~1.55s`，说明 `Graph::neighbors` 物化仍是边界。 | x100 adaptive 仍有 `5538/5666` 个 fallback CPU group；x400 `tagore_fill` 历史可达 `4~8s`；x200 direct-H2D A/B：`pack 4140.61 -> 0.04 ms`，但 fill 仍 `1383.53 ms`；x100 additional_edges smoke 显示 CPU Vamana additional 已超过 GPU kernel。 | flat adjacency/CSR graph backend，search span view，cross-edge 直接写全局 flat edges，additional_edges GPU/full-quality A/B。 | 主文写“CPU-compatible output boundary remains a bottleneck”，不写“complete replacement”。 |
+| 既然 reserve 能把 10%x40 `build_graph_time` 从 `14238.1 ms` 降到 `1662.7 ms`，为什么还说输出边界没解决？ | reserve 证明了问题，但不是最终解决。它把大量 per-node `std::vector` 扩容改成前置分配，使 10%x40 的 `tagore_fill` 从 `823.5 ms` 降到 `23.9 ms`、cross merge 从 `1677.1 ms` 降到 `2.3 ms`，Index `39746.1 -> 24704.5 ms`。但 reserve 自身要预留 `106,031,200` 条容量并花 `6487.3 ms`，只是把部分成本前移到 label processing；x200 auto-reserve 也显示 fill 可降到 `224.8 ms`，但仍没有改变最终 search 消费 host vector 图的事实。 | `/home/graphdb/fv_runs/graph_reserve_ab_20260602_074459`；`/home/graphdb/fv_runs/graph_reserve_x200_auto2_20260602_075406`；`tools/benchmarks/audit_paper_artifacts.py` 的 `Graph output-boundary reserve A/B` 数值校验。 | GraphView/CSR 或 implicit small-group view；保存/加载格式；additional_edges 直接写 flat segments；search span-view recall A/B。 | reserve 可以写成低风险系统优化和输出边界证据，不能写成 CPU/Vamana 图栈已被替代。 |
+| small-buffer NeighborList 是否已经解决输出边界？ | 解决了很大一部分 allocator 开销，但仍不是最终 GPU-native 图后端。64-inline `NeighborList` 把 x200 reserve 从旧 `2856.2 ms` 降到 `25.4 ms`、`tagore_fill` 从 `224.8 ms` 降到 `14.7 ms`；10%x40 reserve 从 `6487.3 ms` 降到 `21.2 ms`、`tagore_fill` 从 `23.9 ms` 降到 `7.6 ms`。但 10%x40 总 Index 受 cross-edge H2D 波动影响没有稳定变快，且最终 search 仍读取 per-node CPU object。48-inline 负例显示容量/布局不能随意缩小：x200 fill 回退到 `202.5 ms`。 | `/home/graphdb/fv_runs/neighborlist_x200_autoreserve_20260602_081303`；`/home/graphdb/fv_runs/neighborlist_10px40_autoreserve_20260602_081403`；负例 `/home/graphdb/fv_runs/neighborlist48_x200_autoreserve_20260602_081636`；artifact gate 的 `Graph output-boundary NeighborList small-buffer A/B`。 | GraphView/CSR；search span view；同脚本多次复测 H2D 抖动；full-quality additional_edges 消费 flat segments。 | 写成 CPU-compatible 输出边界的低风险系统优化，不写成普遍替代完成。 |
+| direct-H2D / GPU lookup 把 exact-anchor 加速很多，这是否已经是论文算法贡献？ | 这是重要系统贡献，但要写成 output-boundary/overhead ablation，而不是新的 graph-quality 算法。它不改变 exact-anchor 图语义，作用是证明先前性能差主要来自 host pack 和 allocator 竞争，不是 GPU exact kernel 本身。 | x200 old path `pack=4140.61 ms`，direct-H2D 后 `pack≈0.04 ms`；GPU exact kernel `931.72 -> 928.67 ms` 基本不变；L1000 recall 均 `0.867`。`UNG_TAGORE_FILL_THREADS` 从 128 降到 16 后 fill `2865.77 -> 1383.53 ms`，证明 allocator 竞争存在。 | 需要 flat/CSR backend A/B 证明能否继续去掉 fill；需要在 10%x40/真实多标签上确认 direct-H2D 不被大量小 run 拖慢。 | 写成“系统外围优化揭示新的瓶颈”，不写成“exact-anchor 已普遍替代 Vamana”。 |
+| 那么能否靠更细的 exact CUDA kernel 或更多 fill 线程解决？ | 已做同机 A/B，结论是否定的。warp-per-source exact kernel 在 x200 router exact256 上让 exact kernel 从 `841.136 ms` 变慢到 `987.27 ms`，group 从 `4031.36 ms` 变慢到 `4334.28 ms`；fill 线程扫中，16 线程 `1682.11 ms` 优于 8 线程 `2113.86 ms` 和 64 线程 `2321.96 ms`。 | `/home/graphdb/fv_runs/warp_exact_x200_on_20260602_073034`；`/home/graphdb/fv_runs/warp_exact_x200_off_20260602_073130`；`/home/graphdb/fv_runs/fill8_exact_x200_20260602_073346`；`/home/graphdb/fv_runs/fill64_exact_x200_20260602_073241`。 | 如果继续做 kernel，需要重新设计 tile/多 source 并行，而不是简单 warp 化；更大收益仍应来自 flat/CSR 输出。 | 写成 negative ablation，支持“输出边界重构”路线；`UNG_FAST_EXACT_WARP_KERNEL` 默认关闭。 |
+| flat-id writeback 已经消除输出边界了吗？ | 没有。新增 `UNG_GPU_FLAT_ID_WRITEBACK=1` 只是把 cross-edge 输出从 `vector<vector<IdxType>>` 换成固定宽度 `flat_ids[num_points * topk]`。Amazon 1% x200 skip-additional 中，旧 id-vector cross `4241.0 ms`，flat-id cross `3914.0 ms`；breakdown 重跑为 `3573.7 ms`，其中 `generate=3324.6 ms`、GPU kernel `2578.5 ms`、D2H `2.3 ms`、`merge_cross=203.2 ms`。它证明小对象容器有成本，但剩余大头仍在 generate/kernel/prepare，而且该实验跳过 additional_edges。 | `/home/graphdb/fv_runs/flat_id_probe_x200_20260602_065652/vector`；`/home/graphdb/fv_runs/flat_id_probe_x200_20260602_065652/flat`；breakdown `/home/graphdb/fv_runs/flat_id_probe_x200_breakdown_20260602_065923/flat`；报告 §13.1。 | full-quality flat-id A/B；additional_edges 消费 flat/CSR；最终 `_graph->neighbors` 也改为 CSR/span view 后的 search recall A/B。 | 写成输出边界的部分正结果和 flat/CSR 前置步骤；不写成普遍替代已完成。 |
+| 为什么不直接用 GPU global merge 干掉 `SearchQueue` 写回？ | 已做负结果：简单 qid-lock global merge 能减少 D2H/writeback，但会把瓶颈转移到 GPU lock contention。Amazon 10%x40 full-quality 中，split double-buffer cross `9451.1 ms`；nosplit qid-lock global merge cross `11598.0 ms`，其中 kernel 从 `2952.2 ms` 升到 `4834.3 ms`。 | `/home/graphdb/fv_runs/db_global_merge_nosplit2_10pct_x40_20260602_050915/others/build.log`；历史 full-quality `/home/graphdb/fv_runs/reviewer_e2e_amazon_10pct_x40_fastgrnnd_directqid_fulladd_20260602_005446/others/build.log`。 | 需要 qid-sharded 或 segmented no-lock merge；需要 flat adjacency/CSR graph backend 后重新做 full-quality recall A/B。 | qid-lock global merge 写成 negative ablation，不写成最终优化。 |
+| 当前 cross-edge 为什么还能大幅优化？ | 旧 double-buffer path 是 all-or-nothing：一个 batch 里有少数 `nx > DB_LARGE_MAX_NX` 大组，就会让大量适合 direct-qid fused 的中小组一起回退。新 partial routing 把 supported/unsupported groups 拆开，Amazon 1% x200 中 `5173/5195` 个组进入 double-buffer，cross `3900.81 -> 2657.23 ms`。 | `/home/graphdb/fv_runs/target_fused_x200_db_split_20260602_060034/end_to_end_recall_ab_20260602_060034/cpu_vamana_group/others/build.log`；repeat=3 L1000/L5000 `0.866/0.907` 在 `results_r3_l1000_5000/search_time_summary.csv`；结构诊断 `/home/graphdb/fv_runs/graph_diag_x200_db_split_20260602`；负对照 `/home/graphdb/fv_runs/target_fused_x200_db_nosplit_global_20260602_055827/end_to_end_recall_ab_20260602_055827`。 | x100/10%x40/x400 复测；质量仍低于 source-centric `0.871/0.911`。 | 写成调度/coverage 修复，不写成 kernel 算力提升或质量最优。 |
+| source-centric no-lock 是否已经证明 cross-edge 可以普遍替代现有路径？ | 还没有。它是比 qid-lock 更合理的新候选：按 source group 的 `out_neighbors` 一次性为每个 qid 维护最终 topK，天然无锁。但新错误检查发现，旧 id-only source path 曾在 `d_dis=nullptr` 时仍写 `out_dist`，可能把 illegal memory access 隐藏成 `kernel=0.0 ms` 或不可靠 smoke。因此旧 TF32 WMMA/padding 数字只能作为 legacy 探索，不能作为 current best。修复后可信 CUDA-core id-only 复测在 SIFT30 skip-additional 上 cross `5926.67 ms`、kernel `5525.5 ms`，慢于 target-centric fused cross `4918.9 ms`。 | 新可信复测 `/home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/ung_cross_edge_fused_20260602_091046/others/ung_build.log`；旧 target 对照 `/home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/ung_cross_edge_fused_20260602_052209/others/ung_build.log`；legacy source smoke `/home/graphdb/fv_runs/source_wmma_padded_sift30_skipadd_20260602_053546/others/ung_build.log`。 | 需要 two-stage source grouped GEMM + per-source reduce、TF32/FP32 topK consistency、Amazon full-quality A/B。当前单阶段 source kernel 只有输出边界优势，没有足够候选扫描并行度。 | 写成 promising design + 当前负结果；不能写成普遍替代或主表结果。 |
+| 那 Amazon full-quality 下 source-centric 是否仍然更快？ | 初步结果是否定的。Amazon 1% x200 full-quality 中，source-centric 能跑通，L1000/L5000 repeat=3 为 `0.871/0.911`，但 cross `4693.4/4803.07 ms` 慢于同机 target-centric `3900.81 ms`，source kernel `3.1~3.2s` 也慢于 target kernel `2.1s`。 | `/home/graphdb/fv_runs/source_wmma_amazon_x200_fulladd_fix_20260602_054536`；`/home/graphdb/fv_runs/source_wmma_amazon_x200_fulladd_w4_20260602_054745`；`/home/graphdb/fv_runs/target_fused_amazon_x200_fulladd_current_20260602_054639`；repeat=3 search summaries 在各自 `results_r3_l1000_5000/search_time_summary.csv`。 | 需要更好的 source WMMA tiling、additional_edges GPU/full-quality、结构诊断解释 target current recall 偏低。当前不能写成 current best。 | 写成 partial/negative A/B：source-centric 是路线，不是已完成替代。 |
+| universal flat double-buffer 是否已经证明普遍替代？ | 还没有，但它是当前更稳的 cross-edge 主工程路线。SIFT30 skip-additional all-DB cross `3180.63 ms`，快于旧 target fused `4918.9 ms` 和修复后的 source-centric `5926.67 ms`。Amazon 1% x200 full-quality 下，保留 CPU Vamana additional_edges，cross `2494.21 ms`、L1000/L5000 `0.871/0.911`，说明它不只是 skip-additional smoke。Amazon 1% x100 full-quality 下 cross `1689.40 ms`，略低于历史 `1732.42 ms`，L100/L500/L1000 `0.826/0.868/0.891`，但 Index 变慢到 `7461.27 ms`。 | `/home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/universal_all_db_sift30_20260602_092318`；`/home/graphdb/fv_runs/end_to_end_recall_ab_20260602_092928`；`/home/graphdb/fv_runs/end_to_end_recall_ab_20260602_093357`；`docs/reports/UNIVERSAL_GPU_REPLACEMENT_ANALYSIS_CN.md`。 | x400、10%x40、真实多标签 full-quality；additional_edges GPU/flat backend；search latency 同脚本解释。 | 写成 x200 positive + x100 boundary；不能写成无条件端到端加速或 flat/CSR 完成。 |
+
+## Rebuttal 用语模板
+
+可用：
+
+> We do not claim FastGrnndCuda is a lossless replacement for CPU Vamana. The evidence supports a workload-aware speed/quality router: positive on Amazon PF, SIFT30, x200 with light pruning, and 10%x40 full-quality. On x400, light pruning is insufficient, but reverse-tail + repair recovers most of the recall gap while remaining faster than the historical CPU baseline.
+
+可用：
+
+> The current implementation still uses a CPU-compatible graph output boundary. GPU kernels construct candidate neighborhoods, but final UNG search consumes host graph structures and additional-edge semantics. A fully general replacement requires a flat-adjacency/CSR graph backend and full-quality recall validation, which we list as future work rather than claiming as solved.
+
+可用：
+
+> The `22.07x` number is reported against the original CPU Vamana cross-edge path, but we also include strong baselines: 128-thread CPU exact, per-group cuVS, and SGEMM+topK. The fused path remains `2.82x` faster than CPU exact and `1.64x` faster than SGEMM+topK on the x100 workload.
+
+不可用：
+
+> Our GPU graph builder universally replaces Vamana without recall loss.
+
+不可用：
+
+> The mixed exact/GNN router solves the pure-exact quality issue.
+
+## 投稿前 Gate
+
+进入最终投稿检查前，至少运行：
+
+```bash
+python3 tools/benchmarks/audit_paper_artifacts.py --fail-required
+```
+
+该 gate 不只检查文件是否存在；对 x100 cross-edge fairness、x200 partial double-buffer、mixed exact/GNN router、packed exact-anchor sweep、Graph reserve output-boundary A/B、10%x40 bounded/Lsearch sweep、x400 reverse-tail A/B 和 x100 additional_edges/output-boundary smoke 等核心 claim，它还会校验关键数值是否和 artifact 一致。若表格数字漂移，`--fail-required` 应失败，而不是让论文继续引用旧结论。
+
+补齐 pending 实验后再运行：
+
+```bash
+python3 tools/benchmarks/audit_paper_artifacts.py \
+  --x400-root <x400_ab_root> \
+  --router-root <router_ab_root> \
+  --fail-submission
+```
+
+`--fail-submission` 失败时，不能把缺失实验对应的 claim 写进主文结论。

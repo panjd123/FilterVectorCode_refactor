@@ -12,18 +12,18 @@
 - `optimized-from-aaagpu-v2-buildable`: latest buildable optimized head
 
 ## Patch exports
-- `patches/aaagpu_core_optimization.patch`
-- `patches/aaagpu_optimization_buildable_full.patch`
+- `docs/archive/patches/aaagpu_core_optimization.patch`
+- `docs/archive/patches/aaagpu_optimization_buildable_full.patch`
 
 ## Optimization Docs
 - Step-by-step optimization and performance ledger:
-  - `OPTIMIZATION_STEP_BY_STEP.md`
+  - `docs/reports/OPTIMIZATION_STEP_BY_STEP.md`
 - 中文深度交接文档（端到端流程 + 代码职责 + 当前实现 + 优化潜力）:
-  - `REFACTOR_DEEP_DIVE_CN.md`
+  - `docs/REFACTOR_DEEP_DIVE_CN.md`
 - 优化来源追踪（中文）:
-  - `OPTIMIZATION_PROVENANCE.md`
+  - `docs/archive/OPTIMIZATION_PROVENANCE.md`
 - Testing and benchmark reproduction guide:
-  - `TESTING_GUIDE.md`
+  - `docs/runbooks/TESTING_GUIDE.md`
 - Direct test runner script:
   - `scripts/run_ung_tests.sh`
 

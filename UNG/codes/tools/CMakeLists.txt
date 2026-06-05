@@ -18,3 +18,7 @@ target_link_libraries(compute_groundtruth ${PROJECT_NAME} Boost::program_options
 
 add_executable(generate_mixed_queries generate_mixed_queries.cpp)
 target_link_libraries(generate_mixed_queries ${PROJECT_NAME} Boost::program_options ${ROARING_LIB} onnxruntime faiss)
+
+add_executable(query_entry_group_bench query_entry_group_bench.cu)
+set_source_files_properties(query_entry_group_bench.cu PROPERTIES LANGUAGE CUDA)
+target_link_libraries(query_entry_group_bench PRIVATE cudart OpenMP::OpenMP_CXX OpenMP::OpenMP_CUDA)

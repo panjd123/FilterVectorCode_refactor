@@ -2,6 +2,44 @@
 
 仓库包含一个针对过滤式近似最近邻搜索（Filtered Approximate Nearest Neighbor Search, Filtered ANNS）的增强实现，基于两篇论文中提出的核心思想：**UNG (Unified Navigating Graph)** 和 **ACORN**。
 
+## 当前仓库入口
+
+当前优化主线集中在 `UNG/codes`，尤其是 UNG 构建阶段的 group graph、cross-group edges、output boundary 和 GPU topK 路径。
+
+当前论文/实验主线的最短表述：
+
+```text
+cross-edge: UNG_UNIVERSAL_GPU=1 universal flat double-buffer 是当前主工程路线；
+group graph: workload-aware router，小组 CPU/bounded fallback，中组 packed exact-anchor，大组 FastGrnndCuda/reverse-tail；
+output boundary: NeighborList64/reserve/direct-H2D 已降低 CPU-compatible 图物化开销，但 flat/CSR 仍未完成。
+```
+
+整理后的文档入口如下：
+
+| 目标 | 路径 |
+| --- | --- |
+| 文档索引 | `docs/README.md` |
+| 投稿就绪状态 | `docs/papers/SUBMISSION_READINESS_STATUS_CN.md` |
+| 证据矩阵 | `docs/papers/EVIDENCE_MATRIX_CN.md` |
+| reviewer rebuttal 检查表 | `docs/papers/REBUTTAL_CHECKLIST_CN.md` |
+| 中文/英文论文草稿 | `docs/papers/UNG_GPU_OPTIMIZATION_PAPER_DRAFT_CN.md`, `docs/papers/UNG_GPU_OPTIMIZATION_PAPER_DRAFT_EN.md` |
+| 当前最终技术报告 | `docs/reports/TECHNICAL_REPORT_OPTIMIZATION_SPEEDUP_CN.md` |
+| 当前优化状态与实测结论 | `docs/reports/CURRENT_OPTIMIZATION_STATUS_CN.md` |
+| CelebA / SIFT30 / Amazon / cross-edge 实验报告 | `docs/reports/CROSS_GROUP_CELEBA_RESULTS_CN.md` |
+| 可复现实验运行手册 | `docs/runbooks/RUNBOOK_OPTIMIZED_FEATURES_CN.md` |
+| 构建实现开关 | `docs/runbooks/UNG_BUILD_MODE_SWITCHES_CN.md` |
+| 测试与 A/B 回归指南 | `docs/runbooks/TESTING_GUIDE.md` |
+| 代码交接与实现全貌 | `docs/REFACTOR_DEEP_DIVE_CN.md` |
+| GPU / benchmark 辅助脚本 | `scripts/benchmarks/`, `tools/benchmarks/` |
+
+当前已登记 artifact 的投稿 gate：
+
+```bash
+python3 tools/benchmarks/run_submission_gate.py --final
+```
+
+本地 CMake build 目录属于临时产物，已通过 `.gitignore` 忽略；请不要把 `build_*` 目录提交进仓库。
+
 
 ## 1. Filtered Approximate Nearest Neighbor Search
 

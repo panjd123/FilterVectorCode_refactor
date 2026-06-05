@@ -3,6 +3,24 @@
 本文档用于统一“怎么测”，覆盖功能正确性、GPU/CPU对照、性能A/B回归。  
 推荐优先使用脚本：`scripts/run_ung_tests.sh`。
 
+## 投稿/论文证据 Gate
+
+如果目标是检查论文草稿和已登记 artifact，而不是跑新的性能实验，优先使用：
+
+```bash
+cd /home/graphdb/FilterVectorCode_refactor
+python3 tools/benchmarks/run_submission_gate.py --final
+```
+
+这个 gate 会检查：
+
+- benchmark helper 的 Python 语法；
+- 关键 benchmark shell 入口的语法；
+- 自动发现的 reviewer-facing Markdown 文档中的危险 claim（根 README、`docs/`、`scripts/benchmarks/`，排除 `docs/archive`）；
+- 已登记 artifact 的存在性和关键数值。
+
+注意：`--final` 只证明当前已登记 claim 的证据链没有断，不等价于“论文所有科学问题都已完成”。当前仍应保留的边界包括：`UNG_UNIVERSAL_GPU=1` 是 x200 正结果和 x100 boundary result；FastGrnndCuda/packed exact-anchor 是 workload-aware group router；flat/CSR output backend 还没有完成。
+
 ## 0. 一键脚本（推荐）
 
 脚本路径：`scripts/run_ung_tests.sh`

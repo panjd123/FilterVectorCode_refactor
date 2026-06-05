@@ -29,22 +29,181 @@
 #include "utils.h"
 #include "vamana/vamana.h"
 #include "include/uni_nav_graph.h"
-#include "fixed_pool_graph.h"
+#include "include/tagore_graph_builder.h"
 #include <roaring/roaring.h>
 #include <roaring/roaring.hh>
 
 #include <mutex>
 #include <cstdarg>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <sstream>
 #include <stdexcept>
+#include <numeric>
+#include <exception>
+#include <thread>
+#include <limits>
+
+namespace
+{
+
+int read_env_int_local(const char *key, int fallback, int min_v, int max_v)
+{
+   const char *s = std::getenv(key);
+   if (!s || !*s)
+      return fallback;
+   char *end = nullptr;
+   long v = std::strtol(s, &end, 10);
+   if (end == s || *end != '\0')
+      return fallback;
+   if (v < min_v)
+      v = min_v;
+   if (v > max_v)
+      v = max_v;
+   return static_cast<int>(v);
+}
+
+bool env_is_set_local(const char *key)
+{
+   const char *s = std::getenv(key);
+   return s && *s;
+}
+
+} // namespace
 
 
 namespace fs = boost::filesystem;
 using BitsetType = boost::dynamic_bitset<>;
 
 std::shared_timed_mutex lock_m;
+
+namespace
+{
+
+struct LocalCandidate
+{
+   ANNS::IdxType id = 0;
+   float distance = 0.0f;
+};
+
+float local_l2_distance(const float *data, ANNS::IdxType a, ANNS::IdxType b, ANNS::IdxType dim)
+{
+   const float *pa = data + static_cast<size_t>(a) * dim;
+   const float *pb = data + static_cast<size_t>(b) * dim;
+   float acc = 0.0f;
+   for (ANNS::IdxType d = 0; d < dim; ++d)
+   {
+      const float diff = pa[d] - pb[d];
+      acc += diff * diff;
+   }
+   return acc;
+}
+
+void grnnd_like_alpha_prune(const float *data,
+                            ANNS::IdxType dim,
+                            ANNS::IdxType src,
+                            std::vector<LocalCandidate> &candidates,
+                            ANNS::IdxType max_degree,
+                            float alpha,
+                            std::vector<ANNS::IdxType> &out)
+{
+   out.clear();
+   if (candidates.empty())
+      return;
+
+   std::sort(candidates.begin(), candidates.end(), [](const LocalCandidate &a, const LocalCandidate &b) {
+      return a.distance < b.distance;
+   });
+   candidates.erase(std::unique(candidates.begin(), candidates.end(), [](const LocalCandidate &a, const LocalCandidate &b) {
+                       return a.id == b.id;
+                    }),
+                    candidates.end());
+
+   std::vector<float> occlude(candidates.size(), 0.0f);
+   float cur_alpha = 1.0f;
+   while (cur_alpha <= alpha && out.size() < max_degree)
+   {
+      for (size_t i = 0; i < candidates.size() && out.size() < max_degree; ++i)
+      {
+         if (occlude[i] > cur_alpha)
+            continue;
+         occlude[i] = std::numeric_limits<float>::max();
+         if (candidates[i].id != src)
+            out.push_back(candidates[i].id);
+
+         for (size_t j = i + 1; j < candidates.size(); ++j)
+         {
+            if (occlude[j] > alpha)
+               continue;
+            const float dij = local_l2_distance(data, candidates[i].id, candidates[j].id, dim);
+            occlude[j] = dij == 0.0f ? std::numeric_limits<float>::max()
+                                     : std::max(occlude[j], candidates[j].distance / dij);
+         }
+      }
+      cur_alpha *= 1.2f;
+   }
+}
+
+void refine_tagore_graph_grnnd_like(const float *data,
+                                    ANNS::IdxType num_points,
+                                    ANNS::IdxType dim,
+                                    uint32_t k,
+                                    ANNS::IdxType max_degree,
+                                    float alpha,
+                                    float reverse_sample_ratio,
+                                    const std::vector<uint32_t> &flat_graph,
+                                    std::shared_ptr<ANNS::Graph> graph)
+{
+   std::vector<std::vector<ANNS::IdxType>> reverse_candidates(num_points);
+   const uint32_t sample_limit = static_cast<uint32_t>(std::max<float>(1.0f, reverse_sample_ratio * max_degree));
+   for (ANNS::IdxType src = 0; src < num_points; ++src)
+   {
+      const size_t base = static_cast<size_t>(src) * k;
+      const uint32_t degree = std::min<uint32_t>(flat_graph[base], k > 0 ? k - 1 : 0);
+      const uint32_t limit = std::min<uint32_t>(degree, sample_limit);
+      for (uint32_t j = 0; j < limit; ++j)
+      {
+         const uint32_t dst = flat_graph[base + 1 + j];
+         if (dst < num_points && dst != src)
+            reverse_candidates[dst].push_back(src);
+      }
+   }
+
+   std::vector<LocalCandidate> candidates;
+   std::vector<ANNS::IdxType> pruned;
+   candidates.reserve(static_cast<size_t>(k) + sample_limit + max_degree);
+   for (ANNS::IdxType src = 0; src < num_points; ++src)
+   {
+      candidates.clear();
+      const size_t base = static_cast<size_t>(src) * k;
+      const uint32_t degree = std::min<uint32_t>(flat_graph[base], k > 0 ? k - 1 : 0);
+      for (uint32_t j = 0; j < degree; ++j)
+      {
+         const uint32_t dst = flat_graph[base + 1 + j];
+         if (dst < num_points && dst != src)
+            candidates.push_back({dst, local_l2_distance(data, src, dst, dim)});
+      }
+      for (ANNS::IdxType dst : reverse_candidates[src])
+      {
+         if (dst < num_points && dst != src)
+            candidates.push_back({dst, local_l2_distance(data, src, dst, dim)});
+      }
+
+      // GRNND uses disordered propagation; here we use a deterministic shuffle to avoid
+      // always favoring Tagore's sorted local neighborhood before alpha pruning.
+      if (candidates.size() > 2)
+      {
+         std::mt19937 rng(static_cast<uint32_t>(src * 2654435761u + candidates.size()));
+         std::shuffle(candidates.begin(), candidates.end(), rng);
+      }
+      grnnd_like_alpha_prune(data, dim, src, candidates, max_degree, alpha, pruned);
+      auto &neighbors = graph->neighbors[src];
+      neighbors.assign(pruned.begin(), pruned.end());
+   }
+}
+
+} // namespace
 
 // 文件格式常量
 const std::string FVEC_EXT = ".fvecs";
@@ -174,6 +333,8 @@ namespace ANNS
       _alpha = alpha;
       _num_threads = num_threads;
       _scenario = scenario;
+      _build_config = UngBuildConfig::from_env(num_threads, index_name);
+      _build_config.print(std::cout);
 
       std::cout << "Dividing groups and building the trie tree index ..." << std::endl;
       auto start_time = std::chrono::high_resolution_clock::now();
@@ -182,13 +343,15 @@ namespace ANNS
       _global_graph = std::make_shared<ANNS::Graph>(base_storage->get_num_points());
       std::cout << "begin prepare_group_storages_graphs" << std::endl;
       prepare_group_storages_graphs();
+      reserve_graph_neighbor_capacity();
       _label_processing_time = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time).count();
       std::cout << "- Finished in " << _label_processing_time << " ms" << std::endl;
 
       // build graph index for each group
       build_graph_for_all_groups();
       // build_global_vamana_graph();
-      build_vector_and_attr_graph(); // fxy_add
+      if (!_build_config.is_original_cpu_pipeline())
+         build_vector_and_attr_graph(); // fxy_add
 
       // for label equality scenario, there is no need for label navigating graph and cross-group edges
       if (_scenario == "equality")
@@ -200,35 +363,42 @@ namespace ANNS
 
          // build the label navigating graph
          build_label_nav_graph();
-         get_descendants_info(); // fxy_add
+         if (!_build_config.is_original_cpu_pipeline())
          {
-            std::cout << "\n--- [分析] 正在统计 LNG 边数 ---" << std::endl;
-            uint64_t total_lng_edges = 0;
-            for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)// 遍历所有组，累加它们的“出度”（即子节点/超集数量）
+            get_descendants_info(); // fxy_add
             {
-               total_lng_edges += _label_nav_graph->out_neighbors[group_id].size();
+               std::cout << "\n--- [分析] 正在统计 LNG 边数 ---" << std::endl;
+               uint64_t total_lng_edges = 0;
+               for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)// 遍历所有组，累加它们的“出度”（即子节点/超集数量）
+               {
+                  total_lng_edges += _label_nav_graph->out_neighbors[group_id].size();
+               }
+               std::cout << "  - 组 (Nodes) 总数: " << _num_groups << std::endl;
+               std::cout << "  - LNG 边 (Edges) 总数: " << total_lng_edges << std::endl;
+               if (_num_groups > 0) {
+                    std::cout << "  - 平均出度 (边/组): " << static_cast<double>(total_lng_edges) / _num_groups << std::endl;
+               }
+               std::cout << "--- [分析] LNG 边数统计完毕 ---\n" << std::endl;
             }
-            std::cout << "  - 组 (Nodes) 总数: " << _num_groups << std::endl;
-            std::cout << "  - LNG 边 (Edges) 总数: " << total_lng_edges << std::endl;
-            if (_num_groups > 0) {
-                 std::cout << "  - 平均出度 (边/组): " << static_cast<double>(total_lng_edges) / _num_groups << std::endl;
-            }
-            std::cout << "--- [分析] LNG 边数统计完毕 ---\n" << std::endl;
+
+            // calculate the coverage ratio
+            cal_f_coverage_ratio(); // fxy_add
+
+            // initialize_lng_descendants_coverage_bitsets();
+            auto roaring_start_time = std::chrono::high_resolution_clock::now();
+            initialize_roaring_bitsets();
+            _build_roaring_bitsets_time = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - roaring_start_time).count();
+
+            // precompute the node depths in the label navigating graph,used in hard sandwitch
+            // _precompute_lng_node_depths();
+         }
+         else
+         {
+            _build_roaring_bitsets_time = 0.0;
          }
 
-         // calculate the coverage ratio
-         cal_f_coverage_ratio(); // fxy_add
-
-         // initialize_lng_descendants_coverage_bitsets();
-         auto roaring_start_time = std::chrono::high_resolution_clock::now();
-         initialize_roaring_bitsets();
-         _build_roaring_bitsets_time = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - roaring_start_time).count();
-
-         // precompute the node depths in the label navigating graph,used in hard sandwitch
-         // _precompute_lng_node_depths();
-
          std::cout << "new_cross_edge.ung_and_acorn: " << new_cross_edge.ung_and_acorn << std::endl;
-         if (!new_cross_edge.ung_and_acorn)
+         if (_build_config.is_original_cpu_pipeline() || !new_cross_edge.ung_and_acorn)
             build_cross_group_edges();
          else
          {
@@ -274,6 +444,64 @@ namespace ANNS
 
    void UniNavGraph::get_min_super_sets(const std::vector<LabelType> &query_label_set, std::vector<IdxType> &min_super_set_ids,
                                         bool avoid_self, bool need_containment)
+   {
+      if (_build_config.get_min_super_sets_impl == UngGetMinSuperSetsImpl::OriginalSort)
+      {
+         get_min_super_sets_original_sort(query_label_set, min_super_set_ids, avoid_self, need_containment);
+         return;
+      }
+      get_min_super_sets_optimized_bucket(query_label_set, min_super_set_ids, avoid_self, need_containment);
+   }
+
+   void UniNavGraph::get_min_super_sets_original_sort(const std::vector<LabelType> &query_label_set, std::vector<IdxType> &min_super_set_ids,
+                                                      bool avoid_self, bool need_containment)
+   {
+      min_super_set_ids.clear();
+
+      std::vector<std::shared_ptr<TrieNode>> candidates;
+      _trie_index.get_super_set_entrances(query_label_set, candidates, avoid_self, need_containment);
+
+      if (candidates.empty())
+         return;
+      if (candidates.size() == 1)
+      {
+         min_super_set_ids.emplace_back(candidates[0]->group_id);
+         return;
+      }
+
+      std::sort(candidates.begin(), candidates.end(),
+                [](const std::shared_ptr<TrieNode> &a, const std::shared_ptr<TrieNode> &b)
+                {
+                   return a->label_set_size < b->label_set_size;
+                });
+      auto min_size = _group_id_to_label_set[candidates[0]->group_id].size();
+
+      for (auto candidate : candidates)
+      {
+         const auto &cur_group_id = candidate->group_id;
+         const auto &cur_label_set = _group_id_to_label_set[cur_group_id];
+         bool is_min = true;
+
+         if (cur_label_set.size() > min_size)
+         {
+            for (auto min_group_id : min_super_set_ids)
+            {
+               const auto &min_label_set = _group_id_to_label_set[min_group_id];
+               if (std::includes(cur_label_set.begin(), cur_label_set.end(), min_label_set.begin(), min_label_set.end()))
+               {
+                  is_min = false;
+                  break;
+               }
+            }
+         }
+
+         if (is_min)
+            min_super_set_ids.emplace_back(cur_group_id);
+      }
+   }
+
+   void UniNavGraph::get_min_super_sets_optimized_bucket(const std::vector<LabelType> &query_label_set, std::vector<IdxType> &min_super_set_ids,
+                                                        bool avoid_self, bool need_containment)
    {
       min_super_set_ids.clear();
 
@@ -702,66 +930,913 @@ namespace ANNS
       }
    }
 
+   void UniNavGraph::reserve_graph_neighbor_capacity()
+   {
+      const IdxType complete_threshold =
+          static_cast<IdxType>(read_env_int_local("UNG_GROUP_GRAPH_COMPLETE_NX",
+                                                  static_cast<int>(std::max<IdxType>(_max_degree, 64)),
+                                                  static_cast<int>(_max_degree),
+                                                  1 << 20));
+      uint64_t small_groups = 0;
+      uint64_t small_points = 0;
+      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+      {
+         const auto &range = _group_id_to_range[group_id];
+         const IdxType group_size = range.second - range.first;
+         if (group_size <= complete_threshold)
+         {
+            ++small_groups;
+            small_points += static_cast<uint64_t>(group_size);
+         }
+      }
+
+      const bool auto_enable =
+          (_num_points >= static_cast<IdxType>(read_env_int_local("UNG_GRAPH_RESERVE_AUTO_MIN_POINTS",
+                                                                  500000, 1, 1 << 30))) ||
+          (_num_groups >= static_cast<IdxType>(read_env_int_local("UNG_GRAPH_RESERVE_AUTO_MIN_GROUPS",
+                                                                  20000, 1, 1 << 30))) ||
+          (_num_points > 0 &&
+           (static_cast<double>(small_points) / static_cast<double>(_num_points)) >=
+               static_cast<double>(read_env_int_local("UNG_GRAPH_RESERVE_AUTO_SMALL_PCT",
+                                                      50, 0, 100)) /
+                   100.0);
+      const bool enable_reserve = env_is_set_local("UNG_GRAPH_RESERVE_CAPACITY")
+                                      ? (read_env_int_local("UNG_GRAPH_RESERVE_CAPACITY", 0, 0, 1) == 1)
+                                      : auto_enable;
+      if (!enable_reserve || !_graph || !_graph->neighbors)
+      {
+         std::cout << "[graph_reserve] enabled=0 mode="
+                   << (env_is_set_local("UNG_GRAPH_RESERVE_CAPACITY") ? "manual" : "auto")
+                   << " groups=" << _num_groups
+                   << " small_groups=" << small_groups
+                   << " small_points=" << small_points
+                   << " complete_threshold=" << complete_threshold
+                   << std::endl;
+         prof_logf("[PROF] graph.reserve_capacity enabled=0 mode=%s groups=%u small_groups=%llu small_points=%llu complete_threshold=%u",
+                   env_is_set_local("UNG_GRAPH_RESERVE_CAPACITY") ? "manual" : "auto",
+                   static_cast<unsigned>(_num_groups),
+                   static_cast<unsigned long long>(small_groups),
+                   static_cast<unsigned long long>(small_points),
+                   static_cast<unsigned>(complete_threshold));
+         return;
+      }
+
+      const IdxType additional_slack =
+          static_cast<IdxType>(read_env_int_local("UNG_GRAPH_RESERVE_ADDITIONAL_SLACK",
+                                                  static_cast<int>(_num_cross_edges),
+                                                  0, 1 << 20));
+      const IdxType hard_cap =
+          static_cast<IdxType>(read_env_int_local("UNG_GRAPH_RESERVE_HARD_CAP",
+                                                  1 << 20,
+                                                  1, 1 << 30));
+
+      auto start = std::chrono::high_resolution_clock::now();
+      uint64_t reserved_edges = 0;
+#pragma omp parallel for schedule(dynamic, 4096) reduction(+ : reserved_edges)
+      for (IdxType point_id = 0; point_id < _num_points; ++point_id)
+      {
+         const IdxType group_id = _new_vec_id_to_group_id[point_id];
+         const auto &range = _group_id_to_range[group_id];
+         const IdxType group_size = range.second - range.first;
+         IdxType intra_cap = std::min<IdxType>(_max_degree, group_size > 0 ? group_size - 1 : 0);
+         if (group_size <= _max_degree && group_size > 0)
+            intra_cap = group_size - 1;
+         const IdxType reserve_cap = std::min<IdxType>(hard_cap,
+                                                       std::max<IdxType>(0, intra_cap) +
+                                                           _num_cross_edges + additional_slack);
+         _graph->neighbors[point_id].reserve(static_cast<size_t>(reserve_cap));
+         reserved_edges += static_cast<uint64_t>(reserve_cap);
+      }
+      const double reserve_ms = std::chrono::duration<double, std::milli>(
+                                    std::chrono::high_resolution_clock::now() - start)
+                                    .count();
+      std::cout << "[graph_reserve] enabled=1 capacity_edges=" << reserved_edges
+                << " mode=" << (env_is_set_local("UNG_GRAPH_RESERVE_CAPACITY") ? "manual" : "auto")
+                << " groups=" << _num_groups
+                << " small_groups=" << small_groups
+                << " small_points=" << small_points
+                << " ms=" << reserve_ms
+                << " slack=" << additional_slack
+                << " hard_cap=" << hard_cap << std::endl;
+      prof_logf("[PROF] graph.reserve_capacity enabled=1 mode=%s capacity_edges=%llu ms=%.3f slack=%u hard_cap=%u groups=%u small_groups=%llu small_points=%llu complete_threshold=%u",
+                env_is_set_local("UNG_GRAPH_RESERVE_CAPACITY") ? "manual" : "auto",
+                static_cast<unsigned long long>(reserved_edges), reserve_ms,
+                static_cast<unsigned>(additional_slack),
+                static_cast<unsigned>(hard_cap),
+                static_cast<unsigned>(_num_groups),
+                static_cast<unsigned long long>(small_groups),
+                static_cast<unsigned long long>(small_points),
+                static_cast<unsigned>(complete_threshold));
+   }
+
+   bool UniNavGraph::should_write_intra_group_global_ids() const
+   {
+      const bool gpu_group_graph =
+          _build_config.group_graph_impl == UngGroupGraphImpl::TagoreCuda ||
+          _build_config.group_graph_impl == UngGroupGraphImpl::GrnndLikeCuda ||
+          _build_config.group_graph_impl == UngGroupGraphImpl::FastGrnndCuda ||
+          _build_config.group_graph_impl == UngGroupGraphImpl::AdaptiveCuda;
+      const bool cross_uses_group_vamana =
+          _build_config.cross_edge_impl == UngCrossEdgeImpl::CpuVamana ||
+          _build_config.cross_edge_impl == UngCrossEdgeImpl::OriginalCpu ||
+          _build_config.cross_edge_impl == UngCrossEdgeImpl::CpuHybridScanVamana;
+      const bool additional_uses_group_vamana =
+          _build_config.additional_edges_impl == UngAdditionalEdgesImpl::CpuVamana;
+      const bool auto_enable = gpu_group_graph && !cross_uses_group_vamana && !additional_uses_group_vamana;
+      const int requested = read_env_int_local("UNG_INTRA_GLOBAL_IDS", -1, -1, 1);
+      return requested >= 0 ? requested == 1 : auto_enable;
+   }
+
    void UniNavGraph::build_graph_for_all_groups()
    {
       std::cout << "Building graph for each group ..." << std::endl;
       omp_set_num_threads(_num_threads);
       auto start_time = std::chrono::high_resolution_clock::now();
+      _intra_group_graph_ids_are_global = false;
 
       // build group-level proximity graphs
-      if (_index_name == "Vamana" || _index_name == "FixedPoolGPU")
+      if (_index_name == "Vamana")
       {
          _vamana_instances.resize(_num_groups + 1);
          _group_entry_points.resize(_num_groups + 1);
+         const IdxType small_group_complete_threshold =
+             static_cast<IdxType>(read_env_int_local("UNG_GROUP_GRAPH_COMPLETE_NX",
+                                                     static_cast<int>(std::max<IdxType>(_max_degree, 64)),
+                                                     static_cast<int>(_max_degree),
+                                                     1 << 20));
+         const bool bounded_complete =
+             read_env_int_local("UNG_GROUP_GRAPH_BOUNDED_COMPLETE", 0, 0, 1) == 1;
+         std::atomic<size_t> complete_fast_groups{0};
+         std::atomic<size_t> complete_fast_points{0};
+         std::atomic<size_t> vamana_build_groups{0};
+         std::atomic<size_t> vamana_build_points{0};
+	         const bool profile_group_graph = read_env_int_local("UNG_GROUP_GRAPH_PROFILE", 0, 0, 1) == 1;
+	         std::vector<double> group_graph_ms(profile_group_graph ? _num_groups + 1 : 0, 0.0);
+	         std::vector<IdxType> group_graph_nx(profile_group_graph ? _num_groups + 1 : 0, 0);
+	         std::vector<uint8_t> group_graph_route(profile_group_graph ? _num_groups + 1 : 0, 0);
+	         const int large_group_inner_threads =
+	             read_env_int_local("UNG_GROUP_GRAPH_LARGE_INNER_THREADS", 1, 1, static_cast<int>(_num_threads));
+	         const IdxType large_group_inner_threshold =
+	             static_cast<IdxType>(read_env_int_local("UNG_GROUP_GRAPH_LARGE_INNER_NX", 1024, 1, 1 << 20));
+	         const bool split_large_group_build = large_group_inner_threads > 1;
+	         const int default_large_outer_threads =
+	             std::max(1, static_cast<int>(_num_threads) / std::max(1, large_group_inner_threads));
+	         const int large_group_outer_threads =
+	             read_env_int_local("UNG_GROUP_GRAPH_LARGE_OUTER_THREADS", default_large_outer_threads,
+	                                1, static_cast<int>(_num_threads));
+	         std::vector<IdxType> large_group_ids;
+	         if (split_large_group_build)
+	         {
+	            for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+	            {
+	               const auto &range = _group_id_to_range[group_id];
+	               const IdxType group_size = range.second - range.first;
+	               if (group_size > small_group_complete_threshold && group_size >= large_group_inner_threshold)
+	                  large_group_ids.push_back(group_id);
+	            }
+	            std::sort(large_group_ids.begin(), large_group_ids.end(), [&](IdxType a, IdxType b) {
+	               const auto &ra = _group_id_to_range[a];
+	               const auto &rb = _group_id_to_range[b];
+	               return (ra.second - ra.first) > (rb.second - rb.first);
+	            });
+	            std::cout << "[group_graph] large_inner_threads=" << large_group_inner_threads
+	                      << " large_outer_threads=" << large_group_outer_threads
+	                      << " large_inner_nx=" << large_group_inner_threshold
+	                      << " large_inner_groups=" << large_group_ids.size()
+	                      << std::endl;
+	         }
+
+         if (_build_config.group_graph_impl == UngGroupGraphImpl::TagoreCuda ||
+             _build_config.group_graph_impl == UngGroupGraphImpl::GrnndLikeCuda ||
+             _build_config.group_graph_impl == UngGroupGraphImpl::FastGrnndCuda ||
+             _build_config.group_graph_impl == UngGroupGraphImpl::AdaptiveCuda)
+         {
+            build_graph_for_all_groups_tagore_cuda();
+            _build_graph_time = std::chrono::duration<double, std::milli>(
+                                    std::chrono::high_resolution_clock::now() - start_time)
+                                    .count();
+            std::cout << "\r- Finished in " << _build_graph_time << " ms" << std::endl;
+            return;
+         }
 
 #pragma omp parallel for schedule(dynamic, 1)
-         for (auto group_id = 1; group_id <= _num_groups; ++group_id)
-         {
+	         for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+	         {
             // if (group_id % 100 == 0)
             //    std::cout << "\r" << (100.0 * group_id) / _num_groups << "%" << std::flush;
 
             // if there are less than _max_degree points in the group, just build a complete graph
-            const auto &range = _group_id_to_range[group_id];
-            if (range.second - range.first <= _max_degree)
+	            const auto &range = _group_id_to_range[group_id];
+	            const IdxType group_size = range.second - range.first;
+	            if (split_large_group_build && group_size > small_group_complete_threshold &&
+	                group_size >= large_group_inner_threshold)
+	               continue;
+	            const auto group_start_time = profile_group_graph ? std::chrono::high_resolution_clock::now()
+	                                                              : std::chrono::high_resolution_clock::time_point{};
+            if (group_size <= small_group_complete_threshold)
             {
-               build_complete_graph(_group_graphs[group_id], range.second - range.first);
+               if (bounded_complete)
+                  build_bounded_complete_graph(_group_graphs[group_id], group_size, _max_degree);
+               else
+                  build_complete_graph(_group_graphs[group_id], group_size);
                _vamana_instances[group_id] = std::make_shared<Vamana>(_group_storages[group_id], _distance_handler,
                                                                       _group_graphs[group_id], 0);
+               complete_fast_groups.fetch_add(1, std::memory_order_relaxed);
+               complete_fast_points.fetch_add(static_cast<size_t>(group_size), std::memory_order_relaxed);
 
                // build the vamana graph
             }
-            else if (_index_name == "Vamana")
+            else
             {
                _vamana_instances[group_id] = std::make_shared<Vamana>(false);
                _vamana_instances[group_id]->build(_group_storages[group_id], _distance_handler,
                                                   _group_graphs[group_id], _max_degree, _Lbuild, _alpha, 1);
+               vamana_build_groups.fetch_add(1, std::memory_order_relaxed);
+               vamana_build_points.fetch_add(static_cast<size_t>(group_size), std::memory_order_relaxed);
             }
-            else
+            if (profile_group_graph)
             {
-               const uint32_t fixed_pool_iters = 4;
-               const uint64_t fixed_pool_seed = 0x9e3779b97f4a7c15ULL + static_cast<uint64_t>(group_id);
-               build_fixed_pool_graph_gpu(_group_storages[group_id], _distance_handler,
-                                          _group_graphs[group_id], _max_degree, _Lbuild,
-                                          _alpha, fixed_pool_iters, fixed_pool_seed);
-               _vamana_instances[group_id] = std::make_shared<Vamana>(_group_storages[group_id], _distance_handler,
-                                                                      _group_graphs[group_id], 0);
+               group_graph_ms[group_id] = std::chrono::duration<double, std::milli>(
+                                             std::chrono::high_resolution_clock::now() - group_start_time)
+                                             .count();
+               group_graph_nx[group_id] = group_size;
+               group_graph_route[group_id] = group_size <= small_group_complete_threshold ? 1 : 2;
             }
 
             // set entry point
-            _group_entry_points[group_id] = _vamana_instances[group_id]->get_entry_point() + range.first;
-         }
+	            _group_entry_points[group_id] = _vamana_instances[group_id]->get_entry_point() + range.first;
+	         }
 
-         // if none of the above
+	         if (split_large_group_build)
+	         {
+	            omp_set_dynamic(0);
+	            omp_set_max_active_levels(2);
+	         }
+#pragma omp parallel for schedule(dynamic, 1) num_threads(large_group_outer_threads)
+	         for (size_t large_idx = 0; large_idx < large_group_ids.size(); ++large_idx)
+	         {
+	            const auto group_id = large_group_ids[large_idx];
+	            const auto &range = _group_id_to_range[group_id];
+	            const IdxType group_size = range.second - range.first;
+	            const auto group_start_time = profile_group_graph ? std::chrono::high_resolution_clock::now()
+	                                                              : std::chrono::high_resolution_clock::time_point{};
+	            _vamana_instances[group_id] = std::make_shared<Vamana>(false);
+	            _vamana_instances[group_id]->build(_group_storages[group_id], _distance_handler,
+	                                               _group_graphs[group_id], _max_degree, _Lbuild, _alpha,
+	                                               static_cast<uint32_t>(large_group_inner_threads));
+	            vamana_build_groups.fetch_add(1, std::memory_order_relaxed);
+	            vamana_build_points.fetch_add(static_cast<size_t>(group_size), std::memory_order_relaxed);
+	            if (profile_group_graph)
+	            {
+	               group_graph_ms[group_id] = std::chrono::duration<double, std::milli>(
+	                                             std::chrono::high_resolution_clock::now() - group_start_time)
+	                                             .count();
+	               group_graph_nx[group_id] = group_size;
+	               group_graph_route[group_id] = 3;
+	            }
+	            _group_entry_points[group_id] = _vamana_instances[group_id]->get_entry_point() + range.first;
+	         }
+
+         _build_graph_time = std::chrono::duration<double, std::milli>(
+                                 std::chrono::high_resolution_clock::now() - start_time)
+                                 .count();
+         std::cout << "[group_graph] complete_threshold_nx=" << small_group_complete_threshold
+                   << " complete_groups=" << complete_fast_groups.load()
+                   << " complete_points=" << complete_fast_points.load()
+                   << " vamana_groups=" << vamana_build_groups.load()
+	                   << " vamana_points=" << vamana_build_points.load()
+	                   << std::endl;
+         if (profile_group_graph)
+         {
+            struct BinStat
+            {
+               const char *name;
+               IdxType lo;
+               IdxType hi;
+               size_t groups = 0;
+               size_t points = 0;
+               double sum_ms = 0.0;
+               double max_ms = 0.0;
+               IdxType max_gid = 0;
+               IdxType max_nx = 0;
+            };
+            std::vector<BinStat> bins = {
+                {"<=64", 0, 64},
+                {"65-128", 65, 128},
+                {"129-256", 129, 256},
+                {"257-512", 257, 512},
+                {"513-1024", 513, 1024},
+                {"1025-2048", 1025, 2048},
+                {">2048", 2049, std::numeric_limits<IdxType>::max()}};
+            std::vector<IdxType> order;
+            order.reserve(_num_groups);
+            double total_group_ms = 0.0;
+            double total_vamana_ms = 0.0;
+            double total_complete_ms = 0.0;
+            for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+            {
+               const IdxType nx = group_graph_nx[group_id];
+               const double ms = group_graph_ms[group_id];
+               total_group_ms += ms;
+               if (group_graph_route[group_id] == 1)
+                  total_complete_ms += ms;
+	               else if (group_graph_route[group_id] == 2)
+	                  total_vamana_ms += ms;
+	               else if (group_graph_route[group_id] == 3)
+	                  total_vamana_ms += ms;
+               order.push_back(group_id);
+               for (auto &bin : bins)
+               {
+                  if (nx >= bin.lo && nx <= bin.hi)
+                  {
+                     bin.groups += 1;
+                     bin.points += static_cast<size_t>(nx);
+                     bin.sum_ms += ms;
+                     if (ms > bin.max_ms)
+                     {
+                        bin.max_ms = ms;
+                        bin.max_gid = group_id;
+                        bin.max_nx = nx;
+                     }
+                     break;
+                  }
+               }
+            }
+            std::sort(order.begin(), order.end(), [&](IdxType a, IdxType b) {
+               return group_graph_ms[a] > group_graph_ms[b];
+            });
+            std::cout << "[group_graph_profile] total_group_ms_sum=" << total_group_ms
+                      << " complete_ms_sum=" << total_complete_ms
+                      << " vamana_ms_sum=" << total_vamana_ms
+                      << " wall_ms=" << _build_graph_time
+                      << std::endl;
+            for (const auto &bin : bins)
+            {
+               if (bin.groups == 0)
+                  continue;
+               std::cout << "[group_graph_profile_bin] nx=" << bin.name
+                         << " groups=" << bin.groups
+                         << " points=" << bin.points
+                         << " sum_ms=" << bin.sum_ms
+                         << " avg_ms=" << (bin.sum_ms / static_cast<double>(bin.groups))
+                         << " max_ms=" << bin.max_ms
+                         << " max_gid=" << bin.max_gid
+                         << " max_nx=" << bin.max_nx
+                         << std::endl;
+            }
+            const size_t topn = std::min<size_t>(20, order.size());
+            for (size_t i = 0; i < topn; ++i)
+            {
+               const IdxType gid = order[i];
+               std::cout << "[group_graph_profile_top] rank=" << (i + 1)
+	                         << " gid=" << gid
+	                         << " nx=" << group_graph_nx[gid]
+	                         << " route="
+	                         << (group_graph_route[gid] == 1 ? "complete"
+	                                                           : (group_graph_route[gid] == 3 ? "vamana_inner_mt"
+	                                                                                            : "vamana"))
+	                         << " ms=" << group_graph_ms[gid]
+	                         << std::endl;
+            }
+         }
+         std::cout << "\r- Finished in " << _build_graph_time << " ms" << std::endl;
+         return;
       }
       else
       {
          std::cerr << "Error: invalid index name " << _index_name << std::endl;
          exit(-1);
       }
-      _build_graph_time = std::chrono::duration<double, std::milli>(
-                              std::chrono::high_resolution_clock::now() - start_time)
-                              .count();
-      std::cout << "\r- Finished in " << _build_graph_time << " ms" << std::endl;
+   }
+
+   void UniNavGraph::build_one_group_graph_tagore_cuda(IdxType group_id, IdxType num_points,
+                                                       TagoreBuildResult *timing_acc,
+                                                       double *pack_ms, double *fill_ms)
+   {
+      const uint32_t dim = static_cast<uint32_t>(_base_storage->get_dim());
+      const auto &range = _group_id_to_range[group_id];
+      std::vector<float> data(static_cast<size_t>(num_points) * dim);
+      const auto pack_start = std::chrono::high_resolution_clock::now();
+      for (IdxType local_id = 0; local_id < num_points; ++local_id)
+      {
+         const char *src = _base_storage->get_vector(range.first + local_id);
+         std::memcpy(data.data() + static_cast<size_t>(local_id) * dim, src, static_cast<size_t>(dim) * sizeof(float));
+      }
+      if (pack_ms)
+         *pack_ms += std::chrono::duration<double, std::milli>(
+                         std::chrono::high_resolution_clock::now() - pack_start)
+                         .count();
+      TagoreBuildResult result = build_tagore_vamana_cuda(
+          data.data(),
+          static_cast<uint32_t>(num_points),
+          dim,
+          _build_config.tagore_k,
+          static_cast<uint32_t>(_max_degree),
+          _build_config.tagore_m,
+          _build_config.tagore_iter,
+          _alpha);
+      if (timing_acc)
+      {
+         timing_acc->convert_ms += result.convert_ms;
+         timing_acc->alloc_ms += result.alloc_ms;
+         timing_acc->h2d_ms += result.h2d_ms;
+         timing_acc->memset_ms += result.memset_ms;
+         timing_acc->gnn_ms += result.gnn_ms;
+         timing_acc->prune_ms += result.prune_ms;
+         timing_acc->d2h_ms += result.d2h_ms;
+         timing_acc->free_ms += result.free_ms;
+      }
+
+      auto graph = _group_graphs[group_id];
+      const IdxType base_offset = _intra_group_graph_ids_are_global ? range.first : 0;
+      const uint32_t k = result.graph_stride != 0 ? result.graph_stride : _build_config.tagore_k;
+      const bool fast_fill = read_env_int_local("UNG_TAGORE_FILL_FAST", 0, 0, 1) == 1;
+      const auto fill_start = std::chrono::high_resolution_clock::now();
+      for (IdxType local_id = 0; local_id < num_points; ++local_id)
+      {
+         auto &neighbors = graph->neighbors[local_id];
+         neighbors.clear();
+         const uint32_t degree = result.graph[static_cast<size_t>(local_id) * k];
+         if (fast_fill)
+         {
+            const uint32_t limit = std::min<uint32_t>(degree, _max_degree);
+            neighbors.resize(limit);
+            uint32_t write = 0;
+            for (uint32_t j = 0; j < degree && write < limit; ++j)
+            {
+               const uint32_t neighbor = result.graph[static_cast<size_t>(local_id) * k + 1 + j];
+               if (neighbor < num_points && neighbor != local_id)
+                  neighbors[write++] = static_cast<IdxType>(neighbor) + base_offset;
+            }
+            neighbors.resize(write);
+         }
+         else
+         {
+            neighbors.reserve(std::min<uint32_t>(degree, _max_degree));
+            for (uint32_t j = 0; j < degree && neighbors.size() < _max_degree; ++j)
+            {
+               const uint32_t neighbor = result.graph[static_cast<size_t>(local_id) * k + 1 + j];
+               const IdxType neighbor_id = static_cast<IdxType>(neighbor) + base_offset;
+               if (neighbor < num_points && neighbor != local_id &&
+                   std::find(neighbors.begin(), neighbors.end(), neighbor_id) == neighbors.end())
+                  neighbors.emplace_back(neighbor_id);
+            }
+         }
+      }
+      _vamana_instances[group_id] = std::make_shared<Vamana>(_group_storages[group_id], _distance_handler,
+                                                             _group_graphs[group_id], result.entry_point);
+      _group_entry_points[group_id] = result.entry_point + range.first;
+      if (fill_ms)
+         *fill_ms += std::chrono::duration<double, std::milli>(
+                         std::chrono::high_resolution_clock::now() - fill_start)
+                         .count();
+   }
+
+   void UniNavGraph::build_graph_for_all_groups_tagore_cuda()
+   {
+      if (_base_storage->get_data_type() != DataType::FLOAT)
+         throw std::runtime_error("TagoreCuda supports only float vectors.");
+      _intra_group_graph_ids_are_global = should_write_intra_group_global_ids();
+      std::cout << "[group_graph] intra_global_ids=" << (_intra_group_graph_ids_are_global ? 1 : 0)
+                << std::endl;
+      prof_logf("[PROF] group_graph.intra_global_ids enabled=%d",
+                _intra_group_graph_ids_are_global ? 1 : 0);
+      _tagore_groups = 0.0;
+      _tagore_points = 0.0;
+      _tagore_direct_build_wall_time_ms = 0.0;
+      _tagore_no_alloc_build_time_ms = 0.0;
+      _tagore_pack_time_ms = 0.0;
+      _tagore_convert_time_ms = 0.0;
+      _tagore_workspace_alloc_time_ms = 0.0;
+      _tagore_h2d_time_ms = 0.0;
+      _tagore_memset_time_ms = 0.0;
+      _tagore_gnn_time_ms = 0.0;
+      _tagore_prune_time_ms = 0.0;
+      _tagore_grnnd_refine_time_ms = 0.0;
+      _tagore_d2h_time_ms = 0.0;
+      _tagore_fill_time_ms = 0.0;
+      _tagore_workspace_free_time_ms = 0.0;
+      _tagore_unaccounted_time_ms = 0.0;
+      _tagore_h2d_effective_gbps = 0.0;
+      _tagore_d2h_effective_gbps = 0.0;
+      _tagore_gnn_mpts_s = 0.0;
+      _tagore_prune_mpts_s = 0.0;
+	      std::vector<IdxType> tagore_group_ids;
+	      std::vector<TagoreGroupRequest> tagore_requests;
+	      double tagore_wall_ms = 0.0;
+	      double tagore_pack_ms = 0.0;
+	      double tagore_fill_ms = 0.0;
+	      double fallback_wall_ms = 0.0;
+	      std::atomic<size_t> fallback_complete_groups{0};
+	      std::atomic<size_t> fallback_complete_points{0};
+	      std::atomic<size_t> fallback_cpu_groups{0};
+	      std::atomic<size_t> fallback_cpu_points{0};
+	      uint64_t tagore_total_points = 0;
+	      TagoreBuildResult timing_acc;
+	      const bool adaptive_group_graph =
+	          _build_config.group_graph_impl == UngGroupGraphImpl::AdaptiveCuda;
+	      const IdxType complete_threshold =
+	          static_cast<IdxType>(read_env_int_local("UNG_GROUP_GRAPH_COMPLETE_NX",
+	                                                  static_cast<int>(std::max<IdxType>(_max_degree, 64)),
+	                                                  static_cast<int>(_max_degree),
+	                                                  1 << 20));
+	      const int fallback_impl = read_env_int_local("UNG_TAGORE_FALLBACK_IMPL", 1, 0, 1);
+	      const bool bounded_complete =
+	          read_env_int_local("UNG_GROUP_GRAPH_BOUNDED_COMPLETE", adaptive_group_graph ? 1 : 0, 0, 1) == 1;
+	      const int fallback_threads =
+	          read_env_int_local("UNG_TAGORE_FALLBACK_THREADS",
+	                             static_cast<int>(_num_threads),
+	                             1, static_cast<int>(_num_threads));
+	      std::vector<IdxType> fallback_group_ids;
+	      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+	      {
+	         const auto &range = _group_id_to_range[group_id];
+	         const IdxType n = range.second - range.first;
+	         if (n <= complete_threshold || n < _build_config.tagore_min_group_size)
+	         {
+	            fallback_group_ids.emplace_back(group_id);
+	         }
+	         else
+	         {
+            tagore_group_ids.emplace_back(group_id);
+            tagore_requests.push_back({reinterpret_cast<const float *>(_base_storage->get_vector(range.first)),
+                                        static_cast<uint32_t>(n)});
+	            tagore_total_points += n;
+	         }
+	      }
+
+	      auto build_fallback_groups = [&]() {
+	      const auto fallback_start = std::chrono::high_resolution_clock::now();
+#pragma omp parallel for schedule(dynamic, 1) num_threads(fallback_threads)
+	      for (size_t i = 0; i < fallback_group_ids.size(); ++i)
+	      {
+	         const IdxType group_id = fallback_group_ids[i];
+	         const auto &range = _group_id_to_range[group_id];
+	         const IdxType n = range.second - range.first;
+            if (n <= complete_threshold || fallback_impl == 0)
+            {
+               if (bounded_complete)
+                  build_bounded_complete_graph(_group_graphs[group_id], n, _max_degree,
+                                               _intra_group_graph_ids_are_global ? range.first : 0);
+               else
+                  build_complete_graph(_group_graphs[group_id], n,
+                                       _intra_group_graph_ids_are_global ? range.first : 0);
+               _vamana_instances[group_id] = std::make_shared<Vamana>(_group_storages[group_id], _distance_handler,
+                                                                   _group_graphs[group_id], 0);
+	            _group_entry_points[group_id] = range.first;
+	            fallback_complete_groups.fetch_add(1, std::memory_order_relaxed);
+	            fallback_complete_points.fetch_add(static_cast<size_t>(n), std::memory_order_relaxed);
+	         }
+	         else
+	         {
+	            _vamana_instances[group_id] = std::make_shared<Vamana>(false);
+               _vamana_instances[group_id]->build(_group_storages[group_id], _distance_handler,
+                                                   _group_graphs[group_id], _max_degree, _Lbuild, _alpha, 1);
+               if (_intra_group_graph_ids_are_global)
+               {
+                  for (IdxType local_id = 0; local_id < n; ++local_id)
+                     for (auto &neighbor : _group_graphs[group_id]->neighbors[local_id])
+                        neighbor += range.first;
+               }
+               _group_entry_points[group_id] = _vamana_instances[group_id]->get_entry_point() + range.first;
+	            fallback_cpu_groups.fetch_add(1, std::memory_order_relaxed);
+	            fallback_cpu_points.fetch_add(static_cast<size_t>(n), std::memory_order_relaxed);
+	         }
+	      }
+	      fallback_wall_ms = std::chrono::duration<double, std::milli>(
+	                             std::chrono::high_resolution_clock::now() - fallback_start)
+	                             .count();
+	      };
+
+	      const bool overlap_fallback =
+	          read_env_int_local("UNG_TAGORE_OVERLAP_FALLBACK", adaptive_group_graph ? 1 : 0, 0, 1) == 1 &&
+	          !fallback_group_ids.empty() && !tagore_requests.empty();
+	      std::exception_ptr fallback_error;
+	      std::thread fallback_thread;
+	      if (overlap_fallback)
+	      {
+	         fallback_thread = std::thread([&]() {
+	            try
+	            {
+	               build_fallback_groups();
+	            }
+	            catch (...)
+	            {
+	               fallback_error = std::current_exception();
+	            }
+	         });
+	      }
+	      else
+	      {
+	         build_fallback_groups();
+	      }
+	      struct FallbackThreadJoiner
+	      {
+	         std::thread &thread;
+	         ~FallbackThreadJoiner()
+	         {
+	            if (thread.joinable())
+	               thread.join();
+	         }
+	      } fallback_joiner{fallback_thread};
+
+	      const auto batch_start = std::chrono::high_resolution_clock::now();
+      TagorePruneMode prune_mode = TagorePruneMode::TagoreVamana;
+      if (_build_config.group_graph_impl == UngGroupGraphImpl::GrnndLikeCuda)
+         prune_mode = TagorePruneMode::TagoreVamanaWithGrnndRefine;
+      else if (_build_config.group_graph_impl == UngGroupGraphImpl::FastGrnndCuda ||
+               _build_config.group_graph_impl == UngGroupGraphImpl::AdaptiveCuda)
+         prune_mode = TagorePruneMode::FastGrnnd;
+
+	      std::vector<TagoreBuildResult> tagore_results(tagore_group_ids.size());
+	      constexpr size_t npos = static_cast<size_t>(-1);
+	      std::vector<size_t> exact_packed_rank(tagore_group_ids.size(), npos);
+	      std::vector<uint32_t> exact_packed_graph;
+	      std::vector<uint32_t> exact_packed_offsets;
+	      uint32_t exact_packed_stride = 0;
+	      TagoreBatchBuildResult batch;
+	      if (!tagore_requests.empty())
+	      {
+	         const uint32_t dim = static_cast<uint32_t>(_base_storage->get_dim());
+	         const uint32_t exact_batch_threshold =
+	             prune_mode == TagorePruneMode::FastGrnnd
+	                 ? static_cast<uint32_t>(read_env_int_local(
+	                       "UNG_FAST_GRNND_BATCH_EXACT_NX",
+	                       adaptive_group_graph
+	                           ? read_env_int_local("UNG_ADAPTIVE_EXACT_MAX_NX", 4096, 0, 1 << 20)
+	                           : 0,
+	                       0, 1 << 20))
+	                 : 0;
+	         if (exact_batch_threshold > 0)
+	         {
+	            std::vector<TagoreGroupRequest> exact_requests;
+	            std::vector<TagoreGroupRequest> gnn_requests;
+	            std::vector<size_t> exact_positions;
+	            std::vector<size_t> gnn_positions;
+	            exact_requests.reserve(tagore_requests.size());
+	            gnn_requests.reserve(tagore_requests.size());
+	            exact_positions.reserve(tagore_requests.size());
+	            gnn_positions.reserve(tagore_requests.size());
+	            for (size_t i = 0; i < tagore_requests.size(); ++i)
+	            {
+	               if (tagore_requests[i].num_points <= exact_batch_threshold)
+	               {
+	                  exact_positions.push_back(i);
+	                  exact_requests.push_back(tagore_requests[i]);
+	               }
+	               else
+	               {
+	                  gnn_positions.push_back(i);
+	                  gnn_requests.push_back(tagore_requests[i]);
+	               }
+	            }
+
+	            auto merge_batch = [&](TagoreBatchBuildResult &part, const std::vector<size_t> &positions) {
+	               batch.batch_pack_ms += part.batch_pack_ms;
+	               batch.batch_alloc_ms += part.batch_alloc_ms;
+	               batch.batch_free_ms += part.batch_free_ms;
+	               for (size_t i = 0; i < positions.size(); ++i)
+	                  tagore_results[positions[i]] = std::move(part.groups[i]);
+	            };
+
+	            if (!exact_requests.empty())
+	            {
+	               TagoreBatchBuildResult exact_batch = build_tagore_vamana_cuda_batch(
+	                   exact_requests, dim, _build_config.tagore_k, static_cast<uint32_t>(_max_degree),
+	                   _build_config.tagore_m, _build_config.tagore_iter, _alpha, prune_mode);
+	               for (size_t i = 0; i < exact_positions.size(); ++i)
+	                  exact_packed_rank[exact_positions[i]] = i;
+	               exact_packed_graph = std::move(exact_batch.packed_graph);
+	               exact_packed_offsets = std::move(exact_batch.packed_offsets);
+	               exact_packed_stride = exact_batch.packed_graph_stride;
+	               merge_batch(exact_batch, exact_positions);
+	            }
+	            if (!gnn_requests.empty())
+	            {
+	               TagoreBatchBuildResult gnn_batch = build_tagore_vamana_cuda_batch(
+	                   gnn_requests, dim, _build_config.tagore_k, static_cast<uint32_t>(_max_degree),
+	                   _build_config.tagore_m, _build_config.tagore_iter, _alpha, prune_mode);
+	               merge_batch(gnn_batch, gnn_positions);
+	            }
+	            std::cout << "[TagoreCuda] mixed FastGrnnd batches: exact_groups=" << exact_requests.size()
+	                      << " gnn_groups=" << gnn_requests.size()
+	                      << " exact_nx_threshold=" << exact_batch_threshold
+	                      << std::endl;
+	         }
+	         else
+	         {
+	            batch = build_tagore_vamana_cuda_batch(
+	                tagore_requests,
+	                dim,
+	                _build_config.tagore_k,
+	                static_cast<uint32_t>(_max_degree),
+	                _build_config.tagore_m,
+	                _build_config.tagore_iter,
+	                _alpha,
+	                prune_mode);
+	            if (!batch.packed_graph.empty())
+	            {
+	               exact_packed_graph = std::move(batch.packed_graph);
+	               exact_packed_offsets = std::move(batch.packed_offsets);
+	               exact_packed_stride = batch.packed_graph_stride;
+	               for (size_t i = 0; i < tagore_results.size(); ++i)
+	                  exact_packed_rank[i] = i;
+	            }
+	            tagore_results = std::move(batch.groups);
+	         }
+	         tagore_wall_ms = std::chrono::duration<double, std::milli>(
+	                              std::chrono::high_resolution_clock::now() - batch_start)
+	                              .count();
+	      }
+	      if (fallback_thread.joinable())
+	         fallback_thread.join();
+	      if (fallback_error)
+	         std::rethrow_exception(fallback_error);
+
+      double timing_convert_ms = 0.0;
+      double timing_h2d_ms = 0.0;
+      double timing_memset_ms = 0.0;
+      double timing_gnn_ms = 0.0;
+      double timing_prune_ms = 0.0;
+      double timing_grnnd_refine_ms = 0.0;
+      double timing_d2h_ms = 0.0;
+      const bool tagore_fast_fill = read_env_int_local("UNG_TAGORE_FILL_FAST", 0, 0, 1) == 1;
+      const int default_tagore_fill_threads =
+          std::min<int>(static_cast<int>(_num_threads), 16);
+      const int tagore_fill_threads =
+          read_env_int_local("UNG_TAGORE_FILL_THREADS", default_tagore_fill_threads, 1,
+                             static_cast<int>(_num_threads));
+      double tagore_fill_cpu_sum_ms = 0.0;
+      const auto tagore_fill_wall_start = std::chrono::high_resolution_clock::now();
+#pragma omp parallel for schedule(dynamic, 1) num_threads(tagore_fill_threads) reduction(+ : tagore_fill_cpu_sum_ms, timing_convert_ms, timing_h2d_ms, timing_memset_ms, timing_gnn_ms, timing_prune_ms, timing_grnnd_refine_ms, timing_d2h_ms)
+      for (size_t gi = 0; gi < tagore_group_ids.size(); ++gi)
+      {
+         const IdxType group_id = tagore_group_ids[gi];
+         const auto &range = _group_id_to_range[group_id];
+         const IdxType num_points = range.second - range.first;
+         const TagoreBuildResult &result = tagore_results[gi];
+         auto graph = _group_graphs[group_id];
+         const IdxType base_offset = _intra_group_graph_ids_are_global ? range.first : 0;
+         const uint32_t k = result.graph_stride != 0
+                                ? result.graph_stride
+                                : (_build_config.tagore_k <= _max_degree ? static_cast<uint32_t>(_max_degree + 1)
+                                                                          : _build_config.tagore_k);
+         const uint32_t *graph_data = result.graph.empty() ? nullptr : result.graph.data();
+         bool exact_packed_source = false;
+         if (!graph_data && gi < exact_packed_rank.size() && exact_packed_rank[gi] != npos &&
+             exact_packed_stride == k && !exact_packed_graph.empty() &&
+             exact_packed_rank[gi] + 1 < exact_packed_offsets.size())
+         {
+            graph_data = exact_packed_graph.data() + static_cast<size_t>(exact_packed_offsets[exact_packed_rank[gi]]) * k;
+            exact_packed_source = true;
+         }
+         if (!graph_data)
+            throw std::runtime_error("TagoreCuda result graph is empty and no packed graph source is available.");
+         const auto fill_start = std::chrono::high_resolution_clock::now();
+         for (IdxType local_id = 0; local_id < num_points; ++local_id)
+         {
+            auto &neighbors = graph->neighbors[local_id];
+            neighbors.clear();
+            const uint32_t degree = graph_data[static_cast<size_t>(local_id) * k];
+            if (tagore_fast_fill || exact_packed_source)
+            {
+               const uint32_t limit = std::min<uint32_t>(degree, _max_degree);
+               if (exact_packed_source)
+               {
+                  const uint32_t *begin = graph_data + static_cast<size_t>(local_id) * k + 1;
+                  neighbors.resize(limit);
+                  if (limit > 0 && base_offset == 0)
+                     std::memcpy(neighbors.data(), begin, static_cast<size_t>(limit) * sizeof(IdxType));
+                  else
+                  {
+                     for (uint32_t j = 0; j < limit; ++j)
+                        neighbors[j] = static_cast<IdxType>(begin[j]) + base_offset;
+                  }
+               }
+               else
+               {
+                  neighbors.resize(limit);
+                  uint32_t write = 0;
+                  for (uint32_t j = 0; j < degree && write < limit; ++j)
+                  {
+                     const uint32_t neighbor = graph_data[static_cast<size_t>(local_id) * k + 1 + j];
+                     if (neighbor < num_points && neighbor != local_id)
+                        neighbors[write++] = static_cast<IdxType>(neighbor) + base_offset;
+                  }
+                  neighbors.resize(write);
+               }
+            }
+            else
+            {
+               neighbors.reserve(std::min<uint32_t>(degree, _max_degree));
+               for (uint32_t j = 0; j < degree && neighbors.size() < _max_degree; ++j)
+               {
+                  const uint32_t neighbor = graph_data[static_cast<size_t>(local_id) * k + 1 + j];
+                  const IdxType neighbor_id = static_cast<IdxType>(neighbor) + base_offset;
+                  bool duplicate = false;
+                  for (IdxType existing : neighbors)
+                  {
+                     if (existing == neighbor_id)
+                     {
+                        duplicate = true;
+                        break;
+                     }
+                  }
+                  if (neighbor < num_points && neighbor != local_id && !duplicate)
+                     neighbors.emplace_back(neighbor_id);
+               }
+            }
+         }
+         _vamana_instances[group_id] = std::make_shared<Vamana>(_group_storages[group_id], _distance_handler,
+                                                                _group_graphs[group_id], result.entry_point);
+         _group_entry_points[group_id] = result.entry_point + range.first;
+         tagore_fill_cpu_sum_ms += std::chrono::duration<double, std::milli>(
+                                       std::chrono::high_resolution_clock::now() - fill_start)
+                                       .count();
+
+         timing_convert_ms += result.convert_ms;
+         timing_h2d_ms += result.h2d_ms;
+         timing_memset_ms += result.memset_ms;
+         timing_gnn_ms += result.gnn_ms;
+         timing_prune_ms += result.prune_ms;
+         timing_grnnd_refine_ms += result.grnnd_refine_ms;
+         timing_d2h_ms += result.d2h_ms;
+      }
+      tagore_fill_ms = std::chrono::duration<double, std::milli>(
+                           std::chrono::high_resolution_clock::now() - tagore_fill_wall_start)
+                           .count();
+      timing_acc.convert_ms = timing_convert_ms;
+      timing_acc.h2d_ms = timing_h2d_ms;
+      timing_acc.memset_ms = timing_memset_ms;
+      timing_acc.gnn_ms = timing_gnn_ms;
+      timing_acc.prune_ms = timing_prune_ms;
+      timing_acc.grnnd_refine_ms = timing_grnnd_refine_ms;
+      timing_acc.d2h_ms = timing_d2h_ms;
+      timing_acc.alloc_ms = batch.batch_alloc_ms;
+      timing_acc.free_ms = batch.batch_free_ms;
+      tagore_pack_ms += batch.batch_pack_ms;
+      const uint64_t h2d_bytes = tagore_total_points * static_cast<uint64_t>(_base_storage->get_dim()) * sizeof(float);
+      uint32_t effective_k = _build_config.tagore_k <= _max_degree ? static_cast<uint32_t>(_max_degree + 1)
+                                                                   : _build_config.tagore_k;
+      if (!tagore_results.empty() && tagore_results.front().graph_stride != 0)
+         effective_k = tagore_results.front().graph_stride;
+      const uint64_t d2h_bytes = tagore_total_points * static_cast<uint64_t>(effective_k) * sizeof(uint32_t) +
+                                 tagore_group_ids.size() * sizeof(uint32_t);
+      const double h2d_gbps = timing_acc.h2d_ms > 0.0 ? (static_cast<double>(h2d_bytes) / 1.0e6) / timing_acc.h2d_ms : 0.0;
+      const double d2h_gbps = timing_acc.d2h_ms > 0.0 ? (static_cast<double>(d2h_bytes) / 1.0e6) / timing_acc.d2h_ms : 0.0;
+      const double gnn_mpts_s = timing_acc.gnn_ms > 0.0 ? (static_cast<double>(tagore_total_points) / 1.0e3) / timing_acc.gnn_ms : 0.0;
+      const double prune_mpts_s = timing_acc.prune_ms > 0.0 ? (static_cast<double>(tagore_total_points) / 1.0e3) / timing_acc.prune_ms : 0.0;
+      const double tagore_total_wall_ms = tagore_wall_ms + tagore_fill_ms;
+      const double tagore_unaccounted_ms =
+          tagore_total_wall_ms - tagore_pack_ms - timing_acc.convert_ms - timing_acc.alloc_ms -
+          timing_acc.h2d_ms - timing_acc.memset_ms - timing_acc.gnn_ms - timing_acc.prune_ms -
+          timing_acc.grnnd_refine_ms -
+          timing_acc.d2h_ms - tagore_fill_ms - timing_acc.free_ms;
+
+      _tagore_groups = static_cast<double>(tagore_group_ids.size());
+      _tagore_points = static_cast<double>(tagore_total_points);
+      _tagore_direct_build_wall_time_ms = tagore_wall_ms;
+      _tagore_no_alloc_build_time_ms = tagore_total_wall_ms - timing_acc.alloc_ms;
+      _tagore_pack_time_ms = tagore_pack_ms;
+      _tagore_convert_time_ms = timing_acc.convert_ms;
+      _tagore_workspace_alloc_time_ms = timing_acc.alloc_ms;
+      _tagore_h2d_time_ms = timing_acc.h2d_ms;
+      _tagore_memset_time_ms = timing_acc.memset_ms;
+      _tagore_gnn_time_ms = timing_acc.gnn_ms;
+      _tagore_prune_time_ms = timing_acc.prune_ms;
+      _tagore_grnnd_refine_time_ms = timing_acc.grnnd_refine_ms;
+      _tagore_d2h_time_ms = timing_acc.d2h_ms;
+      _tagore_fill_time_ms = tagore_fill_ms;
+      _tagore_workspace_free_time_ms = timing_acc.free_ms;
+      _tagore_unaccounted_time_ms = tagore_unaccounted_ms;
+      _tagore_h2d_effective_gbps = h2d_gbps;
+      _tagore_d2h_effective_gbps = d2h_gbps;
+      _tagore_gnn_mpts_s = gnn_mpts_s;
+      _tagore_prune_mpts_s = prune_mpts_s;
+
+	      std::cout << "- TagoreCuda groups: " << tagore_group_ids.size()
+	                << ", fallback_complete_groups: " << fallback_complete_groups.load()
+	                << ", fallback_complete_points: " << fallback_complete_points.load()
+	                << ", fallback_cpu_groups: " << fallback_cpu_groups.load()
+	                << ", fallback_cpu_points: " << fallback_cpu_points.load()
+	                << ", fallback_threads: " << fallback_threads
+	                << ", fallback_wall: " << fallback_wall_ms
+	                << ", direct build wall: " << tagore_wall_ms
+	                << " ms, no_alloc_total: " << _tagore_no_alloc_build_time_ms
+                << " ms, pack: " << tagore_pack_ms
+                << " ms, convert: " << timing_acc.convert_ms
+                << " ms, alloc: " << timing_acc.alloc_ms
+                << " ms, h2d: " << timing_acc.h2d_ms << " ms (" << h2d_gbps << " GB/s)"
+                << " ms, memset: " << timing_acc.memset_ms
+                << " ms, gnn: " << timing_acc.gnn_ms << " ms (" << gnn_mpts_s << " Mpts/s)"
+                << " ms, prune: " << timing_acc.prune_ms << " ms (" << prune_mpts_s << " Mpts/s)"
+	                << " ms, grnnd_refine: " << timing_acc.grnnd_refine_ms
+	                << " ms, d2h: " << timing_acc.d2h_ms << " ms (" << d2h_gbps << " GB/s)"
+	                << " ms, fill: " << tagore_fill_ms
+	                << " ms, fill_cpu_sum: " << tagore_fill_cpu_sum_ms
+	                << " ms, free: " << timing_acc.free_ms
+                << " ms, unaccounted: " << tagore_unaccounted_ms
+                << " ms" << std::endl;
    }
 
    // fxy_add：构建全局Vamana图
@@ -1258,12 +2333,44 @@ namespace ANNS
    }
 
    //====================================end 查询过程：计算bitmap=========================================
-   void UniNavGraph::build_complete_graph(std::shared_ptr<Graph> graph, IdxType num_points)
+   void UniNavGraph::build_complete_graph(std::shared_ptr<Graph> graph, IdxType num_points, IdxType base_offset)
    {
-      for (auto i = 0; i < num_points; ++i)
-         for (auto j = 0; j < num_points; ++j)
+      if (num_points == 0)
+         return;
+      for (IdxType i = 0; i < num_points; ++i)
+      {
+         auto &neighbors = graph->neighbors[i];
+         neighbors.resize(num_points > 0 ? num_points - 1 : 0);
+         IdxType write = 0;
+         for (IdxType j = 0; j < num_points; ++j)
+         {
             if (i != j)
-               graph->neighbors[i].emplace_back(j);
+               neighbors[write++] = j + base_offset;
+         }
+      }
+   }
+
+   void UniNavGraph::build_bounded_complete_graph(std::shared_ptr<Graph> graph,
+                                                  IdxType num_points,
+                                                  IdxType max_degree,
+                                                  IdxType base_offset)
+   {
+      if (num_points == 0)
+         return;
+      if (num_points <= max_degree + 1)
+      {
+         build_complete_graph(graph, num_points, base_offset);
+         return;
+      }
+
+      const IdxType degree = std::min(max_degree, num_points - 1);
+      for (IdxType i = 0; i < num_points; ++i)
+      {
+         auto &neighbors = graph->neighbors[i];
+         neighbors.resize(degree);
+         for (IdxType j = 0; j < degree; ++j)
+            neighbors[j] = ((i + j + 1) % num_points) + base_offset;
+      }
    }
 
    //=====================================begin LNG中每个f覆盖率计算=========================================
@@ -1320,13 +2427,8 @@ namespace ANNS
    {
       std::cout << "Calculating coverage ratio..." << std::endl;
       auto start_time = std::chrono::high_resolution_clock::now();
-      int coverage_threads = _num_threads;
-      if (const char *env = std::getenv("UNG_COVERAGE_THREADS"))
-      {
-         int v = std::atoi(env);
-         if (v > 0)
-            coverage_threads = std::min<int>(v, _num_threads);
-      }
+      int coverage_threads = _build_config.coverage_threads > 0 ? static_cast<int>(_build_config.coverage_threads)
+                                                                 : static_cast<int>(_num_threads);
       std::cout << "- coverage threads: " << coverage_threads << std::endl;
 
       // Step 0: 初始化covered_sets
@@ -1335,13 +2437,7 @@ namespace ANNS
       _label_nav_graph->covered_sets.resize(_num_groups + 1);
 
       // Step 1-3: 直接基于已计算的 descendants 构建覆盖集合，避免拓扑传播中的重复哈希合并。
-      bool use_descendants_direct = false;
-
-      if (const char *env = std::getenv("UNG_COVERAGE_IMPL"))
-      {
-         // 0=legacy(topological merge), 1=descendants_direct
-         use_descendants_direct = (std::atoi(env) != 0);
-      }
+      bool use_descendants_direct = (_build_config.coverage_impl == UngCoverageImpl::DescendantsDirect);
 
       if (use_descendants_direct)
       {
@@ -1456,7 +2552,18 @@ namespace ANNS
    // fxy_add：使用广度优先搜索（BFS）来确保所有后代都被找到
    void UniNavGraph::get_descendants_info()
    {
+      if (_build_config.descendants_impl == UngDescendantsImpl::LegacyHashBfs)
+      {
+         get_descendants_info_legacy_hash_bfs();
+         return;
+      }
+      get_descendants_info_optimized_epoch_bfs();
+   }
+
+   void UniNavGraph::get_descendants_info_optimized_epoch_bfs()
+   {
       std::cout << "Calculating descendants info (using corrected BFS method)..." << std::endl;
+      std::cout << "- descendants impl: " << to_string(_build_config.descendants_impl) << std::endl;
       using PairType = std::pair<IdxType, int>;
 
       std::vector<PairType> descendants_num(_num_groups + 1);
@@ -1536,11 +2643,72 @@ namespace ANNS
       std::cout << "- Average number of descendants per group: " << _label_nav_graph->avg_descendants << std::endl;
    }
 
+   void UniNavGraph::get_descendants_info_legacy_hash_bfs()
+   {
+      std::cout << "Calculating descendants info (using corrected BFS method)..." << std::endl;
+      std::cout << "- descendants impl: " << to_string(_build_config.descendants_impl)
+                << " (compatibility slow path)" << std::endl;
+      using PairType = std::pair<IdxType, int>;
+
+      std::vector<PairType> descendants_num(_num_groups + 1);
+      std::vector<std::vector<IdxType>> descendants_set(_num_groups + 1);
+
+      auto start_time = std::chrono::high_resolution_clock::now();
+
+#pragma omp parallel for schedule(dynamic, 1)
+      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+      {
+         std::queue<IdxType> q;
+         std::unordered_set<IdxType> visited;
+         std::vector<IdxType> discovered;
+
+         visited.reserve(256);
+         discovered.reserve(256);
+         visited.insert(group_id);
+         q.push(group_id);
+
+         while (!q.empty())
+         {
+            IdxType u = q.front();
+            q.pop();
+            for (const auto &v : _label_nav_graph->out_neighbors[u])
+            {
+               if (!visited.insert(v).second)
+                  continue;
+               discovered.push_back(v);
+               q.push(v);
+            }
+         }
+
+         descendants_num[group_id] = PairType(group_id, (int)discovered.size());
+         descendants_set[group_id] = std::move(discovered);
+      }
+
+      _label_nav_graph->_lng_descendants_num = std::move(descendants_num);
+      _label_nav_graph->_lng_descendants = std::move(descendants_set);
+
+      double total_descendants = 0;
+      for (const auto &pair : _label_nav_graph->_lng_descendants_num)
+         total_descendants += pair.second;
+      _label_nav_graph->avg_descendants = _num_groups > 0 ? total_descendants / _num_groups : 0.0;
+      _cal_descendants_time = std::chrono::duration<double, std::milli>(
+                                  std::chrono::high_resolution_clock::now() - start_time)
+                                  .count();
+      std::cout << "- Finish in " << _cal_descendants_time << " ms" << std::endl;
+      std::cout << "- Number of groups: " << _num_groups << std::endl;
+      std::cout << "- Average number of descendants per group: " << _label_nav_graph->avg_descendants << std::endl;
+   }
+
    // =====================================end 计算LNG中后代的个数=========================================
 
    // =====================================begin 添加新的跨组边=========================================
    void UniNavGraph::finalize_intra_group_graphs()
    {
+      if (_intra_group_graph_ids_are_global)
+      {
+         std::cout << "Finalizing intra-group graphs skipped: neighbor IDs are already global." << std::endl;
+         return;
+      }
       std::cout << "Finalizing intra-group graphs by converting neighbor IDs to global..." << std::endl;
       auto start_time = std::chrono::high_resolution_clock::now();
       add_offset_for_uni_nav_graph();
@@ -2211,7 +3379,23 @@ namespace ANNS
    // fxy_add : 打印信息的build_label_nav_graph
    void UniNavGraph::build_label_nav_graph()
    {
+      if (_build_config.lng_impl == UngLngImpl::OriginalCpu)
+      {
+         build_label_nav_graph_original_cpu();
+         return;
+      }
+      if (_build_config.lng_impl == UngLngImpl::LegacyAllocating)
+      {
+         build_label_nav_graph_legacy_allocating();
+         return;
+      }
+      build_label_nav_graph_optimized_phase1();
+   }
+
+   void UniNavGraph::build_label_nav_graph_optimized_phase1()
+   {
       std::cout << "Building label navigation graph... " << std::endl;
+      std::cout << "- LNG impl: " << to_string(_build_config.lng_impl) << std::endl;
       auto start_time = std::chrono::high_resolution_clock::now();
       _label_nav_graph = std::make_shared<LabelNavGraph>(_num_groups + 1);
       omp_set_num_threads(_num_threads);
@@ -2274,6 +3458,89 @@ namespace ANNS
              std::cout << "[Phase 2] Processed " << current << " / " << total_groups 
                        << " (" << std::fixed << std::setprecision(1) << percentage << "%)" 
                        << std::endl;
+         }
+      }
+
+      _build_LNG_time = std::chrono::duration<double, std::milli>(
+                            std::chrono::high_resolution_clock::now() - start_time)
+                            .count();
+      std::cout << "- Finished building LNG in " << _build_LNG_time << " ms" << std::endl;
+   }
+
+   void UniNavGraph::build_label_nav_graph_original_cpu()
+   {
+      std::cout << "Building label navigation graph... " << std::endl;
+      std::cout << "- LNG impl: " << to_string(_build_config.lng_impl) << std::endl;
+      auto start_time = std::chrono::high_resolution_clock::now();
+      _label_nav_graph = std::make_shared<LabelNavGraph>(_num_groups + 1);
+      omp_set_num_threads(_num_threads);
+
+#pragma omp parallel for schedule(dynamic, 256)
+      for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+      {
+         if (group_id % 100 == 0)
+            std::cout << "\r" << (100.0 * group_id) / _num_groups << "%" << std::flush;
+         std::vector<IdxType> min_super_set_ids;
+         get_min_super_sets_original_sort(_group_id_to_label_set[group_id], min_super_set_ids, true);
+         _label_nav_graph->out_neighbors[group_id] = min_super_set_ids;
+      }
+
+      for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+         for (auto each : _label_nav_graph->out_neighbors[group_id])
+            _label_nav_graph->in_neighbors[each].emplace_back(group_id);
+
+      _build_LNG_time = std::chrono::duration<double, std::milli>(
+                            std::chrono::high_resolution_clock::now() - start_time)
+                            .count();
+      std::cout << "\r- Finished in " << _build_LNG_time << " ms" << std::endl;
+   }
+
+   void UniNavGraph::build_label_nav_graph_legacy_allocating()
+   {
+      std::cout << "Building label navigation graph... " << std::endl;
+      std::cout << "- LNG impl: " << to_string(_build_config.lng_impl)
+                << " (compatibility slow path)" << std::endl;
+      auto start_time = std::chrono::high_resolution_clock::now();
+      _label_nav_graph = std::make_shared<LabelNavGraph>(_num_groups + 1);
+      omp_set_num_threads(_num_threads);
+
+      std::atomic<size_t> processed_count{0};
+      size_t total_groups = _num_groups;
+      size_t log_interval = 100000;
+
+      std::cout << "--- Phase 1: Calculating Out-Neighbors (Parallel, legacy allocating) ---" << std::endl;
+#pragma omp parallel for schedule(dynamic, 1)
+      for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+      {
+         std::vector<IdxType> min_super_set_ids;
+         get_min_super_sets(_group_id_to_label_set[group_id], min_super_set_ids, true);
+         _label_nav_graph->out_neighbors[group_id] = min_super_set_ids;
+
+         size_t current = ++processed_count;
+         if (current % log_interval == 0 || current == total_groups)
+         {
+#pragma omp critical
+            {
+               double percentage = (double)current / total_groups * 100.0;
+               std::cout << "[Phase 1] Processed " << current << " / " << total_groups
+                         << " (" << std::fixed << std::setprecision(4) << percentage << "%)" << std::endl;
+            }
+         }
+      }
+
+      std::cout << "--- Phase 2: Calculating In-Neighbors (Serial) ---" << std::endl;
+      processed_count = 0;
+      for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+      {
+         for (auto each : _label_nav_graph->out_neighbors[group_id])
+            _label_nav_graph->in_neighbors[each].emplace_back(group_id);
+
+         size_t current = ++processed_count;
+         if (current % log_interval == 0 || current == total_groups)
+         {
+            double percentage = (double)current / total_groups * 100.0;
+            std::cout << "[Phase 2] Processed " << current << " / " << total_groups
+                      << " (" << std::fixed << std::setprecision(1) << percentage << "%)" << std::endl;
          }
       }
 
@@ -2353,6 +3620,11 @@ namespace ANNS
    // 将分组内的局部索引转换为全局索引
    void UniNavGraph::add_offset_for_uni_nav_graph()
    {
+      if (_intra_group_graph_ids_are_global)
+      {
+         prof_logf("[PROF] graph.add_offset skipped=1 reason=intra_global_ids");
+         return;
+      }
       omp_set_num_threads(_num_threads);
 #pragma omp parallel for schedule(dynamic, 4096)
       for (auto i = 0; i < _num_points; ++i)
@@ -2362,8 +3634,11 @@ namespace ANNS
 
    UniNavGraph::CrossEdgeBackend UniNavGraph::resolve_cross_edge_backend() const
    {
-      const int v = read_env_int_clamped("UNG_CROSS_EDGE_BACKEND", 1, 0, 1);
-      return v == 0 ? CrossEdgeBackend::CPU : CrossEdgeBackend::GPU;
+      return (_build_config.cross_edge_impl == UngCrossEdgeImpl::CpuVamana ||
+              _build_config.cross_edge_impl == UngCrossEdgeImpl::CpuExactScan ||
+              _build_config.cross_edge_impl == UngCrossEdgeImpl::CpuHybridScanVamana)
+                 ? CrossEdgeBackend::CPU
+                 : CrossEdgeBackend::GPU;
    }
 
    void UniNavGraph::build_cross_edges_generate_cpu_baseline(std::vector<SearchQueue> &cross_group_neighbors,
@@ -2402,11 +3677,224 @@ namespace ANNS
       }
    }
 
+   void UniNavGraph::build_cross_edges_generate_cpu_exact_scan(std::vector<SearchQueue> &cross_group_neighbors)
+   {
+      const IdxType dim = _base_storage->get_dim();
+      size_t target_groups = 0;
+      size_t pair_count = 0;
+      size_t total_queries = 0;
+      unsigned long long total_pair_ops = 0;
+
+      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+      {
+         if (_label_nav_graph->in_neighbors[group_id].empty())
+            continue;
+
+         ++target_groups;
+         const auto &target_range = _group_id_to_range[group_id];
+         const IdxType nx = target_range.second - target_range.first;
+         if (nx == 0)
+            continue;
+
+         for (auto in_group_id : _label_nav_graph->in_neighbors[group_id])
+         {
+            const auto &query_range = _group_id_to_range[in_group_id];
+            const IdxType nq = query_range.second - query_range.first;
+            if (nq == 0)
+               continue;
+            ++pair_count;
+            total_queries += static_cast<size_t>(nq);
+            total_pair_ops += static_cast<unsigned long long>(nq) *
+                              static_cast<unsigned long long>(nx) *
+                              static_cast<unsigned long long>(dim);
+
+#pragma omp parallel for schedule(dynamic, 1)
+            for (IdxType vec_id = query_range.first; vec_id < query_range.second; ++vec_id)
+            {
+               const char *query = _base_storage->get_vector(vec_id);
+               SearchQueue local_topk;
+               local_topk.reserve(_num_cross_edges);
+
+               for (IdxType target_id = target_range.first; target_id < target_range.second; ++target_id)
+               {
+                  const float dist = _distance_handler->compute(query, _base_storage->get_vector(target_id), dim);
+                  local_topk.insert(target_id, dist);
+               }
+
+               for (int k = 0; k < local_topk.size(); ++k)
+                  cross_group_neighbors[vec_id].insert(local_topk[k].id, local_topk[k].distance);
+            }
+         }
+      }
+
+      std::cout << "[cross_edges] cpu_exact_scan target_groups=" << target_groups
+                << " pairs=" << pair_count
+                << " query_visits=" << total_queries
+                << " dim_ops=" << total_pair_ops
+                << std::endl;
+      prof_logf("[PROF] cross_edges.cpu_exact_scan target_groups=%zu pairs=%zu query_visits=%zu dim_ops=%llu",
+                target_groups, pair_count, total_queries, total_pair_ops);
+   }
+
+   void UniNavGraph::build_cross_edges_generate_cpu_hybrid_scan_vamana(std::vector<SearchQueue> &cross_group_neighbors,
+                                                                       SearchCacheList &search_cache_list)
+   {
+      const IdxType dim = _base_storage->get_dim();
+      const long long work_threshold = read_env_int_clamped("UNG_CPU_HYBRID_SCAN_MAX_WORK", 10000, 0, 1 << 30);
+      size_t scan_pairs = 0;
+      size_t vamana_pairs = 0;
+      size_t scan_queries = 0;
+      size_t vamana_queries = 0;
+      unsigned long long scan_dim_ops = 0;
+
+      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+      {
+         if (_label_nav_graph->in_neighbors[group_id].empty())
+            continue;
+
+         const IdxType offset = _group_id_to_range[group_id].first;
+         const auto &target_range = _group_id_to_range[group_id];
+         const IdxType nx = target_range.second - target_range.first;
+         if (nx == 0)
+            continue;
+
+         auto index = _vamana_instances[group_id];
+         if (_num_cross_edges > _Lbuild)
+         {
+            std::cerr << "Error: num_cross_edges should be less than or equal to Lbuild" << std::endl;
+            exit(-1);
+         }
+
+         for (auto in_group_id : _label_nav_graph->in_neighbors[group_id])
+         {
+            const auto &query_range = _group_id_to_range[in_group_id];
+            const IdxType nq = query_range.second - query_range.first;
+            if (nq == 0)
+               continue;
+
+            const unsigned long long pair_work = static_cast<unsigned long long>(nq) *
+                                                 static_cast<unsigned long long>(nx);
+            if (pair_work > static_cast<unsigned long long>(work_threshold))
+            {
+               ++vamana_pairs;
+               vamana_queries += static_cast<size_t>(nq);
+#pragma omp parallel for schedule(dynamic, 1)
+               for (IdxType vec_id = query_range.first; vec_id < query_range.second; ++vec_id)
+               {
+                  const char *query = _base_storage->get_vector(vec_id);
+                  auto search_cache = search_cache_list.get_free_cache();
+                  index->iterate_to_fixed_point(query, search_cache);
+
+                  for (int k = 0; k < search_cache->search_queue.size(); ++k)
+                     cross_group_neighbors[vec_id].insert(search_cache->search_queue[k].id + offset,
+                                                          search_cache->search_queue[k].distance);
+                  search_cache_list.release_cache(search_cache);
+               }
+            }
+            else
+            {
+               ++scan_pairs;
+               scan_queries += static_cast<size_t>(nq);
+               scan_dim_ops += pair_work * static_cast<unsigned long long>(dim);
+#pragma omp parallel for schedule(dynamic, 1)
+               for (IdxType vec_id = query_range.first; vec_id < query_range.second; ++vec_id)
+               {
+                  const char *query = _base_storage->get_vector(vec_id);
+                  SearchQueue local_topk;
+                  local_topk.reserve(_num_cross_edges);
+
+                  for (IdxType target_id = target_range.first; target_id < target_range.second; ++target_id)
+                  {
+                     const float dist = _distance_handler->compute(query, _base_storage->get_vector(target_id), dim);
+                     local_topk.insert(target_id, dist);
+                  }
+
+                  for (int k = 0; k < local_topk.size(); ++k)
+                     cross_group_neighbors[vec_id].insert(local_topk[k].id, local_topk[k].distance);
+               }
+            }
+         }
+      }
+
+      std::cout << "[cross_edges] cpu_hybrid_scan_vamana threshold_nqnx=" << work_threshold
+                << " scan_pairs=" << scan_pairs
+                << " vamana_pairs=" << vamana_pairs
+                << " scan_queries=" << scan_queries
+                << " vamana_queries=" << vamana_queries
+                << " scan_dim_ops=" << scan_dim_ops
+                << std::endl;
+      prof_logf("[PROF] cross_edges.cpu_hybrid_scan_vamana threshold_nqnx=%lld scan_pairs=%zu vamana_pairs=%zu scan_queries=%zu vamana_queries=%zu scan_dim_ops=%llu",
+                work_threshold, scan_pairs, vamana_pairs, scan_queries, vamana_queries, scan_dim_ops);
+   }
+
    bool UniNavGraph::build_cross_edges_generate_gpu_optimized(std::vector<SearchQueue> &cross_group_neighbors,
+                                                              std::vector<std::vector<IdxType>> *cross_group_neighbor_ids,
+                                                              std::vector<IdxType> *cross_group_neighbor_flat_ids,
                                                               double *h2d_ms_sum,
                                                               double *kernel_ms_sum,
                                                               double *d2h_ms_sum)
    {
+      auto set_env_if_unset = [](const char *key, const char *value) {
+         if (!std::getenv(key))
+            setenv(key, value, 0);
+      };
+      if (_build_config.gpu_topk_impl == UngGpuTopkImpl::CustomNaive)
+      {
+         set_env_if_unset("UNG_FORCE_CUSTOM_KERNEL", "1");
+         set_env_if_unset("UNG_GEMM_IMPL", "2");
+         set_env_if_unset("UNG_NAIVE_HEAVY_SGEMM", "0");
+         set_env_if_unset("UNG_SMALL_GROUP_FUSED", "0");
+         set_env_if_unset("UNG_MEDIUM_GROUP_FUSED", "0");
+         set_env_if_unset("UNG_BUCKET_GROUP_FUSED", "0");
+         set_env_if_unset("UNG_LARGE_GROUP_FUSED", "0");
+      }
+      else if (_build_config.gpu_topk_impl == UngGpuTopkImpl::SgemmTopk)
+      {
+         set_env_if_unset("UNG_FORCE_CUSTOM_KERNEL", "0");
+         set_env_if_unset("UNG_GEMM_IMPL", "1");
+         set_env_if_unset("UNG_NAIVE_HEAVY_SGEMM", "1");
+         set_env_if_unset("UNG_NAIVE_HEAVY_NX", "1");
+         set_env_if_unset("UNG_NAIVE_HEAVY_NQ", "1");
+         set_env_if_unset("UNG_SMALL_GROUP_FUSED", "0");
+         set_env_if_unset("UNG_MEDIUM_GROUP_FUSED", "0");
+         set_env_if_unset("UNG_BUCKET_GROUP_FUSED", "0");
+         set_env_if_unset("UNG_LARGE_GROUP_FUSED", "0");
+      }
+      else if (_build_config.gpu_topk_impl == UngGpuTopkImpl::FusedGroupTopk)
+      {
+         set_env_if_unset("UNG_FORCE_CUSTOM_KERNEL", "1");
+         set_env_if_unset("UNG_SMALL_GROUP_FUSED", "1");
+         set_env_if_unset("UNG_MEDIUM_GROUP_FUSED", "1");
+         set_env_if_unset("UNG_MEDIUM_GROUP_MAX_NX", "4096");
+         set_env_if_unset("UNG_DIRECT_QID_FUSED", "1");
+         set_env_if_unset("UNG_DIRECT_QID_ALL_FUSED", "1");
+         set_env_if_unset("UNG_GPU_ID_ONLY_WRITEBACK", "1");
+         set_env_if_unset("UNG_GPU_GLOBAL_MERGE", "1");
+         set_env_if_unset("UNG_GPU_GLOBAL_MERGE_DIRECT", "1");
+         set_env_if_unset("UNG_NAIVE_HEAVY_SGEMM", "0");
+         set_env_if_unset("UNG_NAIVE_HEAVY_NX", "16");
+         set_env_if_unset("UNG_NAIVE_HEAVY_NQ", "16");
+         set_env_if_unset("UNG_BUCKET_GROUP_FUSED", "1");
+         set_env_if_unset("UNG_LARGE_GROUP_FUSED", "1");
+         set_env_if_unset("UNG_LARGE_GROUP_FUSED_MODE", "2");
+         set_env_if_unset("UNG_LARGE_GROUP_MIN_NX", "32");
+         set_env_if_unset("UNG_LARGE_GROUP_MAX_NX", "128");
+         set_env_if_unset("UNG_LARGE_GROUP_WARPS", "4");
+         set_env_if_unset("UNG_TF32_GROUP_2D", "1");
+      }
+      std::cout << "[cross_edges] gpu_topk_impl=" << to_string(_build_config.gpu_topk_impl) << std::endl;
+
+      if (read_env_int_local("UNG_GPU_SOURCE_EXACT", 0, 0, 1) == 1)
+      {
+         std::cout << "[cross_edges] backend=GPU source-centric exact" << std::endl;
+         return build_cross_edges_generate_gpu_source_exact(cross_group_neighbors,
+                                                            cross_group_neighbor_ids,
+                                                            cross_group_neighbor_flat_ids,
+                                                            h2d_ms_sum,
+                                                            kernel_ms_sum,
+                                                            d2h_ms_sum);
+      }
+
       std::vector<IdxType> groups_to_process;
       groups_to_process.reserve(_num_groups);
       for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
@@ -2420,10 +3908,21 @@ namespace ANNS
       bool gpu_prepared = false;
       try
       {
+         const auto prepare_start = std::chrono::high_resolution_clock::now();
+         std::cout << "[cross_edges] prepare_all begin" << std::endl;
          gpu_prepare_all_vectors_on_device(h2d_ms_sum, nullptr);
+         std::cout << "[cross_edges] prepare_all end wall_ms="
+                   << std::chrono::duration<double, std::milli>(
+                          std::chrono::high_resolution_clock::now() - prepare_start)
+                          .count()
+                   << std::endl;
          gpu_prepared = true;
+         std::cout << "[cross_edges] batched_search begin" << std::endl;
          gpu_cross_groups_search_all_batched(groups_to_process, _base_storage->get_dim(), _num_cross_edges,
-                                             cross_group_neighbors, h2d_ms_sum, kernel_ms_sum, d2h_ms_sum);
+                                             cross_group_neighbors, cross_group_neighbor_ids,
+                                             cross_group_neighbor_flat_ids,
+                                             h2d_ms_sum, kernel_ms_sum, d2h_ms_sum);
+         std::cout << "[cross_edges] batched_search end" << std::endl;
       }
       catch (const std::exception &e)
       {
@@ -2443,26 +3942,101 @@ namespace ANNS
       }
 
       if (gpu_prepared)
-         gpu_release_all_vectors_on_device();
+      {
+         const bool release_after_cross =
+             read_env_int_local("UNG_GPU_RELEASE_AFTER_CROSS", 0, 0, 1) == 1;
+         if (release_after_cross)
+            gpu_release_all_vectors_on_device();
+         else
+            prof_logf("[PROF] cross_edges.gpu_release_after_cross skipped=1");
+      }
       return true;
    }
 
    void UniNavGraph::build_cross_group_edges()
    {
+      if (_build_config.cross_edge_impl == UngCrossEdgeImpl::OriginalCpu)
+      {
+         build_cross_group_edges_original_cpu();
+         return;
+      }
+
       std::cout << "Building cross-group edges ..." << std::endl;
       auto start_time = std::chrono::high_resolution_clock::now();
 
+      // UNG_CROSS_EDGE_BACKEND: 0=CPU baseline, 1=GPU optimized.
+      const CrossEdgeBackend backend = resolve_cross_edge_backend();
+      if (_intra_group_graph_ids_are_global)
+      {
+         const bool cross_uses_group_vamana =
+             _build_config.cross_edge_impl == UngCrossEdgeImpl::CpuVamana ||
+             _build_config.cross_edge_impl == UngCrossEdgeImpl::OriginalCpu ||
+             _build_config.cross_edge_impl == UngCrossEdgeImpl::CpuHybridScanVamana;
+         const bool additional_uses_group_vamana =
+             _build_config.additional_edges_impl == UngAdditionalEdgesImpl::CpuVamana;
+         if (cross_uses_group_vamana || additional_uses_group_vamana)
+            throw std::runtime_error(
+                "UNG_INTRA_GLOBAL_IDS is incompatible with CPU Vamana cross/additional edges; "
+                "use GPU/CpuExact/Skip paths or disable UNG_INTRA_GLOBAL_IDS.");
+      }
+      // UNG_CROSS_EDGE_GPU_STRICT: 1=GPU失败直接报错; 0=失败自动回退CPU.
+      const bool gpu_strict = _build_config.gpu_strict;
+      const bool gpu_source_exact_requested =
+          backend == CrossEdgeBackend::GPU &&
+          read_env_int_local("UNG_GPU_SOURCE_EXACT", 0, 0, 1) == 1;
+      const bool universal_gpu_route =
+          _build_config.cross_edge_impl == UngCrossEdgeImpl::GpuBatched &&
+          read_env_int_local("UNG_UNIVERSAL_GPU", 0, 0, 1) == 1;
+      const bool gpu_db_nosplit =
+          read_env_int_local("UNG_GPU_DB_NOSPLIT", universal_gpu_route ? 1 : 0, 0, 1) == 1;
       // allocate memory for storaging cross-group neighbors
       std::vector<SearchQueue> cross_group_neighbors;
-      cross_group_neighbors.resize(_num_points);
-      for (auto point_id = 0; point_id < _num_points; ++point_id)
-         cross_group_neighbors[point_id].reserve(_num_cross_edges);
+      const bool gpu_id_vector_writeback =
+          _build_config.cross_edge_impl == UngCrossEdgeImpl::GpuBatched &&
+          read_env_int_local("UNG_GPU_ID_VECTOR_WRITEBACK", 0, 0, 1) == 1 &&
+          gpu_db_nosplit;
+      const bool gpu_flat_id_writeback =
+          _build_config.cross_edge_impl == UngCrossEdgeImpl::GpuBatched &&
+          read_env_int_local("UNG_GPU_FLAT_ID_WRITEBACK", universal_gpu_route ? 1 : 0, 0, 1) == 1 &&
+          gpu_db_nosplit;
+      const bool skip_searchqueue_storage =
+          (gpu_id_vector_writeback || gpu_flat_id_writeback) && gpu_strict &&
+          (gpu_source_exact_requested || _build_config.cross_edge_impl == UngCrossEdgeImpl::GpuBatched);
+      auto ensure_cross_queue_storage = [&]() {
+         if (cross_group_neighbors.size() == static_cast<size_t>(_num_points))
+            return;
+         cross_group_neighbors.clear();
+         cross_group_neighbors.resize(_num_points);
+#pragma omp parallel for schedule(static, 4096)
+         for (auto point_id = 0; point_id < _num_points; ++point_id)
+            cross_group_neighbors[point_id].reserve(_num_cross_edges);
+      };
+      if (!skip_searchqueue_storage)
+         ensure_cross_queue_storage();
+      bool gpu_id_vector_writeback_active = false;
+      bool gpu_flat_id_writeback_active = false;
+      std::vector<std::vector<IdxType>> cross_group_neighbor_ids;
+      std::vector<IdxType> cross_group_neighbor_flat_ids;
+      if (gpu_id_vector_writeback && !gpu_flat_id_writeback)
+      {
+         cross_group_neighbor_ids.resize(_num_points);
+#pragma omp parallel for schedule(static, 4096)
+         for (auto point_id = 0; point_id < _num_points; ++point_id)
+            cross_group_neighbor_ids[point_id].reserve(_num_cross_edges);
+      }
 
       // allocate memory for search caches
-      size_t max_group_size = 0;
-      for (auto group_id = 1; group_id <= _num_groups; ++group_id)
-         max_group_size = std::max(max_group_size, _group_id_to_vec_ids[group_id].size());
-      SearchCacheList search_cache_list(_num_threads, max_group_size, _Lbuild);
+      std::unique_ptr<SearchCacheList> search_cache_list;
+      auto ensure_search_cache_list = [&]() -> SearchCacheList & {
+         if (!search_cache_list)
+         {
+            size_t max_group_size = 0;
+            for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+               max_group_size = std::max(max_group_size, _group_id_to_vec_ids[group_id].size());
+            search_cache_list.reset(new SearchCacheList(_num_threads, max_group_size, _Lbuild));
+         }
+         return *search_cache_list;
+      };
       omp_set_num_threads(_num_threads);
 
       //my add
@@ -2477,78 +4051,189 @@ namespace ANNS
 
    {
       ScopedTimerMs t("cross_edges.generate_ms", &gen_ms);
-      if (_index_name != "Vamana" && _index_name != "FixedPoolGPU")
+      if (_index_name != "Vamana")
       {
          std::cerr << "Error: invalid index name " << _index_name << std::endl;
          exit(-1);
       }
-
-      // UNG_CROSS_EDGE_BACKEND: 0=CPU baseline, 1=GPU optimized.
-      const CrossEdgeBackend backend = resolve_cross_edge_backend();
-      // UNG_CROSS_EDGE_GPU_STRICT: 1=GPU失败直接报错; 0=失败自动回退CPU.
-      const bool gpu_strict = read_env_int_clamped("UNG_CROSS_EDGE_GPU_STRICT", 0, 0, 1) == 1;
 
       // 可切换主线：
       // - CPU baseline: build_cross_edges_generate_cpu_baseline
       // - GPU optimized: build_cross_edges_generate_gpu_optimized（失败可回退）
       if (backend == CrossEdgeBackend::GPU)
       {
-         const bool gpu_ok = build_cross_edges_generate_gpu_optimized(cross_group_neighbors,
-                                                                       &h2d_ms_sum,
-                                                                       &kernel_ms_sum,
-                                                                       &d2h_ms_sum);
+         const bool gpu_ok =
+             (_build_config.cross_edge_impl == UngCrossEdgeImpl::CuvsBruteForce)
+                 ? build_cross_edges_generate_cuvs_bruteforce(cross_group_neighbors,
+                                                              &h2d_ms_sum,
+                                                              &kernel_ms_sum,
+                                                              &d2h_ms_sum)
+                 : build_cross_edges_generate_gpu_optimized(cross_group_neighbors,
+                                                            (gpu_id_vector_writeback && !gpu_flat_id_writeback) ? &cross_group_neighbor_ids : nullptr,
+                                                            gpu_flat_id_writeback ? &cross_group_neighbor_flat_ids : nullptr,
+                                                            &h2d_ms_sum,
+                                                            &kernel_ms_sum,
+                                                            &d2h_ms_sum);
          if (!gpu_ok)
          {
             if (gpu_strict)
                throw std::runtime_error("GPU cross-edge generation failed in strict mode.");
             std::cout << "[cross_edges] fallback to CPU baseline path." << std::endl;
-            build_cross_edges_generate_cpu_baseline(cross_group_neighbors, search_cache_list);
+            ensure_cross_queue_storage();
+            build_cross_edges_generate_cpu_baseline(cross_group_neighbors, ensure_search_cache_list());
+         }
+         else
+         {
+            gpu_id_vector_writeback_active = gpu_id_vector_writeback && !gpu_flat_id_writeback;
+            gpu_flat_id_writeback_active = gpu_flat_id_writeback;
          }
       }
       else
       {
-         std::cout << "[cross_edges] backend=CPU" << std::endl;
-         build_cross_edges_generate_cpu_baseline(cross_group_neighbors, search_cache_list);
+         std::cout << "[cross_edges] backend=CPU impl=" << to_string(_build_config.cross_edge_impl) << std::endl;
+         ensure_cross_queue_storage();
+         if (_build_config.cross_edge_impl == UngCrossEdgeImpl::CpuExactScan)
+            build_cross_edges_generate_cpu_exact_scan(cross_group_neighbors);
+         else if (_build_config.cross_edge_impl == UngCrossEdgeImpl::CpuHybridScanVamana)
+            build_cross_edges_generate_cpu_hybrid_scan_vamana(cross_group_neighbors, ensure_search_cache_list());
+         else
+            build_cross_edges_generate_cpu_baseline(cross_group_neighbors, ensure_search_cache_list());
       }
 
    }
 
-      // add additional edges
-      std::vector<std::vector<std::pair<IdxType, IdxType>>> additional_edges(_num_groups + 1);
-{
-      ScopedTimerMs t("cross_edges.additional_edges_ms", &add_ms);
-#pragma omp parallel for schedule(dynamic, 256)
-      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+      const bool additional_direct_append_requested =
+          read_env_int_local("UNG_ADDITIONAL_DIRECT_APPEND", 0, 0, 1) == 1;
+      const bool additional_direct_append =
+          additional_direct_append_requested &&
+          _build_config.additional_edges_impl == UngAdditionalEdgesImpl::CpuExactScan;
+      if (additional_direct_append_requested && !additional_direct_append)
       {
-         const auto &cur_range = _group_id_to_range[group_id];
-         std::unordered_set<IdxType> connected_groups;
-
-         // obtain connected groups
-         for (IdxType i = cur_range.first; i < cur_range.second; ++i)
-            for (IdxType j = 0; j < cross_group_neighbors[i].size(); ++j)
-               connected_groups.insert(_new_vec_id_to_group_id[cross_group_neighbors[i][j].id]);
-
-         // add additional cross-group edges for unconnected groups
-         for (IdxType out_group_id : _label_nav_graph->out_neighbors[group_id])
-            if (connected_groups.find(out_group_id) == connected_groups.end())
-            {
-               IdxType cnt = 0;
-               for (auto vec_id = cur_range.first; vec_id < cur_range.second && cnt < _num_cross_edges; ++vec_id)
-               {
-                  auto search_cache = search_cache_list.get_free_cache();
-                  _vamana_instances[out_group_id]->iterate_to_fixed_point(_base_storage->get_vector(vec_id), search_cache);
-
-                  for (auto k = 0; k < search_cache->search_queue.size() && k < _num_cross_edges / 2; ++k)
-                  {
-                     additional_edges[group_id].emplace_back(vec_id,
-                                                             search_cache->search_queue[k].id + _group_id_to_range[out_group_id].first);
-                     cnt += 1;
-                  }
-                  search_cache_list.release_cache(search_cache);
-               }
-            }
+         std::cout << "[cross_edges] additional_direct_append disabled: supported only for cpu_exact additional_edges"
+                   << std::endl;
       }
-}
+      std::vector<std::vector<std::pair<IdxType, IdxType>>> additional_edges;
+      if (!additional_direct_append)
+         additional_edges.resize(_num_groups + 1);
+
+      auto append_additional_edge = [&](std::vector<std::vector<std::pair<IdxType, IdxType>>> *materialized,
+                                        IdxType group_id, IdxType from_id, IdxType to_id) {
+         if (materialized)
+            (*materialized)[group_id].emplace_back(from_id, to_id);
+         else
+         {
+            std::lock_guard<std::mutex> guard(_graph->neighbor_locks[from_id]);
+            _graph->neighbors[from_id].emplace_back(to_id);
+         }
+      };
+
+      auto build_additional_edges = [&](std::vector<std::vector<std::pair<IdxType, IdxType>>> *materialized) {
+         ScopedTimerMs t("cross_edges.additional_edges_ms", &add_ms);
+         if (_build_config.additional_edges_impl == UngAdditionalEdgesImpl::Skip)
+         {
+            std::cout << "[cross_edges] additional_edges=skip" << std::endl;
+            return;
+         }
+
+         if (_build_config.additional_edges_impl == UngAdditionalEdgesImpl::CpuVamana)
+            (void)ensure_search_cache_list();
+#pragma omp parallel
+         {
+            std::vector<uint32_t> connected_epoch(static_cast<size_t>(_num_groups) + 1, 0);
+            uint32_t epoch = 1;
+
+#pragma omp for schedule(dynamic, 256)
+            for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+            {
+               if (epoch == 0)
+               {
+                  std::fill(connected_epoch.begin(), connected_epoch.end(), 0);
+                  epoch = 1;
+               }
+               const uint32_t cur_epoch = epoch++;
+               const auto &cur_range = _group_id_to_range[group_id];
+
+               for (IdxType i = cur_range.first; i < cur_range.second; ++i)
+               {
+                  if (gpu_flat_id_writeback_active)
+                  {
+                     const size_t base = static_cast<size_t>(i) * static_cast<size_t>(_num_cross_edges);
+                     for (IdxType k = 0; k < _num_cross_edges; ++k)
+                     {
+                        const IdxType neighbor_id = cross_group_neighbor_flat_ids[base + static_cast<size_t>(k)];
+                        if (neighbor_id == std::numeric_limits<IdxType>::max())
+                           continue;
+                        const IdxType neighbor_group = _new_vec_id_to_group_id[neighbor_id];
+                        if (neighbor_group <= _num_groups)
+                           connected_epoch[static_cast<size_t>(neighbor_group)] = cur_epoch;
+                     }
+                  }
+                  else if (gpu_id_vector_writeback_active)
+                  {
+                     for (IdxType neighbor_id : cross_group_neighbor_ids[i])
+                     {
+                        const IdxType neighbor_group = _new_vec_id_to_group_id[neighbor_id];
+                        if (neighbor_group <= _num_groups)
+                           connected_epoch[static_cast<size_t>(neighbor_group)] = cur_epoch;
+                     }
+                  }
+                  else
+                  {
+                     for (IdxType j = 0; j < cross_group_neighbors[i].size(); ++j)
+                     {
+                        const IdxType neighbor_group = _new_vec_id_to_group_id[cross_group_neighbors[i][j].id];
+                        if (neighbor_group <= _num_groups)
+                           connected_epoch[static_cast<size_t>(neighbor_group)] = cur_epoch;
+                     }
+                  }
+               }
+
+               for (IdxType out_group_id : _label_nav_graph->out_neighbors[group_id])
+                  if (out_group_id > _num_groups || connected_epoch[static_cast<size_t>(out_group_id)] != cur_epoch)
+                  {
+                     IdxType cnt = 0;
+                     for (auto vec_id = cur_range.first; vec_id < cur_range.second && cnt < _num_cross_edges; ++vec_id)
+                     {
+                        if (_build_config.additional_edges_impl == UngAdditionalEdgesImpl::CpuExactScan)
+                        {
+                           SearchQueue local_topk;
+                           local_topk.reserve(_num_cross_edges);
+                           const auto &out_range = _group_id_to_range[out_group_id];
+                           const char *query = _base_storage->get_vector(vec_id);
+                           const IdxType dim = _base_storage->get_dim();
+                           for (IdxType target_id = out_range.first; target_id < out_range.second; ++target_id)
+                           {
+                              const float dist = _distance_handler->compute(query, _base_storage->get_vector(target_id), dim);
+                              local_topk.insert(target_id, dist);
+                           }
+                           for (auto k = 0; k < local_topk.size() && k < _num_cross_edges / 2; ++k)
+                           {
+                              append_additional_edge(materialized, group_id, vec_id, local_topk[k].id);
+                              cnt += 1;
+                           }
+                        }
+                        else
+                        {
+                           SearchCacheList &caches = ensure_search_cache_list();
+                           auto search_cache = caches.get_free_cache();
+                           _vamana_instances[out_group_id]->iterate_to_fixed_point(_base_storage->get_vector(vec_id), search_cache);
+
+                           for (auto k = 0; k < search_cache->search_queue.size() && k < _num_cross_edges / 2; ++k)
+                           {
+                              append_additional_edge(materialized, group_id, vec_id,
+                                                     search_cache->search_queue[k].id + _group_id_to_range[out_group_id].first);
+                              cnt += 1;
+                           }
+                           caches.release_cache(search_cache);
+                        }
+                     }
+                  }
+            }
+         }
+      };
+
+      if (!additional_direct_append)
+         build_additional_edges(&additional_edges);
       // add offset for uni-nav graph
    {
       ScopedTimerMs t("cross_edges.add_offset_ms", &add_offset_ms);  // 【添加】
@@ -2560,11 +4245,38 @@ namespace ANNS
       ScopedTimerMs t("cross_edges.merge_cross_ms", &merge_cross_ms);
 #pragma omp parallel for schedule(dynamic, 4096)
       for (auto point_id = 0; point_id < _num_points; ++point_id)
-         for (auto k = 0; k < cross_group_neighbors[point_id].size(); ++k)
-            _graph->neighbors[point_id].emplace_back(cross_group_neighbors[point_id][k].id);
+      {
+         if (gpu_id_vector_writeback_active)
+         {
+            auto &dst = _graph->neighbors[point_id];
+            const auto &src = cross_group_neighbor_ids[point_id];
+            dst.insert(dst.end(), src.begin(), src.end());
+         }
+         else if (gpu_flat_id_writeback_active)
+         {
+            auto &dst = _graph->neighbors[point_id];
+            const size_t base = static_cast<size_t>(point_id) * static_cast<size_t>(_num_cross_edges);
+            for (IdxType k = 0; k < _num_cross_edges; ++k)
+            {
+               const IdxType neighbor_id = cross_group_neighbor_flat_ids[base + static_cast<size_t>(k)];
+               if (neighbor_id != std::numeric_limits<IdxType>::max())
+                  dst.emplace_back(neighbor_id);
+            }
+         }
+         else
+         {
+            for (auto k = 0; k < cross_group_neighbors[point_id].size(); ++k)
+               _graph->neighbors[point_id].emplace_back(cross_group_neighbors[point_id][k].id);
+         }
+      }
    }
 
 // merge additional cross-group edges
+      if (additional_direct_append)
+      {
+         build_additional_edges(nullptr);
+      }
+      else
    {
       ScopedTimerMs t("cross_edges.merge_additional_ms", &merge_add_ms);  // 【添加】
 #pragma omp parallel for schedule(dynamic, 256)
@@ -2574,11 +4286,21 @@ namespace ANNS
             _graph->neighbors[from_id].emplace_back(to_id);
       }
    }
+      std::cout << "[cross_edges] additional_direct_append=" << (additional_direct_append ? 1 : 0) << std::endl;
 
          std::cout << "[GPU GEMM] H2D(ms)=" << h2d_ms_sum
           << "  Kernel(ms)=" << kernel_ms_sum
           << "  D2H(ms)=" << d2h_ms_sum
           << std::endl;
+      std::cout << "[cross_edges] breakdown generate(ms)=" << gen_ms
+                << " additional(ms)=" << add_ms
+                << " add_offset(ms)=" << add_offset_ms
+                << " merge_cross(ms)=" << merge_cross_ms
+                << " merge_add(ms)=" << merge_add_ms
+                << " id_vector_active=" << (gpu_id_vector_writeback_active ? 1 : 0)
+                << " flat_id_active=" << (gpu_flat_id_writeback_active ? 1 : 0)
+                << " flat_items=" << cross_group_neighbor_flat_ids.size()
+                << std::endl;
           
       _build_cross_edges_time = std::chrono::duration<double, std::milli>(
                                     std::chrono::high_resolution_clock::now() - start_time)
@@ -2591,10 +4313,142 @@ namespace ANNS
       "num_points=%u num_groups=%u num_cross_edges=%u Lbuild=%u threads=%u",
       _build_cross_edges_time, gen_ms, add_ms, add_offset_ms, merge_cross_ms, merge_add_ms,
       (unsigned)_num_points, (unsigned)_num_groups, (unsigned)_num_cross_edges, (unsigned)_Lbuild, (unsigned)_num_threads);
+      prof_logf("[PROF] cross_edges.id_vector_writeback requested=%d active=%d",
+                gpu_id_vector_writeback ? 1 : 0, gpu_id_vector_writeback_active ? 1 : 0);
+      prof_logf("[PROF] cross_edges.flat_id_writeback requested=%d active=%d items=%zu",
+                gpu_flat_id_writeback ? 1 : 0,
+                gpu_flat_id_writeback_active ? 1 : 0,
+                cross_group_neighbor_flat_ids.size());
       // GPU细分总览（H2D/Kernel/D2H 累计）
       prof_logf("[PROF] cross_edges.gpu_breakdown_sum h2d_ms=%.3f kernel_ms=%.3f d2h_ms=%.3f",
          h2d_ms_sum, kernel_ms_sum, d2h_ms_sum);
 
+   }
+
+   void UniNavGraph::build_cross_group_edges_original_cpu()
+   {
+      std::cout << "Building cross-group edges ..." << std::endl;
+      std::cout << "- cross-edge impl: " << to_string(_build_config.cross_edge_impl) << std::endl;
+      auto start_time = std::chrono::high_resolution_clock::now();
+
+      std::vector<SearchQueue> cross_group_neighbors;
+      cross_group_neighbors.resize(_num_points);
+      for (auto point_id = 0; point_id < _num_points; ++point_id)
+         cross_group_neighbors[point_id].reserve(_num_cross_edges);
+
+      size_t max_group_size = 0;
+      for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+         max_group_size = std::max(max_group_size, _group_id_to_vec_ids[group_id].size());
+      SearchCacheList search_cache_list(_num_threads, max_group_size, _Lbuild);
+      omp_set_num_threads(_num_threads);
+
+      for (auto group_id = 1; group_id <= _num_groups; ++group_id)
+      {
+         if (_label_nav_graph->in_neighbors[group_id].size() > 0)
+         {
+            if (group_id % 100 == 0)
+               std::cout << "\r" << (100.0 * group_id) / _num_groups << "%" << std::flush;
+            IdxType offset = _group_id_to_range[group_id].first;
+
+            if (_index_name == "Vamana")
+            {
+               auto index = _vamana_instances[group_id];
+               if (_num_cross_edges > _Lbuild)
+               {
+                  std::cerr << "Error: num_cross_edges should be less than or equal to Lbuild" << std::endl;
+                  exit(-1);
+               }
+
+               for (auto in_group_id : _label_nav_graph->in_neighbors[group_id])
+               {
+                  const auto &range = _group_id_to_range[in_group_id];
+
+#pragma omp parallel for schedule(dynamic, 1)
+                  for (auto vec_id = range.first; vec_id < range.second; ++vec_id)
+                  {
+                     const char *query = _base_storage->get_vector(vec_id);
+                     auto search_cache = search_cache_list.get_free_cache();
+                     index->iterate_to_fixed_point(query, search_cache);
+
+                     for (auto k = 0; k < search_cache->search_queue.size(); ++k)
+                        cross_group_neighbors[vec_id].insert(search_cache->search_queue[k].id + offset,
+                                                             search_cache->search_queue[k].distance);
+                     search_cache_list.release_cache(search_cache);
+                  }
+               }
+            }
+            else
+            {
+               std::cerr << "Error: invalid index name " << _index_name << std::endl;
+               exit(-1);
+            }
+         }
+      }
+
+      std::vector<std::vector<std::pair<IdxType, IdxType>>> additional_edges(_num_groups + 1);
+#pragma omp parallel
+      {
+         std::vector<uint32_t> connected_epoch(static_cast<size_t>(_num_groups) + 1, 0);
+         uint32_t epoch = 1;
+
+#pragma omp for schedule(dynamic, 256)
+         for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+         {
+            if (epoch == 0)
+            {
+               std::fill(connected_epoch.begin(), connected_epoch.end(), 0);
+               epoch = 1;
+            }
+            const uint32_t cur_epoch = epoch++;
+            const auto &cur_range = _group_id_to_range[group_id];
+
+            for (IdxType i = cur_range.first; i < cur_range.second; ++i)
+               for (IdxType j = 0; j < cross_group_neighbors[i].size(); ++j)
+               {
+                  const IdxType neighbor_group = _new_vec_id_to_group_id[cross_group_neighbors[i][j].id];
+                  if (neighbor_group <= _num_groups)
+                     connected_epoch[static_cast<size_t>(neighbor_group)] = cur_epoch;
+               }
+
+            for (IdxType out_group_id : _label_nav_graph->out_neighbors[group_id])
+               if (out_group_id > _num_groups || connected_epoch[static_cast<size_t>(out_group_id)] != cur_epoch)
+               {
+                  IdxType cnt = 0;
+                  for (auto vec_id = cur_range.first; vec_id < cur_range.second && cnt < _num_cross_edges; ++vec_id)
+                  {
+                     auto search_cache = search_cache_list.get_free_cache();
+                     _vamana_instances[out_group_id]->iterate_to_fixed_point(_base_storage->get_vector(vec_id), search_cache);
+
+                     for (auto k = 0; k < search_cache->search_queue.size() && k < _num_cross_edges / 2; ++k)
+                     {
+                        additional_edges[group_id].emplace_back(vec_id,
+                                                                search_cache->search_queue[k].id + _group_id_to_range[out_group_id].first);
+                        cnt += 1;
+                     }
+                     search_cache_list.release_cache(search_cache);
+                  }
+               }
+         }
+      }
+
+      add_offset_for_uni_nav_graph();
+
+#pragma omp parallel for schedule(dynamic, 4096)
+      for (auto point_id = 0; point_id < _num_points; ++point_id)
+         for (auto k = 0; k < cross_group_neighbors[point_id].size(); ++k)
+            _graph->neighbors[point_id].emplace_back(cross_group_neighbors[point_id][k].id);
+
+#pragma omp parallel for schedule(dynamic, 256)
+      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
+      {
+         for (const auto &[from_id, to_id] : additional_edges[group_id])
+            _graph->neighbors[from_id].emplace_back(to_id);
+      }
+
+      _build_cross_edges_time = std::chrono::duration<double, std::milli>(
+                                    std::chrono::high_resolution_clock::now() - start_time)
+                                    .count();
+      std::cout << "\r- Finish in " << _build_cross_edges_time << " ms" << std::endl;
    }
 
    /*void UniNavGraph::search(std::shared_ptr<IStorage> query_storage, std::shared_ptr<DistanceHandler> distance_handler,
@@ -4057,7 +5911,6 @@ void UniNavGraph::calculate_query_features_only(
       auto dim = _base_storage->get_dim();
       auto &search_queue = search_cache->search_queue;
       auto &visited_set = search_cache->visited_set;
-      std::vector<IdxType> neighbors;
       if (clear_search_queue)
          search_queue.clear();
       if (clear_visited_set)
@@ -4074,11 +5927,8 @@ void UniNavGraph::calculate_query_features_only(
          const Candidate &cur = search_queue.get_closest_unexpanded();
 
          // iterate neighbors
-         {
-            std::lock_guard<std::mutex> lock(_graph->neighbor_locks[cur.id]);
-            neighbors = _graph->neighbors[cur.id];
-         }
-         for (auto i = 0; i < neighbors.size(); ++i)
+         const auto &neighbors = _graph->neighbors[cur.id];
+         for (size_t i = 0; i < neighbors.size(); ++i)
          {
 
             // prefetch
@@ -4109,7 +5959,6 @@ void UniNavGraph::calculate_query_features_only(
       auto dim = _base_storage->get_dim();
       auto &search_queue = search_cache->search_queue;
       auto &visited_set = search_cache->visited_set;
-      std::vector<IdxType> neighbors;
       if (clear_search_queue)
          search_queue.clear();
       if (clear_visited_set)
@@ -4126,11 +5975,8 @@ void UniNavGraph::calculate_query_features_only(
          const Candidate &cur = search_queue.get_closest_unexpanded();
 
          // iterate neighbors
-         {
-            std::lock_guard<std::mutex> lock(_global_graph->neighbor_locks[cur.id]);
-            neighbors = _global_graph->neighbors[cur.id];
-         }
-         for (auto i = 0; i < neighbors.size(); ++i)
+         const auto &neighbors = _global_graph->neighbors[cur.id];
+         for (size_t i = 0; i < neighbors.size(); ++i)
          {
 
             // prefetch
@@ -4172,6 +6018,14 @@ void UniNavGraph::calculate_query_features_only(
       meta_data["LNG_num_edges"] = std::to_string(_LNG_num_edges);
       meta_data["index_size(MB)"] = std::to_string(_index_size);
       meta_data["_index_size_add_rb(MB)"] = std::to_string(_index_size_add_rb);
+      meta_data["build_profile"] = to_string(_build_config.profile);
+      meta_data["group_graph_impl"] = to_string(_build_config.group_graph_impl);
+      meta_data["get_min_super_sets_impl"] = to_string(_build_config.get_min_super_sets_impl);
+      meta_data["lng_impl"] = to_string(_build_config.lng_impl);
+      meta_data["descendants_impl"] = to_string(_build_config.descendants_impl);
+      meta_data["coverage_impl"] = to_string(_build_config.coverage_impl);
+      meta_data["cross_edge_impl"] = to_string(_build_config.cross_edge_impl);
+      meta_data["gpu_topk_impl"] = to_string(_build_config.gpu_topk_impl);
       meta_data["index_time(ms)"] = std::to_string(_index_time - _build_roaring_bitsets_time);
       meta_data["index_time_add_rb(ms)"] = std::to_string(_index_time);
       meta_data["label_processing_time(ms)"] = std::to_string(_label_processing_time);
@@ -4181,6 +6035,26 @@ void UniNavGraph::calculate_query_features_only(
       meta_data["cal_coverage_ratio_time(ms)"] = std::to_string(_cal_coverage_ratio_time);
       meta_data["build_LNG_time(ms)"] = std::to_string(_build_LNG_time);
       meta_data["build_cross_edges_time(ms)"] = std::to_string(_build_cross_edges_time);
+      meta_data["tagore_groups"] = std::to_string(_tagore_groups);
+      meta_data["tagore_points"] = std::to_string(_tagore_points);
+      meta_data["tagore_direct_build_wall_time(ms)"] = std::to_string(_tagore_direct_build_wall_time_ms);
+      meta_data["tagore_no_alloc_build_time(ms)"] = std::to_string(_tagore_no_alloc_build_time_ms);
+      meta_data["tagore_pack_time(ms)"] = std::to_string(_tagore_pack_time_ms);
+      meta_data["tagore_convert_time(ms)"] = std::to_string(_tagore_convert_time_ms);
+      meta_data["tagore_workspace_alloc_time(ms)"] = std::to_string(_tagore_workspace_alloc_time_ms);
+      meta_data["tagore_h2d_time(ms)"] = std::to_string(_tagore_h2d_time_ms);
+      meta_data["tagore_memset_time(ms)"] = std::to_string(_tagore_memset_time_ms);
+      meta_data["tagore_gnn_time(ms)"] = std::to_string(_tagore_gnn_time_ms);
+      meta_data["tagore_prune_time(ms)"] = std::to_string(_tagore_prune_time_ms);
+      meta_data["tagore_grnnd_refine_time(ms)"] = std::to_string(_tagore_grnnd_refine_time_ms);
+      meta_data["tagore_d2h_time(ms)"] = std::to_string(_tagore_d2h_time_ms);
+      meta_data["tagore_fill_time(ms)"] = std::to_string(_tagore_fill_time_ms);
+      meta_data["tagore_workspace_free_time(ms)"] = std::to_string(_tagore_workspace_free_time_ms);
+      meta_data["tagore_unaccounted_time(ms)"] = std::to_string(_tagore_unaccounted_time_ms);
+      meta_data["tagore_h2d_effective_gbps"] = std::to_string(_tagore_h2d_effective_gbps);
+      meta_data["tagore_d2h_effective_gbps"] = std::to_string(_tagore_d2h_effective_gbps);
+      meta_data["tagore_gnn_mpts_s"] = std::to_string(_tagore_gnn_mpts_s);
+      meta_data["tagore_prune_mpts_s"] = std::to_string(_tagore_prune_mpts_s);
       // FXY_ADD: 保存详细的跨组边构建时间到 meta 文件
       meta_data["cross_edge_step1_time(ms)"] = std::to_string(_cross_edge_step1_time_ms);
       meta_data["cross_edge_step2_acorn_time(ms)"] = std::to_string(_cross_edge_step2_acorn_time_ms);
@@ -4218,6 +6092,26 @@ void UniNavGraph::calculate_query_features_only(
       build_time_file << "cal_coverage_ratio_time" << "," << _cal_coverage_ratio_time << "\n";
       build_time_file << "build_LNG_time" << "," << _build_LNG_time << "\n";
       build_time_file << "build_cross_edges_time" << "," << _build_cross_edges_time << "\n";
+      build_time_file << "tagore_groups" << "," << _tagore_groups << "\n";
+      build_time_file << "tagore_points" << "," << _tagore_points << "\n";
+      build_time_file << "tagore_direct_build_wall_time" << "," << _tagore_direct_build_wall_time_ms << "\n";
+      build_time_file << "tagore_no_alloc_build_time" << "," << _tagore_no_alloc_build_time_ms << "\n";
+      build_time_file << "tagore_pack_time" << "," << _tagore_pack_time_ms << "\n";
+      build_time_file << "tagore_convert_time" << "," << _tagore_convert_time_ms << "\n";
+      build_time_file << "tagore_workspace_alloc_time" << "," << _tagore_workspace_alloc_time_ms << "\n";
+      build_time_file << "tagore_h2d_time" << "," << _tagore_h2d_time_ms << "\n";
+      build_time_file << "tagore_memset_time" << "," << _tagore_memset_time_ms << "\n";
+      build_time_file << "tagore_gnn_time" << "," << _tagore_gnn_time_ms << "\n";
+      build_time_file << "tagore_prune_time" << "," << _tagore_prune_time_ms << "\n";
+      build_time_file << "tagore_grnnd_refine_time" << "," << _tagore_grnnd_refine_time_ms << "\n";
+      build_time_file << "tagore_d2h_time" << "," << _tagore_d2h_time_ms << "\n";
+      build_time_file << "tagore_fill_time" << "," << _tagore_fill_time_ms << "\n";
+      build_time_file << "tagore_workspace_free_time" << "," << _tagore_workspace_free_time_ms << "\n";
+      build_time_file << "tagore_unaccounted_time" << "," << _tagore_unaccounted_time_ms << "\n";
+      build_time_file << "tagore_h2d_effective_gbps" << "," << _tagore_h2d_effective_gbps << "\n";
+      build_time_file << "tagore_d2h_effective_gbps" << "," << _tagore_d2h_effective_gbps << "\n";
+      build_time_file << "tagore_gnn_mpts_s" << "," << _tagore_gnn_mpts_s << "\n";
+      build_time_file << "tagore_prune_mpts_s" << "," << _tagore_prune_mpts_s << "\n";
       // FXY_ADD: 保存详细的跨组边构建时间到 CSV 文件
       build_time_file << "cross_edge_step1_time" << "," << _cross_edge_step1_time_ms << "\n";
       build_time_file << "cross_edge_step2_acorn_time" << "," << _cross_edge_step2_acorn_time_ms << "\n";
@@ -4265,31 +6159,37 @@ void UniNavGraph::calculate_query_features_only(
       std::string global_vamana_entry_point_filename = index_path_prefix + "global_vamana_entry_point";
       write_one_T(global_vamana_entry_point_filename, _global_vamana_entry_point);
 
-      // save LNG coverage ratio
-      std::string coverage_ratio_filename = index_path_prefix + "lng_coverage_ratio";
-      write_1d_vector(coverage_ratio_filename, _label_nav_graph->coverage_ratio);
+      if (!_build_config.is_original_cpu_pipeline())
+      {
+         // save LNG coverage ratio
+         std::string coverage_ratio_filename = index_path_prefix + "lng_coverage_ratio";
+         write_1d_vector(coverage_ratio_filename, _label_nav_graph->coverage_ratio);
 
-      // save covered_sets in LNG
-      std::string covered_sets_filename = index_path_prefix + "covered_sets";
-      write_2d_vectors(covered_sets_filename, _label_nav_graph->covered_sets);
-      std::cout << "LNG covered_sets saved." << std::endl;
+         // save covered_sets in LNG
+         std::string covered_sets_filename = index_path_prefix + "covered_sets";
+         write_2d_vectors(covered_sets_filename, _label_nav_graph->covered_sets);
+         std::cout << "LNG covered_sets saved." << std::endl;
 
-      // save LNG descendant num
-      std::string lng_descendants_num_filename = index_path_prefix + "lng_descendants_num";
-      write_1d_pair_vector(lng_descendants_num_filename, _label_nav_graph->_lng_descendants_num);
+         // save LNG descendant num
+         std::string lng_descendants_num_filename = index_path_prefix + "lng_descendants_num";
+         write_1d_pair_vector(lng_descendants_num_filename, _label_nav_graph->_lng_descendants_num);
 
-      // save LNG descendants
-      std::string lng_descendants_filename = index_path_prefix + "lng_descendants";
-      write_2d_vectors(lng_descendants_filename, _label_nav_graph->_lng_descendants);
+         // save LNG descendants
+         std::string lng_descendants_filename = index_path_prefix + "lng_descendants";
+         write_2d_vectors(lng_descendants_filename, _label_nav_graph->_lng_descendants);
+      }
 
       // 保存 LNG 的核心图结构 (邻接表)
       std::string lng_out_neighbors_filename = index_path_prefix + "lng_out_neighbors.dat";
       write_2d_vectors(lng_out_neighbors_filename, _label_nav_graph->out_neighbors);
       std::cout << "LNG out_neighbors saved." << std::endl; // 增加一个打印，确认保存成功
 
-      // save vector attr graph data
-      std::string vector_attr_graph_filename = index_path_prefix + "vector_attr_graph";
-      save_bipartite_graph(vector_attr_graph_filename);
+      if (!_build_config.is_original_cpu_pipeline())
+      {
+         // save vector attr graph data
+         std::string vector_attr_graph_filename = index_path_prefix + "vector_attr_graph";
+         save_bipartite_graph(vector_attr_graph_filename);
+      }
 
       // // save _lng_descendants_bits and _covered_sets_bits
       // std::string lng_descendants_bits_filename = index_path_prefix + "lng_descendants_bits";
@@ -4297,12 +6197,17 @@ void UniNavGraph::calculate_query_features_only(
       // std::string covered_sets_bits_filename = index_path_prefix + "covered_sets_bits";
       // write_bitset_vector(covered_sets_bits_filename, _covered_sets_bits);
 
-      // save lng_descendants_rb and _covered_sets_rb
-      std::string lng_descendants_rb_filename = index_path_prefix + "lng_descendants_rb.bin";
-      save_roaring_vector(lng_descendants_rb_filename, _lng_descendants_rb);
-      std::string covered_sets_rb_filename = index_path_prefix + "covered_sets_rb.bin";
-      save_roaring_vector(covered_sets_rb_filename, _covered_sets_rb);
+      if (!_build_config.is_original_cpu_pipeline())
+      {
+         // save lng_descendants_rb and _covered_sets_rb
+         std::string lng_descendants_rb_filename = index_path_prefix + "lng_descendants_rb.bin";
+         save_roaring_vector(lng_descendants_rb_filename, _lng_descendants_rb);
+         std::string covered_sets_rb_filename = index_path_prefix + "covered_sets_rb.bin";
+         save_roaring_vector(covered_sets_rb_filename, _covered_sets_rb);
+      }
 
+      if (!_build_config.is_original_cpu_pipeline())
+      {
       // save acorn index
       std::cout << "\n--- Exporting reordered data for ACORN index building ---" << std::endl;
 
@@ -4360,6 +6265,7 @@ void UniNavGraph::calculate_query_features_only(
       std::cout << "--- Finished exporting reordered data ---\n"
                 << std::endl;
       // ========================== 修改部分结束 ==========================
+      }
 
       // print
       std::cout << "- Index saved in " << std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time).count() << " ms" << std::endl;

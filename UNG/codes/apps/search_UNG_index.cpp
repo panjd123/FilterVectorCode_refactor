@@ -195,7 +195,8 @@ int main(int argc, char **argv)
           trie_debug_print_counter,
           false,
           false,
-          dummy_stats);
+          dummy_stats,
+          false);
    }
    auto entry_cost_total_time = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - entry_cost_start_time).count();
    std::cout << "Total time for finding all entry groups (Entry Cost): " << entry_cost_total_time << " ms\n"
@@ -290,7 +291,7 @@ int main(int argc, char **argv)
          else
          {
             index.search_hybrid(query_storage, distance_handler, num_threads, current_Lsearch,
-                                num_entry_points, scenario, K, results, num_cmps, query_stats[repeat][LsearchId], is_idea2_available, is_new_trie_method, is_rec_more_start, is_ung_more_entry, lsearch_start, lsearch_step, efs_start, efs_step_slow,efs_step_fast,lsearch_threshold,force_use_alg, true_query_group_ids);
+                                num_entry_points, scenario, K, results, num_cmps, query_stats[repeat][LsearchId], is_idea2_available, is_new_trie_method, is_rec_more_start, is_ung_more_entry, lsearch_start, lsearch_step, efs_start, efs_step_slow,efs_step_fast,lsearch_threshold,force_use_alg, false, true_query_group_ids);
          }
          auto time_cost = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time).count();
 

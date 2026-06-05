@@ -1,3 +1,10 @@
 build_ung_test/
 build_ung_test_*/
+build_*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+__pycache__/
+*.pyc
 .tmp/

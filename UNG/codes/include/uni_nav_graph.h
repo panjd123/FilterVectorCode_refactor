@@ -6,6 +6,8 @@
 #include "distance.h"
 #include "search_cache.h"
 #include "label_nav_graph.h"
+#include "ung_build_config.h"
+#include "tagore_graph_builder.h"
 #include "vamana/vamana.h"
 #include "MethodSelector.h"
 #include "../../../ACORN/faiss/IndexACORN.h"
@@ -306,6 +308,8 @@ namespace ANNS
             int dim,
             int topk,
             std::vector<SearchQueue>& cross_group_neighbors,
+            std::vector<std::vector<IdxType>>* cross_group_neighbor_ids = nullptr,
+            std::vector<IdxType>* cross_group_neighbor_flat_ids = nullptr,
             double* h2d_ms = nullptr,
             double* kernel_ms = nullptr,
             double* d2h_ms = nullptr);
@@ -320,11 +324,20 @@ namespace ANNS
       std::shared_ptr<LabelNavGraph> _label_nav_graph = nullptr;
       void get_min_super_sets(const std::vector<LabelType> &query_label_set, std::vector<IdxType> &min_super_set_ids,
                               bool avoid_self = false, bool need_containment = true);
+      void get_min_super_sets_optimized_bucket(const std::vector<LabelType> &query_label_set, std::vector<IdxType> &min_super_set_ids,
+                                               bool avoid_self = false, bool need_containment = true);
+      void get_min_super_sets_original_sort(const std::vector<LabelType> &query_label_set, std::vector<IdxType> &min_super_set_ids,
+                                            bool avoid_self = false, bool need_containment = true);
       void cal_f_coverage_ratio();
       void build_label_nav_graph();
+      void build_label_nav_graph_optimized_phase1();
+      void build_label_nav_graph_legacy_allocating();
+      void build_label_nav_graph_original_cpu();
       size_t count_all_descendants(IdxType group_id) const;
       void print_lng_descendants_num(const std::string &filename) const;
       void get_descendants_info();
+      void get_descendants_info_optimized_epoch_bfs();
+      void get_descendants_info_legacy_hash_bfs();
 
       // prepare vector storage for each group
       std::vector<IdxType> _new_to_old_vec_ids;
@@ -332,13 +345,21 @@ namespace ANNS
       std::vector<std::pair<IdxType, IdxType>> _group_id_to_range;
       std::vector<std::shared_ptr<IStorage>> _group_storages;
       void prepare_group_storages_graphs();
+      void reserve_graph_neighbor_capacity();
 
       // graph indices for each graph
       std::string _index_name;
       std::vector<std::shared_ptr<Graph>> _group_graphs;
       std::vector<IdxType> _group_entry_points;
+      bool _intra_group_graph_ids_are_global = false;
+      bool should_write_intra_group_global_ids() const;
       void build_graph_for_all_groups();
-      void build_complete_graph(std::shared_ptr<Graph> graph, IdxType num_points);
+      void build_graph_for_all_groups_tagore_cuda();
+      void build_complete_graph(std::shared_ptr<Graph> graph, IdxType num_points, IdxType base_offset = 0);
+      void build_bounded_complete_graph(std::shared_ptr<Graph> graph, IdxType num_points, IdxType max_degree, IdxType base_offset = 0);
+      void build_one_group_graph_tagore_cuda(IdxType group_id, IdxType num_points,
+                                             TagoreBuildResult *timing_acc = nullptr,
+                                             double *pack_ms = nullptr, double *fill_ms = nullptr);
       std::vector<std::shared_ptr<Vamana>> _vamana_instances;
 
       std::shared_ptr<Graph> _global_graph;
@@ -382,15 +403,32 @@ namespace ANNS
          GPU = 1,
       };
       IdxType _num_cross_edges;
+      UngBuildConfig _build_config;
       std::vector<SearchQueue> _cross_group_neighbors;
       void build_cross_group_edges();
+      void build_cross_group_edges_original_cpu();
       CrossEdgeBackend resolve_cross_edge_backend() const;
       void build_cross_edges_generate_cpu_baseline(std::vector<SearchQueue> &cross_group_neighbors,
                                                    SearchCacheList &search_cache_list);
+      void build_cross_edges_generate_cpu_exact_scan(std::vector<SearchQueue> &cross_group_neighbors);
+      void build_cross_edges_generate_cpu_hybrid_scan_vamana(std::vector<SearchQueue> &cross_group_neighbors,
+                                                             SearchCacheList &search_cache_list);
       bool build_cross_edges_generate_gpu_optimized(std::vector<SearchQueue> &cross_group_neighbors,
+                                                    std::vector<std::vector<IdxType>> *cross_group_neighbor_ids,
+                                                    std::vector<IdxType> *cross_group_neighbor_flat_ids,
                                                     double *h2d_ms_sum,
                                                     double *kernel_ms_sum,
                                                     double *d2h_ms_sum);
+      bool build_cross_edges_generate_cuvs_bruteforce(std::vector<SearchQueue> &cross_group_neighbors,
+                                                      double *h2d_ms_sum,
+                                                      double *kernel_ms_sum,
+                                                      double *d2h_ms_sum);
+      bool build_cross_edges_generate_gpu_source_exact(std::vector<SearchQueue> &cross_group_neighbors,
+                                                       std::vector<std::vector<IdxType>> *cross_group_neighbor_ids,
+                                                       std::vector<IdxType> *cross_group_neighbor_flat_ids,
+                                                       double *h2d_ms_sum,
+                                                       double *kernel_ms_sum,
+                                                       double *d2h_ms_sum);
 
       //add
       void build_cross_edges_pair_gpu(
@@ -422,15 +460,36 @@ namespace ANNS
       // statistics
       float _index_time = 0, _label_processing_time = 0, _build_graph_time = 0, _build_vector_attr_graph_time = 0, _cal_descendants_time = 0, _cal_coverage_ratio_time = 0;
       float _build_LNG_time = 0, _build_cross_edges_time = 0;
-      double _build_roaring_bitsets_time;
-      float _index_size, _index_size_add_rb;
+      double _build_roaring_bitsets_time = 0.0;
+      float _index_size = 0.0f, _index_size_add_rb = 0.0f;
       IdxType _graph_num_edges, _LNG_num_edges;
 
+      double _tagore_groups = 0.0;
+      double _tagore_points = 0.0;
+      double _tagore_direct_build_wall_time_ms = 0.0;
+      double _tagore_no_alloc_build_time_ms = 0.0;
+      double _tagore_pack_time_ms = 0.0;
+      double _tagore_convert_time_ms = 0.0;
+      double _tagore_workspace_alloc_time_ms = 0.0;
+      double _tagore_h2d_time_ms = 0.0;
+      double _tagore_memset_time_ms = 0.0;
+      double _tagore_gnn_time_ms = 0.0;
+      double _tagore_prune_time_ms = 0.0;
+      double _tagore_grnnd_refine_time_ms = 0.0;
+      double _tagore_d2h_time_ms = 0.0;
+      double _tagore_fill_time_ms = 0.0;
+      double _tagore_workspace_free_time_ms = 0.0;
+      double _tagore_unaccounted_time_ms = 0.0;
+      double _tagore_h2d_effective_gbps = 0.0;
+      double _tagore_d2h_effective_gbps = 0.0;
+      double _tagore_gnn_mpts_s = 0.0;
+      double _tagore_prune_mpts_s = 0.0;
+
       // FXY_ADD: 为 add_new_distance_oriented_edges 添加详细计时
-      double _cross_edge_step1_time_ms;                     // 步骤1 (识别、采样) 的耗时
-      double _cross_edge_step2_acorn_time_ms;               // 步骤2 (执行ACORN) 的耗时
-      double _cross_edge_step3_add_dist_edges_time_ms;      // 步骤3 (添加距离驱动边) 的耗时
-      double _cross_edge_step4_add_hierarchy_edges_time_ms; // 步骤4 (添加层级保障边) 的耗时
+      double _cross_edge_step1_time_ms = 0.0;                     // 步骤1 (识别、采样) 的耗时
+      double _cross_edge_step2_acorn_time_ms = 0.0;               // 步骤2 (执行ACORN) 的耗时
+      double _cross_edge_step3_add_dist_edges_time_ms = 0.0;      // 步骤3 (添加距离驱动边) 的耗时
+      double _cross_edge_step4_add_hierarchy_edges_time_ms = 0.0; // 步骤4 (添加层级保障边) 的耗时
       void statistics();
 
       std::string _dataset;

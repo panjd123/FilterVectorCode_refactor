@@ -5,7 +5,7 @@
 配套运行手册：
 
 ```text
-RUNBOOK_OPTIMIZED_FEATURES_CN.md
+docs/runbooks/RUNBOOK_OPTIMIZED_FEATURES_CN.md
 ```
 
 阅读方式：
@@ -17,7 +17,21 @@ RUNBOOK_OPTIMIZED_FEATURES_CN.md
 
 ## 0. 实测结果总览
 
-这一节是目前做过的关键实验台账，避免只保留泛泛结论。更详细的运行命令见 `RUNBOOK_OPTIMIZED_FEATURES_CN.md`。
+这一节是目前做过的关键实验台账，避免只保留泛泛结论。更详细的运行命令见 `docs/runbooks/RUNBOOK_OPTIMIZED_FEATURES_CN.md`。
+
+### 0.0 2026-06-02 最新状态快照
+
+本文前半部分保留了 SIFT30、Tagore 接入和早期 GPU cross-edge 的历史台账。最新论文主线已经进一步收敛，读本文时应先按下面的状态理解：
+
+| 模块 | 当前状态 | 可写结论 | 不能写成 |
+|---|---|---|---|
+| cross-edge | 当前主工程路线是 `UNG_UNIVERSAL_GPU=1`：target-centric descriptor batching + double-buffer + GPU global merge + flat-id output | SIFT30 skip-additional cross `4918.9 -> 3180.63 ms`；Amazon 1% x200 full-quality cross `2494.21 ms`，L1000/L5000 `0.871/0.911`；Amazon 1% x100 full-quality cross `1689.40 ms`，L100/L500/L1000 `0.826/0.868/0.891` | 不能写成所有 workload 无条件端到端加速；x100 Index 变慢，是 boundary result |
+| source-centric no-lock | 修复 id-only null-distance 写入和 stream error check 后降级为 future direction | source-centric 遍历方向仍合理，后续应做 two-stage source grouped GEMM + per-source reduce | 不能把 legacy WMMA smoke 当成当前主表；可信 CUDA-core id-only SIFT30 cross `5926.67 ms`，慢于 target/universal |
+| group graph | 当前最强候选是 workload-aware router：小组 CPU/bounded fallback，中组 packed exact-anchor，大组 FastGrnndCuda/reverse-tail | x200 packed exact-anchor group `3827.28 ms`，L1000/L5000 `0.869/0.908`；x400 packed exact-anchor L1000/L5000 `0.945/0.967`；x400 reverse-tail+repair Index `33044.9 ms`，接近同脚本 CPU recall | 不能写成 FastGrnndCuda 或 exact-anchor 已无损普遍替代 CPU Vamana |
+| output boundary | 已用 reserve 和 `NeighborList64` 降低 CPU-compatible graph allocator 成本，但最终仍是 host graph/search 语义 | x200 NeighborList64 auto-reserve 把 reserve `2856.2 -> 25.4 ms`，tagore fill `224.8 -> 14.7 ms`；10%x40 reserve `6487.3 -> 21.2 ms` | 不能写成 flat/CSR 已完成；下一步仍是 GraphView/CSR + additional_edges flat backend |
+| artifact gate | `python3 tools/benchmarks/run_submission_gate.py --final` 已通过 | 已登记 claim 均有本机 artifact 和关键数值校验 | gate 通过不等于科学上全部投稿完成，x400 参数扫、真实多标签和 flat/CSR 仍是缺口 |
+
+因此当前总判断是：**cross-edge fused/universal route 是稳定贡献；组内图是 workload-aware speed/quality router；CPU-compatible output boundary 是下一阶段最大系统瓶颈。**
 
 ### 0.1 CPU 原始版本基线：各阶段耗时
 
@@ -119,7 +133,7 @@ GPU: /home/graphdb/FilterVectorResultsRefactor/sift30_gpu_default_heavy_sgemm_20
 
 ### 0.3 历史稳定优化：descendants / coverage
 
-来源：`OPTIMIZATION_STEP_BY_STEP.md`
+来源：`docs/reports/OPTIMIZATION_STEP_BY_STEP.md`
 
 | 指标 | 优化前 | 优化后 | 变化 |
 | --- | ---: | ---: | ---: |
@@ -161,26 +175,7 @@ export UNG_COVERAGE_IMPL=1
 之前 exact BFS 快路径会把 LNG edges 从 946138 降到 20007，判定为错误路径。
 ```
 
-### 0.5 FixedPoolGPU：失败实验
-
-结果目录：
-
-```text
-/home/graphdb/FilterVectorResultsRefactor/pg_build_compare_20260519_172008
-```
-
-| 方法 | `build_graph_time` | 结论 |
-| --- | ---: | --- |
-| CPU Vamana | `2773.15 ms` | baseline |
-| FixedPoolGPU | `129447 ms` | 远慢于 CPU |
-
-结论：
-
-```text
-naive 固定邻居池 GPU builder 没有解决 per-group malloc/copy/launch 和访存问题，当前不应作为主线。
-```
-
-### 0.6 Tagore GPU 建图：中大 group 实验
+### 0.5 Tagore GPU 建图：中大 group 实验
 
 结果目录：
 
@@ -223,7 +218,7 @@ Tagore 对中大 group 的 GPU 建图有潜力。
 但这个实验不是完整替代 CPU Vamana 的等价 A/B：只测了 nx>=1024，且图结构/剪枝语义不保证和 UNG CPU Vamana 完全一致。
 ```
 
-### 0.7 Tagore 图 + GPU ANN batch query
+### 0.6 Tagore 图 + GPU ANN batch query
 
 benchmark 源码：
 
@@ -332,7 +327,7 @@ work = nq * nx
 Roaring 初始化改为 addMany 批量写入
 ```
 
-实测历史结果见 `OPTIMIZATION_STEP_BY_STEP.md`：
+实测历史结果见 `docs/reports/OPTIMIZATION_STEP_BY_STEP.md`：
 
 ```text
 Index time: 84115.0 -> 35314.5 ms (-58.0%)
@@ -510,7 +505,7 @@ TF32/WMMA 并不自动赢，必须匹配足够大的 tile 和合适的数据分�
 fusion/batching 比单个 kernel 的微优化更重要
 ```
 
-## 4. group 内 PG 构建：CPU Vamana、FixedPoolGPU、Tagore
+## 4. group 内 PG 构建：CPU Vamana、Tagore
 
 ### 4.1 当前 CPU Vamana 的角色
 
@@ -529,47 +524,7 @@ CPU Vamana build_graph_time 约 10-11.3 s
 build_graph_time = 10001.6 ms
 ```
 
-### 4.2 FixedPoolGPU 实验失败
-
-我们实现过一个 fixed neighbor pool GPU builder：
-
-```text
-随机固定邻居池
-通过邻居的邻居多轮 refine
-再 prune 成边
-```
-
-它的思想是 GPU 友好的定长数组，但当前实现不成熟。
-
-实测在 hiermedium：
-
-```text
-CPU Vamana build_graph_time: 2773.15 ms
-FixedPoolGPU build_graph_time: 129447 ms
-```
-
-结果目录：
-
-```text
-/home/graphdb/FilterVectorResultsRefactor/pg_build_compare_20260519_172008
-```
-
-失败原因：
-
-```text
-per-group cudaMalloc/cudaMemcpy/kernel/D2H 太重
-OpenMP 线程独立发 GPU 工作，调度混乱
-算法输出不等价于 CPU Vamana
-大量小 group 时 GPU launch 开销支配
-```
-
-结论：
-
-```text
-FixedPoolGPU 当前不应作为主线
-```
-
-### 4.3 Tagore GPU 建图结果
+### 4.2 Tagore GPU 建图结果
 
 Tagore 是 GPU 建图库，不是 CPU Vamana。它的流程是：
 
@@ -616,7 +571,7 @@ UNG CPU Vamana 全量: 10-11.3 s
 
 注意：这个比较不是完全等价，因为 Tagore 只测了 `nx>=1024`，且输出图不保证和 CPU Vamana 边完全一致。
 
-### 4.4 Tagore 的 block 粒度并行能力
+### 4.3 Tagore 的 block 粒度并行能力
 
 Tagore 当前核心 kernel 基本是：
 
@@ -889,7 +844,7 @@ singleton group 仍然太多，p50=1
 详细报告见：
 
 ```text
-CROSS_GROUP_CELEBA_RESULTS_CN.md
+docs/reports/CROSS_GROUP_CELEBA_RESULTS_CN.md
 ```
 
 结果与统计文件：
@@ -1067,22 +1022,27 @@ warp/CTA 粒度 topM
 
 ```text
 LNG/coverage 数据结构优化
-GPU exact cross-edge topK
-部分 small/medium group batching/fusion
+GPU exact/grouped fused cross-edge topK
+universal flat double-buffer cross-edge route 的 x200 full-quality 正结果
+packed exact-anchor / FastGrnndCuda / reverse-tail 的 workload-aware group graph router
+NeighborList64 / reserve / direct-H2D 等 CPU-compatible output-boundary 减压优化
 ```
 
 仍处于研究原型的是：
 
 ```text
-GPU group PG build 替代 CPU Vamana
-Tagore C++ 接入
+source-centric no-lock 的 two-stage grouped GEMM + per-source reduce
+flat adjacency / CSR / GraphView 输出后端
+additional_edges 的 GPU/flat full-quality backend
+真实多标签和更多 x400 参数扫
 GPU ANN batch query 替代 exact topK
-新数据分布设计
 ```
 
 最重要的工程判断：
 
 ```text
 不要把所有 group 都交给同一种算法。
-小 group 用 complete/exact；中大 group 用 GPU builder；query 足够多且 graph 可复用时才用 ANN graph search。
+小 group 用 CPU/bounded fallback；中组可用 packed exact-anchor；大组用 FastGrnndCuda/reverse-tail 或更强 prune。
+cross-edge 当前以 universal flat double-buffer 为主线；source-centric 只能作为后续 no-lock 设计方向。
+只要最终 search 仍消费 CPU-compatible Graph::neighbors/SearchQueue/Vamana 语义，端到端收益就会受 output boundary 限制。
 ```
