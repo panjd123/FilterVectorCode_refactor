@@ -43,13 +43,13 @@ for each GPU group:
         GNN/FastGrnnd batch
 ```
 
-这段逻辑在 `UNG/codes/src/uni_nav_graph.cpp:1436-1624`。它不是运行时根据 recall 动态选择，而是在 build 前按 group size 做静态路由。fallback 与 GPU batch 可以并发执行，避免 CPU 小组构图完全串行挡住 GPU batch。
+这段逻辑现在集中在 `UNG/codes/src/uni_nav_graph_group_graph.cpp` 的 `build_graph_for_all_groups_tagore_cuda()`、`partition_tagore_groups()` 和 `build_tagore_batch_artifacts()`。它不是运行时根据 recall 动态选择，而是在 build 前按 group size 做静态路由。fallback 与 GPU batch 可以并发执行，避免 CPU 小组构图完全串行挡住 GPU batch。
 
 ## 代码级算法流程
 
 ### A. fallback small-group path
 
-fallback path 处理两类组：`nx <= complete_threshold` 的很小组，以及小于 `tagore_min_group_size`、不值得上 GPU 的组。代码在 `UNG/codes/src/uni_nav_graph.cpp:1476-1503`。
+fallback path 处理两类组：`nx <= complete_threshold` 的很小组，以及小于 `tagore_min_group_size`、不值得上 GPU 的组。代码在 `UNG/codes/src/uni_nav_graph_group_graph.cpp` 的 `build_tagore_fallback_groups()`。
 
 如果 `nx <= complete_threshold` 或 `UNG_TAGORE_FALLBACK_IMPL=0`，直接构造 complete 或 bounded-complete graph：
 
@@ -60,7 +60,7 @@ else:
     每点连接 (i+1) % nx, (i+2) % nx, ... , (i+max_degree) % nx
 ```
 
-bounded-complete 的实现位于 `UNG/codes/src/uni_nav_graph.cpp:2353-2376`。它牺牲了 complete graph 的逐边等价性，但把小组 fallback 的出度固定到 `max_degree`，避免大量小组物化 `nx * (nx-1)` 边。
+bounded-complete 的实现位于 `UNG/codes/src/uni_nav_graph.cpp` 的 `build_bounded_complete_graph()`。它牺牲了 complete graph 的逐边等价性，但把小组 fallback 的出度固定到 `max_degree`，避免大量小组物化 `nx * (nx-1)` 边。
 
 如果不走 complete/bounded-complete，则回退到 CPU Vamana。这一路径保留 CPU Vamana 语义，但只用于 GPU 不划算的小组或兼容口径。
 

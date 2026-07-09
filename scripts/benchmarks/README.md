@@ -4,6 +4,7 @@ This directory provides runnable entrypoints for the current UNG optimization
 reports and paper evidence matrix. The main reviewer-facing documents are:
 
 ```text
+docs/reports/CURRENT_METHODS_EFFECTS_AND_GAPS_CN.md
 docs/papers/SUBMISSION_READINESS_STATUS_CN.md
 docs/papers/EVIDENCE_MATRIX_CN.md
 docs/reports/TECHNICAL_REPORT_OPTIMIZATION_SPEEDUP_CN.md
@@ -17,6 +18,12 @@ cross-edge: UNG_UNIVERSAL_GPU=1 universal flat double-buffer
 group graph: workload-aware router with CPU/bounded fallback, packed exact-anchor, and FastGrnndCuda/reverse-tail
 full-quality search: UNG_ADDITIONAL_EDGES_IMPL=0
 ```
+
+Here `full-quality` means the built index keeps the current complete UNG
+semantics, especially CPU Vamana `additional_edges`, and is then evaluated by
+filtered-search recall against brute-force GT. Local topK overlap is only a
+diagnostic for kernels or group-local graph shape; it is not a substitute for
+end-to-end query quality.
 
 ## Common outputs
 
@@ -72,6 +79,10 @@ additional-edge setting, and `Lsearch` values.
 The output `summary.csv` joins build time, group/cross breakdown, average recall,
 and average query time from `search_time_summary.csv`.
 
+This is the required quality gate for build changes. PG/group graph, cross-edge,
+additional_edges, output-boundary, and router changes should be judged by this
+filtered-search recall pipeline, not by standalone topK edge overlap.
+
 The default cross-edge setting is the paper fused path:
 
 ```text
@@ -92,6 +103,40 @@ scripts/benchmarks/run_end_to_end_recall_ab.sh
 Vamana additional edges. `UNG_ADDITIONAL_EDGES_IMPL=1` skips additional edges
 and is only valid for stage timing, kernel/output-boundary ablations, or smoke
 tests.
+
+## Query entry group hyperparameter sweep
+
+```bash
+BASE_LABEL_FILE=/path/to/base_labels.txt \
+QUERY_LABEL_FILE=/path/to/query_labels.txt \
+MAX_QUERY=10240 \
+FRONTIER_DELTAS="1 2 3" \
+FRONTIER_COVER_CAPS="64 128 256 512 1024 2048 8192" \
+scripts/benchmarks/run_query_entry_group_sweep.sh
+```
+
+This sweeps `gpu_cover_frontier` hyperparameters and writes:
+
+```text
+query_entry_group_sweep.csv
+query_entry_group_sweep.md
+```
+
+For this benchmark, correctness means coverage-correct entry groups: all real
+candidate groups satisfying `query_labels subset labels(group)` must be covered.
+Quality means fewer returned entry groups under that correctness constraint,
+because fewer groups usually means the provider starts higher in the label/LNG
+hierarchy and gives less work to graph expansion. The sweep includes CPU scan
+and CPU exact-minimal baselines. It does not by itself prove end-to-end query
+speedup; that still requires `run_end_to_end_recall_ab.sh` with
+`ENTRY_GROUP_PROVIDER=gpu_cover_frontier`.
+
+The single-case helper also accepts `FRONTIER_DELTA`:
+
+```bash
+FRONTIER_DELTA=1 FRONTIER_COVER_CAP=8192 \
+scripts/benchmarks/run_query_entry_group_bench.sh
+```
 
 For diagnostic A/B runs where fused cross-edge is not the variable under test,
 these can now be overridden. For example, SIFT30 group-graph recall A/B used

@@ -8,7 +8,7 @@
 
 本文提出一套面向 UNG 构建负载的 GPU 加速方案。对于跨组边构建，我们设计 grouped fused topK，将 group-level `(nq, nx, dim) -> topK` 批处理到少量 GPU kernel 中，并引入 direct-qid 常驻向量访问、TF32 WMMA group kernel、安全写回策略和分组描述符调度，减少 query 展开、H2D/D2H 和逐 group 调用开销。对于组内图构建，我们提出 FastGrnndCuda：复用 GPU GNN-Descent 生成候选，然后用反向候选增强的局部 RNG-style 剪枝替代重后处理，在中大组上降低构建时间并改善相对 Tagore 的图质量。
 
-在 Amazon sampled + jitter repeat 系列上，本文方法在 Amazon 1% x100 上将 cross-edge 从 CPU Vamana 的 `18735.8 ms` 降到 `848.9 ms`，相对 CPU exact scan 达到 `2.81x`，相对 cuVS per-group 达到 `4.39x`，相对 SGEMM+topK 达到 `1.64x`。端到端构建中，当前混合方案在 Amazon 1% x100 上将 Index time 从 CPU Vamana group + GPU fused baseline 的 `16824 ms` 降到 `6630 ms`，达到 `2.54x`，但该历史点是 skip-additional 口径。新的 x100 full-quality conservative `adaptive_cuda` route 进一步把小组 CPU fallback、中组 packed exact-anchor、大组 FastGrnndCuda 收敛到一个后端：Index `5450 ms`、group graph `2773.35 ms`、L100/L500/L1000 `0.829/0.870/0.895`，相对历史 FastGrnnd full-quality `6370.67 ms`、`3216.21 ms`、`0.828/0.871/0.896` 保持 recall 基本一致并改善 build time。新的 Amazon 1% x200 coverage-query 端到端实验显示，旧 FastGrnndCuda 在 `nx≈200` bucket 上被重 prune 拖慢：group graph `26620.6 ms`，慢于 CPU Vamana 的 `8511.72 ms`。加入 diversified light prune 后，group graph 降到 `6706.36 ms`，Index time 从 CPU 的 `17596.8 ms` 降到 `16478.5 ms`；L1000 recall 为 `0.8656`，低于 CPU 的 `0.8690`，L5000 recall 为 `0.9056`，接近 CPU 的 `0.9080`。进一步去掉 batched exact path 的 D2H 后 host scatter 后，packed exact-anchor router 在 x200 上把 group graph 降到 `3827.28 ms`、Index 降到 `11043.5 ms`，repeat=3 L1000/L5000 为 `0.869/0.908`；x400 同路径 group graph 为 `11588.4 ms`、Index 为 `28436.3 ms`，repeat=3 L1000/L5000 为 `0.945/0.967`。新的 direct-H2D A/B 进一步表明，旧 x200 exact-anchor 性能主要受外围限制：旧路径 group `8999.26 ms` 中 `pack=4140.61 ms`、GPU exact kernel `931.72 ms`、fill `2849.50 ms`；direct-H2D + GPU lookup + fill16 后 group 降到 `3204.88 ms`、`pack=0.04 ms`、kernel `928.67 ms`、fill `1383.53 ms`，L1000 recall 仍为 `0.867`。结构诊断还显示，早期 exact 低 recall run 与新 packed exact 的组内图完全一致，差异来自 cross edges 缺失，因此旧 exact 负结果应视为实验口径混杂。针对 cross-edge 的调度边界，我们进一步修复了 double-buffer direct-qid path 的 all-or-nothing 回退：Amazon 1% x200 full-quality 中，partial routing 将 `5173/5195` 个 target groups 送入 double-buffer，仅 `22` 个大组回退，使 cross-edge 从旧 target-current `3900.81 ms` 降到 `2657.23 ms`，repeat=3 L1000/L5000 为 `0.866/0.907`。最新 universal flat double-buffer route 将 target-centric descriptor batching、double-buffer execution、GPU global merge 和 flat-id output 收敛到 `UNG_UNIVERSAL_GPU=1`：SIFT30 skip-additional cross-edge `3180.63 ms`，Amazon 1% x200 full-quality cross-edge `2494.21 ms` 且 L1000/L5000 recall `0.871/0.911`；Amazon 1% x100 full-quality cross-edge `1689.40 ms` 且 L100/L500/L1000 recall `0.826/0.868/0.891`，但该 x100 点没有带来端到端 Index 加速。Amazon 10% x40 many-group 压力测试进一步显示，修复 direct-pageable 和 direct-qid chunk path 后，full-quality A/B 中 FastGrnndCuda + GPU cross 把 Index 从 CPU Vamana group 的 `36053.3 ms` 降到 `23497.4 ms`，达到 `1.53x`；repeat=3 下 L100/L500/L1000 recall 从 `0.8647/0.898/0.908` 到 `0.8668/0.898/0.9103`，且 P95/P99 query latency 没有恶化。Amazon 1% x400 gather-Q full-quality A/B 暴露了更强的 pruning tradeoff：heavy prune 的 L5000 recall 只低 `0.0017`，但 Index 比 CPU 慢；light512 将 Index 从历史 CPU `37807.6 ms` 降到 `30826.5 ms`，但 L5000 recall 从 `0.9660` 降到 `0.9579`。新的 reverse-tail + repair A/B 将 x400 L5000 recall 提升到 `0.9659`，接近同脚本 CPU `0.965`，Index `33044.9 ms` 相对同脚本 CPU `36257.3 ms` 为约 `1.10x`。因此本文最终主张是 cross-edge fused/universal route 作为稳定贡献，group graph 采用 conservative adaptive route、full-quality packed exact-anchor 与 reverse-tail/GNN 的自适应 GPU router，而不是无条件替代所有 workload。
+在 Amazon sampled + jitter repeat 系列上，本文方法在 Amazon 1% x100 上将 cross-edge 从 CPU Vamana 的 `18735.8 ms` 降到 `848.9 ms`，相对 CPU exact scan达到 `2.81x`，相对 cuVS per-group 达到 `4.39x`，相对 SGEMM+topK 达到 `1.64x`。端到端构建中，当前混合方案在 Amazon 1% x100 上将 Index time 从 CPU Vamana group + GPU fused baseline 的 `16824 ms` 降到 `6630 ms`，达到 `2.54x`，但该历史点是 skip-additional 口径。新的 x100 full-quality conservative `adaptive_cuda` route 进一步把小组 CPU fallback、中组 packed exact-anchor、大组 FastGrnndCuda 收敛到一个后端：Index `5450 ms`、group graph `2773.35 ms`、L100/L500/L1000 `0.829/0.870/0.895`，相对历史 FastGrnnd full-quality `6370.67 ms`、`3216.21 ms`、`0.828/0.871/0.896` 保持 recall 基本一致并改善 build time。新的 Amazon 1% x200 coverage-query 端到端实验显示，旧 FastGrnndCuda 在 `nx≈200` bucket 上被重 prune 拖慢：group graph `26620.6 ms`，慢于 CPU Vamana 的 `8511.72 ms`。加入 diversified light prune 后，group graph 降到 `6706.36 ms`，Index time 从 CPU 的 `17596.8 ms` 降到 `16478.5 ms`；L1000 recall 为 `0.8656`，低于 CPU 的 `0.8690`，L5000 recall 为 `0.9056`，接近 CPU 的 `0.9080`。进一步去掉 batched exact path 的 D2H 后 host scatter 后，packed exact-anchor router 在 x200 上把 group graph 降到 `3827.28 ms`、Index 降到 `11043.5 ms`，repeat=3 L1000/L5000 为 `0.869/0.908`；x400 同路径 group graph 为 `11588.4 ms`、Index 为 `28436.3 ms`，repeat=3 L1000/L5000 为 `0.945/0.967`。新的 direct-H2D A/B 进一步表明，旧 x200 exact-anchor 性能主要受外围限制：旧路径 group `8999.26 ms` 中 `pack=4140.61 ms`、GPU exact kernel `931.72 ms`、fill `2849.50 ms`；direct-H2D + GPU lookup + fill16 后 group 降到 `3204.88 ms`、`pack=0.04 ms`、kernel `928.67 ms`、fill `1383.53 ms`，L1000 recall 仍为 `0.867`。结构诊断还显示，早期 exact 低 recall run 与新 packed exact 的组内图完全一致，差异来自 cross edges 缺失，因此旧 exact 负结果应视为实验口径混杂。针对 cross-edge 的调度边界，我们进一步修复了 double-buffer direct-qid path 的 all-or-nothing 回退：Amazon 1% x200 full-quality 中，partial routing 将 `5173/5195` 个 target groups 送入 double-buffer，仅 `22` 个大组回退，使 cross-edge 从旧 target-current `3900.81 ms` 降到 `2657.23 ms`，repeat=3 L1000/L5000 为 `0.866/0.907`。最新 universal flat double-buffer route 将 target-centric descriptor batching、double-buffer execution、GPU global merge 和 flat-id output 收敛到 `UNG_UNIVERSAL_GPU=1`：SIFT30 skip-additional cross-edge `3180.63 ms`，Amazon 1% x200 full-quality cross-edge `2494.21 ms` 且 L1000/L5000 recall `0.871/0.911`；Amazon 1% x100 full-quality cross-edge `1689.40 ms` 且 L100/L500/L1000 recall `0.826/0.868/0.891`，但该 x100 点没有带来端到端 Index 加速。Amazon 10% x40 many-group 压力测试进一步显示，修复 direct-pageable 和 direct-qid chunk path 后，full-quality A/B 中 FastGrnndCuda + GPU cross 把 Index 从 CPU Vamana group 的 `36053.3 ms` 降到 `23497.4 ms`，达到 `1.53x`；repeat=3 下 L100/L500/L1000 recall 从 `0.8647/0.898/0.908` 到 `0.8668/0.898/0.9103`，且 P95/P99 query latency 没有恶化。查询阶段，我们进一步把 CPU `get_min_super_sets_debug()` 改写为 GPU correct-cover 批处理入口组选择：Amazon 100%x40、`nq=10240` 上 resident 完整接口时间为 `59.83 ms`，相对 CPU scan 128T `1187.56 ms` 为 `19.85x`；在 10%x40 已有 search artifact 中，CPU 入口组查找占 query latency 约 `48~51%`，若只替换入口组阶段且后续图搜索不变，端到端 query latency 上界约 `1.9~2.0x`。本轮还生成并构建 Amazon 100%x40：`23,284,680` 点、`482,387` groups。此前 `prepare_group_storages_graphs` 崩溃已定位为 `Storage` 中 `IdxType` 乘法溢出并修复；旧 GPU cross-edge 的 `71.5GB` resident-cache OOM 已由 `UNG_GPU_X_STREAMING=1` 绕过，strict skip-additional build 完成，Index `945683 ms`、cross-edge generate `697114.7 ms`。但 v1 streaming 的 `pack_q=450338.9 ms` 占主导，因此它只能作为显存可扩展性结果，不能作为建图加速主结果。Amazon 1% x400 gather-Q full-quality A/B 暴露了更强的 pruning tradeoff：heavy prune 的 L5000 recall 只低 `0.0017`，但 Index 比 CPU 慢；light512 将 Index 从历史 CPU `37807.6 ms` 降到 `30826.5 ms`，但 L5000 recall 从 `0.9660` 降到 `0.9579`。新的 reverse-tail + repair A/B 将 x400 L5000 recall 提升到 `0.9659`，接近同脚本 CPU `0.965`，Index `33044.9 ms` 相对同脚本 CPU `36257.3 ms` 为约 `1.10x`。因此本文最终主张是 cross-edge fused/universal route 作为稳定贡献，group graph 采用 conservative adaptive route、full-quality packed exact-anchor 与 reverse-tail/GNN 的自适应 GPU router；查询阶段的 correct-cover 是互补优化，但仍需接入正式 `search_UNG_index` 后复测冗余入口组对图搜索的影响，而不是无条件替代所有 workload。
 
 ## 1. 引言
 
@@ -16,10 +16,11 @@
 
 这类构建任务在 GPU 上并不天然容易。第一，跨组边不是单个大矩阵乘法，而是数千个不同 `(nq, nx)` 组合的小到中等规模 topK 搜索。逐组调用 cuBLAS 或 cuVS 会产生大量 pack、H2D、kernel launch、D2H 和 host merge 开销。第二，组内图构建存在显著长尾。小组数量多但单组计算量小，直接 GPU 化可能得不偿失；中大组适合 GPU 构建，但图质量又受到候选生成和剪枝策略影响。第三，UNG 构建是端到端系统任务，局部 kernel 更快不一定转化为 Index time 更快，`prepare_all`、fallback 策略和写回路径都必须纳入度量。
 
-本文的核心观点是：过滤向量索引构建需要 workload-aware 的 GPU 化，而不是把每个局部任务简单映射到现有 GPU 库。我们围绕 UNG 的两个主要瓶颈设计了对应方法：
+本文的核心观点是：过滤向量索引构建和查询都需要 workload-aware 的 GPU 化，而不是把每个局部任务简单映射到现有 GPU 库。我们围绕 UNG 的构建瓶颈和查询入口组瓶颈设计了对应方法：
 
 - 对 cross-edge，使用 grouped fused topK 把大量 group topK 搜索组织成批处理 GPU workload，并让 kernel 直接通过全局 query id 访问常驻 base vectors，避免重复展开 query。
 - 对 group graph，把 FastGrnndCuda 作为可选 backend，而不是无条件替代 CPU Vamana；通过 bucket 实验决定哪些 group size 进入 GPU，哪些回退 CPU。
+- 对 query entry group selection，把 CPU exact-minimal 的入口组剪枝改写为 GPU correct-cover 集合运算，在保证不漏候选 group 的前提下允许少量冗余入口。
 - 对端到端系统，保留 CPU fallback、complete fallback、GPU fused 和 gather-Q/direct-qid 等配置边界，使不同 workload scale 下可以选择稳定且高收益的路径。
 
 本文贡献如下：
@@ -27,6 +28,7 @@
 1. **Grouped fused cross-edge topK。** 我们将 UNG 跨组边构建抽象为大量 group-level exact topK，并设计常驻向量、direct-qid、TF32 WMMA、安全写回和 group descriptor 调度，使 Amazon 1% x100 cross-edge 相对 CPU Vamana 达到 `22.07x`。
 2. **反向候选增强局部 RNG 剪枝与自适应剪枝强度。** 我们提出 FastGrnndCuda，用轻量 reverse-augmented local pruning 替换 Tagore 的重 prune/refine 路径；同时针对 `nx≈200` 暴露出的重 prune 失败，加入 diversified light prune 中等组路径，将 x200 group graph 从 `26620.6 ms` 降到 `6706.36 ms`，并保留接近 CPU Vamana 的高 `Lsearch` recall。
 3. **面向过滤索引构建的系统级实验分析。** 我们系统比较 CPU Vamana、CPU exact scan、cuVS per-group、SGEMM+topK、old fused、final fused、complete fallback 和 CPU fallback，明确给出不同 scale 下的收益、瓶颈和不能夸大的边界。
+4. **覆盖正确的 GPU 查询入口组选择。** 我们将 `get_min_super_sets_debug()` 的高成本候选 scan/minimal prune 拆成 bitset intersection、frontier compaction、descendant OR 和 uncovered fallback，在 `nq=10240` 上达到 `19.85x` 入口组阶段加速，并给出后续图查询不变时的端到端 latency 上界分析。
 
 ## 2. 背景与问题定义
 
@@ -180,6 +182,50 @@ python3 tools/benchmarks/summarize_group_graph_router_ab.py <out_root>
 
 只有当 `UNG_FAST_GRNND_BATCH_EXACT_NX=128/256/512` 等阈值在降低 `group_ms/index_ms` 的同时，保持 recall 接近 `router_exact_nx0` 和 CPU Vamana，才可将该 router 写入主方法；否则它只能作为 negative 或 partial ablation。当前 x200 结果支持把它写成初步正向 ablation，而不能写成普遍替代已经解决。
 
+### 3.7 GPU Correct-Cover 查询入口组选择
+
+UNG 查询在进入图搜索前，需要根据 query labels 找到一批入口 group。原始 CPU 路径调用 `get_min_super_sets_debug()`，先找出所有满足 `query_labels subset labels(group)` 的候选 group，再做 minimal prune，尽量去掉父子冗余。这个 exact-minimal 输出有利于减少后续图搜索入口，但在 many-group workload 中会成为 query latency 的大头。
+
+本文把入口组选择改写为一个 coverage-correct 的 GPU 批处理集合运算。对一个 query，定义：
+
+```text
+C       = {g | query_labels subset labels(g)}
+F_raw   = {g in C | |query_labels| <= |labels(g)| <= |query_labels| + delta}
+F       = first_cap(F_raw)
+Covered = union(descendants(f) for f in F)
+Output  = F union (C - Covered)
+```
+
+其中 `delta` 控制 frontier 的 label-size 窗口，`cap` 控制每个 query 最多拿多少个 frontier group 做 descendant OR。`cap` 不限制最终输出 group 数；如果某个候选没有被 frontier descendants 覆盖，它会落入 `C - Covered` 并被直接输出。因此该方法保证覆盖所有实际存在的候选 group，但不保证和 CPU exact minimal 输出完全一致。
+
+这个正确性不依赖“query label 的精确组合是否存在对应 group”。如果 `{a,b}` 没有 group，但 `{a,b,c}`、`{a,b,d}` 等 superset group 实际存在，它们仍属于 `C`；当 frontier 为空或被 `cap` 截断时，最坏输出就是更多 `C - Covered`，不会漏掉候选。真正的前提是 descendant 表必须完整覆盖 label-superset 关系。benchmark 中 `build_descendant_bitsets_from_labels()` 按 label 包含关系直接构造 descendants；生产 LNG 路径则需要保证 BFS descendants 至少覆盖所有真实 label-superset group。
+
+实现上，`query_entry_group_bench.cu` 使用 dense bitset 表示 label 到 group、group size bucket、candidate、frontier 和 output。GPU pipeline 为：
+
+```text
+candidate_frontier_kernel:
+  label bitset intersection 得到 C，并按 size window 得到 F_raw
+
+compact_frontier_ids_kernel:
+  把 F_raw 截断到 cap，compact 为 frontier id list F
+
+descendant_cover_list_kernel:
+  对 F 中 group 的 descendant bitset 做 OR，得到 Covered
+
+cover_frontier_select_kernel:
+  输出 F union (C - Covered)
+```
+
+关键优化是 list-driven coverage：先把 frontier bitset compact 成 id list，再只对这些 id 做 descendant OR。旧实现对每个 `(query, bitset word)` 扫完整 frontier bitset，`delta=1` 路径约 `762.92 ms`；list-driven 后在 Amazon 100%x40、`nq=10240` 上降到 `60.72 ms`。
+
+该方法和后续图查询的关系需要保守表述。它只替换 `query labels -> entry group ids/bitset`，后续仍要执行：
+
+```text
+entry group ids -> get_entry_points_given_group_id() -> iterate_to_fixed_point()
+```
+
+如果 GPU correct-cover 输出的入口组比 CPU exact minimal 多，后续 entry point materialization 和图搜索可能变慢。因此本文将现有结果写成入口组阶段加速和端到端上界分析；正式端到端 query speedup 仍需把 `gpu_cover_frontier` 接入 `search_UNG_index` 后，在同一 index/query/Lsearch 上复测。
+
 ## 4. 实验设置
 
 ### 4.1 硬件与数据集
@@ -312,6 +358,7 @@ Amazon 1% x100 最新 full optimized：
 | 1% x100 | `3373.2` | `209.9` | `43.7` | `3.9` | `12.4` | `848.9` | `6630` |
 | 1% x200 | `8630.8` | `410.2` | `37.4` | `2.0` | `18.6` | `3679.5` | `16426` |
 | 1% x400 | `31245.6` | `777.0` | `65.0` | `19.3` | `211.0` | `12462.8` | `50562` |
+| 100% x40 | `17785.4` | `9170.56` | `10585.3` | `31.3` | `3673.6` | `697114.7` | `X-streaming v1 completed, not speedup result` |
 
 相对旧 CPU Vamana group + GPU fused cross-edge baseline：
 
@@ -321,8 +368,9 @@ Amazon 1% x100 最新 full optimized：
 | 1% x100 | `16824` | `6630` | `2.54x` | `11549.9` | `3373.2` | `3.42x` |
 | 1% x200 | `34603` | `16426` | `2.11x` | `26231.4` | `8630.8` | `3.04x` |
 | 1% x400 | `70616` | `50562` | `1.40x` | `54043.2` | `31245.6` | `1.73x` |
+| 100% x40 | `NA` | `NA` | `NA` | `NA` | `NA` | `NA` |
 
-这些 build-scale 结果显示，x100 的混合策略收益较明显；x200 在该表中看起来有收益，但后续 coverage-query 端到端 A/B 证明该结论不能直接外推到完整质量配置。x40 中可 GPU 化的大组太少；x400 中 group graph prune 和稳定 gather-Q cross-edge 成为主要瓶颈。
+这些 build-scale 结果显示，x100 的混合策略收益较明显；x200 在该表中看起来有收益，但后续 coverage-query 端到端 A/B 证明该结论不能直接外推到完整质量配置。x40 中可 GPU 化的大组太少；x400 中 group graph prune 和稳定 gather-Q cross-edge 成为主要瓶颈。新增 `100%x40` 构建口径已经生成数据并完成 optimized skip-additional build。此前 `prepare_group_storages_graphs` 崩溃已修复；旧 cross-edge full resident vector cache 需要 `71,530,536,960` bytes，在 48GB A6000 上 OOM。新增 `UNG_GPU_X_STREAMING=1` 后，`23,284,680` 点、`482,387` groups 的 strict build 可以完成：Index `945683 ms`，cross-edge generate `697114.7 ms`，其中 `pack_q=450338.9 ms`、GPU kernel `72749.8 ms`。因此 `100%x40` 必须写成 scalability/boundary result：显存边界已被 X-side streaming 绕过，但 v1 不能进入建图加速主表，不能用 10%x40 线性外推。
 
 ### 5.3.1 Amazon 1% x100 Coverage-Query End-to-End A/B
 
@@ -409,7 +457,7 @@ x400 中所有 group 都进入 FastGrnndCuda，`prune=20021.9 ms` 是最大单�
 | CPU Vamana group | 43376.6 | 5776.25 | 20194.7 | 0.912333 | 0.932067 | 0.971767 |
 | FastGrnndCuda + CPU fallback | 36732.0 | 1049.92 | 18847.4 | 0.911700 | 0.931500 | 0.971133 |
 
-这是目前第一条 FastGrnndCuda 的真实端到端查询质量证据。它显示 group graph 构建加速 `5.50x`，总 Index time 加速 `1.18x`，三个 Lsearch 上的平均 recall 下降都小于 `0.001`。该实验仍不能替代 Amazon repeat-scale 的正式实验，但它比单组 graph recall 更直接地回应了 reviewer 对 group graph 替换质量的质疑。虽然该 run 缺少 query source-group 文件，代码审查显示该文件只在 `is_ung_more_entry=true` 时用于 oracle group 注入；当前 `search_UNG_index` CLI 不暴露该开关，局部变量默认是 `false`。
+这是目前第一条 FastGrnndCuda 的真实端到端查询质量证据。它显示 group graph 构建加速 `5.50x`，总 Index time 加速 `1.18x`，三个 Lsearch 上的平均 recall 下降都小于 `0.001`。该实验仍不能替代 Amazon repeat-scale 的正式实验，但它比单组 graph recall 更直接地回应了 reviewer 对 group graph 替换质量的质疑。虽然该 run 缺少 query source-group 文件，代码审查显示该文件只在 `is_ung_more_entry=true` 时用于 oracle group 注入；当前 `search_UNG_index` CLI 已暴露 `--is_ung_more_entry`，但默认仍是 `false`。
 
 同时我们发现 additional edges 对该 workload 的质量非常关键。若设置 `UNG_ADDITIONAL_EDGES_IMPL=1` 跳过补边，CPU Vamana group 和 FastGrnndCuda group 的 avg recall 都只有约 `0.61`。因此跳过 additional edges 的结果只能作为阶段拆分 ablation，不能作为完整质量配置。
 
@@ -503,7 +551,41 @@ full-quality 下，Index speedup 为 `1.53x`，group graph speedup 为 `3.54x`�
 
 第二，我们新增 `UNG_GROUP_GRAPH_BOUNDED_COMPLETE=1`：`nx<=max_degree+1` 仍保持 complete graph；更大但仍走 small fallback 的组，每点只写 `max_degree` 条环形强连通边。这个路径不是 complete graph 的逐边等价实现，而是 small-group fast path。10%x40 full-quality build 复测中，Index 从 `25035.9 ms` 降到 `22230.2 ms`，group graph 从 `6097.03 ms` 降到 `5240.6 ms`，fallback_wall 从 `4225.67 ms` 降到 `3088.13 ms`。复用该 index 的 repeat=3 search sweep 给出 L100/L500/L1000 recall `0.867/0.900/0.909`，与 CPU `0.8647/0.898/0.908` 和 FastGrnnd `0.8668/0.898/0.9103` 同量级。因此当前更合理的普遍替代设计是三段式 router：very-small groups 走 bounded-complete，small/medium groups 走 packed exact-anchor，large/quality-sensitive groups 走 FastGrnndCuda light/reverse-tail 或更强 prune。不过 bounded sweep 的 avg query time 为 `1083.34/951.434/839.479 ms`，慢于历史 CPU/FastGrnnd run；该点需要同脚本复测和路径诊断，不能写成 search-latency 改进。
 
-### 5.12 已有 Cross-Edge Query-Level Sanity Check
+### 5.12 Query Entry Group 加速与端到端查询上界
+
+本节回答一个容易被误写的问题：入口组阶段 `19.85x` 加速不等于端到端查询 `19.85x`。UNG query 的计时边界可以拆成：
+
+```text
+Time_ms = MinSupersetT_ms + search_time_ms + 其他轻量收尾
+search_time_ms = entry point materialization + core graph search
+core_search_time_ms = iterate_to_fixed_point()
+```
+
+当前 GPU correct-cover 仍是独立 benchmark，还没有接入 `search_UNG_index` 的正式图查询路径。因此下表是“将 CPU entry stage 替换为 resident GPU entry stage、后续图搜索保持不变”的上界估算。GPU entry 时间使用 Amazon 100%x40、`nq=10240` 重跑 artifact 的 `59.8294 ms / 10240 = 0.00584 ms/query`。
+
+| workload / Lsearch | old total ms/query | CPU entry ms/query | 后续 search ms/query | CPU avg NumEntries | entry 占比 | 替换 entry 后估算 total | 估算 speedup |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Amazon 10%x40 full-quality, L100 | `70.242` | `35.569` | `34.534` | `107.94` | `50.6%` | `34.679` | `2.03x` |
+| Amazon 10%x40 full-quality, L500 | `62.420` | `31.801` | `30.615` | `107.94` | `50.9%` | `30.625` | `2.04x` |
+| Amazon 10%x40 full-quality, L1000 | `66.440` | `31.825` | `34.610` | `107.94` | `47.9%` | `34.621` | `1.92x` |
+| Amazon 1%x200 coverage, L1000 | `50.988` | `3.406` | `47.071` | `66.67` | `6.7%` | `47.588` | `1.07x` |
+| Amazon 1%x200 coverage, L5000 | `48.166` | `3.764` | `44.241` | `66.67` | `7.8%` | `44.408` | `1.08x` |
+| Amazon 1%x400 CPU baseline, L1000 | `41.229` | `3.492` | `37.280` | `29.08` | `8.5%` | `37.743` | `1.09x` |
+| Amazon 1%x400 CPU baseline, L5000 | `36.188` | `3.918` | `31.953` | `29.08` | `10.8%` | `32.276` | `1.12x` |
+
+结论是：many-group 查询中，CPU minimal-superset 查找本身已经占 `48~51%`，因此入口组 GPU 化有可能带来约 `2x` query latency 上界收益；但在 x200/x400 coverage query 中，后续图搜索已经主导，入口组加速只能给出 `1.07~1.12x` 上界。
+
+这个上界还有一个重要 caveat：GPU correct-cover 的输出不是 CPU exact minimal。Amazon 100%x40 上 `delta=1, cap=8192` 平均输出 `2184.26` 个 group，而 CPU exact minimal 为 `616.24` 个 group。冗余入口组不会破坏 coverage，但可能增加 `get_entry_points_given_group_id()` 和 `iterate_to_fixed_point()` 的工作量。因此论文中应把当前结果写成：入口组阶段已经被显著加速；端到端查询收益在 many-group 场景上有明确上界潜力；正式主表仍需要接入 production search path 后同时报告 `NumEntries`、core search time、recall 和 latency。
+
+100%x40 查询入口组重跑结果如下，artifact 为 `/home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/query_entry_group_100pct_x40_20260605_105039`：
+
+| 方法 | total ms | avg output groups | QPS | speedup vs CPU scan |
+|---|---:|---:|---:|---:|
+| CPU scan 128T | `1187.56` | `23332.2` | `8623` | `1.00x` |
+| CPU exact minimal | `4569.83` | `616.24` | `2241` | `0.26x` |
+| GPU correct-cover d1 cap8192 | `59.8294` | `2184.26` | `171153` | `19.85x` |
+
+### 5.13 已有 Cross-Edge Query-Level Sanity Check
 
 目前还有一组 Amazon PF 查询结果，可以在 group graph 固定为 CPU Vamana 的条件下，对比 existing、naive GPU cross 和 paper fused cross。它不能验证 FastGrnndCuda，但可以检查 cross-edge 后端切换是否改变最终 filtered-search recall。
 
@@ -521,7 +603,7 @@ full-quality 下，Index speedup 为 `1.53x`，group graph speedup 为 `3.54x`�
 
 这组结果中，三种 cross-edge 后端的平均 recall 差异约在 `3e-4` 量级内，说明在 group graph 不变时，paper fused cross-edge 没有明显破坏查询质量。不过该 run 没有启用 FastGrnndCuda，因此只能作为 cross-edge sanity check，不能作为最终 group graph 替换的质量证明。
 
-### 5.13 Amazon 1% x400 Gather-Q Full-Quality A/B
+### 5.14 Amazon 1% x400 Gather-Q Full-Quality A/B
 
 x400 是当前最强的 group graph 泛化反例：它的单组规模足以让 GPU 候选生成有并行度，但 x400 direct-qid 路径仍不稳定，所以主表使用稳定 gather-Q fused cross-edge。我们为 x400 生成 coverage query：`1000` 个 query，medium/narrow/broad 为 `672/258/70`，matched groups avg/p50/p95 为 `73.37/21.0/134.2`，matched points avg/p50/p95 为 `31016.0/8400.0/53700.0`。GT exact compute 为 `14039 ms`。
 
@@ -601,11 +683,13 @@ Tagore 类系统使用 GPU GNN-Descent 和 pruning 构建 ANN 图。GRNND/RNN-De
 3. **CPU-compatible 输出边界仍是瓶颈。** 当前 GPU group graph 和 cross-edge 结果最终仍回填到 host `Graph::neighbors` / `SearchQueue` / Vamana-compatible structures。direct-H2D exact-anchor A/B 已经把输入侧 host pack 从 `4140.61 ms` 降到 `0.04 ms`，但输出侧 `Graph::neighbors` fill 曾长期为秒级；这说明剩余边界是 host 图物化，而不是 exact kernel。Graph reserve A/B 进一步证明 per-node adjacency 分配/扩容是实质瓶颈：Amazon 10%x40 中 reserve 把 Index 从 `39746.1 ms` 降到 `24704.5 ms`，`tagore_fill` 从 `823.5 ms` 降到 `23.9 ms`，cross merge 从 `1677.1 ms` 降到 `2.3 ms`；但旧 reserve 自身预留 `106,031,200` 条容量并花 `6487.3 ms`，只是把 allocator 成本前置。最新 64-inline `NeighborList` small-buffer 把 x200 reserve 从 `2856.2 ms` 降到 `25.4 ms`、fill 从 `224.8 ms` 降到 `14.7 ms`；10%x40 reserve 从 `6487.3 ms` 降到 `21.2 ms`、fill 从 `23.9 ms` 降到 `7.6 ms`。48-inline 是负例，x200 fill 回退到 `202.5 ms`。因此 small-buffer 是当前保留的低风险输出边界优化，但它仍是 CPU-compatible per-node object，不是 CSR。我们在 Amazon 10%x40 上测试了更激进的 `UNG_GPU_DB_NOSPLIT=1`、`UNG_GPU_DB_GLOBAL_MERGE=1`、`UNG_GPU_ID_VECTOR_WRITEBACK=1` 路径：D2H/writeback 降到 `3.5/33.2 ms`，但 qid-lock 竞争使 kernel 从 `2952.2 ms` 升到 `4834.3 ms`，cross 总时间从 `9451.1 ms` 变慢到 `11598.0 ms`。因此简单带锁 global merge 是负结果。较低风险的方向是 partial double-buffer routing：在 x200 中它把 cross-edge 降到 `2657.23 ms`，但仍保留 host `SearchQueue` 语义。进一步的 direct-global/flat-id smoke 说明：direct-global 只能把 x100 skip-additional 的 `add_offset` 从 `2.5 ms` 降到 `0.0 ms`，不是主要收益；flat-id writeback 将同口径 cross 从 `1650.95 ms` 降到 `707.83 ms`，D2H 从 `11.1 ms` 降到 `0.6 ms`，merge 从 `17.2 ms` 降到 `0.5 ms`，recall 保持 `0.816`。但该实验跳过 additional_edges，且 direct-global 与 CPU Vamana additional 不兼容。additional_edges direct append 的 x400 full-quality 探索也没有稳定完成，即使用 per-node lock 仍停在 GPU `batched_search end` 后，因此不能把“直接并行 append 到 host graph”作为解决方案。因此更完整的替换路径仍需要 qid-sharded/segmented no-lock merge 和 flat adjacency/CSR graph backend，并补 full-quality recall A/B。
 4. **FastGrnndCuda prune 是瓶颈，且需要自适应强度。** x400 heavy prune 为 `19977.7 ms`，x200 old heavy prune 为 `19218.3 ms`。diversified light prune 将 x200 prune 降到 `759.66 ms`，light512 将 x400 prune 降到约 `1006 ms`，但原始 light512 质量 gap 为 `0.0081`。reverse-tail+repair 只把 prune 增到 `1093.37 ms`，却将 L1000/L5000 各提升 `0.0085`。packed exact-anchor 的新结果说明局部 exact 图在部分 coverage-query 上可以达到 CPU 级 recall；后续问题转为何时 exact、何时 reverse-tail/GNN，而不是把 exact 作为已失败路线排除。
 5. **fallback/router 策略仍偏工程化。** 当前最快端到端结果依赖 CPU fallback、bounded-complete、packed exact-anchor 或 light prune 的组合。10%x40 证明 all-small-groups GPU exact 会被 pack/H2D/fill 吞掉收益，bounded-complete 则能减少小组图物化成本并保持 recall；但 bounded-complete 的 search latency 单独复测偏慢，后续需要把三段式 group-size/quality router 做成 principled policy，并补同脚本 repeat-scale 质量/延迟表。
-6. **实验数据集仍需扩展。** SIFT30 已补修复后端到端 A/B，但当前主性能结果仍集中在 Amazon sampled+jitter 系列，后续需要补 CelebA/真实多标签数据集。
+6. **100%x40 建图暴露 resident dataset 和 Q 展开边界。** 本轮已生成 Amazon 100%x40 数据并尝试 optimized skip-additional build。旧的 `prepare_group_storages_graphs` segfault 已定位为 `Storage` 中 `uint32_t` 乘法溢出并修复；旧 cross-edge universal route 还要求把全量 `23,284,680 x 768` float 向量常驻 GPU，`g_d_all_X` 需要 `71.5GB`，在 48GB A6000 上 OOM。新增 X-side streaming 后，strict skip-additional build 已完成：Index `945683 ms`，cross-edge generate `697114.7 ms`。但 v1 streaming 的主要开销是重复 host 打包 Q，`pack_q=450338.9 ms`，GPU kernel 为 `72749.8 ms`。因此 100%x40 可以作为“显存边界已可绕过”的 scalability 结果，但不能进入建图 speedup 主表；后续需要 Q-side device cache/gather、source-centric two-stage 或 flat/CSR 输出边界。
+7. **查询入口组 GPU 化还缺正式端到端接入。** `gpu_cover_frontier` 已在独立 benchmark 中证明入口组阶段可加速，但 `search_UNG_index` 当前正式路径仍调用 CPU `get_min_super_sets_debug()`。由于 correct-cover 输出可能比 CPU exact minimal 更多入口组，接入后必须同时测 `NumEntries`、entry point materialization、`core_search_time_ms`、recall 和 total `Time_ms`；不能只用入口组 microbenchmark 声称端到端 query latency 已经加速。
+8. **实验数据集仍需扩展。** SIFT30 已补修复后端到端 A/B，但当前主性能结果仍集中在 Amazon sampled+jitter 系列，后续需要补 CelebA/真实多标签数据集。
 
 ## 9. 结论
 
-本文展示了过滤向量索引构建中“系统级 GPU 化”的必要性。UNG 的 cross-edge 构建不是单个大 GEMM，而是由大量 group-level topK search 组成；组内图构建也不是统一适合 GPU 或 CPU，而是受 group size、外围搬运和图质量要求共同影响。通过 grouped fused topK、direct-qid 常驻访问、TF32 WMMA fused topK、安全写回和 FastGrnndCuda/packed exact-anchor/ bounded-complete 组内图路由，本文在 Amazon 1% x100 上将 cross-edge 降到 `848.9 ms`，并将端到端 Index time 降到 `6630 ms`。x200 coverage-query 结果进一步表明，自适应剪枝能把 heavy-prune 反例变成 faster-than-CPU 的 speed/quality tradeoff，而 packed exact-anchor 在 full-quality 口径下可以进一步达到 CPU 级 L5000 recall 和更低 group build time。cross-edge 的 partial double-buffer routing 还说明，性能不佳常来自 fast-path 覆盖边界而不是单个 fused kernel 算力：x200 中把 supported/unsupported target groups 拆开后，cross-edge 从 `3900.81 ms` 降到 `2657.23 ms`。10%x40 many-group 压力测试进一步说明，普遍替代必须把数据常驻、direct-qid、descriptor scheduling、fallback policy 和 additional edges 统一考虑：full-quality 下我们已得到 `1.53x` Index 加速且 L100/L500/L1000 recall 不降；进一步的 bounded-complete、Graph reserve 和 NeighborList small-buffer 实验证明 very-small groups 不应盲目 GPU 化，而应减少 CPU 图物化和 host adjacency 分配。Graph reserve 证明 allocator 是一阶瓶颈，NeighborList 把 reserve/fill 的主要 allocator 成本降到毫秒级，但仍保留 CPU-compatible per-node graph；qid-lock global merge 负结果也说明，输出边界不能靠简单 device lock merge 消除，后续需要 no-lock segmented merge 和 flat/CSR graph backend。x400 gather-Q full-quality 结果则给出当前最强反例：light prune 可把 Index 加速到 `1.23x`，但 recall gap 达 `0.0081`；heavy prune 质量接近却更慢。因此最终论文应把方法定位为 workload-aware GPU backend 和质量/性能 router，而不是无条件替代 CPU Vamana。实验同时表明，`prepare_all`、fallback 策略、x400 direct-qid 稳定性、CPU-compatible 输出边界和 group graph router 设计是进一步提升的关键方向。
+本文展示了过滤向量索引构建中“系统级 GPU 化”的必要性。UNG 的 cross-edge 构建不是单个大 GEMM，而是由大量 group-level topK search 组成；组内图构建也不是统一适合 GPU 或 CPU，而是受 group size、外围搬运和图质量要求共同影响。通过 grouped fused topK、direct-qid 常驻访问、TF32 WMMA fused topK、安全写回和 FastGrnndCuda/packed exact-anchor/ bounded-complete 组内图路由，本文在 Amazon 1% x100 上将 cross-edge 降到 `848.9 ms`，并将端到端 Index time 降到 `6630 ms`。x200 coverage-query 结果进一步表明，自适应剪枝能把 heavy-prune 反例变成 faster-than-CPU 的 speed/quality tradeoff，而 packed exact-anchor 在 full-quality 口径下可以进一步达到 CPU 级 L5000 recall 和更低 group build time。cross-edge 的 partial double-buffer routing 还说明，性能不佳常来自 fast-path 覆盖边界而不是单个 fused kernel 算力：x200 中把 supported/unsupported target groups 拆开后，cross-edge 从 `3900.81 ms` 降到 `2657.23 ms`。10%x40 many-group 压力测试进一步说明，普遍替代必须把数据常驻、direct-qid、descriptor scheduling、fallback policy 和 additional edges 统一考虑：full-quality 下我们已得到 `1.53x` Index 加速且 L100/L500/L1000 recall 不降；进一步的 bounded-complete、Graph reserve 和 NeighborList small-buffer 实验证明 very-small groups 不应盲目 GPU 化，而应减少 CPU 图物化和 host adjacency 分配。查询阶段的 correct-cover 入口组选择显示，CPU minimal-superset 查找在 many-group workload 中可占近半 query latency，GPU bitset/frontier/descendant pipeline 能把该阶段降到 `0.00584 ms/query` 量级，并给出约 `2x` 的端到端查询上界潜力；但它必须和后续图搜索一起评估，因为冗余入口组可能增加 `iterate_to_fixed_point()` 的工作。Graph reserve 证明 allocator 是一阶瓶颈，NeighborList 把 reserve/fill 的主要 allocator 成本降到毫秒级，但仍保留 CPU-compatible per-node graph；qid-lock global merge 负结果也说明，输出边界不能靠简单 device lock merge 消除，后续需要 no-lock segmented merge 和 flat/CSR graph backend。x400 gather-Q full-quality 结果则给出当前最强反例：light prune 可把 Index 加速到 `1.23x`，但 recall gap 达 `0.0081`；heavy prune 质量接近却更慢。因此最终论文应把方法定位为 workload-aware GPU backend 和质量/性能 router，而不是无条件替代 CPU Vamana。实验同时表明，`prepare_all`、fallback 策略、x400 direct-qid 稳定性、CPU-compatible 输出边界、query entry group 接入和 group graph router 设计是进一步提升的关键方向。
 
 ## 附录 A. 关键实验日志
 

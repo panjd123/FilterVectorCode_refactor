@@ -7,13 +7,21 @@
 #include "search_cache.h"
 #include "label_nav_graph.h"
 #include "ung_build_config.h"
-#include "tagore_graph_builder.h"
-#include "vamana/vamana.h"
-#include "MethodSelector.h"
-#include "../../../ACORN/faiss/IndexACORN.h"
-#include "../../../ACORN/faiss/index_io.h"
+#include "ung_cross_edge_config.h"
+#include "ung_cross_edge_result.h"
+#include "ung_query_stats.h"
+#include "ung_acorn_augment_config.h"
+#include "ung_group_graph_build_types.h"
+#include "ung_query_route.h"
+#include "ung_entry_group.h"
+#include "ung_graph_search_backend.h"
+#include "ung_cross_edge_output_writer.h"
+#include "ung_special_blocks.h"
 #include <unordered_map>
 #include <bitset>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <boost/dynamic_bitset.hpp>
 #include <roaring/roaring.h>
@@ -22,97 +30,26 @@
 
 using BitsetType = boost::dynamic_bitset<>;
 
+class MethodSelector;
+
+namespace faiss
+{
+   struct IndexACORNFlat;
+}
+
 namespace ANNS
 {
-   struct QueryStats
-   {
-      float recall;
-      double time_ms;
-      double search_time_ms;
-      double core_search_time_ms;
-      double descendants_merge_time_ms;  // descendants合并耗时
-      double coverage_merge_time_ms;     // coverage合并耗时
-      double get_min_super_sets_time_ms; // 获取最小入口集合耗时
-      double idea1_flag_time_ms;         // idea1计算flag耗时
-      double idea2_flag_time_ms;         // idea2计算flag耗时
-      double idea1_selector_pred_time_ms; // idea1 selector预测耗时
-      double idea2_selector_pred_time_ms; // idea2 selector预测耗时
-      double bitmap_time_ms = 0.0;       // 计算bitmap耗时
-      size_t num_distance_calcs;
-      int acorn_efs_used;
-
-      size_t num_nodes_visited = 0; // 用于存储search过程中的节点总数
-      size_t query_length;            // 查询长度
-      long long trie_nodes_traversed; // 存储两种方法的总遍历节点数
-
-      bool is_idea1_used = false;
-      int is_idea2_used = 0; // 0 (UNG), 1 (ACORN-gamma), 2 (ACORN-gamma-improved)
-
-      // Trie 静态特征
-      size_t trie_total_nodes;
-      size_t trie_label_cardinality;
-      float trie_avg_path_length;
-      float trie_avg_branching_factor;
-
-      // =========idea1 指标=============
-      // 方法一相关
-      size_t candidate_set_size;
-      size_t successful_checks = 0;
-      float shortcut_hit_ratio = 0.0f;
-      long long redundant_upward_steps = 0; // 向上回溯过程中重复的节点
-      // 方法二相关
-      size_t recursive_calls = 0;
-      size_t pruning_events = 0;
-      float pruning_efficiency = 0.0f;
-
-      // =========idea2 指标=============
-      size_t num_entry_points;
-      size_t num_lng_descendants;
-      float entry_group_total_coverage;
-
-      
-   };
-   struct NewEdgeCandidate
-   {
-      IdxType from;
-      IdxType to;
-      float distance;
-
-      bool operator<(const NewEdgeCandidate &other) const
-      {
-         return distance < other.distance;
-      }
-   };
-   struct AcornInUng
-   {
-      bool ung_and_acorn;
-      std::string new_edge_policy;   // 只跑acorn，只跑保障边，两者都跑
-      int R_in_add_new_edge;         // 让ACORN为每个查询找20个邻居
-      int W_in_add_new_edge;         // 从20个中只考虑最近的10个
-      int M_in_add_new_edge;         // 每个点最多有M条新的出/入边
-      float layer_depth_retio;       // 候选总数占向量总数的比例
-      float query_vector_ratio;      // 查询向量占候选总数的比例
-      float root_coverage_threshold; // 单个属性被视为“概念根”的最低覆盖率
-      std::string acorn_in_ung_output_path;
-
-      // acorn中的参数
-      int M, M_beta, gamma, efs, compute_recall;
-   };
-
-   // 定义入口点选择策略的枚举
-   enum class SelectionMode
-   {
-      SizeOnly,       // 策略1：只考虑组的 size
-      SizeAndDistance // 策略2：综合考虑 size 和 LNG 跳数
-   };
+   class Vamana;
+   class GpuCoverFrontierProvider;
 
    class UniNavGraph
    {
    public:
-      UniNavGraph(IdxType num_nodes) : _label_nav_graph(std::make_shared<LabelNavGraph>(num_nodes)) {} // 修改构造函数以初始化 _label_nav_graph
-      UniNavGraph() = default;
-      ~UniNavGraph() = default;
+      UniNavGraph(IdxType num_nodes);
+      UniNavGraph();
+      ~UniNavGraph();
 
+      // Primary index lifecycle API.
       void build(std::shared_ptr<IStorage> base_storage, std::shared_ptr<DistanceHandler> distance_handler,
                  std::string scenario, std::string index_name, uint32_t num_threads, IdxType num_cross_edges,
                  IdxType max_degree, IdxType Lbuild, float alpha, std::string dataset,
@@ -130,6 +67,13 @@ namespace ANNS
                  std::vector<std::bitset<10000001>> &bitmap);
       void search_hybrid(std::shared_ptr<IStorage> &query_storage,
                          std::shared_ptr<DistanceHandler> &distance_handler,
+                         const SearchRuntimeConfig &runtime,
+                         std::pair<IdxType, float> *results,
+                         std::vector<float> &num_cmps,
+                         std::vector<QueryStats> &query_stats,
+                         const std::vector<IdxType> &true_query_group_ids = {});
+      void search_hybrid(std::shared_ptr<IStorage> &query_storage,
+                         std::shared_ptr<DistanceHandler> &distance_handler,
                          uint32_t num_threads, IdxType Lsearch,
                          IdxType num_entry_points, std::string scenario,
                          IdxType K, std::pair<IdxType, float> *results,
@@ -140,94 +84,20 @@ namespace ANNS
                          bool is_ung_more_entry,
                          int lsearch_start, int lsearch_step,
                          int efs_start, int efs_step_slow,int efs_step_fast,int lsearch_threshold, 
-                         int force_use_alg,  bool is_bfs_filter,const std::vector<IdxType> &true_query_group_ids = {}); // 包含每个查询其真实来源组ID的向量
+                         int force_use_alg, bool is_bfs_filter,
+                         const std::vector<IdxType> &true_query_group_ids = {});
 
       // I/O
       void save(std::string index_path_prefix, std::string results_path_prefix);
-      void load(std::string index_path_prefix, std::string selector_modle_prefix, const std::string &data_type, const std::string &acorn_index_path, const std::string &acorn_1_index_path, const std::string &dataset);
-
-      // query generator
-
-      std::map<std::vector<unsigned int>, int> _subset_count_cache; // 用于缓存标签组合出现次数的map，避免重复进行昂贵的计算。key是排序后的标签组合，value是其在整个数据集中的出现次数。
-      int count_subset_occurrences(const std::vector<unsigned int> &sorted_subset);
-      void query_generate(std::string &output_prefix, int n, float keep_prob, int K, bool stratified_sampling, bool verify);
-      void generate_multiple_queries(std::string dataset,
-                                     UniNavGraph &index,
-                                     int K,
-                                     const std::string &base_output_path,
-                                     int num_sets,
-                                     int n_per_set,
-                                     float keep_prob,
-                                     bool stratified_sampling,
-                                     bool verify);
-      void generate_queries_method1_high_coverage(std::string &output_prefix, std::string dataset, int query_n, std::string &base_label_file, float coverage_threshold);
-      void generate_queries_method1_low_coverage(
-          std::string &output_prefix,
-          std::string dataset,
-          int query_n,
-          std::string &base_label_file,
-          int num_of_per_query_labels,
-          float coverage_threshold,
-          int K);
-      void generate_queries_method2_high_coverage(int N, int K, int top_M_trees, std::string dataset, const std::string &output_prefix, const std::string &base_label_tree_roots);
-      void generate_queries_method2_high_coverage_human(
-          std::string &output_prefix,
-          std::string dataset,
-          int query_n,
-          std::string &base_label_file,
-          std::string &base_label_info_file);
-      void generate_queries_method2_low_coverage(
-          std::string &output_prefix,
-          std::string dataset,
-          int query_n,
-          std::string &base_label_file,
-          int num_of_per_query_labels,
-          int K,
-          int max_K,
-          int min_K);
-      void generate_queries_true_data_high_coverage(
-          int N,                            // 要生成的查询总数
-          int K,                            // 用于计算质心的邻居数量
-          int top_M_trees,                  // 选择覆盖率最高的M棵概念树
-          std::string dataset,              // 数据集名称，用于生成文件名
-          const std::string &output_prefix, // 输出文件路径前缀
-          float min_root_coverage_threshold);
-      void generate_queries_true_data_low_coverage(
-          std::string &output_prefix,
-          std::string dataset,
-          int query_n,
-          std::string &base_label_file,
-          int num_of_per_query_labels,
-          float coverage_threshold,
-          int K);
-      void generate_queries_hard_sandwich(
-          int N,                            // 要生成的查询总数
-          const std::string &output_prefix, // 输出文件路径前缀
-          const std::string &dataset,       // 数据集名称
-          float parent_min_coverage_ratio,  // 父节点的最小覆盖率阈值 (例如 0.02)
-          float child_max_coverage_ratio,   // 子节点的最大覆盖率阈值 (例如 0.005)
-          float query_min_selectivity,      // 查询的最小选择率 (例如 0.0005, 即0.05%)
-          float query_max_selectivity);     // 查询的最大选择率 (例如 0.01, 即1%)
-      std::vector<int> _lng_node_depths;    // 存储每个group_id的图深度,generate_queries_hard_sandwich需要用
-      void _precompute_lng_node_depths();
-      void generate_queries_hard_top_n_rare(
-          int N,                            // 要生成的查询总数
-          const std::string &output_prefix, // 输出文件路径前缀
-          const std::string &dataset,       // 数据集名称
-          int num_rare_labels_to_use,       // 要使用的频率最低的标签数量 (n)
-          float query_min_selectivity,      // 查询的最小选择率
-          float query_max_selectivity,      // 查询的最大选择率
-          int min_frequency_for_rare_labels = 1);
-
+      void load(std::string index_path_prefix, std::string selector_model_prefix, const std::string &data_type, const std::string &acorn_index_path, const std::string &acorn_1_index_path, const std::string &dataset);
       void load_bipartite_graph(const std::string &filename);
-      bool compare_graphs(const ANNS::UniNavGraph &g1, const ANNS::UniNavGraph &g2);
-      IdxType _num_points;
-      std::vector<std::vector<IdxType>> _vector_attr_graph; // 邻接表表示的图
-      std::unordered_map<LabelType, AtrType> _attr_to_id;   // 属性到ID的映射
-      std::unordered_map<AtrType, LabelType> _id_to_attr;   // ID到属性的映射
-      AtrType _num_attributes;                              // 唯一属性数量
 
-      std::pair<std::bitset<10000001>, double> compute_attribute_bitmap(const std::vector<LabelType> &query_attributes) const; // 构建bitmap
+      // Diagnostic and benchmark-facing helpers. These are intentionally
+      // public because search_UNG_index and bitmap benchmarks call them
+      // directly; new production search providers should go through
+      // prepare_entry_groups_for_execution() instead of expanding this API.
+      static bool compare_graphs(const ANNS::UniNavGraph &g1, const ANNS::UniNavGraph &g2);
+      std::pair<std::bitset<10000001>, double> compute_attribute_bitmap(const std::vector<LabelType> &query_attributes) const;
       roaring::Roaring compute_bitmap_from_groups(const std::vector<IdxType> &group_ids) const;
       std::vector<roaring::Roaring> batch_compute_ung_bitmaps(
           const ANNS::UniNavGraph &index,
@@ -236,91 +106,180 @@ namespace ANNS
           bool is_new_trie_method,
           bool is_rec_more_start);
 
-      // 求search中flag需要的数据结构
-      std::vector<BitsetType> _lng_descendants_bits; // 每个 group 的后代集合
-      std::vector<BitsetType> _covered_sets_bits;    // 每个 group 的覆盖集合
-      std::vector<roaring::Roaring> _lng_descendants_rb;
-      std::vector<roaring::Roaring> _covered_sets_rb;
-
       std::vector<IdxType> select_entry_groups(
-          const std::vector<IdxType> &minimum_entry_sets, // 基础入口，必须包含
-          SelectionMode mode,                             // 选择的策略模式
-          size_t top_k,                                   // 除了基础入口外，额外选择 K 个最优入口
-          double beta = 1.0,                              // 策略2中，用于调节跳数权重的 beta 值
-          IdxType true_query_group_id = 0) const;         // 声明为 const 函数，因为它不应修改图的状态
+          const std::vector<IdxType> &minimum_entry_sets,
+          SelectionMode mode,
+          size_t top_k,
+          double beta = 1.0,
+          IdxType true_query_group_id = 0) const;
 
       void get_min_super_sets_debug(const std::vector<LabelType> &query_label_set,
                                     std::vector<IdxType> &min_super_set_ids,
                                     bool avoid_self, bool need_containment,
                                     std::atomic<int> &print_counter, bool is_new_trie_method, bool is_rec_more_start, QueryStats &stats,
-                                    bool skip_group_id_check);
+                                    bool skip_group_id_check) const;
 
-      void warmup_selectors(uint32_t num_threads);//预热selector模型，避免首次查询时的延迟
+      void warmup_selectors(uint32_t num_threads);
 
    private:
 
-      void thread_function(std::queue<int>& Qid_595,std::shared_ptr<IStorage> &query_storage,
-                                   std::shared_ptr<DistanceHandler> &distance_handler,
-                                   uint32_t num_threads, IdxType Lsearch,
-                                   IdxType num_entry_points, std::string scenario,
-                                   IdxType K, std::pair<IdxType, float> *results,
-                                   std::vector<float> &num_cmps,
-                                   std::vector<QueryStats> &query_stats,
-                                   bool is_idea2_available,
-                                   bool is_new_trie_method, bool is_rec_more_start,
-                                   bool is_ung_more_entry,
-                                   int lsearch_start, int lsearch_step,
-                                   int efs_start, int efs_step_slow,int efs_step_fast,int lsearch_threshold,
-                                   int force_use_alg,bool is_bfs_filter, IdxType num_queries, 
-                                   const std::vector<IdxType> &true_query_group_ids);
+      // Search runtime orchestration. This layer owns query-level threading,
+      // runtime config fan-out, and result writeback only.
+      // Implementation: uni_nav_graph_search.cpp.
+      void thread_function(IdxType query_id,
+                           const SearchRuntimeConfig &runtime,
+                           const GraphSearchBackend &graph_backend,
+                           std::pair<IdxType, float> *results,
+                           std::vector<float> &num_cmps,
+                           std::vector<QueryStats> &query_stats,
+                           const std::vector<IdxType> &true_query_group_ids);
+
+      // Query route policy. It decides which high-level route a query should
+      // take, but does not materialize final entry groups or execute graph
+      // expansion.
+      // Implementation: uni_nav_graph_query_route.cpp.
+      QueryRouteDecision decide_query_route(const std::vector<LabelType> &query_labels,
+                                            bool is_idea2_available,
+                                            bool is_new_trie_method,
+                                            bool is_rec_more_start,
+                                            int force_use_alg,
+                                            bool is_bfs_filter,
+                                            std::vector<IdxType> &entry_group_ids,
+                                            QueryStats &stats);
+
+      // Entry-group provider. It is the boundary for CPU/GPU/minimal/non-
+      // minimal entry-group implementations; search backends consume only the
+      // resulting group IDs.
+      // Implementation: uni_nav_graph_entry_provider.cpp.
+      void prepare_entry_groups_for_execution(const EntryGroupProviderRequest &request,
+                                              std::vector<IdxType> &entry_group_ids,
+                                              QueryStats &stats);
+      EntryGroupProviderResult run_entry_group_provider(const EntryGroupProviderRequest &request,
+                                                        QueryStats &stats);
+      EntryGroupProviderResult compute_cpu_entry_groups_for_execution(const EntryGroupProviderRequest &request,
+                                                                      QueryStats &stats);
+      EntryGroupProviderResult compute_gpu_entry_groups_for_execution(const EntryGroupProviderRequest &request,
+                                                                      QueryStats &stats);
+
+      // Search backends. These execute ACORN-compatible or UNG graph expansion
+      // after the route and entry-group provider have finished.
+      // Implementation: uni_nav_graph_search_backend.cpp.
+      bool execute_acorn_query(const char *query,
+                               const std::vector<LabelType> &query_labels,
+                               const std::vector<IdxType> &entry_group_ids,
+                               IdxType query_id,
+                               IdxType K,
+                               IdxType Lsearch,
+                               int lsearch_start,
+                               int lsearch_step,
+                               int efs_start,
+                               int efs_step_slow,
+                               int efs_step_fast,
+                               int lsearch_threshold,
+                               int force_use_alg,
+                               int algorithm,
+                               bool is_bfs_filter,
+                               bool use_old_bitmap_search,
+                               std::pair<IdxType, float> *results,
+                               std::vector<float> &num_cmps,
+                               SearchQueue &cur_result,
+                               QueryStats &stats);
+      bool execute_ung_query(const char *query,
+                             std::shared_ptr<SearchCache> search_cache,
+                             const GraphSearchBackend &graph_backend,
+                             const std::vector<IdxType> &entry_group_ids,
+                             IdxType query_id,
+                             IdxType num_entry_points,
+                             std::vector<float> &num_cmps,
+                             SearchQueue &cur_result,
+                             QueryStats &stats);
+      bool execute_special_block_ung_query(const char *query,
+                                           const SearchRuntimeConfig &runtime,
+                                           const GraphSearchBackend &graph_backend,
+                                           const std::vector<IdxType> &entry_group_ids,
+                                           const std::vector<LabelType> &query_labels,
+                                           IdxType query_id,
+                                           std::vector<float> &num_cmps,
+                                           SearchQueue &cur_result,
+                                           QueryStats &stats);
+
+      // Query feature and selector diagnostics. These helpers feed route
+      // decisions and benchmark CSVs; they should stay side-effect-light.
+      // Implementation: uni_nav_graph_query_features.cpp.
       size_t get_candidate_count_for_label(LabelType label) const;
+      std::vector<float> calculate_idea1_features(const QueryStats &stats) const;
+      std::vector<float> calculate_idea2_features(const QueryStats &stats) const;
+      std::optional<bool> check_pre_trie_heuristic(const std::string& dataset_name, size_t query_length, size_t candidate_set_size) const;
+      void populate_entry_group_route_stats(const std::vector<IdxType> &entry_group_ids,
+                                            QueryStats &stats) const;
+
+      // Low-level UNG graph expansion helpers used by the search backend and
+      // by legacy cross-edge construction paths.
+      // Implementation: uni_nav_graph_search_backend.cpp.
+      std::vector<IdxType> get_entry_points(const std::vector<LabelType> &query_label_set,
+                                            IdxType num_entry_points, VisitedSet &visited_set);
+      void get_entry_points_given_group_id(IdxType num_entry_points, VisitedSet &visited_set,
+                                           IdxType group_id, std::vector<IdxType> &entry_points);
+      IdxType iterate_to_fixed_point(const char *query, std::shared_ptr<SearchCache> search_cache,
+                                     IdxType target_id, const std::vector<IdxType> &entry_points,
+                                     size_t &num_nodes_visited,
+                                     bool clear_search_queue = true, bool clear_visited_set = true);
+      IdxType iterate_to_fixed_point(const char *query, std::shared_ptr<SearchCache> search_cache,
+                                     const GraphSearchBackend &graph_backend,
+                                     IdxType target_id, const std::vector<IdxType> &entry_points,
+                                     size_t &num_nodes_visited,
+                                     bool clear_search_queue = true, bool clear_visited_set = true);
+      CrossEdgeCsrOutput build_search_graph_csr() const;
+
       // data
       std::shared_ptr<IStorage> _base_storage,
           _query_storage;
       std::shared_ptr<DistanceHandler> _distance_handler;
       std::shared_ptr<Graph> _graph;
-      // IdxType _num_points;
+      IdxType _num_points = 0;
+
+      // Vector-attribute bipartite graph. This supports bitmap generation,
+      // persistence, and ACORN/filter compatibility; it is not a backend
+      // extension point.
+      std::vector<std::vector<IdxType>> _vector_attr_graph;
+      std::unordered_map<LabelType, AtrType> _attr_to_id;
+      std::unordered_map<AtrType, LabelType> _id_to_attr;
+      AtrType _num_attributes = 0;
 
       // trie index and vector groups
-      IdxType _num_groups;
+      IdxType _num_groups = 0;
       TrieIndex _trie_index;
       std::vector<IdxType> _new_vec_id_to_group_id;
       std::vector<std::vector<IdxType>> _group_id_to_vec_ids;
       std::vector<std::vector<LabelType>> _group_id_to_label_set;
       void build_trie_and_divide_groups();
 
-    
-        //my add
-        //step 2
-        // ----------------- place into uni_nav_graph.h (class ANNS::UniNavGraph) -----------------
+      // Special block overlay. Disabled by default; enabled with
+      // UNG_SPECIAL_BLOCKS=1. Construction lives in
+      // uni_nav_graph_special_blocks.cpp.
+      std::vector<SpecialBlock> _special_blocks;
+      std::vector<IdxType> _group_id_to_special_block;
+      std::vector<uint8_t> _group_is_special_block_root;
+      std::vector<uint8_t> _group_is_trivial_special_block_root;
+      std::vector<IdxType> _point_to_special_block;
+      std::vector<uint8_t> _point_is_special_block_root;
+      std::vector<std::vector<SpecialEdge>> _special_edges_by_point;
+      std::vector<std::vector<SpecialEdge>> _special_heavy_edges_by_point;
+      SpecialBlockBuildSummary _special_block_summary;
+      void build_special_blocks();
+      void rebuild_special_block_indexes();
+      void build_special_edge_overlay();
+      void save_special_blocks(const std::string &prefix) const;
+      void load_special_blocks(const std::string &prefix, const std::map<std::string, std::string> &meta_data);
+      bool is_trivial_special_block_root_group(IdxType group_id) const;
+      bool is_special_block_root_group(IdxType group_id) const;
+      bool is_special_block_root_point(IdxType point_id) const;
+      bool query_covers_special_block(const std::vector<LabelType> &query_labels,
+                                      const SpecialBlock &block) const;
+      void populate_special_query_stats(const std::vector<LabelType> &query_labels,
+                                        QueryStats &stats) const;
 
-        // Prepare / release full dataset copy on device. Call prepare once before multi-group GPU usage.
-        void gpu_prepare_all_vectors_on_device(double* h2d_ms = nullptr, double* d2h_ms = nullptr);
-        void gpu_release_all_vectors_on_device();
-
-        // Main new API: process multiple target groups in one GPU batched call.
-        // - target_group_ids: list of group_id to process
-        // - topk: number of cross-group neighbors to return per query
-        // - cross_group_neighbors: output container (unchanged semantics)
-        // - timing outputs optional
-        void gpu_cross_groups_search_all_batched(
-            const std::vector<IdxType>& target_group_ids,
-            int dim,
-            int topk,
-            std::vector<SearchQueue>& cross_group_neighbors,
-            std::vector<std::vector<IdxType>>* cross_group_neighbor_ids = nullptr,
-            std::vector<IdxType>* cross_group_neighbor_flat_ids = nullptr,
-            double* h2d_ms = nullptr,
-            double* kernel_ms = nullptr,
-            double* d2h_ms = nullptr);
-        //add additional edges
-        void gpu_build_additional_cross_edges_batched(
-            std::vector<std::vector<std::pair<IdxType, IdxType>>>& additional_edges,
-            std::vector<SearchQueue>& cross_group_neighbors); 
-
-
-
-      // label navigating graph
+      // Label navigating graph and coverage metadata.
       std::shared_ptr<LabelNavGraph> _label_nav_graph = nullptr;
       void get_min_super_sets(const std::vector<LabelType> &query_label_set, std::vector<IdxType> &min_super_set_ids,
                               bool avoid_self = false, bool need_containment = true);
@@ -339,17 +298,19 @@ namespace ANNS
       void get_descendants_info_optimized_epoch_bfs();
       void get_descendants_info_legacy_hash_bfs();
 
-      // prepare vector storage for each group
+      // Group storage and ID mappings.
       std::vector<IdxType> _new_to_old_vec_ids;
-      std::vector<IdxType> _old_to_new_vec_ids; // fxy_add
+      std::vector<IdxType> _old_to_new_vec_ids;
       std::vector<std::pair<IdxType, IdxType>> _group_id_to_range;
       std::vector<std::shared_ptr<IStorage>> _group_storages;
       void prepare_group_storages_graphs();
       void reserve_graph_neighbor_capacity();
 
-      // graph indices for each graph
+      // Group graph construction. CPU/Tagore/FastGrnnd implementations live in
+      // uni_nav_graph_group_graph.cpp.
       std::string _index_name;
       std::vector<std::shared_ptr<Graph>> _group_graphs;
+      std::vector<std::shared_ptr<Graph>> _special_block_target_graphs;
       std::vector<IdxType> _group_entry_points;
       bool _intra_group_graph_ids_are_global = false;
       bool should_write_intra_group_global_ids() const;
@@ -357,52 +318,65 @@ namespace ANNS
       void build_graph_for_all_groups_tagore_cuda();
       void build_complete_graph(std::shared_ptr<Graph> graph, IdxType num_points, IdxType base_offset = 0);
       void build_bounded_complete_graph(std::shared_ptr<Graph> graph, IdxType num_points, IdxType max_degree, IdxType base_offset = 0);
-      void build_one_group_graph_tagore_cuda(IdxType group_id, IdxType num_points,
-                                             TagoreBuildResult *timing_acc = nullptr,
-                                             double *pack_ms = nullptr, double *fill_ms = nullptr);
+      TagoreGroupPartition partition_tagore_groups(const TagoreGroupBuildContext &context) const;
+      TagoreFallbackBuildStats build_tagore_fallback_groups(const std::vector<IdxType> &fallback_group_ids,
+                                                            const TagoreGroupBuildContext &context);
+      TagoreBatchBuildArtifacts build_tagore_batch_artifacts(const std::vector<TagoreGroupRequest> &tagore_requests,
+                                                             const TagoreGroupBuildContext &context);
+      void fill_tagore_batch_results(const std::vector<IdxType> &tagore_group_ids,
+                                     const std::vector<TagoreBuildResult> &tagore_results,
+                                     const std::vector<size_t> &exact_packed_rank,
+                                     const std::vector<uint32_t> &exact_packed_graph,
+                                     const std::vector<uint32_t> &exact_packed_offsets,
+                                     uint32_t exact_packed_stride,
+                                     const TagoreGroupBuildContext &context,
+                                     TagoreBuildResult &timing_acc,
+                                     double &fill_wall_ms,
+                                     double &fill_cpu_sum_ms);
       std::vector<std::shared_ptr<Vamana>> _vamana_instances;
 
+      // Legacy global_graph placeholder persisted for index format
+      // compatibility. Current build/search paths do not construct or query a
+      // global Vamana graph.
       std::shared_ptr<Graph> _global_graph;
-      std::shared_ptr<Vamana> _global_vamana; // 全局 Vamana 实例
-      IdxType _global_vamana_entry_point;     // 全局 Vamana 实例的入口点
-      void build_global_vamana_graph();
+      IdxType _global_vamana_entry_point = 0;
 
+      // Vector-attribute graph and persistence helpers.
       void build_vector_and_attr_graph();
       size_t count_graph_edges() const;
-      void save_bipartite_graph_info() const;
       void save_bipartite_graph(const std::string &filename);
       uint32_t compute_checksum() const;
-      // void load_bipartite_graph(const std::string &filename);
 
-      // 处理flag的相关函数
+      // LNG descendant and coverage caches used by filtering and bitmap helpers.
+      std::vector<BitsetType> _lng_descendants_bits;
+      std::vector<BitsetType> _covered_sets_bits;
+      std::vector<roaring::Roaring> _lng_descendants_rb;
+      std::vector<roaring::Roaring> _covered_sets_rb;
+      std::unique_ptr<GpuCoverFrontierProvider> _gpu_cover_frontier_provider;
+      std::mutex _gpu_cover_frontier_provider_mutex;
       void initialize_lng_descendants_coverage_bitsets();
       void initialize_roaring_bitsets();
 
-      // 添加新的跨组边
+      // Legacy distance-oriented edge augmentation.
       void add_new_distance_oriented_edges(
           const std::string &dataset,
           uint32_t num_threads,
           ANNS::AcornInUng new_cross_edge);
-      int _num_distance_oriented_edges;
-      const bool ENABLE_SEARCH_PATH_LOGGING = true;
+      int _num_distance_oriented_edges = 0;
       std::unordered_set<uint64_t> _my_new_edges_set;
 
-      void finalize_intra_group_graphs(); // 用于将局部图ID转换为全局ID
+      void finalize_intra_group_graphs();
 
       // index parameters for each graph
-      IdxType _max_degree,
-          _Lbuild;
-      float _alpha;
-      uint32_t _num_threads;
+      IdxType _max_degree = 0;
+      IdxType _Lbuild = 0;
+      float _alpha = 0.0f;
+      uint32_t _num_threads = 0;
       std::string _scenario;
 
-      // cross-group edges
-      enum class CrossEdgeBackend : int
-      {
-         CPU = 0,
-         GPU = 1,
-      };
-      IdxType _num_cross_edges;
+      // Cross-group edge orchestration. CPU/GPU route adapters and graph
+      // writeback live in uni_nav_graph_cross_edges.cpp.
+      IdxType _num_cross_edges = 0;
       UngBuildConfig _build_config;
       std::vector<SearchQueue> _cross_group_neighbors;
       void build_cross_group_edges();
@@ -413,56 +387,84 @@ namespace ANNS
       void build_cross_edges_generate_cpu_exact_scan(std::vector<SearchQueue> &cross_group_neighbors);
       void build_cross_edges_generate_cpu_hybrid_scan_vamana(std::vector<SearchQueue> &cross_group_neighbors,
                                                              SearchCacheList &search_cache_list);
+      void append_cross_edges_from_target_range(IdxType source_point_id,
+                                                IdxType target_first,
+                                                IdxType target_second,
+                                                std::shared_ptr<Vamana> target_index,
+                                                SearchCacheList *search_cache_list,
+                                                bool use_exact_scan,
+                                                SearchQueue &out_neighbors) const;
+      void append_cross_edges_from_target_points(IdxType source_point_id,
+                                                 const std::vector<IdxType> &target_point_ids,
+                                                 std::shared_ptr<Vamana> target_index,
+                                                 SearchCacheList *search_cache_list,
+                                                 bool use_exact_scan,
+                                                 SearchQueue &out_neighbors) const;
       bool build_cross_edges_generate_gpu_optimized(std::vector<SearchQueue> &cross_group_neighbors,
+                                                    const CrossEdgeGpuRuntimeConfig &gpu_route,
                                                     std::vector<std::vector<IdxType>> *cross_group_neighbor_ids,
                                                     std::vector<IdxType> *cross_group_neighbor_flat_ids,
-                                                    double *h2d_ms_sum,
-                                                    double *kernel_ms_sum,
-                                                    double *d2h_ms_sum);
+                                                    CrossEdgeBuildTiming &timing);
       bool build_cross_edges_generate_cuvs_bruteforce(std::vector<SearchQueue> &cross_group_neighbors,
-                                                      double *h2d_ms_sum,
-                                                      double *kernel_ms_sum,
-                                                      double *d2h_ms_sum);
+                                                      CrossEdgeBuildTiming &timing,
+                                                      const CrossEdgeGpuRuntimeConfig &gpu_route);
       bool build_cross_edges_generate_gpu_source_exact(std::vector<SearchQueue> &cross_group_neighbors,
                                                        std::vector<std::vector<IdxType>> *cross_group_neighbor_ids,
                                                        std::vector<IdxType> *cross_group_neighbor_flat_ids,
-                                                       double *h2d_ms_sum,
-                                                       double *kernel_ms_sum,
-                                                       double *d2h_ms_sum);
+                                                       CrossEdgeBuildTiming &timing,
+                                                       const CrossEdgeGpuRuntimeConfig &gpu_route);
+      void build_cross_edges_generate_additional(
+          std::vector<std::vector<std::pair<IdxType, IdxType>>> *materialized,
+          const CrossEdgeHostOutputView &cross_edge_outputs,
+          SearchCacheList *search_cache_list,
+          CrossEdgeBuildTiming &timing);
+      void merge_cross_edges_to_graph(const CrossEdgeHostOutputView &cross_edge_outputs,
+                                      CrossEdgeBuildTiming &timing);
+      void merge_additional_edges_to_graph(
+          const std::vector<std::vector<std::pair<IdxType, IdxType>>> &additional_edges,
+          CrossEdgeBuildTiming &timing);
 
-      //add
-      void build_cross_edges_pair_gpu(
-            IdxType group_id,
-            IdxType in_group_id,
-            IdxType offset,
-            std::vector<SearchQueue>& cross_group_neighbors
-        );
+      // CUDA cross-edge backend entry points. These preserve CPU cross-edge
+      // semantics while each GPU route chooses its own packing, execution, and
+      // writeback strategy internally.
+      void gpu_prepare_all_vectors_on_device(const CrossEdgeVectorUploadConfig &upload_config,
+                                             double *h2d_ms = nullptr,
+                                             double *d2h_ms = nullptr);
+      void gpu_prepare_all_vectors_for_cross_edge(CrossEdgeBuildTiming &timing,
+                                                  const CrossEdgeGpuRuntimeConfig &gpu_route);
+      void gpu_release_all_vectors_on_device();
+      void gpu_cross_groups_search_all_batched(
+          const std::vector<IdxType> &target_group_ids,
+          int dim,
+          int topk,
+          std::vector<SearchQueue> &cross_group_neighbors,
+          std::vector<std::vector<IdxType>> *cross_group_neighbor_ids,
+          std::vector<IdxType> *cross_group_neighbor_flat_ids,
+          CrossEdgeBuildTiming *timing,
+          const CrossEdgeGpuRuntimeConfig &gpu_route);
+      void gpu_cross_groups_search_x_streaming(
+          const std::vector<IdxType> &target_group_ids,
+          int dim,
+          int topk,
+          std::vector<SearchQueue> &cross_group_neighbors,
+          CrossEdgeBuildTiming *timing,
+          const CrossEdgeGpuRuntimeConfig &gpu_route);
+      bool gpu_build_special_inter_edges(
+          const std::vector<SpecialBlock> &special_blocks,
+          const std::vector<std::vector<IdxType>> &block_points,
+          std::vector<std::vector<SpecialEdge>> &special_edges_by_point,
+          IdxType &inter_edge_count,
+          double &gpu_ms);
 
       // obtain the final unified navigating graph
       void add_offset_for_uni_nav_graph();
-
-      // obtain entry_points
-      std::vector<IdxType> get_entry_points(const std::vector<LabelType> &query_label_set,
-                                            IdxType num_entry_points, VisitedSet &visited_set);
-      void get_entry_points_given_group_id(IdxType num_entry_points, VisitedSet &visited_set,
-                                           IdxType group_id, std::vector<IdxType> &entry_points);
-
-      // search in graph
-      IdxType iterate_to_fixed_point(const char *query, std::shared_ptr<SearchCache> search_cache,
-                                     IdxType target_id, const std::vector<IdxType> &entry_points,
-                                     size_t &num_nodes_visited,
-                                     bool clear_search_queue = true, bool clear_visited_set = true);
-      // search in global graph
-      IdxType iterate_to_fixed_point_global(const char *query, std::shared_ptr<SearchCache> search_cache,
-                                            IdxType target_id, const std::vector<IdxType> &entry_points,
-                                            bool clear_search_queue = true, bool clear_visited_set = true);
 
       // statistics
       float _index_time = 0, _label_processing_time = 0, _build_graph_time = 0, _build_vector_attr_graph_time = 0, _cal_descendants_time = 0, _cal_coverage_ratio_time = 0;
       float _build_LNG_time = 0, _build_cross_edges_time = 0;
       double _build_roaring_bitsets_time = 0.0;
       float _index_size = 0.0f, _index_size_add_rb = 0.0f;
-      IdxType _graph_num_edges, _LNG_num_edges;
+      IdxType _graph_num_edges = 0, _LNG_num_edges = 0;
 
       double _tagore_groups = 0.0;
       double _tagore_points = 0.0;
@@ -485,27 +487,23 @@ namespace ANNS
       double _tagore_gnn_mpts_s = 0.0;
       double _tagore_prune_mpts_s = 0.0;
 
-      // FXY_ADD: 为 add_new_distance_oriented_edges 添加详细计时
-      double _cross_edge_step1_time_ms = 0.0;                     // 步骤1 (识别、采样) 的耗时
-      double _cross_edge_step2_acorn_time_ms = 0.0;               // 步骤2 (执行ACORN) 的耗时
-      double _cross_edge_step3_add_dist_edges_time_ms = 0.0;      // 步骤3 (添加距离驱动边) 的耗时
-      double _cross_edge_step4_add_hierarchy_edges_time_ms = 0.0; // 步骤4 (添加层级保障边) 的耗时
+      // Detailed timing for legacy ACORN-based distance-oriented edge augmentation.
+      double _cross_edge_step1_time_ms = 0.0;
+      double _cross_edge_step2_acorn_time_ms = 0.0;
+      double _cross_edge_step3_add_dist_edges_time_ms = 0.0;
+      double _cross_edge_step4_add_hierarchy_edges_time_ms = 0.0;
       void statistics();
 
       std::string _dataset;
 
       // idea1 selector
       std::unique_ptr<MethodSelector> _trie_method_selector;
-      TrieStaticMetrics _trie_static_metrics; // 用于缓存 Trie 树的静态指标，避免重复计算
-      std::vector<float> calculate_idea1_features(const QueryStats &stats) const;
+      TrieStaticMetrics _trie_static_metrics;
 
       // idea2 selector
       std::shared_ptr<faiss::IndexACORNFlat> _acorn_index;
       std::shared_ptr<faiss::IndexACORNFlat> _acorn_1_index;
       std::unique_ptr<MethodSelector> _ung_acorn_selector;
-      std::vector<float> calculate_idea2_features(const QueryStats &stats) const;
-      std::optional<bool> check_idea2_heuristic_override(const std::string& dataset_name, size_t num_entry_groups) const;
-      std::optional<bool> check_pre_trie_heuristic(const std::string& dataset_name, size_t query_length, size_t candidate_set_size) const;
    };
 }
 

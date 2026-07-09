@@ -19,20 +19,7 @@ int main(int argc, char **argv)
    ANNS::IdxType max_degree, Lbuild; // Vamana
    float alpha;                      // Vamana
 
-   // parameters for acorn in ung (hardcoded to default values)
-   bool ung_and_acorn = false;
-   std::string new_edge_policy = "false";
-   int R_in_add_new_edge = 50, W_in_add_new_edge = 50, M_in_add_new_edge = 4;
-   float layer_depth_retio = 0.8, query_vector_ratio = 0.8, root_coverage_threshold = 0.4;
-   std::string acorn_in_ung_output_path = "false";
-   int M = 32, M_beta = 64, gamma = 80, efs = 1000, compute_recall = 1;
-
-   // if query file is not provided, generate query file (hardcoded to default values)
-   bool generate_query = false;
-   std::string generate_query_task = "false";
-   std::string query_file_path = "my_words_query";
    std::string dataset;
-   float method1_high_coverage_p = 0.7f;
 
    try
    {
@@ -105,22 +92,9 @@ int main(int argc, char **argv)
    std::cout << "Building Unified Navigating Graph index based on " << index_type << " algorithm ..." << std::endl;
    std::shared_ptr<ANNS::DistanceHandler> distance_handler = ANNS::get_distance_handler(data_type, dist_fn);
 
-   // AcornInUng new_cross_edge
+   // Legacy ACORN augmentation is disabled by default. The struct owns the
+   // historical defaults so app code does not duplicate that config.
    ANNS::AcornInUng new_cross_edge;
-   new_cross_edge.ung_and_acorn = ung_and_acorn;
-   new_cross_edge.new_edge_policy = new_edge_policy;
-   new_cross_edge.R_in_add_new_edge = R_in_add_new_edge;
-   new_cross_edge.W_in_add_new_edge = W_in_add_new_edge;
-   new_cross_edge.M_in_add_new_edge = M_in_add_new_edge;
-   new_cross_edge.layer_depth_retio = layer_depth_retio;
-   new_cross_edge.query_vector_ratio = query_vector_ratio;
-   new_cross_edge.root_coverage_threshold = root_coverage_threshold;
-   new_cross_edge.M = M;
-   new_cross_edge.M_beta = M_beta;
-   new_cross_edge.gamma = gamma;
-   new_cross_edge.efs = efs;
-   new_cross_edge.compute_recall = compute_recall;
-   new_cross_edge.acorn_in_ung_output_path = acorn_in_ung_output_path;
 
    // build index
    ANNS::UniNavGraph index;
@@ -131,73 +105,6 @@ int main(int argc, char **argv)
 
    // save index
    index.save(index_path_prefix, result_path_prefix);
-
-   // 测试读取向量-属性二分图的函数
-   // ANNS::UniNavGraph index2;
-   // index2.load_bipartite_graph(index_path_prefix + "vector_attr_graph");
-   // index2.compare_graphs(index, index2);
-
-   /*if (generate_query)
-   {
-      // 生成查询标签和查询向量：(文件名，每个group中有几个查询向量, 每个属性的概率, 是否分层抽样, 是否验证是子集)
-      std::cout << "Generating query file ..." << std::endl;
-      std::cout << "Query file path: " << query_file_path << std::endl;
-      if (generate_query_task == "gene_by_lng")
-         index.generate_multiple_queries(dataset, index, 10, query_file_path, 1, 1, 0.5f, false, true); // 根据LNG的group生成查询任务
-      else if (generate_query_task == "method1_high_coverage")                                          // 极端数据方法1-高覆盖率
-      {
-         index.generate_queries_method1_high_coverage(query_file_path, dataset, 1000, base_label_file, method1_high_coverage_p);
-      }
-      else if (generate_query_task == "method1_low_coverage") // 极端数据方法1-低覆盖率:选出覆盖率在 (0, coverage_threshold=0.1] 区间且出现次数 ≥ K=10 的组合
-      {
-         index.generate_queries_method1_low_coverage(query_file_path, dataset, 1000, base_label_file, 7, 0.1f, 10);
-      }
-      else if (generate_query_task == "method2_high_coverage") // 极端数据方法2-高覆盖率
-      {
-         //(int N, int K, int top_M_trees, std::string dataset, const std::string &output_prefix, const std::string &base_label_tree_roots);
-         index.generate_queries_method2_high_coverage(1000, 10, 2, dataset, query_file_path, base_label_tree_roots);
-      }
-      else if (generate_query_task == "method2_low_coverage") // 极端数据方法2-低覆盖率
-      {
-         index.generate_queries_method2_low_coverage(query_file_path, dataset, 1000, base_label_file, 7, 10, 50, 5);
-      }
-      else if (generate_query_task == "true_data_high_coverage")
-      {
-         index.generate_queries_true_data_high_coverage(1000, 10, 2, dataset, query_file_path, 0.05);
-      }
-      else if (generate_query_task == "true_data_low_coverage")
-      {
-         index.generate_queries_true_data_low_coverage(query_file_path, dataset, 1000, base_label_file, 7, 0.1f, 10);
-      }
-      else if (generate_query_task == "hard_sandwich") // 极端数据方法3-硬三明治
-      {
-         index.generate_queries_hard_sandwich(
-             3000,            // 生成查询的个数
-             query_file_path, // 输出目录
-             dataset,         // 数据集名字
-             0.0f,            // 父节点覆盖率至少
-             1.0f,            // 子节点覆盖率至多
-             0.00007f,        // 查询选择率至少
-             0.9f             // 查询选择率至多
-         );
-      }
-      else if (generate_query_task == "hard_top_n_rare")
-      {
-         index.generate_queries_hard_top_n_rare(
-             3000,            // 生成查询的个数
-             query_file_path, // 输出目录
-             dataset,         // 数据集名字
-             8,               // top n
-             0.000005f,       // 查询选择率至少
-             0.1f,            // 查询选择率至多
-             15);             // 最小频率
-      }
-
-      else
-      {
-         std::cout << "Error in generate_query_task" << std::endl;
-      }
-   }*/
 
    return 0;
 }

@@ -36,6 +36,44 @@ enum class TagorePruneMode : uint32_t
    FastGrnnd = 2,
 };
 
+struct TagoreFastExactBatchConfig
+{
+   uint32_t head_keep = 0;
+   uint32_t anchor_tail = 1;
+   uint32_t anchor_slots = 0; // 0 means use all remaining slots when anchor_tail is enabled.
+   uint32_t bidir_anchor = 0;
+   uint32_t reverse_cap = 0;
+   uint32_t reverse_slots = 0;
+   uint32_t reverse_forward_cap = 0;
+   bool pinned_host = false;
+   bool device_lookup = true;
+   bool direct_h2d_requested = true;
+   uint32_t direct_h2d_max_runs = 4096;
+   uint32_t graph_stride = 0;
+   bool use_warp_kernel = false;
+};
+
+struct TagoreFastGrnndPruneConfig
+{
+   uint32_t light_threshold = 256;
+   uint32_t light_head_keep = 0;
+   uint32_t light_reverse_cap = 0;
+   uint32_t light_reverse_slots = 1;
+   uint32_t light_reverse_forward_cap = 1;
+   uint32_t repair_degree = 1;
+   uint32_t forward_cap = 1;
+   uint32_t reverse_cap = 0;
+};
+
+struct TagoreCudaRuntimeConfig
+{
+   TagoreFastExactBatchConfig fast_exact;
+   TagoreFastGrnndPruneConfig fast_prune;
+   uint32_t fast_exact_batch_threshold = 0;
+   uint32_t requested_streams = 1;
+   bool compact_d2h_requested = true;
+};
+
 struct TagoreBatchBuildResult
 {
    std::vector<TagoreBuildResult> groups;
@@ -63,7 +101,11 @@ TagoreBatchBuildResult build_tagore_vamana_cuda_batch(const std::vector<TagoreGr
                                                       uint32_t top_m,
                                                       uint32_t iterations,
                                                       float alpha,
-                                                      bool grnnd_like_refine = false);
+                                                      TagorePruneMode prune_mode);
+
+TagoreCudaRuntimeConfig make_tagore_cuda_runtime_config(uint32_t k,
+                                                        uint32_t final_degree,
+                                                        bool allow_parallel);
 
 TagoreBatchBuildResult build_tagore_vamana_cuda_batch(const std::vector<TagoreGroupRequest> &groups,
                                                       uint32_t dim,
@@ -72,7 +114,8 @@ TagoreBatchBuildResult build_tagore_vamana_cuda_batch(const std::vector<TagoreGr
                                                       uint32_t top_m,
                                                       uint32_t iterations,
                                                       float alpha,
-                                                      TagorePruneMode prune_mode);
+                                                      TagorePruneMode prune_mode,
+                                                      const TagoreCudaRuntimeConfig &runtime_config);
 
 } // namespace ANNS
 

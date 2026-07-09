@@ -13,7 +13,7 @@ GPU: NVIDIA RTX A6000
 |---|---|---|
 | cross-edge | Amazon 1% x100 上 fused topK cross-edge `848.9 ms`，相对 CPU Vamana `22.07x`，相对 CPU exact scan `2.81x`，相对 cuVS per-group `4.39x`，相对 SGEMM+topK `1.64x` | 100%x40 的 X-streaming 已能完成但 `pack_q=450.3s`，还不是大规模加速结果 |
 | group graph / PG | packed exact-anchor、FastGrnndCuda、reverse-tail+repair 和 bounded fallback 已组成 workload-aware router；10%x40 full-quality Index `36053.3 -> 23497.4 ms`，约 `1.53x` | 不能写成 GPU 无条件替代 CPU Vamana；x200/x400 说明 prune 强度和图质量必须权衡 |
-| 查询入口组 | GPU correct-cover 在 Amazon 100%x40、`nq=10240` 上 `59.83 ms`，相对 CPU scan 128T `19.85x`；CPU exact minimal 为 `4569.83 ms` | 这是入口组阶段独立 benchmark，尚未接入正式 `search_UNG_index` 端到端路径 |
+| 查询入口组 | GPU correct-cover 在 Amazon 100%x40、`nq=10240` 上 `59.83 ms`，相对 CPU scan 128T `19.85x`；旧 CPU cover-frontier reference `27.394 ms` 只做 count/checksum，未完整 materialize group ids | 这是入口组阶段独立 benchmark；`19.85x` 只相对弱/诊断 scan baseline，不能写成公平 GPU-vs-CPU parallel 加速；尚未形成端到端 search 加速 |
 | Amazon 100%x40 | 修复了 32-bit offset 溢出和 71.5GB resident-cache OOM，完成 `23,284,680` 点、`482,387` groups 的 strict build | 当前用于暴露扩展性瓶颈，不用于主加速表 |
 | 查询 graph 异常 | 100%x40 L1000 中 `DistCalcs` 只比 10%x40 高约 `2.15x`，但 `core_search_time_ms` 从 `1.69` 到 `549.67`，说明现有指标低估真实 CPU 工作量 | 目前是强问题定位，不是最终定论；下一步需要细粒度计数器和硬件计数验证 |
 
@@ -21,7 +21,7 @@ GPU: NVIDIA RTX A6000
 
 1. **GPU 加速有效，但必须按负载形态分流。** 小组、多组、中组、大组的瓶颈不同，单一路径会在某些 workload 上变成反例。
 2. **真正的系统瓶颈正在从 GPU kernel 转向外围。** host pack、H2D/D2H、Graph fill、SearchQueue、VisitedSet、邻接表随机访问开始主导大规模场景。
-3. **入口组 exact minimal 不是唯一可接受语义。** GPU correct-cover 保证不漏候选 group，允许少量冗余，是更适合批处理的查询入口策略。
+3. **入口组 exact minimal 不是唯一可接受语义。** GPU correct-cover 保证不漏候选 group，允许少量冗余，是可批处理的查询入口策略；但公平性能主张必须和同语义 CPU parallel cover-frontier 比较，且双方必须使用相同 `delta/cap` 和相同 group-id materialization 输出边界。
 4. **100%x40 的查询 graph search 是下一轮核心研究问题。** 仅看 `DistCalcs/NumVisited/NumEntries` 已经解释不了耗时，下一步要测 `edge_scans`、`visited_hits/misses`、`queue_memmove_bytes`、cache/TLB miss 和多线程带宽争用。
 
 ## 0. 最终结论
@@ -203,13 +203,14 @@ python3 tools/benchmarks/summarize_cross_baselines.py ...
 
 ### 1.4 Group Graph 算法实现细节
 
-当前组内 PG 构建不是单一 GPU kernel，而是 **workload-aware hybrid builder**。代码入口是 `UniNavGraph::build_graph_for_all_groups_tagore_cuda()`。它先按每个 group 的 `nx` 静态分桶，再分别调用 fallback、packed exact-anchor 或 FastGrnndCuda。关键实现位置：
+当前组内 PG 构建不是单一 GPU kernel，而是 **workload-aware hybrid builder**。代码入口是 `UniNavGraph::build_graph_for_all_groups_tagore_cuda()`，实现已集中到 `UNG/codes/src/uni_nav_graph_group_graph.cpp`。它先按每个 group 的 `nx` 静态分桶，再分别调用 fallback、packed exact-anchor 或 FastGrnndCuda。关键实现位置：
 
 ```text
-UNG/codes/src/uni_nav_graph.cpp:1436-1465   判断是否 AdaptiveCuda，并把 group 划入 fallback/GPU batch
-UNG/codes/src/uni_nav_graph.cpp:1476-1503   fallback: complete/bounded-complete 或 CPU Vamana
-UNG/codes/src/uni_nav_graph.cpp:1511-1532   CPU fallback 与 GPU batch 并发
-UNG/codes/src/uni_nav_graph.cpp:1561-1624   GPU batch 再拆成 exact batch 与 GNN batch
+UNG/codes/src/uni_nav_graph_group_graph.cpp   build_graph_for_all_groups_tagore_cuda(): 总调度、fallback/GPU overlap、timing 汇总
+UNG/codes/src/uni_nav_graph_group_graph.cpp   partition_tagore_groups(): 按 nx 划入 fallback 或 GPU batch
+UNG/codes/src/uni_nav_graph_group_graph.cpp   build_tagore_fallback_groups(): complete/bounded-complete 或 CPU Vamana fallback
+UNG/codes/src/uni_nav_graph_group_graph.cpp   build_tagore_batch_artifacts(): GPU batch 再拆成 exact batch 与 GNN batch
+UNG/codes/src/uni_nav_graph_group_graph.cpp   fill_tagore_batch_results(): Graph::neighbors / entry point / timing 写回
 ```
 
 顶层路由语义是：
@@ -1016,6 +1017,8 @@ UNG_GPU_DB_LARGE_MAX_NX / DB_MEDIUM_MAX_NX / DB_CHUNK_QUERIES
 UNG_GPU_PREPARE_DIRECT_HOSTREG / DIRECT_PAGEABLE / HOSTREG_MAX_MB
 ```
 
+这些 prepare/upload 变量当前由 `CrossEdgeGpuRuntimeConfig::vector_upload` 统一解析，再传入 resident all-X upload helper；不是 CUDA resident helper 内部的散落 env 读取。
+
 同时修复了一个 full additional_edges 稳定性问题：此前 `SearchCacheList` 被改成懒创建，但 `additional_edges=cpu_vamana` 会在 OpenMP parallel 区域内首次调用 `ensure_search_cache_list()`，导致多个线程竞争初始化同一个 `unique_ptr` 并在 x200 full-quality 中 segfault。现在在进入 additional_edges 并行循环前，如果实现是 CPU Vamana，会单线程预创建 cache。
 
 | 路径 | artifact | Index | Group | Cross | prepare/H2D | kernel | D2H | L1000/L5000 recall repeat=3 | L1000/L5000 time |
@@ -1260,11 +1263,12 @@ GPU correct-cover 把查询批处理后，以 dense bitset 表示候选、fronti
 - dense descendant bitset：约 `27.1 GiB`
 - 表中 GPU 时间是 resident/steady-state 查询时间，不包含 descendant bitset 构建与 H2D 初始化；冷启动构建约 `6~7 s`，不适合单次查询摊销。
 
-| 方法 | delta | cap | total ms | kernel ms | D2H ms | CPU materialize ms | avg_frontier_groups | avg output groups | QPS | 相对 CPU scan |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 方法 | delta | cap | total ms | kernel ms | D2H ms | CPU materialize ms | avg_frontier_groups | avg output groups | QPS | 相对 CPU scan | 相对同语义 CPU cover |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | CPU scan 128T | - | - | `1187.56` | `1187.56` | `0` | `0` | - | `23332.2` | `8623` | `1.00x` |
 | CPU exact minimal | - | - | `4569.83` | `1104.21` | `0` | `3465.62` | - | `616.24` | `2241` | `0.26x` |
-| GPU cover | `1` | `8192` | `59.8294` | `24.1543` | `24.9913` | `10.6587` | `17.7699` | `2184.26` | `171153` | `19.85x` |
+| CPU cover-frontier reference | `1` | - | `27.394` | `27.394` | `0` | 未完整 materialize | 未记录 | `2184.26` | `373804` | `43.35x` | reference-only |
+| GPU cover | `1` | `8192` | `59.8294` | `24.1543` | `24.9913` | `10.6587` | `17.7699` | `2184.26` | `171153` | `19.85x` | 待重跑同输出边界 CPU |
 | GPU cover | `2` | `8192` | `219.009` | `183.273` | `25.0302` | `10.68` | `192.437` | `1435.14` | `46756` | `5.39x` |
 | GPU cover | `3` | `64` | `80.4164` | `33.8344` | `25.9203` | `20.6239` | `27.6805` | `14574.0` | `127337` | `14.68x` |
 | GPU cover | `3` | `128` | `96.684` | `52.634` | `25.0181` | `19.0011` | `48.2824` | `12197.1` | `105914` | `12.21x` |
@@ -1276,11 +1280,12 @@ GPU correct-cover 把查询批处理后，以 dense bitset 表示候选、fronti
 
 结论：
 
-1. 如果以完整接口为边界，即输入 query label、输出 CPU-side group ids/bitset，`delta=1, cap=8192` 当前是最快点：`59.83 ms / 10240 queries`，约 `171k QPS`，相对 CPU scan 128T 为 `19.85x`。
-2. CPU exact minimal 输出最少，平均 `616.24` 个入口组，但总时间 `4569.83 ms`，其中 prune/materialize 为 `3465.62 ms`，明显不适合作为高吞吐批处理路径。
-3. `delta=3` 通过调小 `cap` 可以保持较高 QPS，但输出组数会显著增加。例如 `cap=64` 时 `80.42 ms`，但平均输出 `14574` 个入口组；`cap=8192` 输出降到 `1279.98`，但时间升到 `415.52 ms`。
-4. 当前主要剩余开销是 D2H 完整 bitset 回传：100%x40、`nq=10240` 时输出 bitset 约 `617 MiB`，即使用 pinned memory 仍约 `25 ms`。下一步应在 GPU 上 compact 成 `(offsets, group_ids)`，只回传真实输出组 id。
-5. 复现实验 artifact：`/home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/query_entry_group_100pct_x40_20260605_105039`。
+1. 如果以完整接口为边界，即输入 query label、输出 CPU-side group ids/bitset，`delta=1, cap=8192` 的 GPU cover-frontier 为 `59.83 ms / 10240 queries`，约 `171k QPS`，相对 CPU scan 128T 为 `19.85x`。
+2. 但公平主对照不是 CPU scan，而是同语义 CPU cover-frontier parallel reference。同一 artifact 中旧 `cpu_cover_frontier_ref_d1` 为 `27.394 ms`，但它只做 count/checksum，没有完整 materialize group ids，因此只能作为 CPU bitset/count 参考；公平结论需要用已修正 benchmark 重跑同输出边界 CPU/GPU A/B。
+3. CPU exact minimal 输出最少，平均 `616.24` 个入口组，但总时间 `4569.83 ms`，其中 prune/materialize 为 `3465.62 ms`，明显不适合作为高吞吐批处理路径。
+4. `delta=3` 通过调小 `cap` 可以保持较高 QPS，但输出组数会显著增加。例如 `cap=64` 时 `80.42 ms`，但平均输出 `14574` 个入口组；`cap=8192` 输出降到 `1279.98`，但时间升到 `415.52 ms`。
+5. 当前主要剩余开销是 D2H 完整 bitset 回传：100%x40、`nq=10240` 时输出 bitset 约 `617 MiB`，即使用 pinned memory 仍约 `25 ms`。下一步应在 GPU 上 compact 成 `(offsets, group_ids)`，只回传真实输出组 id，并重新和同输出边界 CPU parallel cover-frontier 比。
+6. 复现实验 artifact：`/home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/query_entry_group_100pct_x40_20260605_105039`。
 
 ### 19.5 正确性验证与使用边界
 
@@ -1473,9 +1478,10 @@ artifact: /home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/query_e
 |---|---:|---:|---:|---:|
 | CPU scan 128T | `1187.56` | `23332.2` | `8623` | `1.00x` |
 | CPU exact minimal | `4569.83` | `616.24` | `2241` | `0.26x` |
+| CPU cover-frontier reference d1 128T | `27.394` | `2184.26` | `373804` | `43.35x` |
 | GPU correct-cover d1 cap8192 | `59.8294` | `2184.26` | `171153` | `19.85x` |
 
-注意：`CPU exact minimal` 输出最少，但总时间更慢；`GPU correct-cover` 保证 coverage，但输出 group 多于 exact minimal。端到端图查询仍需要接入正式 search path 后测 `NumEntries` 和 `core_search_time_ms`。
+注意：`CPU exact minimal` 输出最少，但总时间更慢；`GPU correct-cover` 保证 coverage，但输出 group 多于 exact minimal。`19.85x` 只相对 CPU scan 128T；旧 CPU cover-frontier reference 没有完整 materialize group ids，因此不能把这张表写成公平 GPU-vs-CPU parallel 加速或反向结论。端到端图查询仍需要接入正式 search path 后测 `NumEntries` 和 `core_search_time_ms`。
 
 ## 21. 2026-06-05 阶段性展示摘要：工作、发现、现状和下一步
 
@@ -1489,7 +1495,7 @@ artifact: /home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/query_e
 |---|---|---|
 | cross-edge 构建 | grouped fused topK、direct-qid、TF32 WMMA path、universal flat double-buffer、X-side streaming | 在 1%/10% repeat workload 上是最稳定的正结果；100%x40 已能完成，但 v1 streaming 被 Q 侧重复 pack 拖慢 |
 | 组内 PG/group graph | FastGrnndCuda、light prune、reverse-tail+repair、packed exact-anchor、bounded fallback、workload-aware router | 中大组有加速空间，但不能无条件替代 CPU Vamana；需要按 `nx` 和质量风险 route |
-| 查询入口组 | CPU exact minimal 语义梳理；GPU correct-cover 批处理入口组选择；`delta/cap` 控制覆盖与冗余 | 入口组阶段本身已在 Amazon 100%x40、`nq=10240` 上达到 `19.85x` vs CPU scan 128T，但尚未接入正式 graph search |
+| 查询入口组 | CPU exact minimal 语义梳理；GPU correct-cover 批处理入口组选择；`delta/cap` 控制覆盖与冗余 | 入口组阶段本身相对 CPU scan 128T 为 `19.85x`，但公平 CPU/GPU 比较需重跑同 `delta/cap`、同 group-id materialization；当前不能写成公平 GPU 加速，尚未形成正式 graph search 端到端收益 |
 | 大规模可扩展性 | 生成并构建 Amazon 100%x40；修复 32-bit offset 溢出；解决 71.5GB resident-cache OOM | 证明系统可以跑到 2328 万点、48 万组，但性能瓶颈从 GPU kernel 转移到 host pack、图查询随机访存和输出边界 |
 
 ### 21.2 当前能站住的技术发现
@@ -1566,7 +1572,7 @@ while search_queue has unexpanded node:
 |---|---|---|
 | cross-edge GPU 加速 | 1%/10% repeat workload 有强证据；100%x40 streaming 可完成但慢 | 可以写成主要贡献，但 100%x40 只能写可扩展性和瓶颈分析 |
 | group graph GPU 替代 | packed exact-anchor 和 reverse-tail/GNN 在部分 workload 有质量/速度 Pareto | 不能写成无条件替代 CPU Vamana；必须强调 router |
-| query entry GPU | 独立 benchmark 中入口组阶段 `19.85x` vs CPU scan 128T | 还不是正式端到端 search speedup；需要接入 `search_UNG_index` |
+| query entry GPU | 独立 benchmark 中入口组阶段 `19.85x` vs CPU scan 128T；旧 CPU cover reference 未完整 materialize group ids | 还不是公平 GPU-vs-CPU parallel 加速，也不是正式端到端 search speedup；需要 batch/compact 输出、同输出边界 CPU/GPU A/B 和端到端 A/B |
 | 100%x40 graph query 异常 | 已发现 `DistCalcs` 无法解释 core time；初步指向随机访存/队列/多线程争用 | 这是重要发现和下一步研究方向，不应现在下定论为某一个单点 bug |
 
 ### 21.6 下一步研究方向

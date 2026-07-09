@@ -4,33 +4,37 @@
 
 ## 当前仓库入口
 
-当前优化主线集中在 `UNG/codes`，尤其是 UNG 构建阶段的 group graph、cross-group edges、output boundary 和 GPU topK 路径。
+当前优化主线集中在 `UNG/codes`，包括 UNG 构建阶段的 group graph、cross-group edges、output boundary、GPU topK 路径，以及查询阶段的入口组选择。
 
 当前论文/实验主线的最短表述：
 
 ```text
-cross-edge: UNG_UNIVERSAL_GPU=1 universal flat double-buffer 是当前主工程路线；
+cross-edge: 当前 full-quality best 使用 GPU grouped fused topK + SearchQueue lazy reserve；universal flat double-buffer 是重要工程路线但不是当前 best full-quality 口径；
 group graph: workload-aware router，小组 CPU/bounded fallback，中组 packed exact-anchor，大组 FastGrnndCuda/reverse-tail；
 output boundary: NeighborList64/reserve/direct-H2D 已降低 CPU-compatible 图物化开销，但 flat/CSR 仍未完成。
+query entry group: gpu_cover_frontier 用 correct-cover 策略替代 CPU exact minimal 的高成本入口组剪枝；
+                   它保证覆盖所有实际候选 group，允许入口组冗余；100%x40、nq=10240 上入口组阶段相对 CPU scan 128T 约 19.85x。
+                   端到端图查询收益取决于后续 graph search；10%x40 现有 artifact 给出约 1.9~2.0x latency 上界潜力，但 production search path 尚需接入复测。
+100%x40 build: Storage 32-bit offset/byte-count 溢出已修复；GPU cross-edge 的 71.5GB resident-cache OOM
+               已用 UNG_GPU_X_STREAMING=1 的 X-side streaming 绕过，并完成 strict skip-additional build。
+               当前 streaming v1 的瓶颈是重复 host pack Q，不能作为加速主结果。
 ```
 
-整理后的文档入口如下：
+文档已经按阅读对象重新整理：
 
-| 目标 | 路径 |
-| --- | --- |
-| 文档索引 | `docs/README.md` |
-| 投稿就绪状态 | `docs/papers/SUBMISSION_READINESS_STATUS_CN.md` |
-| 证据矩阵 | `docs/papers/EVIDENCE_MATRIX_CN.md` |
-| reviewer rebuttal 检查表 | `docs/papers/REBUTTAL_CHECKLIST_CN.md` |
-| 中文/英文论文草稿 | `docs/papers/UNG_GPU_OPTIMIZATION_PAPER_DRAFT_CN.md`, `docs/papers/UNG_GPU_OPTIMIZATION_PAPER_DRAFT_EN.md` |
-| 当前最终技术报告 | `docs/reports/TECHNICAL_REPORT_OPTIMIZATION_SPEEDUP_CN.md` |
-| 当前优化状态与实测结论 | `docs/reports/CURRENT_OPTIMIZATION_STATUS_CN.md` |
-| CelebA / SIFT30 / Amazon / cross-edge 实验报告 | `docs/reports/CROSS_GROUP_CELEBA_RESULTS_CN.md` |
-| 可复现实验运行手册 | `docs/runbooks/RUNBOOK_OPTIMIZED_FEATURES_CN.md` |
-| 构建实现开关 | `docs/runbooks/UNG_BUILD_MODE_SWITCHES_CN.md` |
-| 测试与 A/B 回归指南 | `docs/runbooks/TESTING_GUIDE.md` |
-| 代码交接与实现全貌 | `docs/REFACTOR_DEEP_DIVE_CN.md` |
-| GPU / benchmark 辅助脚本 | `scripts/benchmarks/`, `tools/benchmarks/` |
+| 读者 | 入口 | 用途 |
+| --- | --- | --- |
+| 人读：review-ready 当前入口 | `docs/reports/REVIEW_READY_HANDOFF_CN.md` | 当前唯一推荐入口：阅读顺序、最终性能表、复现证据和剩余风险 |
+| 人读：最终性能总表 | `docs/reports/THREE_MAINLINES_METHOD_BASELINE_DATA_SPEEDUP_CN.md` | 五条主线最终性能大表、复现 checklist 和 claim 边界 |
+| 人读：导师汇报 | `docs/presentations/ADVISOR_BRIEFING_20260625_CN.md` | 按工作线汇报进展、效果、限制和下一步 |
+| 人读：文档总索引 | `docs/README.md` | 所有论文、报告、runbook 和历史归档的导航 |
+| 人读：论文和证据 | `docs/papers/` | 论文草稿、claim 证据矩阵、reviewer 攻击点和投稿 gate |
+| 人读：长技术报告 | `docs/reports/TECHNICAL_REPORT_OPTIMIZATION_SPEEDUP_CN.md` | 完整证据链和历史细节；不再作为第一次阅读入口 |
+| 人读：复现实验 | `docs/runbooks/` | 构建开关、benchmark 命令、测试指南 |
+| AI/后续 agent：接手代码 | `docs/REFACTOR_DEEP_DIVE_CN.md` | 代码职责、实现全貌和接手顺序 |
+| AI/后续 agent：任务状态 | `docs/papers/PAPER_SUBMISSION_TODO_CN.md`, `docs/papers/EVIDENCE_MATRIX_CN.md` | 哪些 claim 可写、哪些实验缺口还不能夸大 |
+| 历史来源 | `docs/archive/` | baseline、历史迁移和旧 patch 来源 |
+| benchmark 工具 | `scripts/benchmarks/`, `tools/benchmarks/` | 实验脚本、诊断工具、artifact gate |
 
 当前已登记 artifact 的投稿 gate：
 
@@ -177,12 +181,12 @@ UNG由 `exp_ung.sh`、`run.sh` 和 `experiments.json` 三个核心文件协同�
 - build_dir: 这是传递给run.sh的参数，定义了每个数据集独立的编译目录。
 
    ```bash
-   # 修改前
-   export TMPDIR="/data/fxy/FilterVector/build"
+   # 示例：把临时构建目录放在你的工作区下面
+   export TMPDIR="/path/to/FilterVector/build"
    # ...
-   --build_dir "/data/fxy/FilterVector/build/build_$dataset" \
+   --build_dir "/path/to/FilterVector/build/build_$dataset" \
 
-   # 假如您的项目在 /home/user/my_project下，则修改为：
+   # 假如您的项目在 /home/user/my_project 下，则修改为：
    export TMPDIR="/home/user/my_project/build_temp"
    # ...
    --build_dir "/home/user/my_project/build_temp/build_$dataset" \
@@ -229,4 +233,4 @@ ACORN由 `exp_acorn.sh`、`run_more_efs.sh` 和 `experiments.json` 三个核心�
       * 每个实验的详细运行参数会保存在一个 `experiment_config.txt` 文件中。
       * C++ 程序的详细运行日志会重定向到 `output_log.log` 文件中。
 
-**`FilterVectorCode/ACORN/run_acorn_for_ung.sh`文件是idea2的运行脚本，可以不看。**
+`run_acorn_for_ung.sh` 只服务 legacy ACORN-in-UNG 补边实验，不是当前 UNG GPU 优化主路径。若需要运行 `new_edge_policy=just_acorn` 或 `acorn_and_guarantee`，请通过 `UNG_ACORN_SCRIPT_PATH=/abs/path/to/run_acorn_for_ung.sh` 显式指定脚本。

@@ -87,55 +87,6 @@ namespace ANNS {
         msum1 = _mm_hadd_ps(msum1, msum1);
         msum1 = _mm_hadd_ps(msum1, msum1);
         return _mm_cvtss_f32(msum1);
-
-        // AVX-512
-        // __m512 msum0 = _mm512_setzero_ps();
-
-        // while (dim >= 16) {
-        //     __m512 mx = _mm512_loadu_ps(x);
-        //     x += 16;
-        //     __m512 my = _mm512_loadu_ps(y);
-        //     y += 16;
-        //     const __m512 a_m_b1 = mx - my;
-        //     msum0 += a_m_b1 * a_m_b1;
-        //     dim -= 16;
-        // }
-
-        // __m256 msum1 = _mm512_extractf32x8_ps(msum0, 1);
-        // msum1 += _mm512_extractf32x8_ps(msum0, 0);
-
-        // if (dim >= 8) {
-        //     __m256 mx = _mm256_loadu_ps(x);
-        //     x += 8;
-        //     __m256 my = _mm256_loadu_ps(y);
-        //     y += 8;
-        //     const __m256 a_m_b1 = mx - my;
-        //     msum1 += a_m_b1 * a_m_b1;
-        //     dim -= 8;
-        // }
-
-        // __m128 msum2 = _mm256_extractf128_ps(msum1, 1);
-        // msum2 += _mm256_extractf128_ps(msum1, 0);
-
-        // if (dim >= 4) {
-        //     __m128 mx = _mm_loadu_ps(x);
-        //     x += 4;
-        //     __m128 my = _mm_loadu_ps(y);
-        //     y += 4;
-        //     const __m128 a_m_b1 = mx - my;
-        //     msum2 += a_m_b1 * a_m_b1;
-        //     dim -= 4;
-        // }
-
-        // if (dim > 0) {
-        //     __m128 mx = masked_read(dim, x);
-        //     __m128 my = masked_read(dim, y);
-        //     __m128 a_m_b1 = mx - my;
-        //     msum2 += a_m_b1 * a_m_b1;
-        // }
-
-        // msum2 = _mm_hadd_ps(msum2, msum2);
-        // msum2 = _mm_hadd_ps(msum2, msum2);
         // return _mm_cvtss_f32(msum2);
     }
 

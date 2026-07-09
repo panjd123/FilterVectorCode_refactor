@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 
 namespace ANNS
@@ -46,6 +47,128 @@ UngBuildProfile profile_from_env()
    if (s == "paper_fused")
       return UngBuildProfile::PaperFused;
    return UngBuildProfile::Custom;
+}
+
+UngGroupGraphImpl group_graph_impl_from_int(int value)
+{
+   switch (value)
+   {
+   case 1:
+      return UngGroupGraphImpl::TagoreCuda;
+   case 2:
+      return UngGroupGraphImpl::GrnndLikeCuda;
+   case 3:
+      return UngGroupGraphImpl::FastGrnndCuda;
+   case 4:
+      return UngGroupGraphImpl::AdaptiveCuda;
+   default:
+      return UngGroupGraphImpl::VamanaCpu;
+   }
+}
+
+UngLngImpl lng_impl_from_int(int value)
+{
+   switch (value)
+   {
+   case 1:
+      return UngLngImpl::LegacyAllocating;
+   case 2:
+      return UngLngImpl::OriginalCpu;
+   default:
+      return UngLngImpl::OptimizedPhase1;
+   }
+}
+
+UngCrossEdgeImpl cross_edge_impl_from_int(int value)
+{
+   switch (value)
+   {
+   case 1:
+      return UngCrossEdgeImpl::GpuBatched;
+   case 2:
+      return UngCrossEdgeImpl::OriginalCpu;
+   case 3:
+      return UngCrossEdgeImpl::CpuExactScan;
+   case 4:
+      return UngCrossEdgeImpl::CpuHybridScanVamana;
+   case 5:
+      return UngCrossEdgeImpl::CuvsBruteForce;
+   default:
+      return UngCrossEdgeImpl::CpuVamana;
+   }
+}
+
+UngAdditionalEdgesImpl additional_edges_impl_from_int(int value)
+{
+   switch (value)
+   {
+   case 1:
+      return UngAdditionalEdgesImpl::Skip;
+   case 2:
+      return UngAdditionalEdgesImpl::CpuExactScan;
+   default:
+      return UngAdditionalEdgesImpl::CpuVamana;
+   }
+}
+
+UngGpuTopkImpl gpu_topk_impl_from_int(int value)
+{
+   switch (value)
+   {
+   case 1:
+      return UngGpuTopkImpl::CustomNaive;
+   case 2:
+      return UngGpuTopkImpl::SgemmTopk;
+   case 3:
+      return UngGpuTopkImpl::FusedGroupTopk;
+   default:
+      return UngGpuTopkImpl::Auto;
+   }
+}
+
+void apply_profile_defaults(UngBuildConfig &cfg)
+{
+   switch (cfg.profile)
+   {
+   case UngBuildProfile::OriginalCpu:
+      cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
+      cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OriginalSort;
+      cfg.lng_impl = UngLngImpl::OriginalCpu;
+      cfg.descendants_impl = UngDescendantsImpl::LegacyHashBfs;
+      cfg.coverage_impl = UngCoverageImpl::LegacyTopologicalMerge;
+      cfg.cross_edge_impl = UngCrossEdgeImpl::OriginalCpu;
+      cfg.additional_edges_impl = UngAdditionalEdgesImpl::CpuVamana;
+      cfg.gpu_topk_impl = UngGpuTopkImpl::Auto;
+      break;
+   case UngBuildProfile::CurrentCpu:
+      cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
+      cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OptimizedBucket;
+      cfg.lng_impl = UngLngImpl::OptimizedPhase1;
+      cfg.descendants_impl = UngDescendantsImpl::OptimizedEpochBfs;
+      cfg.coverage_impl = UngCoverageImpl::DescendantsDirect;
+      cfg.cross_edge_impl = UngCrossEdgeImpl::CpuVamana;
+      break;
+   case UngBuildProfile::NaiveGpu:
+      cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
+      cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OptimizedBucket;
+      cfg.lng_impl = UngLngImpl::OptimizedPhase1;
+      cfg.descendants_impl = UngDescendantsImpl::OptimizedEpochBfs;
+      cfg.coverage_impl = UngCoverageImpl::DescendantsDirect;
+      cfg.cross_edge_impl = UngCrossEdgeImpl::GpuBatched;
+      cfg.gpu_topk_impl = UngGpuTopkImpl::SgemmTopk;
+      break;
+   case UngBuildProfile::PaperFused:
+      cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
+      cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OptimizedBucket;
+      cfg.lng_impl = UngLngImpl::OptimizedPhase1;
+      cfg.descendants_impl = UngDescendantsImpl::OptimizedEpochBfs;
+      cfg.coverage_impl = UngCoverageImpl::DescendantsDirect;
+      cfg.cross_edge_impl = UngCrossEdgeImpl::GpuBatched;
+      cfg.gpu_topk_impl = UngGpuTopkImpl::FusedGroupTopk;
+      break;
+   case UngBuildProfile::Custom:
+      break;
+   }
 }
 
 } // namespace
@@ -186,83 +309,27 @@ const char *to_string(UngGpuTopkImpl v)
    return "unknown";
 }
 
-UngBuildConfig UngBuildConfig::from_env(uint32_t build_threads, const std::string &index_name)
+UngBuildConfig UngBuildConfig::from_env(uint32_t build_threads)
 {
    UngBuildConfig cfg;
    cfg.profile = profile_from_env();
+   apply_profile_defaults(cfg);
 
-   if (cfg.profile == UngBuildProfile::OriginalCpu)
+   if (cfg.profile == UngBuildProfile::Custom)
    {
-      cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
-      cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OriginalSort;
-      cfg.lng_impl = UngLngImpl::OriginalCpu;
-      cfg.descendants_impl = UngDescendantsImpl::LegacyHashBfs;
-      cfg.coverage_impl = UngCoverageImpl::LegacyTopologicalMerge;
-      cfg.cross_edge_impl = UngCrossEdgeImpl::OriginalCpu;
-      cfg.additional_edges_impl = UngAdditionalEdgesImpl::CpuVamana;
-      cfg.gpu_topk_impl = UngGpuTopkImpl::Auto;
-   }
-   else if (cfg.profile == UngBuildProfile::CurrentCpu)
-   {
-      cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
-      cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OptimizedBucket;
-      cfg.lng_impl = UngLngImpl::OptimizedPhase1;
-      cfg.descendants_impl = UngDescendantsImpl::OptimizedEpochBfs;
-      cfg.coverage_impl = UngCoverageImpl::DescendantsDirect;
-      cfg.cross_edge_impl = UngCrossEdgeImpl::CpuVamana;
-   }
-   else if (cfg.profile == UngBuildProfile::NaiveGpu)
-   {
-      cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
-      cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OptimizedBucket;
-      cfg.lng_impl = UngLngImpl::OptimizedPhase1;
-      cfg.descendants_impl = UngDescendantsImpl::OptimizedEpochBfs;
-      cfg.coverage_impl = UngCoverageImpl::DescendantsDirect;
-      cfg.cross_edge_impl = UngCrossEdgeImpl::GpuBatched;
-      cfg.gpu_topk_impl = UngGpuTopkImpl::SgemmTopk;
-   }
-   else if (cfg.profile == UngBuildProfile::PaperFused)
-   {
-      cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
-      cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OptimizedBucket;
-      cfg.lng_impl = UngLngImpl::OptimizedPhase1;
-      cfg.descendants_impl = UngDescendantsImpl::OptimizedEpochBfs;
-      cfg.coverage_impl = UngCoverageImpl::DescendantsDirect;
-      cfg.cross_edge_impl = UngCrossEdgeImpl::GpuBatched;
-      cfg.gpu_topk_impl = UngGpuTopkImpl::FusedGroupTopk;
-   }
-   else
-   {
-      (void)index_name;
-      int group_impl = env_int("UNG_GROUP_GRAPH_IMPL", 0, 0, 4);
-      cfg.group_graph_impl = group_impl == 4 ? UngGroupGraphImpl::AdaptiveCuda
-                                             : (group_impl == 3 ? UngGroupGraphImpl::FastGrnndCuda
-                                                                : (group_impl == 2 ? UngGroupGraphImpl::GrnndLikeCuda
-                                                                                   : (group_impl == 1 ? UngGroupGraphImpl::TagoreCuda
-                                                                                                      : UngGroupGraphImpl::VamanaCpu)));
+      cfg.group_graph_impl = group_graph_impl_from_int(env_int("UNG_GROUP_GRAPH_IMPL", 0, 0, 4));
       cfg.get_min_super_sets_impl = env_int("UNG_GET_MIN_SUPER_SETS_IMPL", 0, 0, 1) == 1
                                         ? UngGetMinSuperSetsImpl::OriginalSort
                                         : UngGetMinSuperSetsImpl::OptimizedBucket;
-      int lng_impl = env_int("UNG_LNG_IMPL", 0, 0, 2);
-      cfg.lng_impl = lng_impl == 2 ? UngLngImpl::OriginalCpu
-                                   : (lng_impl == 1 ? UngLngImpl::LegacyAllocating
-                                                    : UngLngImpl::OptimizedPhase1);
+      cfg.lng_impl = lng_impl_from_int(env_int("UNG_LNG_IMPL", 0, 0, 2));
       cfg.descendants_impl = env_int("UNG_DESCENDANTS_IMPL", 0, 0, 1) == 1 ? UngDescendantsImpl::LegacyHashBfs
                                                                            : UngDescendantsImpl::OptimizedEpochBfs;
       cfg.coverage_impl = env_int("UNG_COVERAGE_IMPL", 0, 0, 1) == 1 ? UngCoverageImpl::DescendantsDirect
                                                                      : UngCoverageImpl::LegacyTopologicalMerge;
-      int cross_impl = env_int("UNG_CROSS_EDGE_IMPL", env_int("UNG_CROSS_EDGE_BACKEND", 1, 0, 1), 0, 5);
-      cfg.cross_edge_impl = cross_impl == 2 ? UngCrossEdgeImpl::OriginalCpu
-                                            : (cross_impl == 3 ? UngCrossEdgeImpl::CpuExactScan
-                                                               : (cross_impl == 4 ? UngCrossEdgeImpl::CpuHybridScanVamana
-                                                                                  : (cross_impl == 5 ? UngCrossEdgeImpl::CuvsBruteForce
-                                                                                                     : (cross_impl == 1 ? UngCrossEdgeImpl::GpuBatched
-                                                                                                                        : UngCrossEdgeImpl::CpuVamana))));
-      int add_impl = env_int("UNG_ADDITIONAL_EDGES_IMPL", 0, 0, 2);
-      cfg.additional_edges_impl = add_impl == 2 ? UngAdditionalEdgesImpl::CpuExactScan
-                                                : (add_impl == 1 ? UngAdditionalEdgesImpl::Skip
-                                                                 : UngAdditionalEdgesImpl::CpuVamana);
-      cfg.gpu_topk_impl = static_cast<UngGpuTopkImpl>(env_int("UNG_GPU_TOPK_IMPL", 0, 0, 3));
+      cfg.cross_edge_impl =
+          cross_edge_impl_from_int(env_int("UNG_CROSS_EDGE_IMPL", env_int("UNG_CROSS_EDGE_BACKEND", 1, 0, 1), 0, 5));
+      cfg.additional_edges_impl = additional_edges_impl_from_int(env_int("UNG_ADDITIONAL_EDGES_IMPL", 0, 0, 2));
+      cfg.gpu_topk_impl = gpu_topk_impl_from_int(env_int("UNG_GPU_TOPK_IMPL", 0, 0, 3));
    }
 
    cfg.gpu_strict = env_bool("UNG_CROSS_EDGE_GPU_STRICT", false);
@@ -278,6 +345,21 @@ UngBuildConfig UngBuildConfig::from_env(uint32_t build_threads, const std::strin
    const uint32_t default_tagore_iter = grnnd_style ? 4u : 10u;
    cfg.tagore_iter = static_cast<uint32_t>(env_int("UNG_TAGORE_ITER", static_cast<int>(default_tagore_iter), 1, 1000));
    cfg.tagore_m = static_cast<uint32_t>(env_int("UNG_TAGORE_M", 64, 1, 1024));
+   cfg.special_blocks_enabled = env_bool("UNG_SPECIAL_BLOCKS", false);
+   cfg.special_block_min_points =
+       static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_MIN_POINTS", 100, 1, 1 << 30));
+   cfg.special_block_data_mode = env_string("UNG_SPECIAL_BLOCK_DATA_MODE", "");
+   cfg.special_block_skip_trivial = env_bool("UNG_SPECIAL_BLOCK_SKIP_TRIVIAL", true);
+   if (cfg.special_blocks_enabled && cfg.special_block_data_mode != "x1")
+   {
+      std::cerr
+          << "UNG_SPECIAL_BLOCKS=1 is only valid for explicit x1/original datasets. "
+          << "Set UNG_SPECIAL_BLOCK_DATA_MODE=x1 after verifying the input is not a repeated xN dataset."
+          << std::endl;
+      throw std::runtime_error(
+          "UNG_SPECIAL_BLOCKS=1 is only valid for explicit x1/original datasets. "
+          "Set UNG_SPECIAL_BLOCK_DATA_MODE=x1 after verifying the input is not a repeated xN dataset.");
+   }
    return cfg;
 }
 
@@ -297,7 +379,11 @@ void UngBuildConfig::print(std::ostream &os) const
       << "[UNG config] tagore_min_group_size=" << tagore_min_group_size << '\n'
       << "[UNG config] tagore_k=" << tagore_k << '\n'
       << "[UNG config] tagore_iter=" << tagore_iter << '\n'
-      << "[UNG config] tagore_m=" << tagore_m << std::endl;
+      << "[UNG config] tagore_m=" << tagore_m << '\n'
+      << "[UNG config] special_blocks_enabled=" << (special_blocks_enabled ? 1 : 0) << '\n'
+      << "[UNG config] special_block_min_points=" << special_block_min_points << '\n'
+      << "[UNG config] special_block_data_mode=" << special_block_data_mode << '\n'
+      << "[UNG config] special_block_skip_trivial=" << (special_block_skip_trivial ? 1 : 0) << std::endl;
 }
 
 } // namespace ANNS

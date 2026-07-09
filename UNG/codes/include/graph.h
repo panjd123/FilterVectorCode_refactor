@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstring>
 #include <iterator>
+#include <memory>
 #include <stdexcept>
 #include "config.h"
 

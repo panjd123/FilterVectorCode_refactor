@@ -38,7 +38,7 @@
 | repeats | `3` |
 | Lsearch | `1000, 2000, 5000` |
 
-注意：这些 run 的 `query_group_id_file` 缺失，日志显示 `警告：未找到查询来源组ID文件: /tmp/fv_missing_query_group_ids.txt`。代码审查显示，`true_query_group_ids` 只在 `is_ung_more_entry == true` 时用于向 entry group 集合注入 oracle group；当前 `search_UNG_index` 没有暴露这个命令行选项，局部变量默认是 `false`，因此缺失该文件不会影响当前实验路径的 recall。它仍应在正式 artifact 中补齐，以避免未来打开 `is_ung_more_entry` 时改变语义。
+注意：这些 run 的 `query_group_id_file` 缺失，日志显示 `警告：未找到查询来源组ID文件: /tmp/fv_missing_query_group_ids.txt`。代码审查显示，`true_query_group_ids` 只在 `is_ung_more_entry == true` 时用于向 entry group 集合注入 oracle group；当前 `search_UNG_index` 已暴露 `--is_ung_more_entry`，但默认仍是 `false`，因此缺失该文件不会影响默认实验路径的 recall。它仍应在正式 artifact 中补齐，以避免未来显式打开 `--is_ung_more_entry` 时改变语义。
 
 ## 3. Search Recall / Latency 汇总
 

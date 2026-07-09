@@ -9,7 +9,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
-#include <cstdlib>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -63,16 +62,10 @@ float cuda_event_elapsed_ms(cudaEvent_t start, cudaEvent_t stop, const char *wha
    return ms;
 }
 
-uint32_t env_uint(const char *name, uint32_t default_value, uint32_t min_value, uint32_t max_value)
+TagoreCudaRuntimeConfig make_single_stream_config(TagoreCudaRuntimeConfig config)
 {
-   const char *value = std::getenv(name);
-   if (!value || !*value)
-      return default_value;
-   char *end = nullptr;
-   const unsigned long parsed = std::strtoul(value, &end, 10);
-   if (end == value)
-      return default_value;
-   return static_cast<uint32_t>(std::min<unsigned long>(std::max<unsigned long>(parsed, min_value), max_value));
+   config.requested_streams = 1;
+   return config;
 }
 
 __global__ void convert_float_to_half_kernel(const float *data, half *data_half, size_t total, float norm_factor)
@@ -666,6 +659,8 @@ __global__ void batched_exact_knn_graph_kernel(const float *data,
                                                uint32_t final_degree,
                                                uint32_t head_keep,
                                                uint32_t anchor_tail,
+                                               uint32_t anchor_slots,
+                                               uint32_t bidir_anchor,
                                                uint32_t *graph,
                                                uint32_t *entry_points)
 {
@@ -743,13 +738,15 @@ __global__ void batched_exact_knn_graph_kernel(const float *data,
          row[1 + write] = top_idx[write];
 
       const uint32_t remaining = final_degree > write ? final_degree - write : 0;
-      if (anchor_tail && remaining > 0 && n > 1)
+      const uint32_t anchor_limit = anchor_tail ? (anchor_slots == 0 ? remaining : min(anchor_slots, remaining)) : 0;
+      if (anchor_limit > 0 && n > 1)
       {
-         for (uint32_t t = 0; t < remaining && write < out_degree; ++t)
+         for (uint32_t t = 0; t < anchor_limit && write < out_degree; ++t)
          {
-            const uint32_t hop = max(1u, ((t + 1) * n) / (remaining + 1));
-            uint32_t candidate = (local_src + hop) % n;
-            for (uint32_t retry = 0; retry < n && write < out_degree; ++retry, candidate = (candidate + 1) % n)
+            const uint32_t hop = max(1u, ((t + 1) * n) / (anchor_limit + 1));
+            const bool backward = bidir_anchor && (t & 1u);
+            uint32_t candidate = backward ? (local_src + n - (hop % n)) % n : (local_src + hop) % n;
+            for (uint32_t retry = 0; retry < n && write < out_degree; ++retry, candidate = backward ? (candidate + n - 1) % n : (candidate + 1) % n)
             {
                if (candidate == local_src)
                   continue;
@@ -810,6 +807,8 @@ __global__ void batched_exact_knn_graph_warp_kernel(const float *data,
                                                     uint32_t final_degree,
                                                     uint32_t head_keep,
                                                     uint32_t anchor_tail,
+                                                    uint32_t anchor_slots,
+                                                    uint32_t bidir_anchor,
                                                     uint32_t *graph,
                                                     uint32_t *entry_points)
 {
@@ -895,13 +894,15 @@ __global__ void batched_exact_knn_graph_warp_kernel(const float *data,
       row[1 + write] = top_idx[warp][write];
 
    const uint32_t remaining = final_degree > write ? final_degree - write : 0;
-   if (anchor_tail && remaining > 0 && n > 1)
+   const uint32_t anchor_limit = anchor_tail ? (anchor_slots == 0 ? remaining : min(anchor_slots, remaining)) : 0;
+   if (anchor_limit > 0 && n > 1)
    {
-      for (uint32_t t = 0; t < remaining && write < out_degree; ++t)
+      for (uint32_t t = 0; t < anchor_limit && write < out_degree; ++t)
       {
-         const uint32_t hop = max(1u, ((t + 1) * n) / (remaining + 1));
-         uint32_t candidate = (local_src + hop) % n;
-         for (uint32_t retry = 0; retry < n && write < out_degree; ++retry, candidate = (candidate + 1) % n)
+         const uint32_t hop = max(1u, ((t + 1) * n) / (anchor_limit + 1));
+         const bool backward = bidir_anchor && (t & 1u);
+         uint32_t candidate = backward ? (local_src + n - (hop % n)) % n : (local_src + hop) % n;
+         for (uint32_t retry = 0; retry < n && write < out_degree; ++retry, candidate = backward ? (candidate + n - 1) % n : (candidate + 1) % n)
          {
             if (candidate == local_src)
                continue;
@@ -966,10 +967,99 @@ __global__ void fill_batched_exact_point_lookup_kernel(const uint32_t *offsets,
    }
 }
 
+__global__ void build_exact_reverse_local_kernel(const uint32_t *graph,
+                                                 const uint32_t *offsets,
+                                                 const uint32_t *sizes,
+                                                 const uint32_t *point_group_ids,
+                                                 const uint32_t *point_local_ids,
+                                                 uint32_t num_groups,
+                                                 uint32_t total_points,
+                                                 uint32_t graph_stride,
+                                                 uint32_t forward_cap,
+                                                 uint32_t reverse_cap,
+                                                 uint32_t *reverse_ids,
+                                                 uint32_t *reverse_counts)
+{
+   const uint32_t global_src = blockIdx.x * blockDim.x + threadIdx.x;
+   if (global_src >= total_points)
+      return;
+   const uint32_t group_id = point_group_ids[global_src];
+   if (group_id >= num_groups)
+      return;
+   const uint32_t group_begin = offsets[group_id];
+   const uint32_t n = sizes[group_id];
+   const uint32_t local_src = point_local_ids[global_src];
+   if (local_src >= n)
+      return;
+
+   const uint32_t *row = graph + static_cast<size_t>(global_src) * graph_stride;
+   const uint32_t degree = min(row[0], graph_stride > 0 ? graph_stride - 1 : 0);
+   const uint32_t limit = min(degree, forward_cap);
+   for (uint32_t i = 0; i < limit; ++i)
+   {
+      const uint32_t local_dst = row[1 + i];
+      if (local_dst >= n || local_dst == local_src)
+         continue;
+      const uint32_t global_dst = group_begin + local_dst;
+      const uint32_t pos = atomicAdd(reverse_counts + global_dst, 1u);
+      if (pos < reverse_cap)
+         reverse_ids[static_cast<size_t>(global_dst) * reverse_cap + pos] = local_src;
+   }
+}
+
+__global__ void apply_exact_reverse_slots_kernel(uint32_t *graph,
+                                                 const uint32_t *sizes,
+                                                 const uint32_t *point_group_ids,
+                                                 const uint32_t *point_local_ids,
+                                                 const uint32_t *reverse_ids,
+                                                 const uint32_t *reverse_counts,
+                                                 uint32_t total_points,
+                                                 uint32_t graph_stride,
+                                                 uint32_t final_degree,
+                                                 uint32_t reverse_cap,
+                                                 uint32_t reverse_slots)
+{
+   const uint32_t global_src = blockIdx.x;
+   if (global_src >= total_points || reverse_slots == 0 || reverse_cap == 0)
+      return;
+   const uint32_t group_id = point_group_ids[global_src];
+   const uint32_t n = sizes[group_id];
+   const uint32_t local_src = point_local_ids[global_src];
+   uint32_t *row = graph + static_cast<size_t>(global_src) * graph_stride;
+   const uint32_t degree = min(row[0], graph_stride > 0 ? graph_stride - 1 : 0);
+   if (degree == 0)
+      return;
+
+   uint32_t inserted = 0;
+   const uint32_t rev_count = min(reverse_counts[global_src], reverse_cap);
+   for (uint32_t scan = 0; scan < rev_count && inserted < reverse_slots; ++scan)
+   {
+      const uint32_t candidate = reverse_ids[static_cast<size_t>(global_src) * reverse_cap + scan];
+      if (candidate >= n || candidate == local_src)
+         continue;
+      bool duplicate = false;
+      for (uint32_t j = 0; j < degree; ++j)
+      {
+         if (row[1 + j] == candidate)
+         {
+            duplicate = true;
+            break;
+         }
+      }
+      if (duplicate)
+         continue;
+
+      const uint32_t replace_pos = degree - 1 - inserted;
+      row[1 + replace_pos] = candidate;
+      ++inserted;
+   }
+}
+
 TagoreBatchBuildResult build_fast_exact_cuda_batch(const std::vector<TagoreGroupRequest> &groups,
                                                    uint32_t dim,
                                                    uint32_t k,
-                                                   uint32_t final_degree)
+                                                   uint32_t final_degree,
+                                                   const TagoreFastExactBatchConfig &config)
 {
    TagoreBatchBuildResult batch;
    batch.groups.resize(groups.size());
@@ -980,15 +1070,19 @@ TagoreBatchBuildResult build_fast_exact_cuda_batch(const std::vector<TagoreGroup
    if (total_points_u64 > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
       throw std::runtime_error("Fast exact CUDA batch supports at most uint32_t total points.");
    const uint32_t total_points = static_cast<uint32_t>(total_points_u64);
-   const uint32_t default_head_keep = final_degree > 8 ? final_degree - 8 : final_degree;
-   const uint32_t head_keep = env_uint("UNG_FAST_GRNND_LIGHT_HEAD", default_head_keep, 1, final_degree);
-   const uint32_t anchor_tail = env_uint("UNG_FAST_EXACT_ANCHOR_TAIL", 1, 0, 1);
-   const bool pinned_host = env_uint("UNG_FAST_EXACT_PINNED_HOST", 0, 0, 1) != 0;
-   const bool device_lookup = env_uint("UNG_FAST_EXACT_DEVICE_LOOKUP", 1, 0, 1) != 0;
-   const bool direct_h2d_req = env_uint("UNG_FAST_EXACT_DIRECT_H2D", 1, 0, 1) != 0;
-   const uint32_t direct_h2d_max_runs = env_uint("UNG_FAST_EXACT_DIRECT_H2D_MAX_RUNS", 4096, 1, 1u << 20);
-   const uint32_t graph_stride = env_uint("UNG_FAST_EXACT_COMPACT_D2H", 1, 0, 1) != 0 ? final_degree + 1 : k;
-   const bool use_warp_kernel = env_uint("UNG_FAST_EXACT_WARP_KERNEL", 0, 0, 1) != 0;
+   const uint32_t head_keep = config.head_keep;
+   const uint32_t anchor_tail = config.anchor_tail;
+   const uint32_t anchor_slots = config.anchor_slots;
+   const uint32_t bidir_anchor = config.bidir_anchor;
+   const uint32_t exact_reverse_cap = config.reverse_cap;
+   const uint32_t exact_reverse_slots = config.reverse_slots;
+   const uint32_t exact_reverse_forward_cap = config.reverse_forward_cap;
+   const bool pinned_host = config.pinned_host;
+   const bool device_lookup = config.device_lookup;
+   const bool direct_h2d_req = config.direct_h2d_requested;
+   const uint32_t direct_h2d_max_runs = config.direct_h2d_max_runs;
+   const uint32_t graph_stride = config.graph_stride;
+   const bool use_warp_kernel = config.use_warp_kernel;
 
    std::vector<uint32_t> offsets(groups.size() + 1, 0);
    std::vector<uint32_t> sizes(groups.size(), 0);
@@ -1099,6 +1193,8 @@ TagoreBatchBuildResult build_fast_exact_cuda_batch(const std::vector<TagoreGroup
    uint32_t *point_local_ids_dev = nullptr;
    uint32_t *graph_dev = nullptr;
    uint32_t *entry_dev = nullptr;
+   uint32_t *exact_reverse_ids_dev = nullptr;
+   uint32_t *exact_reverse_counts_dev = nullptr;
    uint32_t *graph_host_pinned = nullptr;
    uint32_t *entries_pinned = nullptr;
    cudaStream_t stream = nullptr;
@@ -1127,6 +1223,13 @@ TagoreBatchBuildResult build_fast_exact_cuda_batch(const std::vector<TagoreGroup
       ck(cudaMallocAsync(&graph_dev, static_cast<size_t>(total_points) * graph_stride * sizeof(uint32_t), stream),
          "cudaMallocAsync exact graph");
       ck(cudaMallocAsync(&entry_dev, groups.size() * sizeof(uint32_t), stream), "cudaMallocAsync exact entry");
+      if (exact_reverse_cap > 0 && exact_reverse_slots > 0)
+      {
+         ck(cudaMallocAsync(&exact_reverse_ids_dev, static_cast<size_t>(total_points) * exact_reverse_cap * sizeof(uint32_t), stream),
+            "cudaMallocAsync exact reverse ids");
+         ck(cudaMallocAsync(&exact_reverse_counts_dev, static_cast<size_t>(total_points) * sizeof(uint32_t), stream),
+            "cudaMallocAsync exact reverse counts");
+      }
       if (pinned_host)
       {
          const size_t graph_host_bytes = static_cast<size_t>(total_points) * graph_stride * sizeof(uint32_t);
@@ -1204,16 +1307,33 @@ TagoreBatchBuildResult build_fast_exact_cuda_batch(const std::vector<TagoreGroup
          batched_exact_knn_graph_warp_kernel<<<blocks, warps_per_block * 32, 0, stream>>>(
              data_dev, offsets_dev, sizes_dev, point_group_ids_dev, point_local_ids_dev,
              static_cast<uint32_t>(groups.size()), total_points, dim, k, graph_stride, final_degree,
-             head_keep, anchor_tail, graph_dev, entry_dev);
+             head_keep, anchor_tail, anchor_slots, bidir_anchor, graph_dev, entry_dev);
       }
       else
       {
          batched_exact_knn_graph_kernel<<<total_points, 128, 0, stream>>>(
              data_dev, offsets_dev, sizes_dev, point_group_ids_dev, point_local_ids_dev,
              static_cast<uint32_t>(groups.size()), dim, k, graph_stride, final_degree,
-             head_keep, anchor_tail, graph_dev, entry_dev);
+             head_keep, anchor_tail, anchor_slots, bidir_anchor, graph_dev, entry_dev);
       }
       ck(cudaGetLastError(), "batched exact graph launch");
+      if (exact_reverse_cap > 0 && exact_reverse_slots > 0)
+      {
+         ck(cudaMemsetAsync(exact_reverse_counts_dev, 0, static_cast<size_t>(total_points) * sizeof(uint32_t), stream),
+            "cudaMemsetAsync exact reverse counts");
+         const uint32_t reverse_threads = 256;
+         const uint32_t reverse_blocks = (total_points + reverse_threads - 1) / reverse_threads;
+         build_exact_reverse_local_kernel<<<reverse_blocks, reverse_threads, 0, stream>>>(
+             graph_dev, offsets_dev, sizes_dev, point_group_ids_dev, point_local_ids_dev,
+             static_cast<uint32_t>(groups.size()), total_points, graph_stride,
+             exact_reverse_forward_cap, exact_reverse_cap, exact_reverse_ids_dev, exact_reverse_counts_dev);
+         ck(cudaGetLastError(), "build exact reverse launch");
+         apply_exact_reverse_slots_kernel<<<total_points, 32, 0, stream>>>(
+             graph_dev, sizes_dev, point_group_ids_dev, point_local_ids_dev,
+             exact_reverse_ids_dev, exact_reverse_counts_dev, total_points, graph_stride, final_degree,
+             exact_reverse_cap, exact_reverse_slots);
+         ck(cudaGetLastError(), "apply exact reverse slots launch");
+      }
       ck(cudaStreamSynchronize(stream), "batched exact graph synchronize");
       const double gnn_ms = elapsed_ms(gnn_start);
 
@@ -1267,6 +1387,10 @@ TagoreBatchBuildResult build_fast_exact_cuda_batch(const std::vector<TagoreGroup
       cudaFreeAsync(point_local_ids_dev, stream);
       cudaFreeAsync(graph_dev, stream);
       cudaFreeAsync(entry_dev, stream);
+      if (exact_reverse_ids_dev)
+         cudaFreeAsync(exact_reverse_ids_dev, stream);
+      if (exact_reverse_counts_dev)
+         cudaFreeAsync(exact_reverse_counts_dev, stream);
       cudaStreamSynchronize(stream);
       if (packed_pinned)
          cudaFreeHost(packed_pinned);
@@ -1287,6 +1411,10 @@ TagoreBatchBuildResult build_fast_exact_cuda_batch(const std::vector<TagoreGroup
    ck(cudaFreeAsync(point_local_ids_dev, stream), "cudaFreeAsync exact point local ids");
    ck(cudaFreeAsync(graph_dev, stream), "cudaFreeAsync exact graph");
    ck(cudaFreeAsync(entry_dev, stream), "cudaFreeAsync exact entry");
+   if (exact_reverse_ids_dev)
+      ck(cudaFreeAsync(exact_reverse_ids_dev, stream), "cudaFreeAsync exact reverse ids");
+   if (exact_reverse_counts_dev)
+      ck(cudaFreeAsync(exact_reverse_counts_dev, stream), "cudaFreeAsync exact reverse counts");
    ck(cudaStreamSynchronize(stream), "cudaFreeAsync exact sync");
    batch.batch_free_ms = elapsed_ms(free_start);
    ck(cudaStreamDestroy(stream), "cudaStreamDestroy exact batch");
@@ -1345,24 +1473,20 @@ void launch_fast_grnnd_prune_impl(unsigned *graph_dev,
                                   unsigned *sampled_reverse_num_workspace,
                                   uint32_t sampled_reverse_workspace_cap,
                                   bool synchronize,
+                                  const TagoreFastGrnndPruneConfig &config,
                                   double &prune_ms)
 {
-   const uint32_t light_threshold = env_uint("UNG_FAST_GRNND_LIGHT_PRUNE_NX", 256, 0, 1u << 20);
+   const uint32_t light_threshold = config.light_threshold;
    if (light_threshold > 0 && num_points <= light_threshold)
    {
-      const uint32_t default_head_keep = final_degree > 8 ? final_degree - 8 : final_degree;
-      const uint32_t head_keep = env_uint("UNG_FAST_GRNND_LIGHT_HEAD", default_head_keep, 1, final_degree);
-      const uint32_t reverse_cap = env_uint("UNG_FAST_GRNND_LIGHT_REVERSE_CAP", 0, 0, final_degree);
-      const uint32_t repair_degree = env_uint("UNG_FAST_GRNND_REPAIR_DEGREE", 1, 0, 1);
+      const uint32_t head_keep = config.light_head_keep;
+      const uint32_t reverse_cap = config.light_reverse_cap;
+      const uint32_t repair_degree = config.repair_degree;
       const auto start = std::chrono::high_resolution_clock::now();
       if (reverse_cap > 0)
       {
-         const uint32_t default_reverse_slots = std::min<uint32_t>(reverse_cap, final_degree > head_keep ? final_degree - head_keep : 1);
-         const uint32_t reverse_slots = env_uint("UNG_FAST_GRNND_LIGHT_REVERSE_SLOTS",
-                                                default_reverse_slots, 1, final_degree);
-         const uint32_t default_forward_cap = std::min<uint32_t>(k > 0 ? k - 1 : 1, std::max<uint32_t>(1, head_keep));
-         const uint32_t forward_cap = env_uint("UNG_FAST_GRNND_LIGHT_REVERSE_FORWARD_CAP",
-                                               default_forward_cap, 1, k > 0 ? k - 1 : 1);
+         const uint32_t reverse_slots = config.light_reverse_slots;
+         const uint32_t forward_cap = config.light_reverse_forward_cap;
          const bool own_workspace = !sampled_reverse_workspace || !sampled_reverse_num_workspace ||
                                     sampled_reverse_workspace_cap < reverse_cap;
          unsigned *sampled_reverse = sampled_reverse_workspace;
@@ -1404,12 +1528,8 @@ void launch_fast_grnnd_prune_impl(unsigned *graph_dev,
       return;
    }
 
-   const uint32_t default_forward_cap = std::min<uint32_t>(k > 0 ? k - 1 : 1,
-                                                           std::max<uint32_t>(final_degree, 2u * final_degree));
-   const uint32_t forward_cap = std::min<uint32_t>(
-       k > 0 ? k - 1 : 1,
-       env_uint("UNG_FAST_GRNND_FORWARD_CAP", default_forward_cap, 1, k > 0 ? k - 1 : 1));
-   const uint32_t reverse_cap = env_uint("UNG_FAST_GRNND_REVERSE_CAP", std::max<uint32_t>(1, final_degree), 0, final_degree);
+   const uint32_t forward_cap = config.forward_cap;
+   const uint32_t reverse_cap = config.reverse_cap;
    const bool own_workspace = reverse_cap > 0 &&
                               (!sampled_reverse_workspace || !sampled_reverse_num_workspace ||
                                sampled_reverse_workspace_cap < reverse_cap);
@@ -1457,8 +1577,9 @@ void launch_fast_grnnd_prune_impl(unsigned *graph_dev,
                                               float alpha,
                                               double &prune_ms)
 {
+   const TagoreCudaRuntimeConfig config = make_tagore_cuda_runtime_config(k, final_degree, false);
    launch_fast_grnnd_prune_impl(graph_dev, data_dev, nei_distance, num_points, dim, k, final_degree, alpha,
-                                0, nullptr, nullptr, 0, true, prune_ms);
+                                0, nullptr, nullptr, 0, true, config.fast_prune, prune_ms);
 }
 
 } // namespace
@@ -1661,7 +1782,7 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
                                                                   uint32_t iterations,
                                                                   float alpha,
                                                                   TagorePruneMode prune_mode,
-                                                                  bool allow_parallel)
+                                                                  const TagoreCudaRuntimeConfig &runtime_config)
 {
    if (groups.empty())
       return {};
@@ -1672,7 +1793,7 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
 
    uint32_t max_points = 0;
    bool can_use_fast_exact_batch = prune_mode == TagorePruneMode::FastGrnnd;
-   const uint32_t fast_exact_threshold = env_uint("UNG_FAST_GRNND_BATCH_EXACT_NX", 0, 0, 1u << 20);
+   const uint32_t fast_exact_threshold = runtime_config.fast_exact_batch_threshold;
    for (const auto &g : groups)
    {
       if (!g.data || g.num_points == 0)
@@ -1683,11 +1804,9 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
    }
 
    if (can_use_fast_exact_batch)
-      return build_fast_exact_cuda_batch(groups, dim, k, final_degree);
+      return build_fast_exact_cuda_batch(groups, dim, k, final_degree, runtime_config.fast_exact);
 
-   const uint32_t requested_streams = allow_parallel
-                                         ? env_uint("UNG_TAGORE_BATCH_STREAMS", 1, 1, 16)
-                                         : 1;
+   const uint32_t requested_streams = runtime_config.requested_streams;
    if (requested_streams > 1 && groups.size() > 1)
    {
       const size_t workers = std::min<size_t>(requested_streams, groups.size());
@@ -1721,7 +1840,15 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
             try
             {
                partials[wi] = build_tagore_vamana_cuda_batch_impl(
-                   worker_groups[wi], dim, k, final_degree, top_m, iterations, alpha, prune_mode, false);
+                   worker_groups[wi],
+                   dim,
+                   k,
+                   final_degree,
+                   top_m,
+                   iterations,
+                   alpha,
+                   prune_mode,
+                   make_single_stream_config(runtime_config));
             }
             catch (...)
             {
@@ -1782,7 +1909,7 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
    {
       ck(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking), "cudaStreamCreate Tagore batch");
       const uint32_t compact_stride = final_degree + 1;
-      const bool compact_d2h = env_uint("UNG_TAGORE_COMPACT_D2H", 1, 0, 1) != 0 && compact_stride < k;
+      const bool compact_d2h = runtime_config.compact_d2h_requested && compact_stride < k;
       auto alloc_start = std::chrono::high_resolution_clock::now();
       ck(cudaMallocAsync(&data_float_dev, static_cast<size_t>(max_points) * dim * sizeof(float), stream),
          "cudaMallocAsync data_float_dev");
@@ -1905,7 +2032,7 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
          {
             launch_fast_grnnd_prune_impl(graph_dev, data_dev, nei_distance, num_points, dim, k, final_degree, alpha,
                                           stream, fast_prune_reverse_dev, fast_prune_reverse_num_dev,
-                                          fast_prune_reverse_cap, false, result.prune_ms);
+                                          fast_prune_reverse_cap, false, runtime_config.fast_prune, result.prune_ms);
             ck(cudaMemsetAsync(ep_dev, 0, sizeof(unsigned), stream), "cudaMemset fast GRNND ep");
          }
          else
@@ -2038,10 +2165,11 @@ TagoreBatchBuildResult build_tagore_vamana_cuda_batch(const std::vector<TagoreGr
                                                       uint32_t top_m,
                                                       uint32_t iterations,
                                                       float alpha,
-                                                      TagorePruneMode prune_mode)
+                                                      TagorePruneMode prune_mode,
+                                                      const TagoreCudaRuntimeConfig &runtime_config)
 {
    return build_tagore_vamana_cuda_batch_impl(groups, dim, k, final_degree, top_m, iterations, alpha,
-                                             prune_mode, true);
+                                             prune_mode, runtime_config);
 }
 
 TagoreBatchBuildResult build_tagore_vamana_cuda_batch(const std::vector<TagoreGroupRequest> &groups,
@@ -2051,11 +2179,18 @@ TagoreBatchBuildResult build_tagore_vamana_cuda_batch(const std::vector<TagoreGr
                                                       uint32_t top_m,
                                                       uint32_t iterations,
                                                       float alpha,
-                                                      bool grnnd_like_refine)
+                                                      TagorePruneMode prune_mode)
 {
-   return build_tagore_vamana_cuda_batch(groups, dim, k, final_degree, top_m, iterations, alpha,
-                                         grnnd_like_refine ? TagorePruneMode::TagoreVamanaWithGrnndRefine
-                                                           : TagorePruneMode::TagoreVamana);
+   return build_tagore_vamana_cuda_batch(
+       groups,
+       dim,
+       k,
+       final_degree,
+       top_m,
+       iterations,
+       alpha,
+       prune_mode,
+       make_tagore_cuda_runtime_config(k, final_degree, true));
 }
 
 } // namespace ANNS

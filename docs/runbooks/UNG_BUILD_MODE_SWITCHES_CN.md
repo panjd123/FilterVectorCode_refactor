@@ -28,8 +28,12 @@
 | cross-edge | `UNG_CROSS_EDGE_IMPL` | `0` | CPU Vamana fixed-point |
 | cross-edge | `UNG_CROSS_EDGE_IMPL` | `1` | GPU batched exact topK |
 | cross-edge | `UNG_CROSS_EDGE_IMPL` | `2` | 原始 CPU cross-edge 函数 |
+| cross-edge | `UNG_CROSS_EDGE_IMPL` | `3` | CPU exact scan；强 CPU baseline，用于和 GPU fused / cuVS 公平比较 |
+| cross-edge | `UNG_CROSS_EDGE_IMPL` | `4` | CPU hybrid scan/Vamana；启发式诊断路径 |
+| cross-edge | `UNG_CROSS_EDGE_IMPL` | `5` | cuVS per-group brute force baseline；用于证明逐组调用库的外围开销 |
 | additional edges | `UNG_ADDITIONAL_EDGES_IMPL` | `0` | CPU Vamana 补边 |
 | additional edges | `UNG_ADDITIONAL_EDGES_IMPL` | `1` | 跳过补边，用于拆分测试 |
+| additional edges | `UNG_ADDITIONAL_EDGES_IMPL` | `2` | CPU exact scan 补边；用于 additional_edges ablation，不是默认 full-quality |
 | GPU topK | `UNG_GPU_TOPK_IMPL` | `0` | auto，保留底层细粒度开关 |
 | GPU topK | `UNG_GPU_TOPK_IMPL` | `1` | custom naive CUDA dot + topK |
 | GPU topK | `UNG_GPU_TOPK_IMPL` | `2` | SGEMM + separate topK |
@@ -45,16 +49,31 @@ cross-edge GPU 细分开关：
 | `UNG_GPU_FLAT_ID_WRITEBACK` | auto | flat-id 输出，避免大量 `SearchQueue`/per-group container 物化；universal route 会自动启用 |
 | `UNG_GPU_SOURCE_EXACT` | `0` | source-centric no-lock 实验路径；当前不是主线 |
 | `UNG_GPU_SOURCE_EXACT_MODE` | `0` | `0` 为 CUDA-core exact，`1` 为 legacy/实验性 TF32 WMMA source path |
+| `UNG_GPU_X_STREAMING` | `0` | 强制使用 X-side streaming，避免 resident all-X device cache；100%x40 OOM 边界路径，不是性能主线 |
+| `UNG_GPU_X_STREAMING_AUTO` | `1` | resident prepare_all 失败且输出仍为 SearchQueue 时，自动尝试 X-side streaming |
+| `UNG_GPU_PREPARE_DIRECT_HOSTREG` | `1` | resident all-X prepare 阶段允许对连续 host storage 使用 `cudaHostRegister`；现在读取点在 `CrossEdgeGpuRuntimeConfig::vector_upload` |
+| `UNG_GPU_PREPARE_DIRECT_PAGEABLE` | `0` | resident all-X prepare 阶段允许直接 pageable H2D；主要用于诊断 copy/host-register 成本 |
+| `UNG_GPU_PREPARE_HOSTREG_MAX_MB` | `4096` | 超过该大小时不尝试 `cudaHostRegister`，转向 direct pageable 或 pinned staging |
+| `UNG_COUNT_VALID_PAIRS` | `0` | optional profiling：统计回传 topK 中的有效 pair 数；现在读取点在 `CrossEdgeGpuRuntimeConfig::diagnostics` |
+| `UNG_GEMM_VERIFY_SAMPLES` | `0` | optional diagnostic：抽样用 CPU exact 校验 GPU topK 输出；默认关闭 |
+| `UNG_GEMM_VERIFY_STRICT` | `0` | optional diagnostic：校验 mismatch 时是否直接失败；只在 `UNG_GEMM_VERIFY_SAMPLES>0` 时生效 |
+| `UNG_BENCH_MIN_NX` | `0` | benchmark-only filter：只处理 `nx >= min` 的 target group；读取点在 `CrossEdgeGpuRuntimeConfig::benchmark_filter` |
+| `UNG_BENCH_MAX_NX` | `1048576` | benchmark-only filter：只处理 `nx <= max` 的 target group；不应作为论文默认配置 |
+| `UNG_BENCH_MIN_WORK_M` | `0` | benchmark-only filter：只处理 `nq * nx * dim >= M * 1e6` 的 target group |
+| `UNG_GPU_X_CHUNK_MB` | `8192` | X-side streaming 的 target vector chunk 上限 |
+| `UNG_GPU_X_STREAM_Q_MB` | `2048` | X-side streaming 的 query vector subchunk 上限 |
+| `UNG_GPU_X_STREAM_OUT_MB` | `2048` | X-side streaming 的 topK output subchunk 上限 |
 
 当前证据边界：
 
 ```text
-UNG_UNIVERSAL_GPU=1 是当前推荐的 cross-edge 实验/论文路线。
+UNG_UNIVERSAL_GPU=1 是重要工程路线和历史实验路径；当前 full-quality best cross-edge 口径以 `docs/reports/THREE_MAINLINES_METHOD_BASELINE_DATA_SPEEDUP_CN.md` 的最终性能表为准。
 SIFT30 skip-additional cross 3180.63 ms；
 Amazon 1% x200 full-quality cross 2494.21 ms，L1000/L5000 0.871/0.911；
 Amazon 1% x100 full-quality cross 1689.40 ms，L100/L500/L1000 0.826/0.868/0.891，但 Index 变慢。
 因此它是 x200 正结果和 x100 boundary result，不能写成无条件端到端加速。
 source-centric 修复后 SIFT30 cross 5926.67 ms，只作为 future two-stage source grouped GEMM + reduce 方向。
+X-side streaming 已让 Amazon 100%x40 strict skip-additional build 完成，但 cross generate `697.1s`，其中 `pack_q=450.3s`，因此只能写作 scalability/boundary result。
 ```
 
 TagoreCuda 相关参数：
@@ -63,7 +82,7 @@ TagoreCuda 相关参数：
 | --- | ---: | --- |
 | `UNG_TAGORE_MIN_GROUP_SIZE` | `0` | 小于该大小的 group 不走 Tagore；`nx<=max_degree` 仍使用 complete graph |
 | `UNG_TAGORE_K` | `64` | Tagore GNN-Descent 候选 K |
-| `UNG_TAGORE_ITER` | `10` / `4` | Tagore GNN-Descent 迭代数；`UNG_GROUP_GRAPH_IMPL=2` 默认 `4`，其它 Tagore 路径默认 `10` |
+| `UNG_TAGORE_ITER` | `10` / `4` | Tagore GNN-Descent 迭代数；`UNG_GROUP_GRAPH_IMPL=2/3/4` 默认 `4`，原始 `TagoreCuda` 默认 `10` |
 | `UNG_TAGORE_M` | `64` | Tagore pruning TOPM |
 | `UNG_FAST_GRNND_LIGHT_PRUNE_NX` | `256` | FastGrnndCuda 中 `nx<=该值` 的 group 使用 light prune：直接保留 GNN-Descent 近邻并轻量去重，跳过 reverse candidate + RNG occlusion 重剪枝；设为 `0` 可回到旧 heavy prune |
 | `UNG_FAST_GRNND_LIGHT_HEAD` | `final_degree-8` | light prune 中保留最近邻头部的数量；默认 `R=32` 时为 `24`，尾部 8 条从 GNN 候选尾部采样以增加多样性 |
@@ -137,7 +156,7 @@ UNG_CROSS_EDGE_GPU_STRICT=1 \
 build_UNG_index ...
 ```
 
-当前推荐 cross-edge universal 路径：
+历史/工程 cross-edge universal 路径：
 
 ```bash
 UNG_GROUP_GRAPH_IMPL=0 \

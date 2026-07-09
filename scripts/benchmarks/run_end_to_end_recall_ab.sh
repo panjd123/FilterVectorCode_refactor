@@ -23,6 +23,8 @@ Optional inputs:
   NUM_REPEATS         default: 3
   LSEARCH_VALUES      default: "20 50 100 200"
   NUM_ENTRY_POINTS    default: 16
+  IS_UNG_MORE_ENTRY   default: false
+  ENTRY_GROUP_PROVIDER default: cpu_min_super_sets
   BUILD_SCENARIO      default: general
   SEARCH_SCENARIO     default: containment
   UNG_ADDITIONAL_EDGES_IMPL
@@ -38,6 +40,7 @@ Dataset metadata:
 
 Variants can be overridden with VARIANTS, default:
   cpu_vamana_group fastgrnnd_cpu_fallback fastgrnnd_complete_fallback
+  Current best full-quality variant: best_full_quality
 EOF
 }
 
@@ -136,7 +139,7 @@ check_file "$query_bin" "query vectors"
 check_file "$query_label" "query labels"
 if [[ ! -f "$query_group_ids" ]]; then
   echo "[WARN] query source groups missing: $query_group_ids" >&2
-  echo "       In the current search_UNG_index path this only matters if is_ung_more_entry is enabled; that flag is not exposed by the CLI and defaults to false." >&2
+  echo "       In the current search_UNG_index path this only matters if --is_ung_more_entry is enabled; scripts default IS_UNG_MORE_ENTRY=false." >&2
 fi
 
 run_or_print() {
@@ -220,6 +223,8 @@ optional_ung_env() {
     UNG_FAST_EXACT_DEVICE_LOOKUP \
     UNG_FAST_EXACT_PINNED_HOST \
     UNG_FAST_EXACT_ANCHOR_TAIL \
+    UNG_FAST_EXACT_ANCHOR_SLOTS \
+    UNG_FAST_EXACT_BIDIR_ANCHOR \
     UNG_ADAPTIVE_EXACT_MAX_NX \
     UNG_TAGORE_OVERLAP_FALLBACK \
     UNG_TAGORE_FALLBACK_THREADS \
@@ -244,7 +249,12 @@ optional_ung_env() {
     UNG_GPU_DB_CHUNK_QUERIES \
     UNG_GPU_PREPARE_DIRECT_HOSTREG \
     UNG_GPU_PREPARE_DIRECT_PAGEABLE \
-    UNG_GPU_PREPARE_HOSTREG_MAX_MB; do
+    UNG_GPU_PREPARE_HOSTREG_MAX_MB \
+    UNG_SPECIAL_BLOCKS \
+    UNG_SPECIAL_BLOCK_DATA_MODE \
+    UNG_SPECIAL_BLOCK_MIN_POINTS \
+    UNG_SPECIAL_BLOCK_SEARCH \
+    UNG_SPECIAL_BLOCK_FREE_USE_REGULAR; do
     if [[ -n "${!name:-}" ]]; then
       printf '%s=%s\n' "$name" "${!name}"
     fi
@@ -308,6 +318,41 @@ UNG_CROSS_EDGE_IMPL=${cross_edge_impl}
 UNG_ADDITIONAL_EDGES_IMPL=${additional_edges_impl}
 UNG_GPU_TOPK_IMPL=${gpu_topk_impl}
 UNG_CROSS_EDGE_GPU_STRICT=${cross_edge_gpu_strict}
+EOF
+      optional_ung_env
+      ;;
+    best_full_quality)
+      cat <<EOF
+UNG_BUILD_PROFILE=custom
+UNG_GROUP_GRAPH_IMPL=3
+UNG_TAGORE_MIN_GROUP_SIZE=${UNG_TAGORE_MIN_GROUP_SIZE:-128}
+UNG_TAGORE_K=${UNG_TAGORE_K:-64}
+UNG_TAGORE_ITER=${UNG_TAGORE_ITER:-4}
+UNG_TAGORE_M=${UNG_TAGORE_M:-64}
+UNG_FAST_GRNND_LIGHT_PRUNE_NX=${UNG_FAST_GRNND_LIGHT_PRUNE_NX:-256}
+UNG_FAST_GRNND_LIGHT_HEAD=${UNG_FAST_GRNND_LIGHT_HEAD:-16}
+UNG_FAST_GRNND_REPAIR_DEGREE=${UNG_FAST_GRNND_REPAIR_DEGREE:-1}
+UNG_FAST_GRNND_BATCH_EXACT_NX=${UNG_FAST_GRNND_BATCH_EXACT_NX:-4096}
+UNG_FAST_EXACT_DIRECT_H2D=${UNG_FAST_EXACT_DIRECT_H2D:-1}
+UNG_FAST_EXACT_DEVICE_LOOKUP=${UNG_FAST_EXACT_DEVICE_LOOKUP:-1}
+UNG_FAST_EXACT_ANCHOR_TAIL=${UNG_FAST_EXACT_ANCHOR_TAIL:-1}
+UNG_FAST_EXACT_ANCHOR_SLOTS=${UNG_FAST_EXACT_ANCHOR_SLOTS:-4}
+UNG_FAST_EXACT_BIDIR_ANCHOR=${UNG_FAST_EXACT_BIDIR_ANCHOR:-1}
+UNG_FAST_EXACT_REVERSE_CAP=${UNG_FAST_EXACT_REVERSE_CAP:-4}
+UNG_FAST_EXACT_REVERSE_SLOTS=${UNG_FAST_EXACT_REVERSE_SLOTS:-4}
+UNG_FAST_EXACT_REVERSE_FORWARD_CAP=${UNG_FAST_EXACT_REVERSE_FORWARD_CAP:-16}
+UNG_GET_MIN_SUPER_SETS_IMPL=0
+UNG_LNG_IMPL=0
+UNG_DESCENDANTS_IMPL=0
+UNG_COVERAGE_IMPL=1
+UNG_COVERAGE_THREADS=128
+UNG_CROSS_EDGE_IMPL=1
+UNG_ADDITIONAL_EDGES_IMPL=2
+UNG_ADDITIONAL_DIRECT_APPEND=0
+UNG_GPU_TOPK_IMPL=3
+UNG_CROSS_EDGE_GPU_STRICT=${cross_edge_gpu_strict}
+UNG_TAGORE_COMPACT_D2H=${UNG_TAGORE_COMPACT_D2H:-1}
+UNG_TAGORE_FILL_THREADS=${UNG_TAGORE_FILL_THREADS:-16}
 EOF
       optional_ung_env
       ;;
@@ -375,7 +420,7 @@ run_variant() {
   if [[ "$dry_run" == "1" ]]; then
     echo "[DRY_RUN] $search_app ..." | tee "$search_log"
   else
-    "$search_app" \
+    env $(tr '\n' ' ' < "$vout/others/env") "$search_app" \
       --data_type float --dataset "$DATASET" --dist_fn L2 --num_threads "$num_threads" \
       --K "$k" --num_repeats "$num_repeats" \
       --is_new_method true \
@@ -383,6 +428,7 @@ run_variant() {
       --is_idea2_available "${IS_IDEA2_AVAILABLE:-false}" \
       --is_new_trie_method "${IS_NEW_TRIE_METHOD:-true}" \
       --is_rec_more_start "${IS_REC_MORE_START:-false}" \
+      --is_ung_more_entry "${IS_UNG_MORE_ENTRY:-false}" \
       --base_bin_file "$base_bin" \
       --query_bin_file "$query_bin" \
       --query_label_file "$query_label" \
@@ -392,7 +438,7 @@ run_variant() {
       --result_path_prefix "$result_dir/" \
       --acorn_index_path "$index_dir/../acorn_output/acorn.index" \
       --acorn_1_index_path "$index_dir/../acorn_output/acorn1.index" \
-      --selector_modle_prefix "${SELECTOR_MODEL_PREFIX:-$out/SelectModels}" \
+      --selector_model_prefix "${SELECTOR_MODEL_PREFIX:-$out/SelectModels}" \
       --scenario "$search_scenario" \
       --num_entry_points "$num_entry_points" \
       --Lsearch $lsearch_values \
@@ -401,7 +447,8 @@ run_variant() {
       --efs_start "${EFS_START:-100}" \
       --efs_step_slow "${EFS_STEP_SLOW:-50}" \
       --efs_step_fast "${EFS_STEP_FAST:-20}" \
-      --lsearch_threshold "${LSEARCH_THRESHOLD:-100}" > "$search_log" 2>&1
+      --lsearch_threshold "${LSEARCH_THRESHOLD:-100}" \
+      --entry_group_provider "${ENTRY_GROUP_PROVIDER:-cpu_min_super_sets}" > "$search_log" 2>&1
   fi
 
   local index_ms group_ms cross_ms summary_file build_csv

@@ -142,12 +142,12 @@ namespace ANNS
       }
    }
 
-   // fxy_add:方法一debug
+   // Method-1 super-set lookup with debug metrics for selector feature collection.
    void TrieIndex::get_super_set_entrances_debug(const std::vector<LabelType> &label_set,
                                                  std::vector<std::shared_ptr<TrieNode>> &super_set_entrances,
                                                  bool avoid_self, bool need_containment,
                                                  std::atomic<int> &print_counter, TrieMethod1Metrics &metrics,
-                                                 bool skip_group_id_check) const // 1. 添加 print_counter 参数
+                                                 bool skip_group_id_check) const
    {
       super_set_entrances.clear();
       metrics = {};
@@ -195,7 +195,6 @@ namespace ANNS
             for (auto node : candidates_from_map)
             {
                examine_containment_calls++; // [METRIC]
-               // if (examine_containment_debug(label_set, node, upward_traversal_nodes))
                if (examine_containment_debug(label_set, node, upward_traversal_nodes, visited_upward_nodes, redundant_upward_traversals))
                {
                   successful_containment_checks++; // [METRIC]
@@ -268,24 +267,23 @@ namespace ANNS
       metrics.bfs_nodes_processed = bfs_nodes_processed;
 
 #if ENABLE_TRIE_DEBUG_OUTPUT
-      // --- 4. 使用原子计数器控制打印次数 ---
-      if (print_counter.fetch_add(1, std::memory_order_relaxed) < 10) // 2. 使用原子计数器
+      if (print_counter.fetch_add(1, std::memory_order_relaxed) < 10)
       {
 #pragma omp critical
          {
-            long long total_traversed = upward_traversal_nodes + bfs_nodes_processed; // 计算总数
+            long long total_traversed = upward_traversal_nodes + bfs_nodes_processed;
             std::cout << "\n--- Method 1 (Shortcut) Performance Analysis ---\n"
                       << "Query: "
                       << "size=" << label_set.size() << ", last_label=" << (label_set.empty() ? -1 : label_set.back()) << "\n"
                       << "--- Phase 1: Candidate Generation & Verification ---\n"
                       << "   - Initial candidates from map: " << initial_candidates_from_map << "\n"
                       << "   - `examine_containment` calls: " << examine_containment_calls << "\n"
-                      << "   - Nodes traversed UPWARDS: " << upward_traversal_nodes << " <--- (New Metric)\n" // 新指标
+                      << "   - Nodes traversed UPWARDS: " << upward_traversal_nodes << "\n"
                       << "   - Redundant upward traversals: " << redundant_upward_traversals << "\n"
                       << "   - Successful checks (queue size): " << successful_containment_checks << "\n"
                       << "   - Time for this phase: " << time_candidate_gen << " ms\n"
                       << "--- Phase 2: Downward BFS ---\n"
-                      << "   - Nodes traversed DOWNWARDS (BFS): " << bfs_nodes_processed << "\n" // 明确这是向下
+                      << "   - Nodes traversed DOWNWARDS (BFS): " << bfs_nodes_processed << "\n"
                       << "   - Time for this phase: " << time_bfs << " ms\n"
                       << "--- Summary ---\n"
                       << "   - Total super sets found: " << super_set_entrances.size() << "\n"
@@ -298,7 +296,7 @@ namespace ANNS
 #endif
    }
 
-   // fxy_add: 方法二新的主入口函数调试输出版本
+   // Recursive super-set lookup with debug metrics for selector feature collection.
    void TrieIndex::get_super_set_entrances_new_debug(const std::vector<LabelType> &label_set,
                                                      std::vector<std::shared_ptr<TrieNode>> &super_set_entrances,
                                                      bool avoid_self, bool need_containment,
@@ -321,11 +319,10 @@ namespace ANNS
       }
       std::set<IdxType> visited_groups;
 
-      // --- 启动核心递归搜索 ---
+      // Run the recursive trie search from the root.
       find_supersets_recursive_debug(
           _root, label_set, 0, super_set_entrances,
-          visited_groups, avoided_node, metrics, 0 // 传入指标对象和初始深度0
-      );
+          visited_groups, avoided_node, metrics, 0);
 
 #if ENABLE_TRIE_DEBUG_OUTPUT
       auto function_end_time = std::chrono::high_resolution_clock::now();
@@ -336,7 +333,7 @@ namespace ANNS
       {
 #pragma omp critical
          {
-            long long total_traversed = metrics.recursive_calls + metrics.nodes_processed_in_bfs; // 计算总数
+            long long total_traversed = metrics.recursive_calls + metrics.nodes_processed_in_bfs;
             std::cout << "\n--- Method 2 (Recursive) Performance Analysis ---\n"
                       << "Query: size=" << label_set.size() << ", first_label=" << label_set[0] << "\n"
                       << "--- Phase 1: Recursive Search (DFS) ---\n"
@@ -348,7 +345,7 @@ namespace ANNS
                       << "   - Nodes traversed in all BFS: " << metrics.nodes_processed_in_bfs << "\n"
                       << "--- Summary ---\n"
                       << "   - Total super sets found: " << super_set_entrances.size() << "\n"
-                      << "   - Total Nodes Traversed (DFS + BFS): " << total_traversed << "\n" // 总数
+                      << "   - Total Nodes Traversed (DFS + BFS): " << total_traversed << "\n"
                       << "   - Total function time: " << total_time << " ms\n"
                       << "-----------------------------------------------------------\n"
                       << std::endl;
@@ -357,15 +354,14 @@ namespace ANNS
 #endif
    }
 
-   // fxy_add:方法二新的主入口函数调试输出版本,不从root进入
+   // Recursive super-set lookup variant that starts from nodes matching the first query label.
    void TrieIndex::get_super_set_entrances_new_more_sp_debug(const std::vector<LabelType> &label_set,
                                                              std::vector<std::shared_ptr<TrieNode>> &super_set_entrances,
                                                              bool avoid_self, bool need_containment,
                                                              std::atomic<int> &print_counter, TrieSearchMetricsRecursive &metrics) const
    {
-      // --- 0. 预处理与边界检查---
       super_set_entrances.clear();
-      metrics = {}; // 重置性能指标
+      metrics = {};
 
       if (!need_containment || label_set.empty())
       {
@@ -376,7 +372,6 @@ namespace ANNS
          return;
       }
 
-      // --- 1. 初始化---
 #if ENABLE_TRIE_DEBUG_OUTPUT
       auto function_start_time = std::chrono::high_resolution_clock::now();
 #endif
@@ -389,45 +384,35 @@ namespace ANNS
 
       std::set<IdxType> visited_groups;
 
-      // 对应伪代码 L12: for each node u in I(Lq[0]) do
       const auto &entry_points = _label_to_nodes.at(label_set[0]);
       if (entry_points.empty())
       {
          return;
       }
 
-      // --- 将递归调用改为迭代调用 ---
       for (const auto &start_node : entry_points)
       {
-         // 对应伪代码 L13: TOPDOWN-SEARCHREC(Lq, u)
-         /*
-         find_supersets_recursive_debug(
-               start_node, label_set, 1, super_set_entrances,
-               visited_groups, avoided_node, metrics, 1);
-         */
-
-         // 修改为调用新的迭代函数:从 start_node 开始，匹配 label_set 中索引为 1 的下一个标签
+         // Match the remaining query labels from each node that already
+         // matched the first query label.
          find_supersets_iterative_debug(
              start_node,
              label_set,
-             1, // 从查询的第二个标签（索引1）开始匹配
+             1,
              super_set_entrances,
              visited_groups,
              avoided_node,
              metrics);
       }
 
-// --- 3. 最终报告 ---
 #if ENABLE_TRIE_DEBUG_OUTPUT
       auto function_end_time = std::chrono::high_resolution_clock::now();
       double total_time = std::chrono::duration<double, std::milli>(function_end_time - function_start_time).count();
 
       if (print_counter.fetch_add(1, std::memory_order_relaxed) < 10)
       {
-// 这里的临界区可以保留，以防止此函数本身在外部被多线程调用时打印混乱
 #pragma omp critical(PrintSuperSetReport)
          {
-            long long total_traversed = metrics.recursive_calls + metrics.nodes_processed_in_bfs; // 计算总数
+            long long total_traversed = metrics.recursive_calls + metrics.nodes_processed_in_bfs;
             std::cout << "\n--- Method 2 (Recursive) Performance Analysis ---\n"
                       << "Query: size=" << label_set.size() << ", first_label=" << label_set[0] << "\n"
                       << "--- Phase 1: Recursive Search (DFS) ---\n"
@@ -439,7 +424,7 @@ namespace ANNS
                       << "   - Nodes traversed in all BFS: " << metrics.nodes_processed_in_bfs << "\n"
                       << "--- Summary ---\n"
                       << "   - Total super sets found: " << super_set_entrances.size() << "\n"
-                      << "   - Total Nodes Traversed (DFS + BFS): " << total_traversed << "\n" // 总数
+                      << "   - Total Nodes Traversed (DFS + BFS): " << total_traversed << "\n"
                       << "   - Total function time: " << total_time << " ms\n"
                       << "-----------------------------------------------------------\n"
                       << std::endl;
@@ -448,7 +433,7 @@ namespace ANNS
 #endif
    }
 
-   // fxy_mod: 增加了 metrics 参数来累积BFS相关的统计数据
+   // Collect terminal descendants while accumulating BFS collection metrics.
    void TrieIndex::collect_all_terminals_debug(
        std::shared_ptr<TrieNode> start_node,
        std::vector<std::shared_ptr<TrieNode>> &results,
@@ -456,11 +441,9 @@ namespace ANNS
        const std::shared_ptr<TrieNode> &avoided_node,
        TrieSearchMetricsRecursive &metrics) const
    {
-      // [METRIC] 记录收集函数被调用
       metrics.collection_calls++;
 
       std::queue<std::shared_ptr<TrieNode>> q;
-      // if (start_node)
       q.push(start_node);
 
       while (!q.empty())
@@ -468,14 +451,8 @@ namespace ANNS
          auto cur = q.front();
          q.pop();
 
-         // [METRIC] 记录BFS中处理的节点数
          metrics.nodes_processed_in_bfs++;
 
-         // if (cur->group_id > 0 && cur != avoided_node && visited_groups.find(cur->group_id) == visited_groups.end())
-         // {
-         //    visited_groups.insert(cur->group_id);
-         //    results.push_back(cur);
-         // }
          if (cur->group_id > 0)
          {
             results.push_back(cur);
@@ -488,7 +465,7 @@ namespace ANNS
       }
    }
 
-   // fxy_mod: 递归版本
+   // Recursive trie traversal used by the debug/selector-feature path.
    void TrieIndex::find_supersets_recursive_debug(
        std::shared_ptr<TrieNode> current_node,
        const std::vector<LabelType> &sorted_query,
@@ -496,17 +473,14 @@ namespace ANNS
        std::vector<std::shared_ptr<TrieNode>> &results,
        std::set<IdxType> &visited_groups,
        const std::shared_ptr<TrieNode> &avoided_node,
-       TrieSearchMetricsRecursive &metrics, // [MOD]
-       int current_depth) const             // [MOD]
+       TrieSearchMetricsRecursive &metrics,
+       int current_depth) const
    {
-      // [METRIC] 更新递归调用次数和最大深度
       metrics.recursive_calls++;
       metrics.max_recursion_depth = std::max(metrics.max_recursion_depth, current_depth);
 
-      // === 递归终止条件 ===
       if (query_idx == sorted_query.size())
       {
-         // [METRIC] 计时并调用收集函数
          auto bfs_start_time = std::chrono::high_resolution_clock::now();
          collect_all_terminals_debug(current_node, results, visited_groups, avoided_node, metrics);
          auto bfs_end_time = std::chrono::high_resolution_clock::now();
@@ -516,7 +490,6 @@ namespace ANNS
 
       LabelType target_label = sorted_query[query_idx];
 
-      // === 递归 ===
       for (const auto &child_pair : current_node->children)
       {
          LabelType child_label = child_pair.first;
@@ -532,13 +505,12 @@ namespace ANNS
          }
          else // child_label > target_label
          {
-            // [METRIC] 关键！记录剪枝事件
             metrics.pruning_events++;
          }
       }
    }
 
-   // fxy_add:迭代版本
+   // Iterative form of the recursive debug traversal, retained for diagnostics.
    void TrieIndex::find_supersets_iterative_debug(
        std::shared_ptr<TrieNode> start_node,
        const std::vector<LabelType> &sorted_query,
@@ -548,8 +520,7 @@ namespace ANNS
        const std::shared_ptr<TrieNode> &avoided_node,
        TrieSearchMetricsRecursive &metrics) const
    {
-      // 对应伪代码 L18: Q <- {u, 1}
-      // 创建一个队列来存储状态 {节点指针, 下一个要匹配的查询标签索引}
+      // Queue state: trie node plus the next query-label index to match.
       std::queue<std::pair<std::shared_ptr<TrieNode>, size_t>> q;
 
       if (start_node)
@@ -557,46 +528,38 @@ namespace ANNS
          q.push({start_node, start_query_idx});
       }
 
-      // 对应伪代码 L19: while Q != ∅ do
       while (!q.empty())
       {
-         // 对应伪代码 L20: {u_i, i} <- Q.dequeue()
          auto [current_node, query_idx] = q.front();
          q.pop();
 
          metrics.recursive_calls++;
 
-         // 对应伪代码 L21: if i = |L_q| then
-         // 注意：伪代码索引从1开始，C++从0开始。当 query_idx 等于查询长度时，表示所有标签已匹配。
          if (query_idx == sorted_query.size())
          {
             collect_all_terminals_debug(current_node, results, visited_groups, avoided_node, metrics);
             continue;
          }
 
-         // 对应伪代码 L23-L24: else for each child u_c of u_i on T do
          LabelType target_label = sorted_query[query_idx];
 
-         // TrieNode的子节点map默认按key（label ID）排序，这满足了伪代码的隐含要求。
+         // Children are ordered by label id, matching the pruning assumption.
          for (const auto &child_pair : current_node->children)
          {
             LabelType child_label = child_pair.first;
             auto child_node = child_pair.second;
 
-            // 对应伪代码 L25: if u_c corresponds to a label with a smaller ID than L_q[i] then
             if (child_label < target_label)
             {
                q.push({child_node, query_idx});
             }
-            // 对应伪代码 L27: else if u_c corresponds to L_q[i] then
             else if (child_label == target_label)
             {
                q.push({child_node, query_idx + 1});
             }
             else
-            { // child_label > target_label
+            {
                metrics.pruning_events++;
-               // break;
             }
          }
       }
@@ -632,7 +595,7 @@ namespace ANNS
    }
 
 
-   // fxy_add: debug版本的 examine_containment，增加了节点遍历计数和冗余访问检测
+   // Containment check with upward-traversal and redundant-visit counters.
    bool TrieIndex::examine_containment_debug(const std::vector<LabelType> &label_set,
                                              const std::shared_ptr<TrieNode> &node,
                                              long long &nodes_traversed,
@@ -641,16 +604,16 @@ namespace ANNS
    {
       auto cur = node->parent;
       if (!cur)
-         return false; // 安全检查
+         return false;
 
-      nodes_traversed++; // 计算第一步
+      nodes_traversed++;
       if (visited_upward.count(cur))
       {
-         redundant_steps++; // [新增] 这是一次冗余访问
+         redundant_steps++;
       }
       else
       {
-         visited_upward.insert(cur); // [新增] 标记为已访问
+         visited_upward.insert(cur);
       }
 
       for (int64_t i = label_set.size() - 2; i >= 0; --i)
@@ -658,15 +621,15 @@ namespace ANNS
          while (cur->label > label_set[i] && cur->parent != nullptr)
          {
             cur = cur->parent;
-            nodes_traversed++; // 计算每一次向上移动
+            nodes_traversed++;
 
             if (visited_upward.count(cur))
             {
-               redundant_steps++; // [新增] 这是一次冗余访问
+               redundant_steps++;
             }
             else
             {
-               visited_upward.insert(cur); // [新增] 标记为已访问
+               visited_upward.insert(cur);
             }
          }
          if (cur->parent == nullptr || cur->label != label_set[i])
@@ -681,16 +644,16 @@ namespace ANNS
       std::ofstream out(filename);
 
       // save the max label id and number of nodes
-      out << _max_label_id << std::endl;
+      out << _max_label_id << '\n';
       IdxType num_nodes = 1;
       for (const auto &nodes : _label_to_nodes)
          num_nodes += nodes.size();
-      out << num_nodes << std::endl;
+      out << num_nodes << '\n';
 
       // save the root node
       std::unordered_map<std::shared_ptr<TrieNode>, IdxType> node_to_id;
       out << 0 << " " << _root->label << " " << _root->group_id << " "
-          << _root->label_set_size << " " << _root->group_size << std::endl;
+          << _root->label_set_size << " " << _root->group_size << '\n';
       node_to_id[_root] = 0;
 
       // save the other nodes
@@ -699,7 +662,7 @@ namespace ANNS
          for (const auto &node : nodes)
          {
             out << id << " " << node->label << " " << node->group_id << " "
-                << node->label_set_size << " " << node->group_size << std::endl;
+                << node->label_set_size << " " << node->group_size << '\n';
             node_to_id[node] = id;
             ++id;
          }
@@ -708,9 +671,9 @@ namespace ANNS
       for (const auto &each : node_to_id)
       {
          if (each.first == _root)
-            out << each.second << " 0" << std::endl;
+            out << each.second << " 0" << '\n';
          else
-            out << each.second << " " << node_to_id[each.first->parent] << std::endl;
+            out << each.second << " " << node_to_id[each.first->parent] << '\n';
       }
 
       // save the children of each node
@@ -719,7 +682,7 @@ namespace ANNS
          out << each.second << " " << each.first->children.size() << " ";
          for (const auto &child : each.first->children)
             out << child.first << " " << node_to_id[child.second] << " ";
-         out << std::endl;
+         out << '\n';
       }
    }
 
@@ -782,7 +745,7 @@ namespace ANNS
       return index_size;
    }
 
-   // fxy_add
+   // Static trie summary used by route selectors and query diagnostics.
    TrieStaticMetrics TrieIndex::calculate_static_metrics() const
    {
       TrieStaticMetrics metrics;

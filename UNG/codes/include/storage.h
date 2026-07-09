@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <cstdlib>
 #include <xmmintrin.h>
 #include <immintrin.h>
 #include "config.h"
@@ -73,10 +74,11 @@ namespace ANNS {
 
             // get data
             std::vector<LabelType>* get_offseted_label_sets(IdxType idx) { return label_sets + idx; }
-            char* get_vector(IdxType idx) { return reinterpret_cast<char *>(vecs + idx * dim); }
+            char* get_vector(IdxType idx) { return reinterpret_cast<char *>(vecs + static_cast<size_t>(idx) * static_cast<size_t>(dim)); }
             std::vector<LabelType>& get_label_set(IdxType idx) { return label_sets[idx]; }
             inline void prefetch_vec_by_id(IdxType idx) const {
-                for (size_t d = 0; d < prefetch_byte_num; d += 64) _mm_prefetch((const char *)(vecs + idx * dim) + d, _MM_HINT_T0);
+                const size_t offset = static_cast<size_t>(idx) * static_cast<size_t>(dim);
+                for (size_t d = 0; d < prefetch_byte_num; d += 64) _mm_prefetch((const char *)(vecs + offset) + d, _MM_HINT_T0);
             }
 
             // obtain a point cloest to the center
@@ -85,7 +87,7 @@ namespace ANNS {
             // clean
             void clean() {
                 if (vecs)
-                    delete[] vecs;
+                    std::free(vecs);
                 if (label_sets)
                     delete[] label_sets;
             }

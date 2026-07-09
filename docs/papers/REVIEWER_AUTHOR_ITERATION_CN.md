@@ -150,7 +150,7 @@ scripts/benchmarks/run_end_to_end_recall_ab.sh
 | naive GPU cross | 5000 | 0.969733 | 1023.950 | 143.354 |
 | paper fused cross | 5000 | 0.969767 | 1107.740 | 148.865 |
 
-限制：这些 run 的 group graph 没有切到 FastGrnndCuda，因此它们只能支持 cross-edge 后端的 query-level sanity，不能证明 FastGrnndCuda 的端到端 recall。`query_source_groups` 虽然缺失，但当前 `search_UNG_index` 中 `is_ung_more_entry=false`，该文件不会参与当前搜索路径。
+限制：这些 run 的 group graph 没有切到 FastGrnndCuda，因此它们只能支持 cross-edge 后端的 query-level sanity，不能证明 FastGrnndCuda 的端到端 recall。`query_source_groups` 虽然缺失，但默认 `search_UNG_index --is_ung_more_entry=false`，该文件不会参与当前搜索路径。
 
 详细整理见：
 

@@ -231,7 +231,7 @@ DEFAULT_ARTIFACTS: tuple[ArtifactItem, ...] = (
             "/home/graphdb/fv_runs/additional_direct_x400_lock_on_20260602_083735/summary.csv",
             "/home/graphdb/fv_runs/additional_direct_x400_lock_on_20260602_083735/fastgrnnd_cpu_fallback/others/build.log",
             "/home/graphdb/fv_runs/additional_direct_x400_lock_on_20260602_083735/fastgrnnd_cpu_fallback/others/env",
-            "UNG/codes/src/uni_nav_graph.cpp",
+            "UNG/codes/src/uni_nav_graph_cross_edges.cpp",
         ),
         note=(
             "Negative ablation: directly appending additional_edges into Graph::neighbors after GPU cross-edge "
@@ -335,7 +335,8 @@ DEFAULT_ARTIFACTS: tuple[ArtifactItem, ...] = (
             "/home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/ung_cross_edge_fused_20260602_091046/others/ung_build.log",
             "/home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/ung_cross_edge_fused_20260602_091046/results/build_time.csv",
             "docs/reports/UNIVERSAL_GPU_REPLACEMENT_ANALYSIS_CN.md",
-            "UNG/codes/src/gpu_gemm_topk.cu",
+            "UNG/codes/src/gpu_cross_edge_source_exact.cuh",
+            "UNG/codes/src/gpu_cross_edge_source_exact_kernels.cuh",
         ),
         note=(
             "Checked source-centric id-only negative ablation after fixing null-distance output and stream "
@@ -351,8 +352,9 @@ DEFAULT_ARTIFACTS: tuple[ArtifactItem, ...] = (
             "/home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/universal_all_db_sift30_20260602_092318/others/ung_build.log",
             "/home/graphdb/FilterVectorResultsRefactor/organized_benchmarks/universal_all_db_sift30_20260602_092318/results/build_time.csv",
             "docs/reports/UNIVERSAL_GPU_REPLACEMENT_ANALYSIS_CN.md",
+            "UNG/codes/src/gpu_cross_edge_double_buffer.cuh",
             "UNG/codes/src/gpu_gemm_topk.cu",
-            "UNG/codes/src/uni_nav_graph.cpp",
+            "UNG/codes/src/ung_cross_edge_config.cpp",
         ),
         note=(
             "Supports the updated universal cross-edge route: target-centric descriptor batching, "
@@ -557,7 +559,8 @@ def validate_source_checked_negative(item: ArtifactItem) -> list[str]:
     build_log = Path(item.paths[0])
     build_csv = Path(item.paths[1])
     report = Path(item.paths[2])
-    source = Path(item.paths[3])
+    source_route = Path(item.paths[3])
+    source_kernels = Path(item.paths[4])
 
     build = read_metric_csv(build_csv)
     expect_close(errors, "build_cross_edges_time", build.get("build_cross_edges_time"), 5926.67, 0.05)
@@ -589,14 +592,27 @@ def validate_source_checked_negative(item: ArtifactItem) -> list[str]:
         if phrase not in report_text:
             errors.append(f"source report missing phrase: {phrase}")
 
-    source_text = source.read_text(errors="replace")
+    source_route_text = source_route.read_text(errors="replace")
     for phrase in (
-        "if (out_dist) out_dist",
-        'read_env_int("UNG_GPU_SOURCE_EXACT_MODE", 0, 0, 1)',
+        "gpu_route.source_exact_mode",
         "source_exact stream failed",
     ):
-        if phrase not in source_text:
-            errors.append(f"source code missing safety phrase: {phrase}")
+        if phrase not in source_route_text:
+            errors.append(f"source route code missing safety phrase: {phrase}")
+
+    source_kernel_text = source_kernels.read_text(errors="replace")
+    if "if (out_dist) out_dist" not in source_kernel_text:
+        errors.append("source kernel code missing safety phrase: if (out_dist) out_dist")
+
+    cfg_source = Path("UNG/codes/src/ung_cross_edge_config.cpp")
+    cfg_text = cfg_source.read_text(errors="replace")
+    for phrase in (
+        'env_int("UNG_GPU_SOURCE_EXACT_MODE", 0, 0, 1)',
+        'env_int("UNG_GPU_SOURCE_EXACT_WARPS", 8, 1, 16)',
+        'env_int("UNG_GPU_SOURCE_EXACT_PAD_GROUPS", 1, 0, 1)',
+    ):
+        if phrase not in cfg_text:
+            errors.append(f"source config missing safety phrase: {phrase}")
 
     return errors
 
@@ -606,8 +622,9 @@ def validate_sift30_universal_flat_db(item: ArtifactItem) -> list[str]:
     build_log = Path(item.paths[0])
     build_csv = Path(item.paths[1])
     report = Path(item.paths[2])
-    gpu_source = Path(item.paths[3])
-    ung_source = Path(item.paths[4])
+    gpu_db_source = Path(item.paths[3])
+    gpu_main_source = Path(item.paths[4])
+    ung_source = Path(item.paths[5])
 
     build = read_metric_csv(build_csv)
     expect_close(errors, "universal build_cross_edges_time", build.get("build_cross_edges_time"), 3180.63, 0.05)
@@ -650,19 +667,28 @@ def validate_sift30_universal_flat_db(item: ArtifactItem) -> list[str]:
         if phrase not in report_text:
             errors.append(f"universal report missing phrase: {phrase}")
 
-    gpu_text = gpu_source.read_text(errors="replace")
+    gpu_db_text = gpu_db_source.read_text(errors="replace")
     for phrase in (
-        "universal_gpu_route",
-        'read_env_int("UNG_GPU_DB_LARGE_MAX_NX", universal_gpu_route ? 1048576 : 1023',
+        "CrossEdgeDoubleBufferRoute make_cross_edge_double_buffer_route(",
+        "const ANNS::CrossEdgeGpuRuntimeConfig& gpu_route",
+        "route.db_nosplit = gpu_route.db_nosplit",
+        "route.large_max_nx = gpu_route.db_large_max_nx",
+    ):
+        if phrase not in gpu_db_text:
+            errors.append(f"universal gpu DB source missing phrase: {phrase}")
+
+    gpu_main_text = gpu_main_source.read_text(errors="replace")
+    for phrase in (
         "cross_group_neighbor_flat_ids != nullptr",
     ):
-        if phrase not in gpu_text:
-            errors.append(f"universal gpu source missing phrase: {phrase}")
+        if phrase not in gpu_main_text:
+            errors.append(f"universal gpu main source missing phrase: {phrase}")
 
     ung_text = ung_source.read_text(errors="replace")
     for phrase in (
-        'read_env_int_local("UNG_UNIVERSAL_GPU", 0, 0, 1)',
-        'read_env_int_local("UNG_GPU_FLAT_ID_WRITEBACK", universal_gpu_route ? 1 : 0',
+        'env_int("UNG_UNIVERSAL_GPU", 0, 0, 1)',
+        'env_int("UNG_GPU_FLAT_ID_WRITEBACK", cfg.universal_route ? 1 : 0',
+        "cfg.flat_id_writeback",
         "skip_searchqueue_storage",
     ):
         if phrase not in ung_text:

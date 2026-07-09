@@ -6,11 +6,37 @@
 #include <sstream>
 #include <chrono>
 #include <algorithm>
+#include <cstdlib>
+#include <limits>
+#include <stdexcept>
 #include "utils.h"
 #include "storage.h"
 
 namespace ANNS
 {
+   namespace
+   {
+      size_t checked_vector_bytes(IdxType num_points, IdxType dim, size_t elem_size)
+      {
+         const size_t n = static_cast<size_t>(num_points);
+         const size_t d = static_cast<size_t>(dim);
+         if (d != 0 && n > std::numeric_limits<size_t>::max() / d)
+            throw std::overflow_error("Storage vector element count overflows size_t");
+         const size_t elems = n * d;
+         if (elem_size != 0 && elems > std::numeric_limits<size_t>::max() / elem_size)
+            throw std::overflow_error("Storage vector byte size overflows size_t");
+         return elems * elem_size;
+      }
+
+      void *aligned_alloc_checked(size_t alignment, size_t bytes)
+      {
+         const size_t rounded = ((bytes + alignment - 1) / alignment) * alignment;
+         void *ptr = std::aligned_alloc(alignment, rounded);
+         if (ptr == nullptr)
+            throw std::bad_alloc();
+         return ptr;
+      }
+   }
 
    // claim the class
    template class Storage<float>;
@@ -89,8 +115,9 @@ namespace ANNS
       file.read((char *)&num_points, sizeof(IdxType));
       file.read((char *)&dim, sizeof(IdxType));
       num_points = std::min(num_points, max_num_points);
-      vecs = static_cast<T *>(std::aligned_alloc(32, num_points * dim * sizeof(T)));
-      file.read((char *)vecs, num_points * dim * sizeof(T));
+      const size_t vector_bytes = checked_vector_bytes(num_points, dim, sizeof(T));
+      vecs = static_cast<T *>(aligned_alloc_checked(32, vector_bytes));
+      file.read((char *)vecs, static_cast<std::streamsize>(vector_bytes));
       file.close();
 
       // for prefetch
@@ -148,7 +175,8 @@ namespace ANNS
       std::ofstream file(bin_file, std::ios::binary);
       file.write((char *)&num_points, sizeof(IdxType));
       file.write((char *)&dim, sizeof(IdxType));
-      file.write((char *)vecs, num_points * dim * sizeof(T));
+      const size_t vector_bytes = checked_vector_bytes(num_points, dim, sizeof(T));
+      file.write((char *)vecs, static_cast<std::streamsize>(vector_bytes));
       file.close();
 
       // write label data
@@ -179,16 +207,21 @@ namespace ANNS
    {
 
       // move the vectors and labels
-      auto new_vecs = static_cast<T *>(std::aligned_alloc(32, num_points * dim * sizeof(T)));
+      const size_t vector_bytes = checked_vector_bytes(num_points, dim, sizeof(T));
+      auto new_vecs = static_cast<T *>(aligned_alloc_checked(32, vector_bytes));
       auto new_label_sets = new std::vector<LabelType>[num_points];
       for (auto i = 0; i < num_points; ++i)
       {
-         std::memcpy(new_vecs + i * dim, vecs + new_to_old_ids[i] * dim, dim * sizeof(T));
+         if (new_to_old_ids[i] >= num_points)
+            throw std::out_of_range("Storage::reorder_data received out-of-range vector id");
+         const size_t dst_offset = static_cast<size_t>(i) * static_cast<size_t>(dim);
+         const size_t src_offset = static_cast<size_t>(new_to_old_ids[i]) * static_cast<size_t>(dim);
+         std::memcpy(new_vecs + dst_offset, vecs + src_offset, static_cast<size_t>(dim) * sizeof(T));
          new_label_sets[i] = label_sets[new_to_old_ids[i]];
       }
 
       // clean up
-      delete[] vecs;
+      std::free(vecs);
       delete[] label_sets;
       vecs = new_vecs;
       label_sets = new_label_sets;
@@ -203,7 +236,7 @@ namespace ANNS
       T *center = new T[dim]();
       for (auto id = 0; id < num_points; ++id)
          for (auto d = 0; d < dim; ++d)
-            center[d] += *(vecs + id * dim + d);
+            center[d] += *(vecs + static_cast<size_t>(id) * static_cast<size_t>(dim) + d);
       for (auto d = 0; d < dim; ++d)
          center[d] /= num_points;
 

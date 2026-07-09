@@ -46,53 +46,18 @@ namespace ANNS
       std::cout << "Ground truth loaded from " << filename << std::endl;
    }
 
-   /*float calculate_recall(const std::pair<IdxType, float> *gt, const std::pair<IdxType, float> *results, uint32_t num_queries, uint32_t K)
-   {
-      float total_correct = 0;
-      for (uint32_t i = 0; i < num_queries; i++)
-      {
-
-         // prepare ground truth set, offset records the last valid gt index
-         std::set<IdxType> gt_set;
-         int32_t offset = -1;
-         for (uint32_t j = 0; j < K; j++)
-            if (gt[i * K + j].first != -1)
-            {
-               offset = j;
-               gt_set.insert(gt[i * K + j].first);
-            }
-
-         // count the correct
-         for (uint32_t j = 0; j < K; j++)
-         {
-            if (results[i * K + j].first == -1)
-               break;
-            if (offset >= 0 && results[i * K + j].second == gt[i * K + offset].second)
-            { // for ties
-               total_correct++;
-               offset--;
-            }
-            else
-            {
-               if (gt_set.find(results[i * K + j].first) != gt_set.end())
-                  total_correct++;
-            }
-         }
-      }
-      return 100.0 * total_correct / (num_queries * K);
-   }*/
-   // fxy_add
+   // Recall over the number of valid ground-truth neighbors, so queries with
+   // fewer than K labeled answers do not dilute the score.
    float calculate_recall(const std::pair<IdxType, float> *gt, const std::pair<IdxType, float> *results, uint32_t num_queries, uint32_t K)
    {
       float total_correct = 0;
-      float total_relevant = 0; // 新增：统计所有查询的真实相关结果总数
+      float total_relevant = 0;
 
       for (uint32_t i = 0; i < num_queries; i++)
       {
-         // 构建 ground truth 集合，并计算当前查询的真实相关数
          std::set<IdxType> gt_set;
          int32_t offset = -1;
-         uint32_t num_relevant = 0; // 当前查询的真实相关数
+         uint32_t num_relevant = 0;
 
          for (uint32_t j = 0; j < K; j++)
          {
@@ -100,20 +65,19 @@ namespace ANNS
             {
                offset = j;
                gt_set.insert(gt[i * K + j].first);
-               num_relevant++; // 统计有效 GT
+               num_relevant++;
             }
          }
 
-         total_relevant += num_relevant; // 累加到总真实相关数
+         total_relevant += num_relevant;
 
-         // 统计正确匹配数
          for (uint32_t j = 0; j < K; j++)
          {
             if (results[i * K + j].first == -1)
                break;
 
             if (offset >= 0 && results[i * K + j].second == gt[i * K + offset].second)
-            { // 并列情况
+            {
                total_correct++;
                offset--;
             }
@@ -125,11 +89,11 @@ namespace ANNS
          }
       }
 
-      // 召回率 = 正确匹配数 / 真实相关总数
       return (total_relevant > 0) ? (100.0f * total_correct / total_relevant) : 0.0f;
    }
 
-   // fxy_add
+   // Write per-query recall for diagnostics while preserving the aggregate
+   // recall definition used by historical scripts.
    float calculate_recall_to_csv(const std::pair<IdxType, float> *gt,
                                  const std::pair<IdxType, float> *results,
                                  uint32_t num_queries,
@@ -137,16 +101,16 @@ namespace ANNS
                                  const std::string &output_file)
    {
       float total_correct = 0;
-      std::vector<float> query_recalls(num_queries, 0); // 存储每个查询的召回率
+      std::vector<float> query_recalls(num_queries, 0);
 
       std::ofstream file(output_file);
       if (!file.is_open())
       {
          std::cerr << "Failed to open file: " << output_file << std::endl;
-         return -1; // 文件打开失败，返回错误值
+         return -1;
       }
 
-      file << "Query ID,Recall (%)\n"; // 写入 CSV 头部
+      file << "Query ID,Recall (%)\n";
 
       for (uint32_t i = 0; i < num_queries; i++)
       {
@@ -168,7 +132,7 @@ namespace ANNS
             if (results[i * K + j].first == -1)
                break;
             if (offset >= 0 && results[i * K + j].second == gt[i * K + offset].second)
-            { // 处理 cost 相等的情况
+            {
                correct_count++;
                offset--;
             }
@@ -179,38 +143,33 @@ namespace ANNS
             }
          }
 
-         query_recalls[i] = correct_count / K; // 计算当前查询的 recall
+         query_recalls[i] = correct_count / K;
          total_correct += correct_count;
 
-         file << i << "," << query_recalls[i] << "\n"; // 写入文件
+         file << i << "," << query_recalls[i] << "\n";
       }
 
       file.close();
 
-      return 100.0 * total_correct / (num_queries * K); // 返回整体召回率
+      return 100.0 * total_correct / (num_queries * K);
    }
 
-   // fxy_add
+   // Serialize a vector of roaring bitmaps as count + repeated size/payload records.
    void save_roaring_vector(const std::string &filename, const std::vector<roaring::Roaring> &rb_vec)
    {
       std::ofstream out(filename, std::ios::binary);
 
-      // 写入 vector 大小
       uint64_t size = rb_vec.size();
       out.write(reinterpret_cast<const char *>(&size), sizeof(size));
 
       for (const auto &rb : rb_vec)
       {
-         // 获取序列化大小
          size_t serialized_size = rb.getSizeInBytes();
-         char *buffer = new char[serialized_size];
-         rb.write(buffer); // 写入 buffer
+         std::vector<char> buffer(serialized_size);
+         rb.write(buffer.data());
 
-         // 写入大小 + 数据
          out.write(reinterpret_cast<const char *>(&serialized_size), sizeof(serialized_size));
-         out.write(buffer, serialized_size);
-
-         delete[] buffer;
+         out.write(buffer.data(), serialized_size);
       }
 
       out.close();
@@ -226,32 +185,26 @@ namespace ANNS
          return;
       }
 
-      // 读取 vector 大小
       uint64_t size;
       in.read(reinterpret_cast<char *>(&size), sizeof(size));
       rb_vec.resize(size);
 
       for (size_t i = 0; i < size; ++i)
       {
-         // 读取每个 roaring bitmap 的大小
          size_t serialized_size;
          in.read(reinterpret_cast<char *>(&serialized_size), sizeof(serialized_size));
 
-         // 分配缓冲区并读取数据
-         char *buffer = new char[serialized_size];
-         in.read(buffer, serialized_size);
+         std::vector<char> buffer(serialized_size);
+         in.read(buffer.data(), serialized_size);
 
-         // 构造 roaring bitmap
-         rb_vec[i] = roaring::Roaring::readSafe(buffer, serialized_size);
-
-         delete[] buffer;
+         rb_vec[i] = roaring::Roaring::readSafe(buffer.data(), serialized_size);
       }
 
       in.close();
       std::cout << "Loaded roaring vector from " << filename << ", size = " << rb_vec.size() << std::endl;
    }
 
-   // fxy_add 辅助函数：将向量数据写入 .fvecs 文件
+   // Write float vectors in fvecs format.
    void write_fvecs(const std::string &filename, const std::vector<float *> &vecs, size_t dim)
    {
       std::ofstream out(filename, std::ios::binary);
@@ -266,7 +219,7 @@ namespace ANNS
       }
    }
 
-   // fxy_add辅助函数：将标签集写入 .txt 文件。格式: label1,label2,label3\n
+   // Write comma-separated label sets, one query/group per line.
    void write_labels_txt(const std::string &filename, const std::vector<std::vector<ANNS::LabelType>> &labels)
    {
       std::ofstream out(filename);

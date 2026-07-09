@@ -10,6 +10,7 @@
 #include <iostream>
 #include <limits>
 #include <numeric>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -51,6 +52,9 @@ struct Options
    int group_chunk = 65536;
    int frontier_delta = 2;
    int frontier_cover_cap = 8192;
+   int compact_output_cap = 32768;
+   std::vector<int> frontier_deltas;
+   std::vector<int> frontier_cover_caps;
    bool check = true;
    int gpu = 0;
 };
@@ -96,6 +100,9 @@ struct BenchResult
    double avg_frontier_groups = 0.0;
    double avg_candidates = 0.0;
    double avg_min_groups = 0.0;
+   double avg_output_groups = 0.0;
+   uint64_t output_overflow_queries = 0;
+   uint64_t output_truncated_groups = 0;
    uint64_t checksum = 0;
 };
 
@@ -104,6 +111,27 @@ double now_ms()
    using Clock = std::chrono::high_resolution_clock;
    static const auto t0 = Clock::now();
    return std::chrono::duration<double, std::milli>(Clock::now() - t0).count();
+}
+
+std::vector<int> parse_int_list(const std::string &value, const char *name)
+{
+   std::vector<int> out;
+   std::stringstream ss(value);
+   std::string item;
+   while (std::getline(ss, item, ','))
+   {
+      if (item.empty())
+         continue;
+      int v = std::stoi(item);
+      if (v <= 0)
+         throw std::runtime_error(std::string(name) + " values must be positive");
+      out.push_back(v);
+   }
+   if (out.empty())
+      throw std::runtime_error(std::string(name) + " must contain at least one integer");
+   std::sort(out.begin(), out.end());
+   out.erase(std::unique(out.begin(), out.end()), out.end());
+   return out;
 }
 
 Options parse_args(int argc, char **argv)
@@ -143,6 +171,12 @@ Options parse_args(int argc, char **argv)
          opt.frontier_delta = std::stoi(need("--frontier-delta"));
       else if (a == "--frontier-cover-cap")
          opt.frontier_cover_cap = std::stoi(need("--frontier-cover-cap"));
+      else if (a == "--compact-output-cap")
+         opt.compact_output_cap = std::stoi(need("--compact-output-cap"));
+      else if (a == "--frontier-deltas")
+         opt.frontier_deltas = parse_int_list(need("--frontier-deltas"), "--frontier-deltas");
+      else if (a == "--frontier-cover-caps")
+         opt.frontier_cover_caps = parse_int_list(need("--frontier-cover-caps"), "--frontier-cover-caps");
       else if (a == "--gpu")
          opt.gpu = std::stoi(need("--gpu"));
       else if (a == "--no-check")
@@ -151,7 +185,12 @@ Options parse_args(int argc, char **argv)
       {
          std::cout
              << "Usage: query_entry_group_bench --base-label-file labels.txt --query-label-file query_labels.txt [options]\n"
-             << "Providers: cpu_scan, cpu_exact, gpu_scan, gpu_bitset, gpu_cover_frontier, all\n"
+             << "Providers: cpu_scan, cpu_exact, cpu_cover_frontier, gpu_scan, gpu_bitset, gpu_cover_frontier, gpu_cover_frontier_compact, cover_frontier_sweep, all\n"
+             << "  cpu_scan/gpu_scan/gpu_bitset return raw candidate groups for diagnostics.\n"
+             << "  cpu_exact returns exact-minimal entry groups and is slow on many-group workloads.\n"
+             << "  cpu_cover_frontier is the same coverage-correct semantics as gpu_cover_frontier on CPU OpenMP threads.\n"
+             << "  gpu_cover_frontier is the current coverage-correct GPU entry provider.\n"
+             << "  gpu_cover_frontier_compact keeps the same GPU coverage path but D2H-copies compact group ids instead of full output bitsets.\n"
              << "Options:\n"
              << "  --provider NAME       Provider to run, default all\n"
              << "  --output-csv PATH     Write one-row-per-provider CSV\n"
@@ -161,6 +200,9 @@ Options parse_args(int argc, char **argv)
              << "  --group-chunk N       GPU group chunk, default 65536\n"
              << "  --frontier-delta N    Keep size buckets query_len..query_len+N before coverage fallback, default 2\n"
              << "  --frontier-cover-cap N  Max compacted frontier ids used for coverage OR per query, default 8192\n"
+             << "  --compact-output-cap N  Max compacted output ids copied per query by gpu_cover_frontier_compact, default 32768\n"
+             << "  --frontier-deltas CSV   Sweep deltas for provider=cover_frontier_sweep, default uses --frontier-delta\n"
+             << "  --frontier-cover-caps CSV  Sweep caps for provider=cover_frontier_sweep, default uses --frontier-cover-cap\n"
              << "  --repeats N           Timed repeats, default 5\n"
              << "  --warmup N            Warmup repeats, default 1\n"
              << "  --threads N           CPU OpenMP threads\n"
@@ -174,8 +216,12 @@ Options parse_args(int argc, char **argv)
    if (opt.base_label_file.empty() || opt.query_label_file.empty())
       throw std::runtime_error("--base-label-file and --query-label-file are required");
    if (opt.query_batch <= 0 || opt.group_chunk <= 0 || opt.repeats <= 0 || opt.warmup < 0 ||
-       opt.frontier_delta < 0 || opt.frontier_cover_cap <= 0)
+       opt.frontier_delta < 0 || opt.frontier_cover_cap <= 0 || opt.compact_output_cap <= 0)
       throw std::runtime_error("invalid non-positive benchmark parameter");
+   if (opt.frontier_deltas.empty())
+      opt.frontier_deltas.push_back(opt.frontier_delta);
+   if (opt.frontier_cover_caps.empty())
+      opt.frontier_cover_caps.push_back(opt.frontier_cover_cap);
    return opt;
 }
 
@@ -445,6 +491,7 @@ BenchResult run_cpu_exact(const GroupTable &groups, const LabelTable &queries, i
    r.total_ms = now_ms() - t0;
    r.avg_candidates = std::accumulate(candidate_counts.begin(), candidate_counts.end(), 0.0) / queries.size();
    r.avg_min_groups = std::accumulate(min_counts.begin(), min_counts.end(), 0.0) / queries.size();
+   r.avg_output_groups = r.avg_min_groups;
    r.checksum = std::accumulate(checksums.begin(), checksums.end(), uint64_t{0}, std::bit_xor<uint64_t>());
    return r;
 }
@@ -485,6 +532,7 @@ BenchResult run_cpu_scan(const GroupTable &groups, const LabelTable &queries, in
    r.kernel_ms = r.total_ms;
    r.avg_candidates = std::accumulate(candidate_counts.begin(), candidate_counts.end(), 0.0) / queries.size();
    r.avg_min_groups = r.avg_candidates;
+   r.avg_output_groups = r.avg_min_groups;
    r.checksum = std::accumulate(checksums.begin(), checksums.end(), uint64_t{0}, std::bit_xor<uint64_t>());
    return r;
 }
@@ -789,6 +837,94 @@ __global__ void cover_frontier_select_kernel(const uint64_t *candidate_bits,
    out_bits[idx] = selected_frontier_bits[idx] | (candidate_bits[idx] & ~covered_bits[idx]);
 }
 
+__global__ void cover_frontier_select_count_kernel(const uint64_t *candidate_bits,
+                                                   const uint64_t *selected_frontier_bits,
+                                                   const uint64_t *covered_bits,
+                                                   Id num_groups,
+                                                   Id words_per_query,
+                                                   Id num_queries_chunk,
+                                                   uint64_t *out_bits,
+                                                   Id *output_counts)
+{
+   Id word = blockIdx.x * blockDim.x + threadIdx.x;
+   Id local_q = blockIdx.y;
+   if (local_q >= num_queries_chunk)
+      return;
+
+   const size_t idx = static_cast<size_t>(local_q) * words_per_query + word;
+   uint64_t out = 0;
+   if (word < words_per_query)
+   {
+      out = selected_frontier_bits[idx] | (candidate_bits[idx] & ~covered_bits[idx]);
+      out_bits[idx] = out;
+   }
+
+   Id first_gid = word << 6;
+   if (word >= words_per_query)
+      out = 0;
+   else if (first_gid == 0)
+      out &= ~uint64_t{1};
+   if (first_gid + 64 > num_groups)
+   {
+      Id valid = num_groups > first_gid ? num_groups - first_gid : 0;
+      out &= valid >= 64 ? ~uint64_t{0} : ((uint64_t{1} << valid) - 1);
+   }
+
+   Id count = static_cast<Id>(__popcll(static_cast<unsigned long long>(out)));
+   __shared__ Id partial[256];
+   partial[threadIdx.x] = count;
+   __syncthreads();
+   for (unsigned int stride = blockDim.x >> 1; stride > 0; stride >>= 1)
+   {
+      if (threadIdx.x < stride)
+         partial[threadIdx.x] += partial[threadIdx.x + stride];
+      __syncthreads();
+   }
+   if (threadIdx.x == 0 && partial[0] != 0)
+      atomicAdd(output_counts + local_q, partial[0]);
+}
+
+__global__ void compact_output_ids_kernel(const uint64_t *out_bits,
+                                          Id num_groups,
+                                          Id words_per_query,
+                                          Id num_queries_chunk,
+                                          Id compact_output_cap,
+                                          const Id *output_offsets,
+                                          Id *output_ids)
+{
+   Id local_q = blockIdx.x;
+   if (local_q >= num_queries_chunk)
+      return;
+
+   const uint64_t *row = out_bits + static_cast<size_t>(local_q) * words_per_query;
+   __shared__ Id written;
+   if (threadIdx.x == 0)
+      written = 0;
+   __syncthreads();
+
+   Id base = output_offsets[local_q];
+   for (Id word = threadIdx.x; word < words_per_query; word += blockDim.x)
+   {
+      uint64_t bits = row[word];
+      Id first_gid = word << 6;
+      if (first_gid == 0)
+         bits &= ~uint64_t{1};
+      if (first_gid + 64 > num_groups)
+      {
+         Id valid = num_groups > first_gid ? num_groups - first_gid : 0;
+         bits &= valid >= 64 ? ~uint64_t{0} : ((uint64_t{1} << valid) - 1);
+      }
+      while (bits)
+      {
+         Id bit = static_cast<Id>(__ffsll(static_cast<long long>(bits)) - 1);
+         Id slot = atomicAdd(&written, 1u);
+         if (slot < compact_output_cap)
+            output_ids[static_cast<size_t>(base) + slot] = first_gid + bit;
+         bits &= bits - 1;
+      }
+   }
+}
+
 BenchResult run_gpu_scan_once(const GroupTable &groups, const LabelTable &queries,
                               const DeviceTables &dev, int query_batch, int group_chunk)
 {
@@ -863,6 +999,7 @@ BenchResult run_gpu_scan_once(const GroupTable &groups, const LabelTable &querie
    r.total_ms = now_ms() - t0;
    r.avg_candidates = std::accumulate(candidate_counts.begin(), candidate_counts.end(), 0.0) / queries.size();
    r.avg_min_groups = std::accumulate(min_counts.begin(), min_counts.end(), 0.0) / queries.size();
+   r.avg_output_groups = r.avg_min_groups;
    r.checksum = std::accumulate(checksums.begin(), checksums.end(), uint64_t{0}, std::bit_xor<uint64_t>());
    return r;
 }
@@ -946,6 +1083,7 @@ BenchResult run_gpu_bitset_once(const GroupTable &groups, const LabelTable &quer
    r.total_ms = now_ms() - t0;
    r.avg_candidates = std::accumulate(candidate_counts.begin(), candidate_counts.end(), 0.0) / queries.size();
    r.avg_min_groups = std::accumulate(min_counts.begin(), min_counts.end(), 0.0) / queries.size();
+   r.avg_output_groups = r.avg_min_groups;
    r.checksum = std::accumulate(checksums.begin(), checksums.end(), uint64_t{0}, std::bit_xor<uint64_t>());
    return r;
 }
@@ -1068,19 +1206,194 @@ BenchResult run_gpu_cover_frontier_once(const GroupTable &groups, const LabelTab
    r.avg_frontier_groups = static_cast<double>(frontier_count_sum) / queries.size();
    r.avg_candidates = std::accumulate(output_counts.begin(), output_counts.end(), 0.0) / queries.size();
    r.avg_min_groups = r.avg_candidates;
+   r.avg_output_groups = r.avg_min_groups;
    r.checksum = std::accumulate(checksums.begin(), checksums.end(), uint64_t{0}, std::bit_xor<uint64_t>());
+   return r;
+}
+
+BenchResult run_gpu_cover_frontier_compact_once(const GroupTable &groups, const LabelTable &queries,
+                                                const LabelBitsets &bitsets, const DeviceBitsetTables &dev,
+                                                const DeviceDescendantBitsets &dev_desc,
+                                                int query_batch, int frontier_delta, int frontier_cover_cap,
+                                                int compact_output_cap, bool compute_checksum)
+{
+   BenchResult r;
+   r.provider = "gpu_cover_frontier_compact_d" + std::to_string(frontier_delta) +
+                "_cap" + std::to_string(frontier_cover_cap) +
+                "_outcap" + std::to_string(compact_output_cap);
+   std::vector<uint64_t> output_counts(queries.size(), 0);
+   std::vector<uint64_t> checksums(queries.size(), 0);
+
+   const Id num_queries = queries.size();
+   const Id words = bitsets.words_per_query;
+   const size_t batch_words = static_cast<size_t>(query_batch) * words;
+   const size_t batch_output_cap = static_cast<size_t>(query_batch) * static_cast<size_t>(compact_output_cap);
+   uint64_t *d_candidate_bits = nullptr;
+   uint64_t *d_frontier_bits = nullptr;
+   uint64_t *d_selected_frontier_bits = nullptr;
+   uint64_t *d_covered_bits = nullptr;
+   uint64_t *d_out_bits = nullptr;
+   Id *d_frontier_counts = nullptr;
+   Id *d_frontier_ids = nullptr;
+   Id *d_output_counts = nullptr;
+   Id *d_output_offsets = nullptr;
+   Id *d_output_ids = nullptr;
+   CUDA_CHECK(cudaMalloc(&d_candidate_bits, batch_words * sizeof(uint64_t)));
+   CUDA_CHECK(cudaMalloc(&d_frontier_bits, batch_words * sizeof(uint64_t)));
+   CUDA_CHECK(cudaMalloc(&d_selected_frontier_bits, batch_words * sizeof(uint64_t)));
+   CUDA_CHECK(cudaMalloc(&d_covered_bits, batch_words * sizeof(uint64_t)));
+   CUDA_CHECK(cudaMalloc(&d_out_bits, batch_words * sizeof(uint64_t)));
+   CUDA_CHECK(cudaMalloc(&d_frontier_counts, static_cast<size_t>(query_batch) * sizeof(Id)));
+   CUDA_CHECK(cudaMalloc(&d_frontier_ids, static_cast<size_t>(query_batch) *
+                                             static_cast<size_t>(frontier_cover_cap) * sizeof(Id)));
+   CUDA_CHECK(cudaMalloc(&d_output_counts, static_cast<size_t>(query_batch) * sizeof(Id)));
+   CUDA_CHECK(cudaMalloc(&d_output_offsets, static_cast<size_t>(query_batch) * sizeof(Id)));
+   CUDA_CHECK(cudaMalloc(&d_output_ids, batch_output_cap * sizeof(Id)));
+
+   Id *h_output_counts = nullptr;
+   Id *h_output_offsets = nullptr;
+   Id *h_output_ids = nullptr;
+   Id *h_frontier_counts = nullptr;
+   CUDA_CHECK(cudaMallocHost(&h_output_counts, static_cast<size_t>(query_batch) * sizeof(Id)));
+   CUDA_CHECK(cudaMallocHost(&h_output_offsets, static_cast<size_t>(query_batch) * sizeof(Id)));
+   CUDA_CHECK(cudaMallocHost(&h_output_ids, batch_output_cap * sizeof(Id)));
+   CUDA_CHECK(cudaMallocHost(&h_frontier_counts, static_cast<size_t>(query_batch) * sizeof(Id)));
+   uint64_t frontier_count_sum = 0;
+
+   cudaEvent_t ev0, ev1;
+   CUDA_CHECK(cudaEventCreate(&ev0));
+   CUDA_CHECK(cudaEventCreate(&ev1));
+
+   double t0 = now_ms();
+   for (Id qb = 0; qb < num_queries; qb += query_batch)
+   {
+      Id qn = std::min<Id>(query_batch, num_queries - qb);
+      dim3 block(256);
+      dim3 grid((words + block.x - 1) / block.x, qn);
+      CUDA_CHECK(cudaEventRecord(ev0));
+      candidate_frontier_kernel<<<grid, block>>>(dev.label_group_bits(), dev.size_group_bits(),
+                                                 words, bitsets.max_group_label_size,
+                                                 dev.query_dense_labels(), dev.query_offsets(),
+                                                 qb, qn, static_cast<Id>(frontier_delta),
+                                                 d_candidate_bits, d_frontier_bits);
+      CUDA_CHECK(cudaMemset(d_selected_frontier_bits, 0, static_cast<size_t>(qn) * words * sizeof(uint64_t)));
+      compact_frontier_ids_kernel<<<qn, 256>>>(d_frontier_bits, dev_desc.num_groups(), words, qn,
+                                               static_cast<Id>(frontier_cover_cap),
+                                               d_selected_frontier_bits,
+                                               d_frontier_counts, d_frontier_ids);
+      descendant_cover_list_kernel<<<grid, block>>>(d_frontier_counts, d_frontier_ids,
+                                                    dev_desc.group_desc_bits(), words, qn,
+                                                    static_cast<Id>(frontier_cover_cap),
+                                                    d_covered_bits);
+      CUDA_CHECK(cudaMemset(d_output_counts, 0, static_cast<size_t>(qn) * sizeof(Id)));
+      cover_frontier_select_count_kernel<<<grid, block>>>(d_candidate_bits, d_selected_frontier_bits, d_covered_bits,
+                                                          groups.table.size(), words, qn,
+                                                          d_out_bits, d_output_counts);
+      CUDA_CHECK(cudaEventRecord(ev1));
+      CUDA_CHECK(cudaEventSynchronize(ev1));
+      float kernel_ms = 0.0f;
+      CUDA_CHECK(cudaEventElapsedTime(&kernel_ms, ev0, ev1));
+      r.kernel_ms += kernel_ms;
+
+      double d2h0 = now_ms();
+      CUDA_CHECK(cudaMemcpy(h_output_counts, d_output_counts, static_cast<size_t>(qn) * sizeof(Id), cudaMemcpyDeviceToHost));
+      CUDA_CHECK(cudaMemcpy(h_frontier_counts, d_frontier_counts, static_cast<size_t>(qn) * sizeof(Id), cudaMemcpyDeviceToHost));
+      r.d2h_ms += now_ms() - d2h0;
+      frontier_count_sum += std::accumulate(h_frontier_counts, h_frontier_counts + qn, uint64_t{0});
+
+      double mat0 = now_ms();
+      size_t total_capped_ids = 0;
+      for (Id lq = 0; lq < qn; ++lq)
+      {
+         Id count = h_output_counts[lq];
+         output_counts[qb + lq] = count;
+         h_output_offsets[lq] = static_cast<Id>(total_capped_ids);
+         Id capped = std::min<Id>(count, static_cast<Id>(compact_output_cap));
+         total_capped_ids += capped;
+         if (count > static_cast<Id>(compact_output_cap))
+         {
+            ++r.output_overflow_queries;
+            r.output_truncated_groups += static_cast<uint64_t>(count - static_cast<Id>(compact_output_cap));
+         }
+      }
+      r.prune_ms += now_ms() - mat0;
+
+      mat0 = now_ms();
+      CUDA_CHECK(cudaMemcpy(d_output_offsets, h_output_offsets, static_cast<size_t>(qn) * sizeof(Id), cudaMemcpyHostToDevice));
+      r.prune_ms += now_ms() - mat0;
+
+      CUDA_CHECK(cudaEventRecord(ev0));
+      compact_output_ids_kernel<<<qn, 256>>>(d_out_bits, groups.table.size(), words, qn,
+                                             static_cast<Id>(compact_output_cap),
+                                             d_output_offsets, d_output_ids);
+      CUDA_CHECK(cudaEventRecord(ev1));
+      CUDA_CHECK(cudaEventSynchronize(ev1));
+      CUDA_CHECK(cudaEventElapsedTime(&kernel_ms, ev0, ev1));
+      r.kernel_ms += kernel_ms;
+
+      d2h0 = now_ms();
+      if (total_capped_ids > 0)
+         CUDA_CHECK(cudaMemcpy(h_output_ids, d_output_ids, total_capped_ids * sizeof(Id), cudaMemcpyDeviceToHost));
+      r.d2h_ms += now_ms() - d2h0;
+
+      mat0 = now_ms();
+      if (compute_checksum)
+      {
+#pragma omp parallel for schedule(static)
+         for (int lq_i = 0; lq_i < static_cast<int>(qn); ++lq_i)
+         {
+            Id lq = static_cast<Id>(lq_i);
+            Id count = std::min<Id>(h_output_counts[lq], static_cast<Id>(compact_output_cap));
+            const Id *ids = h_output_ids + h_output_offsets[lq];
+            std::vector<Id> sorted_ids(ids, ids + count);
+            std::sort(sorted_ids.begin(), sorted_ids.end());
+            uint64_t h = 1469598103934665603ull;
+            for (Id gid : sorted_ids)
+               h = (h ^ gid) * 1099511628211ull;
+            checksums[qb + lq] = h;
+         }
+      }
+      r.prune_ms += now_ms() - mat0;
+   }
+
+   r.total_ms = now_ms() - t0;
+   CUDA_CHECK(cudaFree(d_candidate_bits));
+   CUDA_CHECK(cudaFree(d_frontier_bits));
+   CUDA_CHECK(cudaFree(d_selected_frontier_bits));
+   CUDA_CHECK(cudaFree(d_covered_bits));
+   CUDA_CHECK(cudaFree(d_out_bits));
+   CUDA_CHECK(cudaFree(d_frontier_counts));
+   CUDA_CHECK(cudaFree(d_frontier_ids));
+   CUDA_CHECK(cudaFree(d_output_counts));
+   CUDA_CHECK(cudaFree(d_output_offsets));
+   CUDA_CHECK(cudaFree(d_output_ids));
+   CUDA_CHECK(cudaFreeHost(h_output_counts));
+   CUDA_CHECK(cudaFreeHost(h_output_offsets));
+   CUDA_CHECK(cudaFreeHost(h_output_ids));
+   CUDA_CHECK(cudaFreeHost(h_frontier_counts));
+   CUDA_CHECK(cudaEventDestroy(ev0));
+   CUDA_CHECK(cudaEventDestroy(ev1));
+   r.avg_frontier_groups = static_cast<double>(frontier_count_sum) / queries.size();
+   r.avg_candidates = std::accumulate(output_counts.begin(), output_counts.end(), 0.0) / queries.size();
+   r.avg_min_groups = r.avg_candidates;
+   r.avg_output_groups = r.avg_candidates;
+   if (compute_checksum)
+      r.checksum = std::accumulate(checksums.begin(), checksums.end(), uint64_t{0}, std::bit_xor<uint64_t>());
    return r;
 }
 
 BenchResult run_cpu_cover_frontier_reference(const GroupTable &groups, const LabelTable &dense_queries,
                                              const LabelBitsets &bitsets, const DescendantBitsets &descendants,
-                                             int frontier_delta, int threads)
+                                             int frontier_delta, int frontier_cover_cap, int threads)
 {
    BenchResult r;
-   r.provider = "cpu_cover_frontier_ref_d" + std::to_string(frontier_delta);
+   r.provider = "cpu_cover_frontier_ref_d" + std::to_string(frontier_delta) +
+                "_cap" + std::to_string(frontier_cover_cap);
    const Id words = bitsets.words_per_query;
    std::vector<uint64_t> counts(dense_queries.size(), 0);
    std::vector<uint64_t> checksums(dense_queries.size(), 0);
+   std::vector<uint64_t> frontier_counts(dense_queries.size(), 0);
+   std::vector<std::vector<Id>> output_group_ids(dense_queries.size());
    omp_set_num_threads(threads);
 
    double t0 = now_ms();
@@ -1115,6 +1428,8 @@ BenchResult run_cpu_cover_frontier_reference(const GroupTable &groups, const Lab
       }
 
       std::vector<uint64_t> covered(words, 0);
+      std::vector<uint64_t> selected_frontier(words, 0);
+      Id frontier_count = 0;
       for (Id fword = 0; fword < words; ++fword)
       {
          uint64_t bits = frontier[fword];
@@ -1124,19 +1439,27 @@ BenchResult run_cpu_cover_frontier_reference(const GroupTable &groups, const Lab
             Id gid = (fword << 6) + bit;
             if (gid > 0 && gid < groups.table.size())
             {
-               const uint64_t *desc = descendants.group_desc_bits.data() + static_cast<size_t>(gid) * words;
-               for (Id word = 0; word < words; ++word)
-                  covered[word] |= desc[word];
+               if (frontier_count < static_cast<Id>(frontier_cover_cap))
+               {
+                  ++frontier_count;
+                  selected_frontier[fword] |= uint64_t{1} << bit;
+                  const uint64_t *desc = descendants.group_desc_bits.data() + static_cast<size_t>(gid) * words;
+                  for (Id word = 0; word < words; ++word)
+                     covered[word] |= desc[word];
+               }
             }
             bits &= bits - 1;
          }
       }
+      frontier_counts[qi] = frontier_count;
 
       uint64_t h = 1469598103934665603ull;
       uint64_t count = 0;
+      auto &dst = output_group_ids[qi];
+      dst.clear();
       for (Id word = 0; word < words; ++word)
       {
-         uint64_t out = frontier[word] | (candidates[word] & ~covered[word]);
+         uint64_t out = selected_frontier[word] | (candidates[word] & ~covered[word]);
          while (out)
          {
             Id bit = static_cast<Id>(__builtin_ctzll(out));
@@ -1144,6 +1467,7 @@ BenchResult run_cpu_cover_frontier_reference(const GroupTable &groups, const Lab
             if (gid > 0 && gid < groups.table.size())
             {
                ++count;
+               dst.push_back(gid);
                h = (h ^ gid) * 1099511628211ull;
             }
             out &= out - 1;
@@ -1154,8 +1478,10 @@ BenchResult run_cpu_cover_frontier_reference(const GroupTable &groups, const Lab
    }
    r.total_ms = now_ms() - t0;
    r.kernel_ms = r.total_ms;
+   r.avg_frontier_groups = std::accumulate(frontier_counts.begin(), frontier_counts.end(), 0.0) / dense_queries.size();
    r.avg_candidates = std::accumulate(counts.begin(), counts.end(), 0.0) / dense_queries.size();
    r.avg_min_groups = r.avg_candidates;
+   r.avg_output_groups = r.avg_min_groups;
    r.checksum = std::accumulate(checksums.begin(), checksums.end(), uint64_t{0}, std::bit_xor<uint64_t>());
    return r;
 }
@@ -1179,6 +1505,9 @@ void print_result(const BenchResult &r, Id nq, Id ngroups)
              << " avg_frontier_groups=" << r.avg_frontier_groups
              << " avg_candidates=" << r.avg_candidates
              << " avg_min_groups=" << r.avg_min_groups
+             << " avg_output_groups=" << r.avg_output_groups
+             << " output_overflow_queries=" << r.output_overflow_queries
+             << " output_truncated_groups=" << r.output_truncated_groups
              << " checksum=" << r.checksum << "\n";
 }
 
@@ -1189,13 +1518,16 @@ void write_csv(const std::string &path, const std::vector<BenchResult> &results,
    std::ofstream out(path);
    if (!out)
       throw std::runtime_error("failed to open output csv: " + path);
-   out << "provider,nq,ngroups,total_ms,kernel_ms,d2h_ms,prune_ms,avg_frontier_groups,avg_candidates,avg_min_groups,checksum\n";
+   out << "provider,nq,ngroups,total_ms,kernel_ms,d2h_ms,prune_ms,avg_frontier_groups,avg_candidates,avg_min_groups,avg_output_groups,output_overflow_queries,output_truncated_groups,checksum\n";
    for (const auto &r : results)
    {
       out << r.provider << "," << nq << "," << ngroups << ","
           << r.total_ms << "," << r.kernel_ms << "," << r.d2h_ms << ","
           << r.prune_ms << "," << r.avg_frontier_groups << ","
           << r.avg_candidates << "," << r.avg_min_groups << ","
+          << r.avg_output_groups << ","
+          << r.output_overflow_queries << ","
+          << r.output_truncated_groups << ","
           << r.checksum << "\n";
    }
 }
@@ -1222,7 +1554,7 @@ int main(int argc, char **argv)
 
       std::vector<BenchResult> final_results;
       BenchResult cpu_ref;
-      bool no_exact_checksum = opt.provider == "gpu_cover_frontier";
+      bool no_exact_checksum = opt.provider == "gpu_cover_frontier" || opt.provider == "gpu_cover_frontier_compact";
       bool need_cpu_exact = opt.provider == "all" || opt.provider == "cpu_exact" || (opt.check && !no_exact_checksum && opt.provider != "cpu_scan");
       if (opt.provider == "all" || opt.provider == "cpu_scan")
       {
@@ -1298,8 +1630,34 @@ int main(int argc, char **argv)
          print_result(gpu, queries.size(), groups.table.size() - 1);
       }
 
-      if (opt.provider == "all" || opt.provider == "gpu_cover_frontier")
+      if (opt.provider == "cover_frontier_sweep")
       {
+         {
+            std::vector<BenchResult> runs;
+            for (int i = 0; i < opt.warmup + opt.repeats; ++i)
+            {
+               auto r = run_cpu_scan(groups, queries, opt.threads);
+               if (i >= opt.warmup)
+                  runs.push_back(r);
+            }
+            auto cpu_scan = best_of(runs);
+            final_results.push_back(cpu_scan);
+            print_result(cpu_scan, queries.size(), groups.table.size() - 1);
+         }
+
+         {
+            std::vector<BenchResult> runs;
+            for (int i = 0; i < opt.warmup + opt.repeats; ++i)
+            {
+               auto r = run_cpu_exact(groups, queries, opt.threads);
+               if (i >= opt.warmup)
+                  runs.push_back(r);
+            }
+            auto cpu_exact = best_of(runs);
+            final_results.push_back(cpu_exact);
+            print_result(cpu_exact, queries.size(), groups.table.size() - 1);
+         }
+
          LabelBitsets bitsets = build_label_bitsets(groups);
          LabelTable dense_queries = remap_queries_to_dense(queries, bitsets.label_to_dense);
          double desc0 = now_ms();
@@ -1311,35 +1669,133 @@ int main(int argc, char **argv)
                    << " build_ms=" << desc_build_ms << "\n";
          DeviceBitsetTables dev(bitsets, dense_queries);
          DeviceDescendantBitsets dev_desc(descendants);
-         std::vector<BenchResult> runs;
-         for (int i = 0; i < opt.warmup + opt.repeats; ++i)
+
+         for (int delta : opt.frontier_deltas)
          {
-            auto r = run_gpu_cover_frontier_once(groups, queries, bitsets, dev, dev_desc,
-                                                 opt.query_batch, opt.frontier_delta,
-                                                 opt.frontier_cover_cap);
-            if (i >= opt.warmup)
-               runs.push_back(r);
-         }
-         auto gpu = best_of(runs);
-         if (opt.check)
-         {
-            auto ref = run_cpu_cover_frontier_reference(groups, dense_queries, bitsets, descendants,
-                                                       opt.frontier_delta, opt.threads);
-            std::cout << "provider=" << ref.provider
-                      << " nq=" << queries.size()
-                      << " ngroups=" << groups.table.size() - 1
-                      << " total_ms=" << ref.total_ms
-                      << " avg_candidates=" << ref.avg_candidates
-                      << " checksum=" << ref.checksum << "\n";
-            if (gpu.checksum != ref.checksum)
+            for (int cap : opt.frontier_cover_caps)
             {
-               std::cerr << "[ERROR] gpu_cover_frontier checksum mismatch: gpu=" << gpu.checksum
-                         << " cpu_ref=" << ref.checksum << "\n";
-               return 2;
+               std::vector<BenchResult> cpu_cover_runs;
+               for (int i = 0; i < opt.warmup + opt.repeats; ++i)
+               {
+                  auto r = run_cpu_cover_frontier_reference(groups, dense_queries, bitsets, descendants,
+                                                            delta, cap, opt.threads);
+                  if (i >= opt.warmup)
+                     cpu_cover_runs.push_back(r);
+               }
+               auto cpu_cover = best_of(cpu_cover_runs);
+               final_results.push_back(cpu_cover);
+               print_result(cpu_cover, queries.size(), groups.table.size() - 1);
+
+               std::vector<BenchResult> gpu_cover_runs;
+               for (int i = 0; i < opt.warmup + opt.repeats; ++i)
+               {
+                  auto r = run_gpu_cover_frontier_once(groups, queries, bitsets, dev, dev_desc,
+                                                       opt.query_batch, delta, cap);
+                  if (i >= opt.warmup)
+                     gpu_cover_runs.push_back(r);
+               }
+               auto gpu_cover = best_of(gpu_cover_runs);
+               if (opt.check && gpu_cover.checksum != cpu_cover.checksum)
+               {
+                  std::cerr << "[ERROR] cover_frontier_sweep checksum mismatch delta=" << delta
+                            << " cap=" << cap
+                            << " gpu=" << gpu_cover.checksum
+                            << " cpu=" << cpu_cover.checksum << "\n";
+                  return 2;
+               }
+               final_results.push_back(gpu_cover);
+               print_result(gpu_cover, queries.size(), groups.table.size() - 1);
+
+               std::vector<BenchResult> gpu_compact_runs;
+               for (int i = 0; i < opt.warmup + opt.repeats; ++i)
+               {
+                  auto r = run_gpu_cover_frontier_compact_once(groups, queries, bitsets, dev, dev_desc,
+                                                               opt.query_batch, delta, cap,
+                                                               opt.compact_output_cap, opt.check);
+                  if (i >= opt.warmup)
+                     gpu_compact_runs.push_back(r);
+               }
+               auto gpu_compact = best_of(gpu_compact_runs);
+               final_results.push_back(gpu_compact);
+               print_result(gpu_compact, queries.size(), groups.table.size() - 1);
             }
          }
-         final_results.push_back(gpu);
-         print_result(gpu, queries.size(), groups.table.size() - 1);
+      }
+
+      if (opt.provider == "all" || opt.provider == "gpu_cover_frontier" ||
+          opt.provider == "gpu_cover_frontier_compact" || opt.provider == "cpu_cover_frontier")
+      {
+         LabelBitsets bitsets = build_label_bitsets(groups);
+         LabelTable dense_queries = remap_queries_to_dense(queries, bitsets.label_to_dense);
+         double desc0 = now_ms();
+         DescendantBitsets descendants = build_descendant_bitsets_from_labels(groups, bitsets);
+         double desc_build_ms = now_ms() - desc0;
+         std::cout << "descendant_bitsets built groups=" << descendants.num_groups - 1
+                   << " words=" << descendants.words_per_query
+                   << " bytes=" << descendants.group_desc_bits.size() * sizeof(uint64_t)
+                   << " build_ms=" << desc_build_ms << "\n";
+         BenchResult cpu_cover_ref;
+         bool need_cpu_cover_ref = opt.provider == "all" || opt.provider == "cpu_cover_frontier" ||
+                                   (opt.check && opt.provider == "gpu_cover_frontier");
+         if (need_cpu_cover_ref)
+         {
+            std::vector<BenchResult> cpu_cover_runs;
+            for (int i = 0; i < opt.warmup + opt.repeats; ++i)
+            {
+               auto r = run_cpu_cover_frontier_reference(groups, dense_queries, bitsets, descendants,
+                                                         opt.frontier_delta, opt.frontier_cover_cap, opt.threads);
+               if (i >= opt.warmup)
+                  cpu_cover_runs.push_back(r);
+            }
+            cpu_cover_ref = best_of(cpu_cover_runs);
+            if (opt.provider == "all" || opt.provider == "cpu_cover_frontier")
+            {
+               final_results.push_back(cpu_cover_ref);
+               print_result(cpu_cover_ref, queries.size(), groups.table.size() - 1);
+            }
+         }
+         if (opt.provider == "all" || opt.provider == "gpu_cover_frontier" || opt.provider == "gpu_cover_frontier_compact")
+         {
+            DeviceBitsetTables dev(bitsets, dense_queries);
+            DeviceDescendantBitsets dev_desc(descendants);
+            if (opt.provider == "all" || opt.provider == "gpu_cover_frontier")
+            {
+               std::vector<BenchResult> runs;
+               for (int i = 0; i < opt.warmup + opt.repeats; ++i)
+               {
+                  auto r = run_gpu_cover_frontier_once(groups, queries, bitsets, dev, dev_desc,
+                                                       opt.query_batch, opt.frontier_delta,
+                                                       opt.frontier_cover_cap);
+                  if (i >= opt.warmup)
+                     runs.push_back(r);
+               }
+               auto gpu = best_of(runs);
+               if (opt.check && gpu.checksum != cpu_cover_ref.checksum)
+               {
+                  std::cerr << "[ERROR] gpu_cover_frontier checksum mismatch: gpu=" << gpu.checksum
+                            << " cpu_ref=" << cpu_cover_ref.checksum << "\n";
+                  return 2;
+               }
+               final_results.push_back(gpu);
+               print_result(gpu, queries.size(), groups.table.size() - 1);
+            }
+            if (opt.provider == "all" || opt.provider == "gpu_cover_frontier_compact")
+            {
+               std::vector<BenchResult> runs;
+               for (int i = 0; i < opt.warmup + opt.repeats; ++i)
+               {
+               auto r = run_gpu_cover_frontier_compact_once(groups, queries, bitsets, dev, dev_desc,
+                                                            opt.query_batch, opt.frontier_delta,
+                                                            opt.frontier_cover_cap,
+                                                            opt.compact_output_cap, opt.check);
+                  if (i >= opt.warmup)
+                     runs.push_back(r);
+               }
+               auto gpu = best_of(runs);
+               final_results.push_back(gpu);
+               print_result(gpu, queries.size(), groups.table.size() - 1);
+            }
+         }
       }
 
       write_csv(opt.output_csv, final_results, queries.size(), groups.table.size() - 1);

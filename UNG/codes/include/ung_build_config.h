@@ -94,8 +94,12 @@ struct UngBuildConfig
    uint32_t tagore_k = 64;
    uint32_t tagore_iter = 10; // GRNND-style paths default to 4 in from_env unless UNG_TAGORE_ITER is set.
    uint32_t tagore_m = 64;
+   bool special_blocks_enabled = false;
+   uint32_t special_block_min_points = 100;
+   std::string special_block_data_mode;
+   bool special_block_skip_trivial = true;
 
-   static UngBuildConfig from_env(uint32_t build_threads, const std::string &index_name);
+   static UngBuildConfig from_env(uint32_t build_threads);
    bool is_original_cpu_pipeline() const { return profile == UngBuildProfile::OriginalCpu; }
    void print(std::ostream &os) const;
 };
