@@ -27,6 +27,23 @@
 | GPU intra + CPU inter corrected | diagnostic baseline | `38.60 s` | `18.07 s` | 未单独完整 query sweep | 用于说明 GPU inter 的边际收益 | `/home/graphdb/fv_runs/special_blocks_20260705/gpu_cpu_cell_current_20260707_112007` |
 | no-special baseline | full-quality baseline | `17.21 s` | N/A | 旧同环境 baseline | 当前 special 不能宣称 Index speedup 的主要原因 | `/home/graphdb/fv_runs/special_blocks_20260705/threadfix_normal_ab_20260706_025123/threadfix_normal_summary.md` |
 
+### 0.2b Special Block Recall 成绩总表
+
+| 结果类型 | workload | Lsearch | recall | 质量含义 | artifact |
+|---|---|---:|---:|---|---|
+| tuned GPU/GPU build smoke | `query_coverage_100` | `50` | `0.344` | 当前 GPU intra/inter 调参后 coverage smoke | `/home/graphdb/fv_runs/special_blocks_20260705/special_gpu_inter_warps2_default_smoke_20260707_114920/summary.txt` |
+| tuned GPU/GPU build smoke | `query_coverage_100` | `200` | `0.403` | 同上 | 同上 |
+| corrected CPU exact-topK intra | `query_coverage_100` | `50` | `0.341` | 接近旧 CPU Vamana `0.344`，说明 exact-topK 分流可作为 corrected CPU baseline | `/home/graphdb/fv_runs/special_blocks_20260705/exact_topk_th2048_search_smoke_20260706_131808` |
+| corrected CPU exact-topK intra | `query_coverage_100` | `200` | `0.400` | 接近旧 CPU Vamana `0.401` | 同上 |
+| bounded ring negative | `query_coverage_100` | `50` | `0.323` | 快但质量下降，不可默认 | `/home/graphdb/fv_runs/special_blocks_20260705/bounded_th2048_search_smoke_20260706_130755` |
+| bounded ring negative | `query_coverage_100` | `200` | `0.370` | 同上 | 同上 |
+| adaptive-heavy | `query_coverage_100` | `800` | `0.464` | 四 workload 验证中与 no-cap 可对齐 L recall delta 为 0 | `/home/graphdb/fv_runs/special_blocks_20260705/twotier_adaptive_four_20260706_093816` |
+| adaptive-heavy | `query_mix_100_seed456` | `800` | `0.702` | 同上 | 同上 |
+| adaptive-heavy | `query_broad2_100_seed901` | `800` | `0.488` | broad2 L800 恢复 no-cap recall；light-only L800 为 `0.485` | 同上 |
+| adaptive-heavy | `query_len1_broad_100_seed902` | `800` | `0.360` | query-size gate 避免 len1 broad 无效 heavy 触发，recall 不变 | 同上 |
+
+这张表只汇总 recall，不直接声称 query latency 加速。query wall time 在多次实验中有 batch/load/outlier 噪声，不能单独从这些 smoke 数字推出稳定 query speedup。
+
 ### 0.3 如何阅读旧表
 
 - `special T100 skip`、`special-as-group T100 skip` 和旧 `parent-child exact all-pairs` 是历史负结果，用于说明为什么旧 overlay 不可接受。

@@ -199,6 +199,25 @@ Amazon x1 label tree 很稀疏，很多 query 会完整覆盖一些 label subtre
 | CPU intra | index `105.78`; intra `75.15`; inter `10.36`; overlay `85.50` | index `98.95`; intra `73.79`; inter `6.07`; overlay `79.86` |
 | GPU intra | index `38.60`; intra `7.07`; inter `11.00`; overlay `18.07` | index `28.62`; intra `5.16`; inter `2.72`; overlay `7.87` |
 
+### 6.5 Special Block Recall 成绩
+
+Special block 的质量只看 filtered-search recall。这里把 recall 分成两类：第一类是当前 tuned build 的 coverage smoke，用来证明 GPU intra/inter 调参没有明显伤质量；第二类是 two-tier/adaptive heavy 的多 workload search，用来说明 broad query 的 recall 恢复能力。
+
+| 结果类型 | workload | Lsearch | recall | 说明 | artifact |
+|---|---|---:|---:|---|---|
+| tuned GPU/GPU build smoke | `query_coverage_100` | `50` | `0.344` | 当前 GPU intra `th=128` + GPU inter `2` warps/query | `/home/graphdb/fv_runs/special_blocks_20260705/special_gpu_inter_warps2_default_smoke_20260707_114920/summary.txt` |
+| tuned GPU/GPU build smoke | `query_coverage_100` | `200` | `0.403` | 同上 | 同上 |
+| CPU exact-topK intra smoke | `query_coverage_100` | `50` | `0.341` | corrected CPU intra `th=2048`，接近旧 CPU Vamana | `/home/graphdb/fv_runs/special_blocks_20260705/exact_topk_th2048_search_smoke_20260706_131808` |
+| CPU exact-topK intra smoke | `query_coverage_100` | `200` | `0.400` | 同上 | 同上 |
+| bounded ring negative | `query_coverage_100` | `50` | `0.323` | 速度快但质量明显下降 | `/home/graphdb/fv_runs/special_blocks_20260705/bounded_th2048_search_smoke_20260706_130755` |
+| bounded ring negative | `query_coverage_100` | `200` | `0.370` | 同上 | 同上 |
+| adaptive-heavy four workloads | `query_coverage_100` | `800` | `0.464` | 与 no-cap 对照可对齐 L 上 recall delta 为 0 | `/home/graphdb/fv_runs/special_blocks_20260705/twotier_adaptive_four_20260706_093816` |
+| adaptive-heavy four workloads | `query_mix_100_seed456` | `800` | `0.702` | 同上 | 同上 |
+| adaptive-heavy four workloads | `query_broad2_100_seed901` | `800` | `0.488` | broad length-2 query，恢复 no-cap L800 recall | 同上 |
+| adaptive-heavy four workloads | `query_len1_broad_100_seed902` | `800` | `0.360` | len1 broad 不触发 heavy sidecar，recall 不变 | 同上 |
+
+展示时要说清：`0.344/0.403` 是当前 tuned build 的 coverage smoke；`0.488` 是 broad2 L800 下 adaptive-heavy 恢复 no-cap recall 的证据。它们不是同一个实验表，不应混用。
+
 ### 6.5 Intra 调参
 
 | 路径 | 耗时 | quality smoke | 结论 |
