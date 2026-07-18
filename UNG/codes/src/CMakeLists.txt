@@ -43,7 +43,7 @@ set(CUDA_SOURCES
     gpu_gemm_topk.cu
     ung_gpu_cover_frontier_provider.cu
     tagore_graph_builder.cu
-    /home/graphdb/Tagore/src/Tagore_src.cu
+    ${TAGORE_ROOT}/src/Tagore_src.cu
 )
 
 
@@ -67,14 +67,14 @@ endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE faiss ${ROARING_LIB} cuda cudart cublas cublasLt)
 
 # 给 CUDA 源文件单独设置编译选项（避免吃到 CXX 的 avx/openmp flags）
-set_source_files_properties(gpu_gemm_topk.cu ung_gpu_cover_frontier_provider.cu tagore_graph_builder.cu /home/graphdb/Tagore/src/Tagore_src.cu PROPERTIES
+set_source_files_properties(gpu_gemm_topk.cu ung_gpu_cover_frontier_provider.cu tagore_graph_builder.cu ${TAGORE_ROOT}/src/Tagore_src.cu PROPERTIES
     LANGUAGE CUDA
 )
-set_source_files_properties(/home/graphdb/Tagore/src/Tagore_src.cu PROPERTIES
+set_source_files_properties(${TAGORE_ROOT}/src/Tagore_src.cu PROPERTIES
     COMPILE_OPTIONS "-Xcudafe=--diag_suppress=780;-Xcudafe=--diag_suppress=177;-Xcudafe=--diag_suppress=550"
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE /home/graphdb/Tagore/include)
+target_include_directories(${PROJECT_NAME} PRIVATE ${TAGORE_ROOT}/include)
 
 target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:--use_fast_math>

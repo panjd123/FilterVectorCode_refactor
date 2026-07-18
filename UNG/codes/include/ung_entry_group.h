@@ -23,6 +23,7 @@ enum class EntryGroupProviderImpl : int
 {
    CpuMinSuperSets = 0,
    GpuCoverFrontier = 1,
+   CpuBruteForceEls = 2,
 };
 
 enum class EntryGroupProviderKind : int
@@ -31,6 +32,7 @@ enum class EntryGroupProviderKind : int
    CpuMinSuperSets = 1,
    CpuExpanded = 2,
    GpuCoverFrontier = 3,
+   CpuBruteForceEls = 4,
 };
 
 const char *entry_group_provider_impl_name(EntryGroupProviderImpl impl);

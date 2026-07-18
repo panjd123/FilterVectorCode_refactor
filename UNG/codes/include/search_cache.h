@@ -13,6 +13,8 @@ namespace ANNS
    {
       SearchQueue search_queue;
       VisitedSet visited_set;
+      VisitedSet special_visited_regular;
+      VisitedSet special_visited_free;
       std::vector<Candidate> expanded_list;
       std::vector<float> occlude_factor;
 
@@ -20,6 +22,8 @@ namespace ANNS
       {
          search_queue.reserve(search_queue_capacity);
          visited_set.init(visited_set_size);
+         special_visited_regular.init(visited_set_size);
+         special_visited_free.init(visited_set_size);
       }
    };
 

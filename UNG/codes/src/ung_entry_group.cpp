@@ -14,6 +14,8 @@ const char *entry_group_provider_impl_name(EntryGroupProviderImpl impl)
       return "cpu_min_super_sets";
    case EntryGroupProviderImpl::GpuCoverFrontier:
       return "gpu_cover_frontier";
+   case EntryGroupProviderImpl::CpuBruteForceEls:
+      return "cpu_bruteforce_els";
    }
    return "unknown";
 }
@@ -30,6 +32,8 @@ const char *entry_group_provider_kind_name(EntryGroupProviderKind kind)
       return "cpu_expanded";
    case EntryGroupProviderKind::GpuCoverFrontier:
       return "gpu_cover_frontier";
+   case EntryGroupProviderKind::CpuBruteForceEls:
+      return "cpu_bruteforce_els";
    }
    return "unknown";
 }
@@ -40,9 +44,11 @@ EntryGroupProviderImpl parse_entry_group_provider_impl(const std::string &value)
       return EntryGroupProviderImpl::CpuMinSuperSets;
    if (value == "1" || value == "gpu" || value == "gpu_cover_frontier")
       return EntryGroupProviderImpl::GpuCoverFrontier;
+   if (value == "2" || value == "cpu_bruteforce" || value == "cpu_bruteforce_els" || value == "bruteforce_els")
+      return EntryGroupProviderImpl::CpuBruteForceEls;
    throw std::invalid_argument(
        "Invalid entry_group_provider: " + value +
-       " (expected cpu_min_super_sets/cpu/0 or gpu_cover_frontier/gpu/1)");
+       " (expected cpu_min_super_sets/cpu/0, gpu_cover_frontier/gpu/1, or cpu_bruteforce_els/2)");
 }
 
 void EntryGroupProviderRequest::validate() const
@@ -95,6 +101,10 @@ EntryGroupProviderResult SearchEntryProvider::run(const EntryGroupProviderReques
    switch (request.impl)
    {
    case EntryGroupProviderImpl::CpuMinSuperSets:
+      result = cpu_provider_(request, stats);
+      result.requested_impl = request.impl;
+      break;
+   case EntryGroupProviderImpl::CpuBruteForceEls:
       result = cpu_provider_(request, stats);
       result.requested_impl = request.impl;
       break;

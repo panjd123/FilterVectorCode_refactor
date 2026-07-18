@@ -49,6 +49,11 @@ namespace ANNS
 
       bool special_search_enabled = false;
       bool special_free_use_regular = false;
+      double special_cover_time_ms = 0.0;
+      double special_entry_time_ms = 0.0;
+      double special_special_edges_time_ms = 0.0;
+      double special_regular_edges_time_ms = 0.0;
+      double special_result_time_ms = 0.0;
       size_t special_query_matched_points = 0;
       size_t special_query_points = 0;
       size_t special_query_trivial_points = 0;

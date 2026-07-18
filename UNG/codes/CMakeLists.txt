@@ -1,6 +1,26 @@
 cmake_minimum_required(VERSION 3.15)
 project(ANNS)
 
+# Keep external dependencies relocatable. By default this repository is assumed
+# to live directly under the graphdb workspace root, but callers can override
+# either path when using a different layout.
+get_filename_component(_DEFAULT_GRAPHDB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
+set(GRAPHDB_ROOT "${_DEFAULT_GRAPHDB_ROOT}" CACHE PATH "graphdb workspace root")
+set(TAGORE_ROOT "${GRAPHDB_ROOT}/Tagore" CACHE PATH "Tagore source tree")
+set(BOOST_ROOT "${GRAPHDB_ROOT}/boost-local" CACHE PATH "Boost installation prefix")
+set(Boost_ROOT "${BOOST_ROOT}")
+set(OPENBLAS_ROOT "${GRAPHDB_ROOT}/openblas" CACHE PATH "OpenBLAS installation prefix")
+set(ZLIB_ROOT "${GRAPHDB_ROOT}/zlib" CACHE PATH "zlib installation prefix")
+list(PREPEND CMAKE_PREFIX_PATH "${OPENBLAS_ROOT}" "${ZLIB_ROOT}")
+
+# Make locally bundled/shared dependencies discoverable when running binaries
+# straight from the build tree.
+list(APPEND CMAKE_BUILD_RPATH
+    "${BOOST_ROOT}/lib"
+    "${OPENBLAS_ROOT}/lib"
+    "${ZLIB_ROOT}/lib"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/onnxruntime-linux-x64-1.16.3/lib")
+
 # Enable CUDA for GPU cross-group edge kernels.
 enable_language(CUDA)
 set(CMAKE_CUDA_STANDARD 17)

@@ -17,6 +17,7 @@ namespace ANNS
    void UniNavGraph::thread_function(IdxType query_id,
                                      const SearchRuntimeConfig &runtime,
                                      const GraphSearchBackend &graph_backend,
+                                     SearchCacheList &search_cache_list,
                                      std::pair<IdxType, float> *results,
                                      std::vector<float> &num_cmps,
                                      std::vector<QueryStats> &query_stats,
@@ -66,11 +67,10 @@ namespace ANNS
       }
       else
       {
-         SearchCacheList search_cache_list(1, _num_points, runtime.Lsearch);
          auto search_cache = search_cache_list.get_free_cache();
          const bool search_ok =
              (runtime.special_block_search && !_special_blocks.empty())
-                 ? execute_special_block_ung_query(query, runtime, graph_backend,
+                 ? execute_special_block_ung_query(query, search_cache, runtime, graph_backend,
                                                    entry_group_ids, query_labels, id,
                                                    num_cmps, cur_result, stats)
                  : execute_ung_query(query, search_cache, graph_backend,
@@ -130,16 +130,17 @@ namespace ANNS
       const GraphSearchBackend graph_backend =
           use_csr_graph_backend ? GraphSearchBackend(csr_graph) : GraphSearchBackend(*_graph);
 
+      SearchCacheList search_cache_list(runtime.num_threads, _num_points, runtime.Lsearch);
       ThreadPool pool(runtime.num_threads);
       std::vector<std::future<void>> tp_results;
       tp_results.reserve(num_queries);
       for (auto id = 0; id < num_queries; ++id)
       {
          tp_results.emplace_back(
-             pool.enqueue([this, id, &runtime, &graph_backend,
+             pool.enqueue([this, id, &runtime, &graph_backend, &search_cache_list,
                            results, &num_cmps, &query_stats, &true_query_group_ids] {
-                this->thread_function(id, runtime, graph_backend, results, num_cmps,
-                                      query_stats, true_query_group_ids);
+                this->thread_function(id, runtime, graph_backend, search_cache_list,
+                                      results, num_cmps, query_stats, true_query_group_ids);
              }));
       }
       for (auto &&tp_result : tp_results)

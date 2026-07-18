@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -284,6 +285,7 @@ namespace ANNS
    }
 
    bool UniNavGraph::execute_special_block_ung_query(const char *query,
+                                                     std::shared_ptr<SearchCache> search_cache,
                                                      const SearchRuntimeConfig &runtime,
                                                      const GraphSearchBackend &graph_backend,
                                                      const std::vector<IdxType> &entry_group_ids,
@@ -351,25 +353,89 @@ namespace ANNS
             stats.entry_group_matched_points >= runtime.special_heavy_edge_min_matched_points) ||
            (runtime.special_heavy_edge_min_entries > 0 &&
             stats.num_entry_points >= runtime.special_heavy_edge_min_entries));
+      const bool profile_timing = std::getenv("UNG_SPECIAL_PROFILE_TIMING") != nullptr;
+      auto elapsed_ms = [](const std::chrono::high_resolution_clock::time_point &start) {
+         return std::chrono::duration<double, std::milli>(
+                    std::chrono::high_resolution_clock::now() - start)
+             .count();
+      };
+
       const IdxType dim = _base_storage->get_dim();
       const IdxType capacity = runtime.Lsearch;
-      std::vector<uint8_t> visited_regular(_num_points, 0);
-      std::vector<uint8_t> visited_free(_num_points, 0);
+      std::chrono::high_resolution_clock::time_point cover_time_start;
+      if (profile_timing)
+         cover_time_start = std::chrono::high_resolution_clock::now();
+      std::vector<uint8_t> query_covers_block(_special_blocks.size() + 1, 0);
+      if (!query_covers_block.empty())
+      {
+         std::vector<LabelType> sorted_query = query_labels;
+         std::sort(sorted_query.begin(), sorted_query.end());
+         for (size_t block_idx = 0; block_idx < _special_blocks.size(); ++block_idx)
+         {
+            std::vector<LabelType> sorted_root = _special_blocks[block_idx].root_labels;
+            std::sort(sorted_root.begin(), sorted_root.end());
+            if (std::includes(sorted_root.begin(), sorted_root.end(),
+                              sorted_query.begin(), sorted_query.end()))
+               query_covers_block[block_idx + 1] = 1;
+         }
+      }
+      if (profile_timing)
+         stats.special_cover_time_ms = elapsed_ms(cover_time_start);
+
+      auto core_search_start_time = std::chrono::high_resolution_clock::now();
+      const auto entry_time_start = core_search_start_time;
+      auto &visited_regular = search_cache->special_visited_regular;
+      auto &visited_free = search_cache->special_visited_free;
+      visited_regular.clear();
+      visited_free.clear();
       std::vector<SpecialCandidate> queue;
-      queue.reserve(capacity + 1);
+      constexpr size_t kReducedEntryGroupThreshold = 1000;
+      constexpr IdxType kReducedEntryPointsPerLargeGroupSet = 4;
+      const IdxType effective_num_entry_points =
+          entry_group_ids.size() > kReducedEntryGroupThreshold
+              ? std::min<IdxType>(runtime.num_entry_points, kReducedEntryPointsPerLargeGroupSet)
+              : runtime.num_entry_points;
+      const size_t entry_reserve = std::max<size_t>(
+          static_cast<size_t>(capacity) + 1,
+          entry_group_ids.size() * static_cast<size_t>(effective_num_entry_points));
+      queue.reserve(entry_reserve);
       size_t cur_unexpanded = 0;
 
-      bool any_entry = false;
+      std::vector<IdxType> entry_point_ids;
+      std::vector<uint8_t> entry_is_free;
+      entry_point_ids.reserve(entry_reserve);
+      entry_is_free.reserve(entry_reserve);
+
+      auto add_entry_point = [&](IdxType point_id, bool is_free) {
+         if (visited_regular.check(point_id) || visited_free.check(point_id))
+            return;
+
+         entry_point_ids.push_back(point_id);
+         entry_is_free.push_back(is_free ? 1 : 0);
+         if (is_free)
+         {
+            visited_free.set(point_id);
+            stats.special_entry_free_points++;
+            stats.special_free_candidates_inserted++;
+         }
+         else
+         {
+            visited_regular.set(point_id);
+            stats.special_entry_regular_points++;
+            stats.special_regular_candidates_inserted++;
+         }
+      };
       for (IdxType group_id : entry_group_ids)
       {
          if (group_id >= _group_id_to_range.size())
             continue;
-         const bool covered_root = is_special_block_root_group(group_id) &&
-                                   query_covers_special_block(query_labels, _special_blocks[_group_id_to_special_block[group_id] - 1]);
+         const IdxType root_block_id = is_special_block_root_group(group_id) ? _group_id_to_special_block[group_id] : 0;
+         const bool covered_root = root_block_id > 0 && root_block_id < query_covers_block.size() &&
+                                   query_covers_block[root_block_id] != 0;
          const auto &range = _group_id_to_range[group_id];
          if (range.second <= range.first)
             continue;
-         const IdxType take = std::min<IdxType>(runtime.num_entry_points, range.second - range.first);
+         const IdxType take = std::min<IdxType>(effective_num_entry_points, range.second - range.first);
          for (IdxType local = 0; local < take; ++local)
          {
             const IdxType point_id =
@@ -377,41 +443,38 @@ namespace ANNS
                  _group_entry_points[group_id] >= range.first && _group_entry_points[group_id] < range.second)
                     ? _group_entry_points[group_id]
                     : range.first + local;
-            if (covered_root)
-            {
-               if (visited_free[point_id])
-                  continue;
-               visited_free[point_id] = 1;
-               stats.special_entry_free_points++;
-            }
-            else
-            {
-               if (visited_regular[point_id])
-                  continue;
-               visited_regular[point_id] = 1;
-               stats.special_entry_regular_points++;
-            }
-            insert_candidate(queue, point_id,
-                             _distance_handler->compute(query, _base_storage->get_vector(point_id), dim),
-                             covered_root, capacity, cur_unexpanded);
-            if (covered_root)
-               stats.special_free_candidates_inserted++;
-            else
-               stats.special_regular_candidates_inserted++;
-            any_entry = true;
+            add_entry_point(point_id, covered_root);
          }
       }
 
-      if (!any_entry)
+      if (entry_point_ids.empty())
       {
          stats.num_distance_calcs = 0;
          return false;
       }
 
+      queue.reserve(std::max(queue.capacity(), entry_point_ids.size()));
+      for (size_t i = 0; i < entry_point_ids.size(); ++i)
+      {
+         const IdxType point_id = entry_point_ids[i];
+         queue.push_back(SpecialCandidate{point_id,
+                                          _distance_handler->compute(query, _base_storage->get_vector(point_id), dim),
+                                          false, entry_is_free[i] != 0});
+      }
+
+      if (queue.size() > static_cast<size_t>(capacity))
+      {
+         auto keep_end = queue.begin() + static_cast<std::ptrdiff_t>(capacity);
+         std::nth_element(queue.begin(), keep_end, queue.end(), less_candidate);
+         queue.resize(static_cast<size_t>(capacity));
+      }
+      std::sort(queue.begin(), queue.end(), less_candidate);
+      stats.special_entry_time_ms = elapsed_ms(entry_time_start);
+
+
       IdxType comparisons = static_cast<IdxType>(queue.size());
       stats.special_free_distance_calcs += stats.special_entry_free_points;
       stats.special_regular_distance_calcs += stats.special_entry_regular_points;
-      auto core_search_start_time = std::chrono::high_resolution_clock::now();
       while (cur_unexpanded < queue.size())
       {
          const size_t cur_idx = cur_unexpanded;
@@ -422,21 +485,21 @@ namespace ANNS
 
          auto visit_neighbor = [&](IdxType neighbor, bool next_free) {
             if (neighbor >= _num_points)
-               return;
+               return false;
             if (next_free)
             {
-               if (visited_free[neighbor])
-                  return;
-               visited_free[neighbor] = 1;
+               if (visited_free.check(neighbor))
+                  return false;
+               visited_free.set(neighbor);
                stats.special_free_candidates_inserted++;
                if (!cur.free)
                   stats.special_free_upgrades++;
             }
             else
             {
-               if (visited_regular[neighbor])
-                  return;
-               visited_regular[neighbor] = 1;
+               if (visited_regular.check(neighbor))
+                  return false;
+               visited_regular.set(neighbor);
                stats.special_regular_candidates_inserted++;
             }
             stats.num_nodes_visited++;
@@ -448,6 +511,7 @@ namespace ANNS
             else
                stats.special_regular_distance_calcs++;
             comparisons++;
+            return true;
          };
 
          if (cur.free)
@@ -460,6 +524,9 @@ namespace ANNS
             if (cur.id < _special_edges_by_point.size())
             {
                auto scan_special_edges = [&](const std::vector<SpecialEdge> &edges, bool heavy) {
+                  std::chrono::high_resolution_clock::time_point special_edges_time_start;
+                  if (profile_timing)
+                     special_edges_time_start = std::chrono::high_resolution_clock::now();
                   for (const SpecialEdge &edge : edges)
                   {
                      stats.special_edges_scanned++;
@@ -469,18 +536,15 @@ namespace ANNS
                         stats.special_inter_edges_scanned++;
                      else
                         stats.special_intra_edges_scanned++;
-                     const size_t before =
-                         stats.special_free_candidates_inserted + stats.special_regular_candidates_inserted;
-                     visit_neighbor(edge.target_point_id, true);
-                     const size_t after =
-                         stats.special_free_candidates_inserted + stats.special_regular_candidates_inserted;
-                     if (after > before)
+                     if (visit_neighbor(edge.target_point_id, true))
                      {
                         stats.special_edges_accepted++;
                         if (heavy)
                            stats.special_heavy_edges_accepted++;
                      }
                   }
+                  if (profile_timing)
+                     stats.special_special_edges_time_ms += elapsed_ms(special_edges_time_start);
                };
                scan_special_edges(_special_edges_by_point[cur.id], false);
                if (stats.special_heavy_edges_enabled && cur.id < _special_heavy_edges_by_point.size())
@@ -490,6 +554,9 @@ namespace ANNS
                continue;
          }
 
+         std::chrono::high_resolution_clock::time_point regular_edges_time_start;
+         if (profile_timing)
+            regular_edges_time_start = std::chrono::high_resolution_clock::now();
          const GraphNeighborView neighbors = graph_backend.neighbors(cur.id);
          for (size_t i = 0; i < neighbors.size; ++i)
          {
@@ -499,18 +566,15 @@ namespace ANNS
             if (!next_free && is_special_block_root_point(neighbor))
             {
                const IdxType block_id = neighbor < _point_to_special_block.size() ? _point_to_special_block[neighbor] : 0;
-               if (block_id > 0 && block_id <= _special_blocks.size() &&
-                   query_covers_special_block(query_labels, _special_blocks[block_id - 1]))
+               if (block_id > 0 && block_id < query_covers_block.size() &&
+                   query_covers_block[block_id] != 0)
                   next_free = true;
             }
-            const size_t before =
-                stats.special_free_candidates_inserted + stats.special_regular_candidates_inserted;
-            visit_neighbor(neighbor, next_free);
-            const size_t after =
-                stats.special_free_candidates_inserted + stats.special_regular_candidates_inserted;
-            if (after > before)
+            if (visit_neighbor(neighbor, next_free))
                stats.special_regular_edges_accepted++;
          }
+         if (profile_timing)
+            stats.special_regular_edges_time_ms += elapsed_ms(regular_edges_time_start);
       }
 
       stats.core_search_time_ms =
@@ -518,9 +582,14 @@ namespace ANNS
               std::chrono::high_resolution_clock::now() - core_search_start_time)
               .count();
 
+      std::chrono::high_resolution_clock::time_point result_time_start;
+      if (profile_timing)
+         result_time_start = std::chrono::high_resolution_clock::now();
       cur_result.clear();
       for (const SpecialCandidate &candidate : queue)
          cur_result.insert(candidate.id, candidate.distance);
+      if (profile_timing)
+         stats.special_result_time_ms = elapsed_ms(result_time_start);
       num_cmps[query_id] = comparisons;
       stats.num_distance_calcs = comparisons;
       stats.search_time_ms =

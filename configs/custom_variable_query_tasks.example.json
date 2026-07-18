@@ -1,0 +1,24 @@
+{
+  "query_tasks": [
+    {
+      "enabled": true,
+      "task_name": "minlen3_cov100k",
+      "mode": "variable_sub_base",
+      "dataset": "Amazon",
+      "data_dir": "/home/dev/graphdb/FilterVectorData/Amazon",
+      "overwrite": false,
+      "sub_base_params": {
+        "num_points": 1000,
+        "min_query_length": 3,
+        "max_query_length": 0,
+        "K": 100001,
+        "max_coverage": 602453,
+        "min_children": 0,
+        "cache-file": "/home/dev/graphdb/FilterVectorData/Amazon/sub_base_cache"
+      },
+      "analysis_params": {
+        "analyze": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+git_status_short:
+ M README.md
+ M UNG/codes/apps/build_UNG_index.cpp
+ M UNG/codes/apps/search_UNG_index.cpp
+ M UNG/codes/include/MethodSelector.h
+ M UNG/codes/include/graph.h
+ M UNG/codes/include/storage.h
+ M UNG/codes/include/tagore_graph_builder.h
+ M UNG/codes/include/trie.h
+ M UNG/codes/include/ung_build_config.h
+ M UNG/codes/include/uni_nav_graph.h
+ M UNG/codes/src/CMakeLists.txt
+ M UNG/codes/src/MethodSelector.cpp
+ M UNG/codes/src/distance.cpp
+ M UNG/codes/src/gpu_gemm_topk.cu
+ M UNG/codes/src/storage.cpp
+ M UNG/codes/src/tagore_graph_builder.cu
+ M UNG/codes/src/trie.cpp
+ M UNG/codes/src/ung_build_config.cpp
+ M UNG/codes/src/uni_nav_graph.cpp
+ M UNG/codes/src/utils.cpp
+ M UNG/codes/tools/query_entry_group_bench.cu
+ M docs/README.md
+ M docs/papers/EVIDENCE_MATRIX_CN.md
+ M docs/papers/REVIEWER_AUTHOR_ITERATION_CN.md
+ M docs/papers/UNG_GPU_OPTIMIZATION_PAPER_DRAFT_CN.md
+ M docs/papers/UNG_GPU_OPTIMIZATION_PAPER_DRAFT_EN.md
+ M docs/presentations/0605.md
+ M docs/reports/END_TO_END_RECALL_STATUS_CN.md
+ M docs/reports/FINAL_GROUP_GRAPH_METHOD_CN.md
+ M docs/reports/TECHNICAL_REPORT_OPTIMIZATION_SPEEDUP_CN.md
+ M docs/runbooks/UNG_BUILD_MODE_SWITCHES_CN.md
+ M scripts/benchmarks/README.md
+ M scripts/benchmarks/run_end_to_end_recall_ab.sh
+ M scripts/benchmarks/run_query_entry_group_bench.sh
+ M tools/benchmarks/audit_paper_artifacts.py
+?? UNG/codes/apps/._search_UNG_index.cpp
+?? UNG/codes/include/._ung_build_config.h
+?? UNG/codes/include/._ung_build_settings.h
+?? UNG/codes/include/._ung_query_stats.h
+?? UNG/codes/include/._ung_special_blocks.h
+?? UNG/codes/include/._uni_nav_graph.h
+?? UNG/codes/include/ung_acorn_augment_config.h
+?? UNG/codes/include/ung_build_settings.h
+?? UNG/codes/include/ung_cross_edge_config.h
+?? UNG/codes/include/ung_cross_edge_output_writer.h
+?? UNG/codes/include/ung_cross_edge_result.h
+?? UNG/codes/include/ung_entry_group.h
+?? UNG/codes/include/ung_gpu_cover_frontier_provider.h
+?? UNG/codes/include/ung_graph_search_backend.h
+?? UNG/codes/include/ung_group_graph_build_types.h
+?? UNG/codes/include/ung_prof_log.h
+?? UNG/codes/include/ung_query_route.h
+?? UNG/codes/include/ung_query_stats.h
+?? UNG/codes/include/ung_special_blocks.h
+?? UNG/codes/src/._gpu_gemm_topk.cu
+?? UNG/codes/src/._ung_build_config.cpp
+?? UNG/codes/src/._ung_build_settings.cpp
+?? UNG/codes/src/._uni_nav_graph_cross_edges.cpp
+?? UNG/codes/src/._uni_nav_graph_entry_provider.cpp
+?? UNG/codes/src/._uni_nav_graph_group_graph.cpp
+?? UNG/codes/src/._uni_nav_graph_io.cpp
+?? UNG/codes/src/._uni_nav_graph_query_features.cpp
+?? UNG/codes/src/._uni_nav_graph_search.cpp
+?? UNG/codes/src/._uni_nav_graph_search_backend.cpp
+?? UNG/codes/src/._uni_nav_graph_special_blocks.cpp
+?? UNG/codes/src/gpu_cross_edge_bucket_descriptors.cuh
+?? UNG/codes/src/gpu_cross_edge_bucket_fused.cuh
+?? UNG/codes/src/gpu_cross_edge_buffers.cuh
+?? UNG/codes/src/gpu_cross_edge_common.cuh
+?? UNG/codes/src/gpu_cross_edge_cpu_tiny.cuh
+?? UNG/codes/src/gpu_cross_edge_cuvs_baseline.cuh
+?? UNG/codes/src/gpu_cross_edge_descriptor_kernels.cuh
+?? UNG/codes/src/gpu_cross_edge_double_buffer.cuh
+?? UNG/codes/src/gpu_cross_edge_group_dispatch.cuh
+?? UNG/codes/src/gpu_cross_edge_group_fused_kernels.cuh
+?? UNG/codes/src/gpu_cross_edge_large_group_kernels.cuh
+?? UNG/codes/src/gpu_cross_edge_output.cuh
+?? UNG/codes/src/gpu_cross_edge_per_group_fused.cuh
+?? UNG/codes/src/gpu_cross_edge_planning.cuh
+?? UNG/codes/src/gpu_cross_edge_profile.cuh
+?? UNG/codes/src/gpu_cross_edge_query_pack.cuh
+?? UNG/codes/src/gpu_cross_edge_regular_backend.cuh
+?? UNG/codes/src/gpu_cross_edge_regular_route.cuh
+?? UNG/codes/src/gpu_cross_edge_resident_vectors.cuh
+?? UNG/codes/src/gpu_cross_edge_sgemm_baseline.cuh
+?? UNG/codes/src/gpu_cross_edge_singleton_kernels.cuh
+?? UNG/codes/src/gpu_cross_edge_source_exact.cuh
+?? UNG/codes/src/gpu_cross_edge_source_exact_kernels.cuh
+?? UNG/codes/src/gpu_cross_edge_topk_device.cuh
+?? UNG/codes/src/gpu_cross_edge_update_kernels.cuh
+?? UNG/codes/src/gpu_cross_edge_verify.cuh
+?? UNG/codes/src/gpu_cross_edge_x_streaming.cuh
+?? UNG/codes/src/tagore_cuda_config.cpp
+?? UNG/codes/src/ung_build_settings.cpp
+?? UNG/codes/src/ung_cross_edge_config.cpp
+?? UNG/codes/src/ung_cross_edge_output_writer.cpp
+?? UNG/codes/src/ung_entry_group.cpp
+?? UNG/codes/src/ung_gpu_cover_frontier_provider.cu
+?? UNG/codes/src/ung_graph_search_backend.cpp
+?? UNG/codes/src/ung_group_graph_build_types.cpp
+?? UNG/codes/src/ung_prof_log.cpp
+?? UNG/codes/src/uni_nav_graph_acorn_augment.cpp
+?? UNG/codes/src/uni_nav_graph_cross_edges.cpp
+?? UNG/codes/src/uni_nav_graph_entry_provider.cpp
+?? UNG/codes/src/uni_nav_graph_group_graph.cpp
+?? UNG/codes/src/uni_nav_graph_io.cpp
+?? UNG/codes/src/uni_nav_graph_label_graph.cpp
+?? UNG/codes/src/uni_nav_graph_query_features.cpp
+?? UNG/codes/src/uni_nav_graph_query_route.cpp
+?? UNG/codes/src/uni_nav_graph_search.cpp
+?? UNG/codes/src/uni_nav_graph_search_backend.cpp
+?? UNG/codes/src/uni_nav_graph_special_blocks.cpp
+?? UNG/codes/src/uni_nav_graph_vector_attr.cpp
+?? binary_sha256.txt
+?? docs/._README.md
+?? docs/presentations/ADVISOR_BRIEFING_20260625_CN.md
+?? docs/reports/._SPECIAL_BLOCK_BUILD_QUERY_AB_CN.md
+?? docs/reports/._SPECIAL_BLOCK_GRAPH_QUERY_DESIGN_CN.md
+?? docs/reports/._THREE_MAINLINES_METHOD_BASELINE_DATA_SPEEDUP_CN.md
+?? docs/reports/BEST_FULL_QUALITY_VERSION_CN.md
+?? docs/reports/CODE_STRUCTURE_REVIEW_20260625_CN.md
+?? docs/reports/CURRENT_METHODS_EFFECTS_AND_GAPS_CN.md
+?? docs/reports/GPU_GROUP_GRAPH_RELATED_WORK_COLLISION_CN.md
+?? docs/reports/SPECIAL_BLOCK_BUILD_QUERY_AB_CN.md
+?? docs/reports/SPECIAL_BLOCK_GRAPH_QUERY_DESIGN_CN.md
+?? docs/reports/SYSTEM_SCOPE_PERFORMANCE_AND_LIMITS_CN.md
+?? docs/reports/THREE_MAINLINES_METHOD_BASELINE_DATA_SPEEDUP_CN.md
+?? docs/runbooks/UNG_METHOD_REGISTRY_CN.md
+?? repo_state.txt
+?? run.log
+?? scripts/benchmarks/._run_special_block_build_query_ab.sh
+?? scripts/benchmarks/run_query_entry_group_sweep.sh
+?? scripts/benchmarks/run_special_block_build_query_ab.sh
+?? tmp/
+?? tools/benchmarks/._extract_stride_vecs_bin.py
+?? tools/benchmarks/._summarize_special_block_ab.py
+?? tools/benchmarks/analyze_query_entry_group_pair_sweep.py
+?? tools/benchmarks/analyze_special_block_threshold_sweep.py
+?? tools/benchmarks/extract_stride_vecs_bin.py
+?? tools/benchmarks/summarize_special_block_ab.py
+git_head:
+64a18ec 2026-06-05 15:23:26 +0800 docs: add query scan results to 0605 presentation

@@ -97,6 +97,7 @@ target_link_libraries(test_acorn_in_ung PRIVATE nlohmann_json::nlohmann_json)
 
 
 find_package(ZLIB REQUIRED)
+target_include_directories(faiss PRIVATE ${ZLIB_INCLUDE_DIRS})
 target_link_libraries(faiss PUBLIC ${ZLIB_LIBRARIES})
 
 find_package(OpenMP REQUIRED)

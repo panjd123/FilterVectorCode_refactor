@@ -166,6 +166,8 @@ int main(int argc, char **argv)
    bool is_idea2_available = false;                            // true: use original ung
    bool is_new_trie_method = false, is_rec_more_start = false; // false:默认的UNG原始trie tree方法,true：递归；false:默认的root
    bool is_ung_more_entry = false;                             // false:默认的UNG原始entry point选择方法,true：更多entry points
+   bool skip_query_features = false;
+   bool skip_bitmap_comparison = false;
    int num_repeats = 1;                                        // 默认重复1次
    int force_use_alg = 0;                                      // 0: auto, 1: UNG (nT=false), 2: UNG-nTtrue, 3: ACORN
    int lsearch_start, lsearch_step;
@@ -229,6 +231,10 @@ int main(int argc, char **argv)
       desc.add_options()("is_ung_more_entry", po::value<bool>(&is_ung_more_entry)->default_value(false),
                          "Enable expanded/oracle-assisted UNG entry group selection. "
                          "When true, query_group_id_file can affect entry groups.");
+      desc.add_options()("skip_query_features", po::value<bool>(&skip_query_features)->default_value(false),
+                         "Skip query feature CSV generation before search.");
+      desc.add_options()("skip_bitmap_comparison", po::value<bool>(&skip_bitmap_comparison)->default_value(false),
+                         "Skip pre-search bitmap comparison diagnostics.");
       desc.add_options()("num_repeats", po::value<int>(&num_repeats)->default_value(1),
                          "Number of repeats for each Lsearch value");
       desc.add_options()("force_use_alg", po::value<int>(&force_use_alg)->required(),
@@ -240,7 +246,7 @@ int main(int argc, char **argv)
       desc.add_options()("efs_step_fast", po::value<int>(&efs_step_fast)->required(), "ACORN efs step value");
       desc.add_options()("lsearch_threshold", po::value<int>(&lsearch_threshold)->required(), "lsearch_threshold");
       desc.add_options()("entry_group_provider", po::value<std::string>(&entry_group_provider_arg)->default_value("cpu_min_super_sets"),
-                         "Entry group provider: cpu_min_super_sets/cpu/0 or gpu_cover_frontier/gpu/1. "
+                         "Entry group provider: cpu_min_super_sets/cpu/0, gpu_cover_frontier/gpu/1, or cpu_bruteforce_els/2. "
                          "gpu_cover_frontier uses the production CUDA correct-cover provider when available.");
       desc.add_options()("graph_search_backend", po::value<std::string>(&graph_search_backend_arg)->default_value("neighbor_list"),
                          "UNG graph search backend: neighbor_list/graph/default/0 or csr/1.");
@@ -310,25 +316,50 @@ int main(int argc, char **argv)
    ANNS::load_gt_file(gt_file, gt, num_queries, K);
    auto results = new std::pair<ANNS::IdxType, float>[num_queries * K];
 
-   std::vector<std::vector<ANNS::IdxType>> all_entry_group_ids =
-       precompute_entry_group_ids(index, query_storage);
-   const BitmapComparisonTiming bitmap_timing =
-       run_bitmap_comparison(index, query_storage, all_entry_group_ids);
-   (void)bitmap_timing;
+   if (!skip_bitmap_comparison)
+   {
+      std::vector<std::vector<ANNS::IdxType>> all_entry_group_ids =
+          precompute_entry_group_ids(index, query_storage);
+      const BitmapComparisonTiming bitmap_timing =
+          run_bitmap_comparison(index, query_storage, all_entry_group_ids);
+      (void)bitmap_timing;
+   }
+   else
+   {
+      std::cout << "Skipping pre-search bitmap comparison diagnostics." << std::endl;
+   }
 
    // calculate query features and save to CSV
-   std::string features_csv_path = result_path_prefix + "query_features.csv";
-   index.calculate_query_features_only(
-       query_storage,
-       num_threads,       
-       features_csv_path, 
-       true,              // is_new_trie_method
-       true               // is_rec_more_start
-   );
+   if (!skip_query_features)
+   {
+      std::string features_csv_path = result_path_prefix + "query_features.csv";
+      index.calculate_query_features_only(
+          query_storage,
+          num_threads,
+          features_csv_path,
+          true, // is_new_trie_method
+          true  // is_rec_more_start
+      );
+   }
+   else
+   {
+      std::cout << "Skipping query feature CSV generation." << std::endl;
+   }
 
-   // Warm-up selector
+   // Warm-up selector and GPU entry provider outside measured search time.
    std::cout << "\n--- Starting Warm-up Phase ---" << std::endl;
    index.warmup_selectors(num_threads);
+   if (entry_group_provider == ANNS::EntryGroupProviderImpl::GpuCoverFrontier)
+   {
+      size_t max_query_labels = 0;
+      for (ANNS::IdxType qid = 0; qid < num_queries; ++qid)
+         max_query_labels = std::max(max_query_labels, query_storage->get_label_set(qid).size());
+      std::cout << "Warming up gpu_cover_frontier provider with " << num_threads
+                << " reusable workspaces." << std::endl;
+      index.initialize_gpu_cover_frontier_provider(num_threads, max_query_labels);
+      if (num_queries > 0)
+         index.warmup_gpu_cover_frontier_provider(query_storage->get_label_set(0));
+   }
    std::cout << "--- Warm-up Finished ---"<< std::endl;
 
    // init query stats
@@ -469,14 +500,14 @@ int main(int argc, char **argv)
    // save query details
    std::ofstream detail_out(result_path_prefix + "query_details_repeat" + std::to_string(num_repeats) + ".csv");
    detail_out << "repeat,Lsearch,efs,QueryID,Time_ms,search_time_ms,core_search_time_ms,Recall,"         // 核心结果
-              << "is_idea1_used,is_idea2_used,"                                                          // 使用的方法
               << "DistCalcs,NumNodeVisited,"                                                             // 性能指标
-              << "MinSupersetT_ms,idea1SelT_ms,idea2SelT_ms,idea1_flag_ms,idea2_flag_ms,BitmapT_new_ms," // 耗时分解
+              << "MinSupersetT_ms,"                                                                       // ELS/入口组耗时
               // --- Idea1 & Trie 特征 ---
               << "QuerySize,CandSize,"
               // --- Idea2 模型核心特征 ---
               << "NumEntries,"
               << "EntryGroupMatchedPoints,SpecialSearchEnabled,SpecialFreeUseRegular,"
+              << "SpecialCoverT_ms,SpecialEntryT_ms,SpecialSpecialEdgesT_ms,SpecialRegularEdgesT_ms,SpecialResultT_ms,"
               << "SpecialQueryMatchedPoints,SpecialQueryPoints,SpecialQueryTrivialPoints,SpecialQueryNontrivialPoints,"
               << "SpecialQueryRatio,SpecialQueryNontrivialRatio,SpecialQueryBlockCount,SpecialQueryTrivialBlockCount,SpecialQueryNontrivialBlockCount,"
 	              << "SpecialEntryFreePoints,SpecialEntryRegularPoints,SpecialRegularExpanded,SpecialFreeExpanded,"
@@ -500,16 +531,9 @@ int main(int argc, char **argv)
                        << stats.search_time_ms << ","
                        << stats.core_search_time_ms << ","
                        << stats.recall << ","
-                       << stats.is_idea1_used << ","
-                       << stats.is_idea2_used << ","
                        << stats.num_distance_calcs << ","
                        << stats.num_nodes_visited << ","
                        << stats.get_min_super_sets_time_ms << ","
-                       << stats.idea1_selector_pred_time_ms << ","
-                       << stats.idea2_selector_pred_time_ms << ","
-                       << stats.idea1_flag_time_ms << ","
-                       << stats.idea2_flag_time_ms << ","
-                       << stats.bitmap_time_ms << ","
                        // Idea1 & Trie 特征
                        << stats.query_length << ","
                        << stats.candidate_set_size << ","
@@ -518,6 +542,11 @@ int main(int argc, char **argv)
                        << stats.entry_group_matched_points << ","
                        << (stats.special_search_enabled ? 1 : 0) << ","
                        << (stats.special_free_use_regular ? 1 : 0) << ","
+                       << stats.special_cover_time_ms << ","
+                       << stats.special_entry_time_ms << ","
+                       << stats.special_special_edges_time_ms << ","
+                       << stats.special_regular_edges_time_ms << ","
+                       << stats.special_result_time_ms << ","
                        << stats.special_query_matched_points << ","
                        << stats.special_query_points << ","
                        << stats.special_query_trivial_points << ","
