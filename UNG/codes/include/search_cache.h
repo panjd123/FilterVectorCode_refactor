@@ -17,6 +17,11 @@ namespace ANNS
       VisitedSet special_visited_free;
       std::vector<Candidate> expanded_list;
       std::vector<float> occlude_factor;
+      std::vector<uint8_t> favor_target_map;
+      std::vector<IdxType> favor_target_touched;
+      std::vector<uint8_t> favor_selected_blocks;
+      std::vector<uint32_t> favor_block_source_expanded;
+      std::vector<uint8_t> favor_candidate_active;
 
       SearchCache(IdxType visited_set_size, int32_t search_queue_capacity)
       {

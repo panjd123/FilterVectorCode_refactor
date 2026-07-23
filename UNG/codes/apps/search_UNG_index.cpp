@@ -356,9 +356,17 @@ int main(int argc, char **argv)
          max_query_labels = std::max(max_query_labels, query_storage->get_label_set(qid).size());
       std::cout << "Warming up gpu_cover_frontier provider with " << num_threads
                 << " reusable workspaces." << std::endl;
-      index.initialize_gpu_cover_frontier_provider(num_threads, max_query_labels);
-      if (num_queries > 0)
-         index.warmup_gpu_cover_frontier_provider(query_storage->get_label_set(0));
+      try
+      {
+         index.initialize_gpu_cover_frontier_provider(num_threads, max_query_labels);
+         if (num_queries > 0)
+            index.warmup_gpu_cover_frontier_provider(query_storage->get_label_set(0));
+      }
+      catch (const std::exception &ex)
+      {
+         std::cerr << "GPU cover frontier warm-up failed: " << ex.what() << std::endl;
+         return -1;
+      }
    }
    std::cout << "--- Warm-up Finished ---"<< std::endl;
 
@@ -514,7 +522,10 @@ int main(int argc, char **argv)
 	              << "SpecialRegularInserted,SpecialFreeInserted,SpecialFreeUpgrades,"
 	              << "SpecialRegularEdgesScanned,SpecialEdgesScanned,SpecialIntraEdgesScanned,SpecialInterEdgesScanned,"
 	              << "SpecialHeavyEdgesEnabled,SpecialHeavyEdgesScanned,SpecialHeavyEdgesAccepted,"
-	              << "SpecialRegularEdgesAccepted,SpecialEdgesAccepted,SpecialRegularDistCalcs,SpecialFreeDistCalcs"
+	              << "SpecialRegularEdgesAccepted,SpecialEdgesAccepted,SpecialRegularDistCalcs,SpecialFreeDistCalcs,"
+                       << "FavorBlockSearchEnabled,FavorBlockCount,FavorBlockPoints,FavorTargetPoints,"
+                       << "FavorTDCandidates,FavorNTDCandidates,FavorTDResults,FavorBlocksExpanded,"
+                       << "FavorBlockEdgeScansSkipped,FavorSelectivity,FavorExclusionDistance"
               << "\n";
    for (int repeat = 0; repeat < num_repeats; repeat++)
    {
@@ -573,7 +584,18 @@ int main(int argc, char **argv)
 	                       << stats.special_regular_edges_accepted << ","
                        << stats.special_edges_accepted << ","
                        << stats.special_regular_distance_calcs << ","
-                       << stats.special_free_distance_calcs << "\n";
+                       << stats.special_free_distance_calcs << ","
+                       << (stats.favor_block_search_enabled ? 1 : 0) << ","
+                       << stats.favor_block_count << ","
+                       << stats.favor_block_points << ","
+                       << stats.favor_target_points << ","
+                       << stats.favor_td_candidates_inserted << ","
+                       << stats.favor_ntd_candidates_inserted << ","
+                       << stats.favor_td_results << ","
+                       << stats.favor_blocks_expanded << ","
+                       << stats.favor_block_edge_scans_skipped << ","
+                       << stats.favor_selectivity << ","
+                       << stats.favor_exclusion_distance << "\n";
          }
       }
    }

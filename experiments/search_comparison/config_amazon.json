@@ -19,31 +19,31 @@
   "datasets": [
     {
       "dataset": "Amazon",
-      "query_task": "query_special_core_all_then_els_1000"
+      "query_task": "query_selected_time_advantage"
     }
   ],
   "methods": [
     {
-      "name": "UNG",
-      "index_name": "UNG",
+      "name": "UNG__hybrid",
+      "index_name": "UNG__hybrid",
       "entry_group_provider": "cpu_min_super_sets",
       "special_block_search": false,
       "is_new_trie_method": false,
       "is_rec_more_start": false
     },
     {
-      "name": "gpu_bruteforce_els_special_blocks",
-      "index_name": "UNG_special_blocks",
+      "name": "gpu_bruteforce_els_ung",
+      "index_name": "UNG__hybrid",
       "entry_group_provider": "gpu_cover_frontier",
-      "special_block_search": true,
+      "special_block_search": false,
       "is_new_trie_method": false,
       "is_rec_more_start": false
     },
     {
-      "name": "gpu_bruteforce_els_ung",
-      "index_name": "UNG",
+      "name": "gpu_bruteforce_els_special_blocks",
+      "index_name": "UNG_special_blocks_hybrid_bdeg128_bcross10",
       "entry_group_provider": "gpu_cover_frontier",
-      "special_block_search": false,
+      "special_block_search": true,
       "is_new_trie_method": false,
       "is_rec_more_start": false
     }

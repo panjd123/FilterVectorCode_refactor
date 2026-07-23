@@ -74,41 +74,44 @@ for key, value in data.get("ung_env", {}).items():
   fi
 }
 
-csv_escape() {
-  local value="$1"
-  value="${value//\"/\"\"}"
-  printf '"%s"' "${value}"
-}
+json_index_name_suffix() {
+  python3 -c 'import json,re,sys
+with open(sys.argv[1]) as f:
+    data=json.load(f)
 
-meta_get() {
-  local file="$1"
-  local key="$2"
-  local fallback="${3:-}"
-  if [ -f "${file}" ]; then
-    awk -F= -v k="${key}" '$1 == k {print substr($0, length(k) + 2); found=1; exit} END {if (!found) exit 1}' "${file}" 2>/dev/null || printf '%s' "${fallback}"
-  else
-    printf '%s' "${fallback}"
-  fi
-}
+def nested(root, dotted):
+    cur=root
+    for part in dotted.split("."):
+        if not isinstance(cur, dict) or part not in cur:
+            return None
+        cur=cur[part]
+    return cur
 
-time_get() {
-  local file="$1"
-  local key="$2"
-  local fallback="${3:-}"
-  if [ -f "${file}" ]; then
-    awk -F= -v k="${key}" '$1 == k {print $2; found=1; exit} END {if (!found) exit 1}' "${file}" 2>/dev/null || printf '%s' "${fallback}"
-  else
-    printf '%s' "${fallback}"
-  fi
-}
+def clean(value):
+    value=str(value).strip()
+    value=value.replace(".", "p")
+    value=re.sub(r"[^A-Za-z0-9]+", "-", value).strip("-")
+    return value or "empty"
 
-dir_size_bytes() {
-  local dir="$1"
-  if [ -d "${dir}" ]; then
-    du -sb "${dir}" 2>/dev/null | awk '{print $1}'
-  else
-    printf '0'
-  fi
+parts=[]
+for item in data.get("index_name_params", []):
+    if not isinstance(item, dict):
+        continue
+    source=item.get("source", "env")
+    key=item.get("key")
+    if not key:
+        continue
+    label=item.get("label", key)
+    if source == "build":
+        value=nested(data.get("build", {}), key)
+    elif source == "env":
+        value=data.get("ung_env", {}).get(key)
+    else:
+        value=None
+    if value is None:
+        continue
+    parts.append(f"{clean(label)}{clean(value)}")
+print(("_" + "_".join(parts)) if parts else "")' "${CONFIG_PATH}"
 }
 
 log() {
@@ -129,6 +132,9 @@ DATA_ROOT="$(json_get_default '.data_root' '/home/dev/graphdb/FilterVectorData')
 RESULT_ROOT="$(json_get_default '.result_root' '/home/dev/graphdb/FilterVectorResult')"
 BUILD_DIR="$(json_get_default '.build_dir' "${SCRIPT_DIR}/build_ung_rel")"
 BUILD_BIN="${BUILD_DIR}/apps/build_UNG_index"
+OUTPUT_LAYOUT="$(json_get_default '.output_layout' 'run_root')"
+INDEX_NAME_BASE="$(json_get_default '.index_name' 'UNG_special_blocks')"
+INDEX_NAME="${INDEX_NAME_BASE}$(json_index_name_suffix)"
 RUN_ROOT="${RESULT_ROOT}/${RUN_NAME}"
 
 DATA_TYPE="$(json_get_default '.build.data_type' 'float')"
@@ -140,14 +146,6 @@ LBUILD="$(json_get_default '.build.Lbuild' '100')"
 ALPHA="$(json_get_default '.build.alpha' '1.2')"
 NUM_CROSS_EDGES="$(json_get_default '.build.num_cross_edges' '4')"
 
-mkdir -p "${RUN_ROOT}"
-CONFIG_DIR="$(cd "$(dirname "${CONFIG_PATH}")" && pwd)"
-RUN_LOG="${CONFIG_DIR}/${RUN_NAME}.log"
-touch "${RUN_LOG}"
-exec > >(tee -a "${RUN_LOG}") 2>&1
-
-SUMMARY="${RUN_ROOT}/summary.csv"
-printf 'dataset,status,exit_code,wall_seconds,time_wall_seconds,max_rss_kb,index_time_ms,index_time_add_rb_ms,build_graph_time_ms,build_cross_edges_time_ms,index_size_mb,index_size_add_rb_mb,index_files_bytes,disk_usage_bytes,num_points,num_groups,special_block_count,special_block_trivial_count,special_group_graph_trivial_skipped_groups,special_group_graph_trivial_skipped_points,output_dir\n' > "${SUMMARY}"
 
 if [ ! -x "${BUILD_BIN}" ]; then
   log "build_UNG_index not found at ${BUILD_BIN}; building it now"
@@ -161,46 +159,22 @@ export_env_from_config() {
   done < <(json_env_entries)
 }
 
-append_summary_row() {
-  local dataset="$1"
-  local status="$2"
-  local exit_code="$3"
-  local wall_seconds="$4"
-  local out_dir="$5"
-  local index_dir="${out_dir}/index_files"
-  local meta_file="${index_dir}/meta"
-  local time_file="${out_dir}/others/time.txt"
-  local index_files_bytes
-  local disk_usage_bytes
-  index_files_bytes="$(dir_size_bytes "${index_dir}")"
-  disk_usage_bytes="$(dir_size_bytes "${out_dir}")"
-
-  {
-    printf '%s,%s,%s,%s,' "${dataset}" "${status}" "${exit_code}" "${wall_seconds}"
-    printf '%s,%s,' "$(time_get "${time_file}" wall_seconds '')" "$(time_get "${time_file}" max_rss_kb '')"
-    printf '%s,%s,' "$(meta_get "${meta_file}" 'index_time(ms)' '')" "$(meta_get "${meta_file}" 'index_time_add_rb(ms)' '')"
-    printf '%s,%s,' "$(meta_get "${meta_file}" 'build_graph_time(ms)' '')" "$(meta_get "${meta_file}" 'build_cross_edges_time(ms)' '')"
-    printf '%s,%s,' "$(meta_get "${meta_file}" 'index_size(MB)' '')" "$(meta_get "${meta_file}" '_index_size_add_rb(MB)' '')"
-    printf '%s,%s,' "${index_files_bytes}" "${disk_usage_bytes}"
-    printf '%s,%s,' "$(meta_get "${meta_file}" 'num_points' '')" "$(meta_get "${meta_file}" 'num_groups' '')"
-    printf '%s,%s,' "$(meta_get "${meta_file}" 'special_block_count' '')" "$(meta_get "${meta_file}" 'special_block_trivial_count' '')"
-    printf '%s,%s,' "$(meta_get "${meta_file}" 'special_group_graph_trivial_skipped_groups' '')" "$(meta_get "${meta_file}" 'special_group_graph_trivial_skipped_points' '')"
-    csv_escape "${out_dir}"
-    printf '\n'
-  } >> "${SUMMARY}"
-}
-
 build_dataset() {
   local requested_dataset="$1"
   local dataset
   dataset="$(normalize_dataset_name "${requested_dataset}")"
 
   local data_dir="${DATA_ROOT}/${dataset}"
-  local out_dir="${RUN_ROOT}/${dataset}"
+  local out_dir
+  if [ "${OUTPUT_LAYOUT}" = "index_by_dataset" ]; then
+    out_dir="${RESULT_ROOT}/${dataset}/index/${INDEX_NAME}"
+  else
+    out_dir="${RUN_ROOT}/${dataset}"
+  fi
   local index_dir="${out_dir}/index_files"
   local results_dir="${out_dir}/results"
   local others_dir="${out_dir}/others"
-  local placeholder="${out_dir}/placeholder.txt"
+  local placeholder="${others_dir}/placeholder.txt"
   local base_bin="${data_dir}/${dataset}_base.bin"
   local base_labels="${data_dir}/${dataset}_base_labels.txt"
   local label_info="${data_dir}/${dataset}_base_labels_info.log"
@@ -211,7 +185,6 @@ build_dataset() {
 
   if [ ! -f "${base_bin}" ] || [ ! -f "${base_labels}" ]; then
     log "[${dataset}] missing base files under ${data_dir}"
-    append_summary_row "${dataset}" "missing_input" 2 0 "${out_dir}"
     return 2
   fi
   [ -f "${label_info}" ] || label_info="${data_dir}/log"
@@ -286,23 +259,22 @@ build_dataset() {
 
   if [ "${exit_code}" -eq 0 ]; then
     log "[${dataset}] build done in ${wall_seconds}s"
-    append_summary_row "${dataset}" "ok" "${exit_code}" "${wall_seconds}" "${out_dir}"
   else
     log "[${dataset}] build failed exit=${exit_code}; see ${others_dir}/build.log"
-    append_summary_row "${dataset}" "failed" "${exit_code}" "${wall_seconds}" "${out_dir}"
   fi
-  cp "${SUMMARY}" "${out_dir}/summary.csv"
   return "${exit_code}"
 }
 
 log "config: ${CONFIG_PATH}"
 log "run root: ${RUN_ROOT}"
-log "run log: ${RUN_LOG}"
+log "output layout: ${OUTPUT_LAYOUT}"
+if [ "${OUTPUT_LAYOUT}" = "index_by_dataset" ]; then
+  log "index name: ${INDEX_NAME}"
+fi
 
 overall=0
 while IFS= read -r dataset; do
   build_dataset "${dataset}" || overall=$?
 done < <(json_array_items '.datasets')
 
-log "summary: ${SUMMARY}"
 exit "${overall}"

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 project(ANNS)
+enable_testing()
 
 # Keep external dependencies relocatable. By default this repository is assumed
 # to live directly under the graphdb workspace root, but callers can override

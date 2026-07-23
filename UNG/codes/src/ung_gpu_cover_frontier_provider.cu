@@ -170,6 +170,20 @@ void set_group_bit(std::vector<uint64_t> &bits, DeviceId words, DeviceId row, De
    bits[static_cast<size_t>(row) * words + (group_id >> 6)] |= uint64_t{1} << (group_id & 63);
 }
 
+void require_dense_descendant_bitset_memory(size_t required_bytes)
+{
+   size_t free_bytes = 0;
+   size_t total_bytes = 0;
+   ANNS_CUDA_CHECK(cudaMemGetInfo(&free_bytes, &total_bytes));
+   if (required_bytes > free_bytes)
+   {
+      throw std::runtime_error(
+          "gpu_cover_frontier requires dense descendant bitset of " +
+          std::to_string(required_bytes) + " bytes, but CUDA reports only " +
+          std::to_string(free_bytes) + " free bytes");
+   }
+}
+
 } // namespace
 
 struct GpuCoverFrontierProvider::Impl
@@ -300,7 +314,9 @@ struct GpuCoverFrontierProvider::Impl
             set_group_bit(label_group_bits, words_per_query, label_to_dense.at(label), gid);
       }
 
-      std::vector<uint64_t> descendant_bits(static_cast<size_t>(num_groups_including_zero) * words_per_query, 0);
+      const size_t descendant_word_count = static_cast<size_t>(num_groups_including_zero) * words_per_query;
+      require_dense_descendant_bitset_memory(descendant_word_count * sizeof(uint64_t));
+      std::vector<uint64_t> descendant_bits(descendant_word_count, 0);
       if (input.lng_descendants != nullptr && input.lng_descendants->size() > input.num_groups)
       {
          for (DeviceId gid = 1; gid <= input.num_groups; ++gid)

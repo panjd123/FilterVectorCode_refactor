@@ -1179,6 +1179,14 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
    IdxType K = vm["K"].as<IdxType>();
    IdxType max_coverage = vm["max-coverage"].as<IdxType>();
    IdxType min_children = vm["min-children"].as<IdxType>();
+   double parent_range_start = vm["parent-range-start"].as<double>();
+   double parent_range_end = vm["parent-range-end"].as<double>();
+
+   if (parent_range_start < 0.0 || parent_range_end > 1.0 || parent_range_start >= parent_range_end)
+   {
+      std::cerr << "Error: parent range must satisfy 0.0 <= start < end <= 1.0." << std::endl;
+      return;
+   }
 
    std::cout << "========================================================" << std::endl;
    std::cout << "--- Running in VARIABLE_SUB_BASE (Random Parent + Variable Subset) mode ---" << std::endl;
@@ -1186,6 +1194,7 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
    std::cout << "Maximum query length: " << (max_query_length == 0 ? std::string("parent length") : std::to_string(max_query_length)) << std::endl;
    std::cout << "Target coverage range: [" << K << ", " << max_coverage << "]" << std::endl;
    std::cout << "Minimum children (supersets): " << min_children << std::endl;
+   std::cout << "Parent label source range: [" << parent_range_start << ", " << parent_range_end << ")" << std::endl;
    std::cout << "========================================================" << std::endl;
 
    TrieIndex trie_index;
@@ -1207,6 +1216,7 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
 
    std::vector<std::vector<LabelType>> filtered_label_sets;
    std::vector<std::vector<float>> filtered_vectors;
+   std::vector<size_t> filtered_source_indices;
 
    size_t line_index = 0;
    while (std::getline(infile, line))
@@ -1232,6 +1242,7 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
          trie_index.insert(label_set, new_label_set_id);
          filtered_label_sets.push_back(label_set);
          filtered_vectors.push_back(all_base_vectors[line_index]);
+         filtered_source_indices.push_back(line_index);
       }
       line_index++;
    }
@@ -1264,25 +1275,41 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
       }
    }
 
+   const size_t base_label_count = std::min(line_index, all_base_vectors.size());
+   const size_t parent_range_begin = static_cast<size_t>(std::floor(parent_range_start * static_cast<double>(base_label_count)));
+   const size_t parent_range_end_exclusive = static_cast<size_t>(std::floor(parent_range_end * static_cast<double>(base_label_count)));
+
    std::vector<size_t> parent_pool_indices;
    for (size_t i = 0; i < filtered_label_sets.size(); ++i)
    {
-      if (filtered_label_sets[i].size() >= min_query_length)
+      if (filtered_label_sets[i].size() < min_query_length)
+      {
+         continue;
+      }
+
+      const size_t source_index = filtered_source_indices[i];
+      if (source_index >= parent_range_begin && source_index < parent_range_end_exclusive)
       {
          parent_pool_indices.push_back(i);
       }
    }
+
    if (parent_pool_indices.empty())
    {
-      std::cerr << "Error: No base label sets found with length >= " << min_query_length << ". Cannot generate queries." << std::endl;
+      std::cerr << "Error: No base label sets found in parent range ["
+                << parent_range_start << ", " << parent_range_end
+                << ") with length >= " << min_query_length << ". Cannot generate queries." << std::endl;
       return;
    }
-   std::cout << "Found " << parent_pool_indices.size() << " valid parent label sets for sampling." << std::endl;
 
-   std::vector<std::vector<LabelType>> generated_label_sets;
-   std::vector<std::vector<float>> generated_vectors;
-   generated_label_sets.reserve(num_points);
-   generated_vectors.reserve(num_points);
+   std::cout << "Found " << parent_pool_indices.size()
+             << " valid parent label sets for sampling in base index range ["
+             << parent_range_begin << ", " << parent_range_end_exclusive << ")." << std::endl;
+
+   std::vector<std::vector<LabelType>> slot_label_sets(num_points);
+   std::vector<std::vector<float>> slot_vectors(num_points);
+   std::vector<unsigned char> slot_generated(num_points, 0);
+   std::atomic<size_t> generated_count{0};
 
    const int TOURNAMENT_SIZE = 20;
    const int MAX_PARENT_RETRIES = 500;
@@ -1292,14 +1319,14 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
 
 #pragma omp parallel
    {
-      std::vector<std::vector<LabelType>> local_label_sets;
-      std::vector<std::vector<float>> local_vectors;
       std::mt19937 gen(std::random_device{}() + omp_get_thread_num());
-      std::uniform_int_distribution<size_t> parent_dist(0, parent_pool_indices.size() - 1);
+      std::uniform_int_distribution<size_t> vector_dist(0, all_base_vectors.size() - 1);
 
 #pragma omp for schedule(dynamic)
       for (IdxType i = 0; i < num_points; ++i)
       {
+         std::uniform_int_distribution<size_t> parent_dist(0, parent_pool_indices.size() - 1);
+
          bool query_generated = false;
          for (int parent_retry = 0; parent_retry < MAX_PARENT_RETRIES; ++parent_retry)
          {
@@ -1341,8 +1368,10 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
                   }
                }
 
-               local_label_sets.push_back(candidate_subset);
-               local_vectors.push_back(filtered_vectors[parent_idx]);
+               slot_label_sets[i] = std::move(candidate_subset);
+               slot_vectors[i] = all_base_vectors[vector_dist(gen)];
+               slot_generated[i] = 1;
+               ++generated_count;
                query_generated = true;
                break;
             }
@@ -1358,45 +1387,74 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
          {
 #pragma omp critical
             {
-               if (generated_label_sets.size() > last_reported_count || current_progress % 200 == 0)
+               size_t current_generated = generated_count.load();
+               if (current_generated > last_reported_count || current_progress % 200 == 0)
                {
                   std::cout << "\r[Progress] Tasks completed: " << current_progress << "/" << num_points
-                            << ". Queries generated: " << generated_label_sets.size() << "..." << std::flush;
-                  last_reported_count = generated_label_sets.size();
+                            << ". Queries generated: " << current_generated << "..." << std::flush;
+                  last_reported_count = current_generated;
                }
             }
          }
       }
-
-#pragma omp critical
-      {
-         generated_label_sets.insert(generated_label_sets.end(), local_label_sets.begin(), local_label_sets.end());
-         generated_vectors.insert(generated_vectors.end(), local_vectors.begin(), local_vectors.end());
-         std::cout << "\r[Progress] Tasks completed: " << progress_counter.load() << "/" << num_points
-                   << ". Queries generated: " << generated_label_sets.size() << "..." << std::flush;
-      }
    }
 
-   size_t num_successfully_generated = generated_label_sets.size();
+   std::cout << "\r[Progress] Tasks completed: " << progress_counter.load() << "/" << num_points
+             << ". Queries generated: " << generated_count.load() << "..." << std::flush;
+
+   size_t num_successfully_generated = generated_count.load();
    if (num_successfully_generated < num_points && num_successfully_generated > 0)
    {
       std::cout << "\n[INFO] Generated " << num_successfully_generated << " unique queries. Starting smart padding to reach " << num_points << "..." << std::endl;
-      size_t num_to_padd = num_points - num_successfully_generated;
+
+      std::vector<size_t> generated_slots;
+      for (size_t i = 0; i < num_points; ++i)
+      {
+         if (slot_generated[i])
+         {
+            generated_slots.push_back(i);
+         }
+      }
 
       std::mt19937 gen(std::random_device{}());
-      std::uniform_int_distribution<size_t> padding_labels_dist(0, num_successfully_generated - 1);
       std::uniform_int_distribution<size_t> padding_vectors_dist(0, all_base_vectors.size() - 1);
 
-      for (size_t i = 0; i < num_to_padd; ++i)
+      for (size_t i = 0; i < num_points; ++i)
       {
-         size_t label_idx_to_copy = padding_labels_dist(gen);
+         if (slot_generated[i])
+         {
+            continue;
+         }
+
+         if (generated_slots.empty())
+         {
+            continue;
+         }
+
+         std::uniform_int_distribution<size_t> padding_labels_dist(0, generated_slots.size() - 1);
+         size_t source_slot = generated_slots[padding_labels_dist(gen)];
          size_t vector_idx_to_sample = padding_vectors_dist(gen);
 
-         generated_label_sets.push_back(generated_label_sets[label_idx_to_copy]);
-         generated_vectors.push_back(all_base_vectors[vector_idx_to_sample]);
+         slot_label_sets[i] = slot_label_sets[source_slot];
+         slot_vectors[i] = all_base_vectors[vector_idx_to_sample];
+         slot_generated[i] = 1;
+         ++generated_count;
       }
-      std::cout << "[INFO] Padded with " << num_to_padd << " queries (re-used labels, new random vectors)." << std::endl;
-      std::cout << "[INFO] Total query count is now " << generated_label_sets.size() << "." << std::endl;
+
+      std::cout << "[INFO] Padded to " << generated_count.load() << " queries (re-used labels from the configured parent range, new random vectors)." << std::endl;
+   }
+
+   std::vector<std::vector<LabelType>> generated_label_sets;
+   std::vector<std::vector<float>> generated_vectors;
+   generated_label_sets.reserve(num_points);
+   generated_vectors.reserve(num_points);
+   for (size_t i = 0; i < num_points; ++i)
+   {
+      if (slot_generated[i])
+      {
+         generated_label_sets.push_back(std::move(slot_label_sets[i]));
+         generated_vectors.push_back(std::move(slot_vectors[i]));
+      }
    }
 
    std::cout << "\nGeneration complete." << std::endl;
@@ -1433,7 +1491,7 @@ int main(int argc, char **argv)
    analyze_opts.add_options()("candidate_file", boost::program_options::value<std::string>(), "Path to the candidate query file to be analyzed")("profiled_output", boost::program_options::value<std::string>(), "Output path for the analysis result (.csv)");
 
    po::options_description sub_base_opts("Modes sub_base/weighted_sub_base/variable_sub_base: Generate hard queries using subset expansion");
-   sub_base_opts.add_options()("query-length", boost::program_options::value<IdxType>()->default_value(5), "Exact number of labels for fixed-length modes")("min-query-length", boost::program_options::value<IdxType>()->default_value(3), "Minimum number of labels for variable_sub_base")("max-query-length", boost::program_options::value<IdxType>()->default_value(0), "Maximum labels for variable_sub_base, 0 means parent length")("max-coverage", boost::program_options::value<IdxType>()->default_value(1000), "Maximum number of matching vectors for a valid query")("min-children", boost::program_options::value<IdxType>()->default_value(1), "Minimum number of supersets a query must have in the dataset")("cache-file", boost::program_options::value<std::string>(), "[Optional] Path to save/load the pre-computation cache");
+   sub_base_opts.add_options()("query-length", boost::program_options::value<IdxType>()->default_value(5), "Exact number of labels for fixed-length modes")("min-query-length", boost::program_options::value<IdxType>()->default_value(3), "Minimum number of labels for variable_sub_base")("max-query-length", boost::program_options::value<IdxType>()->default_value(0), "Maximum labels for variable_sub_base, 0 means parent length")("max-coverage", boost::program_options::value<IdxType>()->default_value(1000), "Maximum number of matching vectors for a valid query")("min-children", boost::program_options::value<IdxType>()->default_value(1), "Minimum number of supersets a query must have in the dataset")("parent-range-start", boost::program_options::value<double>()->default_value(0.0), "Start ratio of the base-label parent source range for variable_sub_base")("parent-range-end", boost::program_options::value<double>()->default_value(1.0), "End ratio of the base-label parent source range for variable_sub_base")("cache-file", boost::program_options::value<std::string>(), "[Optional] Path to save/load the pre-computation cache");
 
    po::options_description cmdline_opts;
    cmdline_opts.add(generic_opts).add(generate_opts).add(analyze_opts).add(sub_base_opts);

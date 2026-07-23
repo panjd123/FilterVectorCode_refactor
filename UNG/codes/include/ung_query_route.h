@@ -67,6 +67,12 @@ enum class SearchGraphBackendImpl : int
 const char *search_graph_backend_impl_name(SearchGraphBackendImpl impl);
 SearchGraphBackendImpl parse_search_graph_backend_impl(const std::string &value);
 
+enum class SpecialSearchMode : int
+{
+   FreeState = 0,
+   FavorBlocks = 1,
+};
+
 struct SearchRuntimeConfig
 {
    uint32_t num_threads = 1;
@@ -83,6 +89,7 @@ struct SearchRuntimeConfig
    EntryGroupProviderImpl entry_group_provider = EntryGroupProviderImpl::CpuMinSuperSets;
    SearchGraphBackendImpl graph_backend = SearchGraphBackendImpl::NeighborList;
    bool special_block_search = false;
+   SpecialSearchMode special_search_mode = SpecialSearchMode::FreeState;
    bool special_block_free_use_regular = false;
    bool special_heavy_edge_search = false;
    size_t special_heavy_edge_min_query_size = 0;

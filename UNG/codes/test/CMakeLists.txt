@@ -15,3 +15,11 @@ target_link_libraries(test_build_vamana PRIVATE -Wl,--whole-archive ${PROJECT_NA
 
 add_executable(test_search_vamana test_search_vamana.cpp)
 target_link_libraries(test_search_vamana PRIVATE -Wl,--whole-archive ${PROJECT_NAME} Vamana -Wl,--no-whole-archive Boost::program_options Boost::filesystem OpenMP::OpenMP_CXX ${ROARING_LIB} onnxruntime faiss)
+
+add_executable(test_special_block_free_state test_special_block_free_state.cpp)
+target_link_libraries(test_special_block_free_state PRIVATE -Wl,--whole-archive ${PROJECT_NAME} Vamana -Wl,--no-whole-archive Boost::program_options Boost::filesystem OpenMP::OpenMP_CXX ${ROARING_LIB} onnxruntime faiss)
+add_test(NAME special_block_free_state COMMAND test_special_block_free_state)
+
+add_executable(test_favor_block_search test_favor_block_search.cpp)
+target_link_libraries(test_favor_block_search PRIVATE -Wl,--whole-archive ${PROJECT_NAME} Vamana -Wl,--no-whole-archive Boost::program_options Boost::filesystem OpenMP::OpenMP_CXX ${ROARING_LIB} onnxruntime faiss)
+add_test(NAME favor_block_search COMMAND test_favor_block_search)

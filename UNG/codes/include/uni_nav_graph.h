@@ -210,6 +210,15 @@ namespace ANNS
                                            std::vector<float> &num_cmps,
                                            SearchQueue &cur_result,
                                            QueryStats &stats);
+      bool execute_favor_block_ung_query(const char *query,
+                                         std::shared_ptr<SearchCache> search_cache,
+                                         const SearchRuntimeConfig &runtime,
+                                         const GraphSearchBackend &graph_backend,
+                                         const std::vector<IdxType> &entry_group_ids,
+                                         IdxType query_id,
+                                         std::vector<float> &num_cmps,
+                                         SearchQueue &cur_result,
+                                         QueryStats &stats);
 
       // Query feature and selector diagnostics. These helpers feed route
       // decisions and benchmark CSVs; they should stay side-effect-light.
@@ -407,7 +416,8 @@ namespace ANNS
                                                  std::shared_ptr<Vamana> target_index,
                                                  SearchCacheList *search_cache_list,
                                                  bool use_exact_scan,
-                                                 SearchQueue &out_neighbors) const;
+                                                 SearchQueue &out_neighbors,
+                                                 IdxType max_neighbors) const;
       bool build_cross_edges_generate_gpu_optimized(std::vector<SearchQueue> &cross_group_neighbors,
                                                     const CrossEdgeGpuRuntimeConfig &gpu_route,
                                                     std::vector<std::vector<IdxType>> *cross_group_neighbor_ids,

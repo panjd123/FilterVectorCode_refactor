@@ -14,6 +14,17 @@ def bool_arg(value):
     return "true" if bool(value) else "false"
 
 
+def resolve_build_dir(cli_build_dir, config, repo_root: Path) -> Path:
+    build_dir = cli_build_dir
+    if build_dir is None:
+        configured = config.get("build_dir")
+        build_dir = Path(configured) if configured else repo_root / "build_ung_rel"
+
+    if not build_dir.is_absolute():
+        build_dir = repo_root / build_dir
+    return build_dir
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run JSON-configured query generation tasks and convert fvecs to bin."
@@ -23,22 +34,25 @@ def main():
         "build_dir",
         nargs="?",
         type=Path,
-        default=Path(__file__).resolve().parents[1] / "build_ung_rel",
+        default=None,
+        help="Optional build directory override. If omitted, read build_dir from JSON.",
     )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
-    tool = args.build_dir / "tools" / "generate_mixed_queries"
-    fvecs_to_bin = args.build_dir / "tools" / "fvecs_to_bin"
 
     if not args.config.is_file():
         raise SystemExit(f"config file not found: {args.config}")
+
+    config = json.loads(args.config.read_text())
+    build_dir = resolve_build_dir(args.build_dir, config, repo_root)
+    tool = build_dir / "tools" / "generate_mixed_queries"
+    fvecs_to_bin = build_dir / "tools" / "fvecs_to_bin"
+
     if not tool.is_file():
         raise SystemExit(f"generate_mixed_queries not found: {tool}")
     if not fvecs_to_bin.is_file():
         raise SystemExit(f"fvecs_to_bin not found: {fvecs_to_bin}")
-
-    config = json.loads(args.config.read_text())
     tasks = config.get("query_tasks", [])
     if not isinstance(tasks, list) or not tasks:
         raise SystemExit("config must contain a non-empty query_tasks array")
@@ -96,6 +110,10 @@ def main():
                     params.get("max_coverage", 2_000_000_000),
                     "--min-children",
                     params.get("min_children", 0 if mode == "variable_sub_base" else 1),
+                    "--parent-range-start",
+                    params.get("parent_range_start", 0.0),
+                    "--parent-range-end",
+                    params.get("parent_range_end", 1.0),
                 ]
                 cache_file = params.get("cache-file")
                 if cache_file:

@@ -68,15 +68,27 @@ namespace ANNS
       else
       {
          auto search_cache = search_cache_list.get_free_cache();
-         const bool search_ok =
-             (runtime.special_block_search && !_special_blocks.empty())
-                 ? execute_special_block_ung_query(query, search_cache, runtime, graph_backend,
-                                                   entry_group_ids, query_labels, id,
-                                                   num_cmps, cur_result, stats)
-                 : execute_ung_query(query, search_cache, graph_backend,
-                                     entry_group_ids, id,
-                                     runtime.num_entry_points, num_cmps,
-                                     cur_result, stats);
+         bool search_ok = false;
+         if (runtime.special_block_search && !_special_blocks.empty() &&
+             runtime.special_search_mode == SpecialSearchMode::FavorBlocks)
+         {
+            search_ok = execute_favor_block_ung_query(query, search_cache, runtime, graph_backend,
+                                                      entry_group_ids, id,
+                                                      num_cmps, cur_result, stats);
+         }
+         else if (runtime.special_block_search && !_special_blocks.empty())
+         {
+            search_ok = execute_special_block_ung_query(query, search_cache, runtime, graph_backend,
+                                                        entry_group_ids, query_labels, id,
+                                                        num_cmps, cur_result, stats);
+         }
+         else
+         {
+            search_ok = execute_ung_query(query, search_cache, graph_backend,
+                                          entry_group_ids, id,
+                                          runtime.num_entry_points, num_cmps,
+                                          cur_result, stats);
+         }
          search_cache_list.release_cache(search_cache);
          if (!search_ok)
          {

@@ -82,6 +82,17 @@ namespace ANNS
       size_t special_edges_accepted = 0;
       size_t special_regular_distance_calcs = 0;
       size_t special_free_distance_calcs = 0;
+      bool favor_block_search_enabled = false;
+      size_t favor_block_count = 0;
+      size_t favor_block_points = 0;
+      size_t favor_target_points = 0;
+      size_t favor_td_candidates_inserted = 0;
+      size_t favor_ntd_candidates_inserted = 0;
+      size_t favor_td_results = 0;
+      size_t favor_blocks_expanded = 0;
+      size_t favor_block_edge_scans_skipped = 0;
+      float favor_selectivity = 0.0f;
+      float favor_exclusion_distance = 0.0f;
    };
 }
 

@@ -1,19 +1,18 @@
 {
   "run_name": "cpu_special_blocks",
+  "output_layout": "index_by_dataset",
+  "index_name": "UNG_special_blocks_hybrid",
   "data_root": "/home/dev/graphdb/FilterVectorData",
   "result_root": "/home/dev/graphdb/FilterVectorResult",
   "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
   "datasets": [
-    "Amazon",
-    "Genome",
-    "Reviews",
-    "VariousImg"
+    "Reviews"
   ],
   "build": {
     "data_type": "float",
     "dist_fn": "L2",
     "scenario": "general",
-    "num_threads": 32,
+    "num_threads": 60,
     "max_degree": 32,
     "Lbuild": 100,
     "alpha": 1.2,
@@ -33,6 +32,24 @@
     "UNG_SPECIAL_BLOCKS": "1",
     "UNG_SPECIAL_BLOCK_DATA_MODE": "x1",
     "UNG_SPECIAL_BLOCK_SKIP_TRIVIAL": "1",
-    "UNG_SPECIAL_BLOCK_MIN_POINTS": "1000"
-  }
+    "UNG_SPECIAL_BLOCK_MIN_POINTS": "1000",
+    "UNG_SPECIAL_INTRA_COMPLETE_NX": "1024",
+    "UNG_SPECIAL_INTRA_EXACT_TOPK": "1",
+    "UNG_SPECIAL_INTRA_BOUNDED_COMPLETE": "1",
+    "UNG_SPECIAL_INTER_MAX_PAIR_WORK": "0",
+    "UNG_SPECIAL_BLOCK_MAX_DEGREE": "128",
+    "UNG_SPECIAL_BLOCK_NUM_CROSS_EDGES": "10"
+  },
+  "index_name_params": [
+    {
+      "source": "env",
+      "key": "UNG_SPECIAL_BLOCK_MAX_DEGREE",
+      "label": "bdeg"
+    },
+    {
+      "source": "env",
+      "key": "UNG_SPECIAL_BLOCK_NUM_CROSS_EDGES",
+      "label": "bcross"
+    }
+  ]
 }

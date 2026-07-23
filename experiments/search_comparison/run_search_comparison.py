@@ -23,14 +23,19 @@ def read_num_vectors(bin_path: Path) -> int:
     return int(num)
 
 
-def run_command(cmd, log_path: Path, env=None) -> None:
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+def run_command(cmd, output_path: Path | None = None, env=None) -> None:
     command_line = "COMMAND: " + " ".join(str(x) for x in cmd)
     log(command_line)
-    log(f"command log: {log_path}")
-    with log_path.open("w") as out:
+
+    out = None
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        log(f"command output: {output_path}")
+        out = output_path.open("w")
         out.write(command_line + "\n\n")
         out.flush()
+
+    try:
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -41,12 +46,19 @@ def run_command(cmd, log_path: Path, env=None) -> None:
         )
         assert proc.stdout is not None
         for line in proc.stdout:
-            out.write(line)
-            out.flush()
+            if out is not None:
+                out.write(line)
+                out.flush()
             print(line, end="", flush=True)
+        proc.stdout.close()
         returncode = proc.wait()
+    finally:
+        if out is not None:
+            out.close()
+
     if returncode != 0:
-        raise RuntimeError(f"command failed ({returncode}), see {log_path}")
+        detail = f", see {output_path}" if output_path is not None else ""
+        raise RuntimeError(f"command failed ({returncode}){detail}")
 
 
 def ensure_query_bin(build_dir: Path, data_dir: Path, dataset: str, query_task: str) -> Path:
@@ -70,17 +82,17 @@ def ensure_query_bin(build_dir: Path, data_dir: Path, dataset: str, query_task: 
             "--output_file",
             str(query_bin),
         ],
-        query_dir / "fvecs_to_bin.log",
     )
     return query_bin
 
 
-def ensure_gt(cfg, dataset_cfg, query_bin: Path, gt_dir: Path, log_dir: Path) -> Path:
+def ensure_gt(cfg, dataset_cfg, query_bin: Path, gt_dir: Path) -> Path:
     dataset = dataset_cfg["dataset"]
     query_task = dataset_cfg["query_task"]
     data_root = Path(cfg["data_root"])
     build_dir = Path(cfg["build_dir"])
-    search_cfg = cfg["search"]
+    search_cfg = dict(cfg["search"])
+    search_cfg.update(dataset_cfg.get("search", {}))
     data_dir = data_root / dataset
     gt_file = gt_dir / f"{dataset}_gt_labels_containment.bin"
     if gt_file.exists():
@@ -117,13 +129,19 @@ def ensure_gt(cfg, dataset_cfg, query_bin: Path, gt_dir: Path, log_dir: Path) ->
             "--gt_file",
             str(gt_file),
         ],
-        log_dir / "compute_gt.log",
     )
     return gt_file
 
 
 def bool_arg(value: bool) -> str:
     return "true" if value else "false"
+
+
+def result_query_dir_name(query_task: str, search_cfg: dict) -> str:
+    return (
+        f"{query_task}_{search_cfg['lsearch_start']}_"
+        f"{search_cfg['lsearch_step']}_{search_cfg['lsearch_end']}"
+    )
 
 
 def write_qps_summary(summary_csv: Path, output_csv: Path, num_queries: int) -> None:
@@ -148,11 +166,13 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
     data_root = Path(cfg["data_root"])
     result_root = Path(cfg["result_root"])
     build_dir = Path(cfg["build_dir"])
-    search_cfg = cfg["search"]
+    search_cfg = dict(cfg["search"])
+    search_cfg.update(dataset_cfg.get("search", {}))
     data_dir = data_root / dataset
     query_dir = data_dir / query_task
     index_dir = result_root / dataset / "index" / method["index_name"] / "index_files"
-    result_dir = result_root / dataset / "results" / method["name"] / query_task
+    result_query_task = result_query_dir_name(query_task, search_cfg)
+    result_dir = result_root / dataset / "results" / method["name"] / result_query_task
     raw_results_dir = result_dir / "results"
     other_dir = result_dir / "others"
     raw_results_dir.mkdir(parents=True, exist_ok=True)
@@ -178,6 +198,13 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
         env["UNG_SPECIAL_BLOCK_SEARCH"] = "1"
     else:
         env.pop("UNG_SPECIAL_BLOCK_SEARCH", None)
+        env.pop("UNG_SPECIAL_SEARCH_MODE", None)
+
+    for key, value in method.get("env", {}).items():
+        if value is None:
+            env.pop(key, None)
+        else:
+            env[key] = str(value)
 
     cmd = [
         str(build_dir / "apps" / "search_UNG_index"),
@@ -263,51 +290,27 @@ def main() -> int:
         return 2
     cfg_path = Path(sys.argv[1])
     cfg = json.loads(cfg_path.read_text())
-    run_log = cfg_path.parent / f"search_comparison_{time.strftime('%Y%m%d_%H%M%S')}.log"
-    run_log.parent.mkdir(parents=True, exist_ok=True)
 
-    class Tee:
-        def __init__(self, *files):
-            self.files = files
-        def write(self, data):
-            for f in self.files:
-                f.write(data)
-                f.flush()
-        def flush(self):
-            for f in self.files:
-                f.flush()
+    log(f"config: {cfg_path}")
 
-    orig_stdout = sys.stdout
-    orig_stderr = sys.stderr
-    with run_log.open("w") as lf:
-        sys.stdout = Tee(orig_stdout, lf)
-        sys.stderr = Tee(orig_stderr, lf)
-        try:
-            log(f"config: {cfg_path}")
-            log(f"run log: {run_log}")
+    build_dir = Path(cfg["build_dir"])
+    search_bin = build_dir / "apps" / "search_UNG_index"
+    if not search_bin.exists():
+        raise FileNotFoundError(f"missing search_UNG_index: {search_bin}")
 
-            build_dir = Path(cfg["build_dir"])
-            search_bin = build_dir / "apps" / "search_UNG_index"
-            if not search_bin.exists():
-                raise FileNotFoundError(f"missing search_UNG_index: {search_bin}")
-
-            for dataset_cfg in cfg["datasets"]:
-                dataset = dataset_cfg["dataset"]
-                query_task = dataset_cfg["query_task"]
-                data_dir = Path(cfg["data_root"]) / dataset
-                result_root = Path(cfg["result_root"]) / dataset
-                gt_dir = result_root / "GroundTruth" / query_task
-                gt_log_dir = gt_dir / "others"
-                query_bin = ensure_query_bin(build_dir, data_dir, dataset, query_task)
-                num_queries = read_num_vectors(query_bin)
-                log(f"[{dataset}] query_task={query_task} num_queries={num_queries}")
-                gt_file = ensure_gt(cfg, dataset_cfg, query_bin, gt_dir, gt_log_dir)
-                for method in cfg["methods"]:
-                    run_search(cfg, dataset_cfg, method, query_bin, gt_file, num_queries)
-            log("all done")
-        finally:
-            sys.stdout = orig_stdout
-            sys.stderr = orig_stderr
+    for dataset_cfg in cfg["datasets"]:
+        dataset = dataset_cfg["dataset"]
+        query_task = dataset_cfg["query_task"]
+        data_dir = Path(cfg["data_root"]) / dataset
+        result_root = Path(cfg["result_root"]) / dataset
+        gt_dir = result_root / "GroundTruth" / query_task
+        query_bin = ensure_query_bin(build_dir, data_dir, dataset, query_task)
+        num_queries = read_num_vectors(query_bin)
+        log(f"[{dataset}] query_task={query_task} num_queries={num_queries}")
+        gt_file = ensure_gt(cfg, dataset_cfg, query_bin, gt_dir)
+        for method in cfg["methods"]:
+            run_search(cfg, dataset_cfg, method, query_bin, gt_file, num_queries)
+    log("all done")
     return 0
 
 
