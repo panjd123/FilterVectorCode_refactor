@@ -1,11 +1,15 @@
 #include "include/uni_nav_graph.h"
+#include "include/ung_special_block_activation.h"
+#include "include/ung_favor_block_search.h"
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <limits>
+#include <queue>
 #include <vector>
 
 #include <roaring/roaring.hh>
@@ -284,6 +288,7 @@ namespace ANNS
    }
 
    bool UniNavGraph::execute_special_block_ung_query(const char *query,
+                                                     std::shared_ptr<SearchCache> search_cache,
                                                      const SearchRuntimeConfig &runtime,
                                                      const GraphSearchBackend &graph_backend,
                                                      const std::vector<IdxType> &entry_group_ids,
@@ -351,25 +356,90 @@ namespace ANNS
             stats.entry_group_matched_points >= runtime.special_heavy_edge_min_matched_points) ||
            (runtime.special_heavy_edge_min_entries > 0 &&
             stats.num_entry_points >= runtime.special_heavy_edge_min_entries));
+      const bool profile_timing = std::getenv("UNG_SPECIAL_PROFILE_TIMING") != nullptr;
+      auto elapsed_ms = [](const std::chrono::high_resolution_clock::time_point &start) {
+         return std::chrono::duration<double, std::milli>(
+                    std::chrono::high_resolution_clock::now() - start)
+             .count();
+      };
+
       const IdxType dim = _base_storage->get_dim();
       const IdxType capacity = runtime.Lsearch;
-      std::vector<uint8_t> visited_regular(_num_points, 0);
-      std::vector<uint8_t> visited_free(_num_points, 0);
+      std::chrono::high_resolution_clock::time_point cover_time_start;
+      if (profile_timing)
+         cover_time_start = std::chrono::high_resolution_clock::now();
+      std::vector<uint8_t> query_covers_block(_special_blocks.size() + 1, 0);
+      if (!query_covers_block.empty())
+      {
+         std::vector<LabelType> sorted_query = query_labels;
+         std::sort(sorted_query.begin(), sorted_query.end());
+         for (size_t block_idx = 0; block_idx < _special_blocks.size(); ++block_idx)
+         {
+            std::vector<LabelType> sorted_root = _special_blocks[block_idx].root_labels;
+            std::sort(sorted_root.begin(), sorted_root.end());
+            if (std::includes(sorted_root.begin(), sorted_root.end(),
+                              sorted_query.begin(), sorted_query.end()))
+               query_covers_block[block_idx + 1] = 1;
+         }
+      }
+      if (profile_timing)
+         stats.special_cover_time_ms = elapsed_ms(cover_time_start);
+
+      auto core_search_start_time = std::chrono::high_resolution_clock::now();
+      const auto entry_time_start = core_search_start_time;
+      auto &visited_regular = search_cache->special_visited_regular;
+      auto &visited_free = search_cache->special_visited_free;
+      visited_regular.clear();
+      visited_free.clear();
       std::vector<SpecialCandidate> queue;
-      queue.reserve(capacity + 1);
+      constexpr size_t kReducedEntryGroupThreshold = 1000;
+      constexpr IdxType kReducedEntryPointsPerLargeGroupSet = 4;
+      const IdxType effective_num_entry_points =
+          entry_group_ids.size() > kReducedEntryGroupThreshold
+              ? std::min<IdxType>(runtime.num_entry_points, kReducedEntryPointsPerLargeGroupSet)
+              : runtime.num_entry_points;
+      const size_t entry_reserve = std::max<size_t>(
+          static_cast<size_t>(capacity) + 1,
+          entry_group_ids.size() * static_cast<size_t>(effective_num_entry_points));
+      queue.reserve(entry_reserve);
       size_t cur_unexpanded = 0;
 
-      bool any_entry = false;
+      std::vector<IdxType> entry_point_ids;
+      std::vector<uint8_t> entry_is_free;
+      entry_point_ids.reserve(entry_reserve);
+      entry_is_free.reserve(entry_reserve);
+
+      auto add_entry_point = [&](IdxType point_id, bool is_free) {
+         if (visited_regular.check(point_id) || visited_free.check(point_id))
+            return;
+
+         entry_point_ids.push_back(point_id);
+         entry_is_free.push_back(is_free ? 1 : 0);
+         if (is_free)
+         {
+            visited_free.set(point_id);
+            stats.special_entry_free_points++;
+            stats.special_free_candidates_inserted++;
+         }
+         else
+         {
+            visited_regular.set(point_id);
+            stats.special_entry_regular_points++;
+            stats.special_regular_candidates_inserted++;
+         }
+      };
       for (IdxType group_id : entry_group_ids)
       {
          if (group_id >= _group_id_to_range.size())
             continue;
-         const bool covered_root = is_special_block_root_group(group_id) &&
-                                   query_covers_special_block(query_labels, _special_blocks[_group_id_to_special_block[group_id] - 1]);
+         const bool covered_root = special_block_member_is_free(runtime.scenario,
+                                                                _group_id_to_special_block,
+                                                                group_id,
+                                                                query_covers_block);
          const auto &range = _group_id_to_range[group_id];
          if (range.second <= range.first)
             continue;
-         const IdxType take = std::min<IdxType>(runtime.num_entry_points, range.second - range.first);
+         const IdxType take = std::min<IdxType>(effective_num_entry_points, range.second - range.first);
          for (IdxType local = 0; local < take; ++local)
          {
             const IdxType point_id =
@@ -377,41 +447,38 @@ namespace ANNS
                  _group_entry_points[group_id] >= range.first && _group_entry_points[group_id] < range.second)
                     ? _group_entry_points[group_id]
                     : range.first + local;
-            if (covered_root)
-            {
-               if (visited_free[point_id])
-                  continue;
-               visited_free[point_id] = 1;
-               stats.special_entry_free_points++;
-            }
-            else
-            {
-               if (visited_regular[point_id])
-                  continue;
-               visited_regular[point_id] = 1;
-               stats.special_entry_regular_points++;
-            }
-            insert_candidate(queue, point_id,
-                             _distance_handler->compute(query, _base_storage->get_vector(point_id), dim),
-                             covered_root, capacity, cur_unexpanded);
-            if (covered_root)
-               stats.special_free_candidates_inserted++;
-            else
-               stats.special_regular_candidates_inserted++;
-            any_entry = true;
+            add_entry_point(point_id, covered_root);
          }
       }
 
-      if (!any_entry)
+      if (entry_point_ids.empty())
       {
          stats.num_distance_calcs = 0;
          return false;
       }
 
+      queue.reserve(std::max(queue.capacity(), entry_point_ids.size()));
+      for (size_t i = 0; i < entry_point_ids.size(); ++i)
+      {
+         const IdxType point_id = entry_point_ids[i];
+         queue.push_back(SpecialCandidate{point_id,
+                                          _distance_handler->compute(query, _base_storage->get_vector(point_id), dim),
+                                          false, entry_is_free[i] != 0});
+      }
+
+      if (queue.size() > static_cast<size_t>(capacity))
+      {
+         auto keep_end = queue.begin() + static_cast<std::ptrdiff_t>(capacity);
+         std::nth_element(queue.begin(), keep_end, queue.end(), less_candidate);
+         queue.resize(static_cast<size_t>(capacity));
+      }
+      std::sort(queue.begin(), queue.end(), less_candidate);
+      stats.special_entry_time_ms = elapsed_ms(entry_time_start);
+
+
       IdxType comparisons = static_cast<IdxType>(queue.size());
       stats.special_free_distance_calcs += stats.special_entry_free_points;
       stats.special_regular_distance_calcs += stats.special_entry_regular_points;
-      auto core_search_start_time = std::chrono::high_resolution_clock::now();
       while (cur_unexpanded < queue.size())
       {
          const size_t cur_idx = cur_unexpanded;
@@ -422,21 +489,21 @@ namespace ANNS
 
          auto visit_neighbor = [&](IdxType neighbor, bool next_free) {
             if (neighbor >= _num_points)
-               return;
+               return false;
             if (next_free)
             {
-               if (visited_free[neighbor])
-                  return;
-               visited_free[neighbor] = 1;
+               if (visited_free.check(neighbor))
+                  return false;
+               visited_free.set(neighbor);
                stats.special_free_candidates_inserted++;
                if (!cur.free)
                   stats.special_free_upgrades++;
             }
             else
             {
-               if (visited_regular[neighbor])
-                  return;
-               visited_regular[neighbor] = 1;
+               if (visited_regular.check(neighbor))
+                  return false;
+               visited_regular.set(neighbor);
                stats.special_regular_candidates_inserted++;
             }
             stats.num_nodes_visited++;
@@ -448,6 +515,7 @@ namespace ANNS
             else
                stats.special_regular_distance_calcs++;
             comparisons++;
+            return true;
          };
 
          if (cur.free)
@@ -460,6 +528,9 @@ namespace ANNS
             if (cur.id < _special_edges_by_point.size())
             {
                auto scan_special_edges = [&](const std::vector<SpecialEdge> &edges, bool heavy) {
+                  std::chrono::high_resolution_clock::time_point special_edges_time_start;
+                  if (profile_timing)
+                     special_edges_time_start = std::chrono::high_resolution_clock::now();
                   for (const SpecialEdge &edge : edges)
                   {
                      stats.special_edges_scanned++;
@@ -469,18 +540,15 @@ namespace ANNS
                         stats.special_inter_edges_scanned++;
                      else
                         stats.special_intra_edges_scanned++;
-                     const size_t before =
-                         stats.special_free_candidates_inserted + stats.special_regular_candidates_inserted;
-                     visit_neighbor(edge.target_point_id, true);
-                     const size_t after =
-                         stats.special_free_candidates_inserted + stats.special_regular_candidates_inserted;
-                     if (after > before)
+                     if (visit_neighbor(edge.target_point_id, true))
                      {
                         stats.special_edges_accepted++;
                         if (heavy)
                            stats.special_heavy_edges_accepted++;
                      }
                   }
+                  if (profile_timing)
+                     stats.special_special_edges_time_ms += elapsed_ms(special_edges_time_start);
                };
                scan_special_edges(_special_edges_by_point[cur.id], false);
                if (stats.special_heavy_edges_enabled && cur.id < _special_heavy_edges_by_point.size())
@@ -490,27 +558,25 @@ namespace ANNS
                continue;
          }
 
+         std::chrono::high_resolution_clock::time_point regular_edges_time_start;
+         if (profile_timing)
+            regular_edges_time_start = std::chrono::high_resolution_clock::now();
          const GraphNeighborView neighbors = graph_backend.neighbors(cur.id);
          for (size_t i = 0; i < neighbors.size; ++i)
          {
             stats.special_regular_edges_scanned++;
             const IdxType neighbor = neighbors.ids[i];
             bool next_free = cur.free;
-            if (!next_free && is_special_block_root_point(neighbor))
-            {
-               const IdxType block_id = neighbor < _point_to_special_block.size() ? _point_to_special_block[neighbor] : 0;
-               if (block_id > 0 && block_id <= _special_blocks.size() &&
-                   query_covers_special_block(query_labels, _special_blocks[block_id - 1]))
-                  next_free = true;
-            }
-            const size_t before =
-                stats.special_free_candidates_inserted + stats.special_regular_candidates_inserted;
-            visit_neighbor(neighbor, next_free);
-            const size_t after =
-                stats.special_free_candidates_inserted + stats.special_regular_candidates_inserted;
-            if (after > before)
+            if (!next_free)
+               next_free = special_block_member_is_free(runtime.scenario,
+                                                        _point_to_special_block,
+                                                        neighbor,
+                                                        query_covers_block);
+            if (visit_neighbor(neighbor, next_free))
                stats.special_regular_edges_accepted++;
          }
+         if (profile_timing)
+            stats.special_regular_edges_time_ms += elapsed_ms(regular_edges_time_start);
       }
 
       stats.core_search_time_ms =
@@ -518,9 +584,14 @@ namespace ANNS
               std::chrono::high_resolution_clock::now() - core_search_start_time)
               .count();
 
+      std::chrono::high_resolution_clock::time_point result_time_start;
+      if (profile_timing)
+         result_time_start = std::chrono::high_resolution_clock::now();
       cur_result.clear();
       for (const SpecialCandidate &candidate : queue)
          cur_result.insert(candidate.id, candidate.distance);
+      if (profile_timing)
+         stats.special_result_time_ms = elapsed_ms(result_time_start);
       num_cmps[query_id] = comparisons;
       stats.num_distance_calcs = comparisons;
       stats.search_time_ms =
@@ -528,6 +599,332 @@ namespace ANNS
               std::chrono::high_resolution_clock::now() - search_time_start_ms)
               .count();
       return true;
+   }
+
+   bool UniNavGraph::execute_favor_block_ung_query(const char *query,
+                                                           std::shared_ptr<SearchCache> search_cache,
+                                                           const SearchRuntimeConfig &runtime,
+                                                           const GraphSearchBackend &graph_backend,
+                                                           const std::vector<IdxType> &entry_group_ids,
+                                                           IdxType query_id,
+                                                           std::vector<float> &num_cmps,
+                                                           SearchQueue &cur_result,
+                                                           QueryStats &stats)
+   {
+      struct FavorCandidate
+      {
+         IdxType id = 0;
+         float distance = 0.0f;
+         float raw_distance = 0.0f;
+         bool target = false;
+      };
+      struct FavorCandidateMinHeap
+      {
+         bool operator()(const FavorCandidate &a, const FavorCandidate &b) const
+         {
+            if (a.distance != b.distance)
+               return a.distance > b.distance;
+            return a.id > b.id;
+         }
+      };
+      struct FavorWorstCandidate
+      {
+         bool operator()(const FavorCandidate &a, const FavorCandidate &b) const
+         {
+            if (a.distance != b.distance)
+               return a.distance < b.distance;
+            return a.id < b.id;
+         }
+      };
+
+      auto env_u32 = [](const char *name, uint32_t fallback) {
+         if (const char *value = std::getenv(name))
+            return static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
+         return fallback;
+      };
+      auto env_float = [](const char *name, float fallback) {
+         if (const char *value = std::getenv(name))
+            return std::strtof(value, nullptr);
+         return fallback;
+      };
+
+      auto search_time_start_ms = std::chrono::high_resolution_clock::now();
+      stats.special_search_enabled = true;
+      stats.favor_block_search_enabled = true;
+      stats.special_free_use_regular = false;
+
+      const IdxType dim = _base_storage->get_dim();
+      const IdxType capacity = runtime.Lsearch;
+      if (capacity == 0 || entry_group_ids.empty())
+      {
+         stats.num_distance_calcs = 0;
+         return false;
+      }
+
+      roaring::Roaring target_bitmap = compute_bitmap_from_groups(entry_group_ids);
+      stats.favor_target_points = target_bitmap.cardinality();
+      stats.favor_selectivity = _num_points == 0 ? 0.0f :
+          static_cast<float>(stats.favor_target_points) / static_cast<float>(_num_points);
+      const float delta_d = env_float("UNG_FAVOR_DELTA_D", 1.0f);
+      const float alpha = env_float("UNG_FAVOR_ALPHA", 1.0f);
+      stats.favor_exclusion_distance = favor_exclusion_distance(
+          stats.favor_selectivity, static_cast<float>(std::max<IdxType>(capacity, 1)), delta_d, alpha);
+
+      auto &target_map = search_cache->favor_target_map;
+      auto &target_touched = search_cache->favor_target_touched;
+      if (target_map.size() < _num_points)
+         target_map.assign(_num_points, 0);
+      for (IdxType point_id : target_touched)
+         if (point_id < target_map.size())
+            target_map[point_id] = 0;
+      target_touched.clear();
+      for (uint32_t original_id : target_bitmap)
+      {
+         if (original_id < _old_to_new_vec_ids.size())
+         {
+            const IdxType new_id = _old_to_new_vec_ids[original_id];
+            if (new_id < target_map.size() && target_map[new_id] == 0)
+            {
+               target_map[new_id] = 1;
+               target_touched.push_back(new_id);
+            }
+         }
+      }
+
+      const uint32_t block_depth = env_u32("UNG_FAVOR_BLOCK_DEPTH", 1);
+      const uint32_t max_blocks = env_u32("UNG_FAVOR_MAX_BLOCKS", 48);
+      const uint32_t block_source_budget = env_u32("UNG_FAVOR_BLOCK_SOURCE_BUDGET", 16);
+      auto &selected_block = search_cache->favor_selected_blocks;
+      if (selected_block.size() < _special_blocks.size() + 1)
+         selected_block.assign(_special_blocks.size() + 1, 0);
+      else
+         std::fill(selected_block.begin(), selected_block.end(), 0);
+      std::vector<size_t> block_scores(_special_blocks.size() + 1, 0);
+      std::vector<IdxType> frontier_blocks;
+      auto add_block = [&](IdxType block_id, size_t score) {
+         if (block_id == 0 || block_id >= selected_block.size())
+            return;
+         block_scores[block_id] += std::max<size_t>(score, 1);
+         if (selected_block[block_id] != 0)
+            return;
+         selected_block[block_id] = 1;
+         frontier_blocks.push_back(block_id);
+      };
+      for (IdxType group_id : entry_group_ids)
+      {
+         if (group_id < _group_id_to_special_block.size())
+            add_block(_group_id_to_special_block[group_id], 1);
+      }
+      for (uint32_t depth = 0; depth < block_depth; ++depth)
+      {
+         const size_t level_end = frontier_blocks.size();
+         for (size_t i = 0; i < level_end; ++i)
+         {
+            const IdxType block_id = frontier_blocks[i];
+            if (block_id == 0 || block_id > _special_blocks.size())
+               continue;
+            const size_t parent_score = std::max<size_t>(block_scores[block_id], 1);
+            for (IdxType child_id : _special_blocks[block_id - 1].child_block_ids)
+               add_block(child_id, parent_score);
+         }
+      }
+
+      std::vector<FavorBlockCandidate> block_candidates;
+      block_candidates.reserve(_special_blocks.size());
+      for (IdxType block_id = 1; block_id < selected_block.size(); ++block_id)
+      {
+         if (selected_block[block_id] == 0 || block_id > _special_blocks.size())
+            continue;
+         block_candidates.push_back(FavorBlockCandidate{block_id, block_scores[block_id],
+                                                        _special_blocks[block_id - 1].point_count});
+      }
+      const std::vector<IdxType> selected_block_ids = favor_select_top_blocks(block_candidates, max_blocks);
+      std::fill(selected_block.begin(), selected_block.end(), 0);
+      for (IdxType block_id : selected_block_ids)
+      {
+         if (block_id < selected_block.size())
+         {
+            selected_block[block_id] = 1;
+            stats.favor_block_count++;
+            if (block_id > 0 && block_id <= _special_blocks.size())
+               stats.favor_block_points += _special_blocks[block_id - 1].point_count;
+         }
+      }
+      const bool has_block_space = stats.favor_block_count > 0;
+
+      auto &block_source_expanded = search_cache->favor_block_source_expanded;
+      if (block_source_expanded.size() < selected_block.size())
+         block_source_expanded.assign(selected_block.size(), 0);
+      else
+         std::fill(block_source_expanded.begin(), block_source_expanded.end(), 0);
+
+      auto &visited = search_cache->special_visited_regular;
+      visited.clear();
+      auto &candidate_active = search_cache->favor_candidate_active;
+      if (candidate_active.size() < _num_points)
+         candidate_active.assign(_num_points, 0);
+      std::vector<FavorCandidate> candidate_heap_storage;
+      candidate_heap_storage.reserve(std::max<size_t>(static_cast<size_t>(capacity) * 4, 4096));
+      std::vector<FavorCandidate> best_heap_storage;
+      best_heap_storage.reserve(static_cast<size_t>(capacity) + 1);
+      std::priority_queue<FavorCandidate, std::vector<FavorCandidate>, FavorCandidateMinHeap> candidate_heap(
+          FavorCandidateMinHeap{}, std::move(candidate_heap_storage));
+      std::priority_queue<FavorCandidate, std::vector<FavorCandidate>, FavorWorstCandidate> best_heap(
+          FavorWorstCandidate{}, std::move(best_heap_storage));
+      IdxType comparisons = 0;
+
+      auto point_in_selected_space = [&](IdxType id) {
+         if (!has_block_space)
+            return true;
+         if (id >= _point_to_special_block.size())
+            return target_map[id] != 0;
+         const IdxType block_id = _point_to_special_block[id];
+         return target_map[id] != 0 ||
+                (block_id > 0 && block_id < selected_block.size() && selected_block[block_id] != 0);
+      };
+
+      auto insert_candidate = [&](IdxType id) {
+         if (id >= _num_points || visited.check(id))
+            return false;
+         if (!point_in_selected_space(id))
+            return false;
+         const bool is_target = target_map[id] != 0;
+         const float raw_distance = _distance_handler->compute(query, _base_storage->get_vector(id), dim);
+         const float adjusted = favor_adjusted_distance(raw_distance, is_target, stats.favor_exclusion_distance);
+         FavorCandidate candidate{id, adjusted, raw_distance, is_target};
+         if (best_heap.size() >= static_cast<size_t>(capacity) &&
+             best_heap.top().distance < candidate.distance)
+            return false;
+         visited.set(id);
+         candidate_active[id] = 1;
+         candidate_heap.push(candidate);
+         best_heap.push(candidate);
+         if (best_heap.size() > static_cast<size_t>(capacity))
+         {
+            const FavorCandidate removed = best_heap.top();
+            best_heap.pop();
+            if (removed.id < candidate_active.size())
+               candidate_active[removed.id] = 0;
+         }
+         comparisons++;
+         stats.num_nodes_visited++;
+         if (is_target)
+            stats.favor_td_candidates_inserted++;
+         else
+            stats.favor_ntd_candidates_inserted++;
+         return true;
+      };
+
+      constexpr size_t kReducedEntryGroupThreshold = 1000;
+      constexpr IdxType kReducedEntryPointsPerLargeGroupSet = 4;
+      const IdxType effective_num_entry_points =
+          entry_group_ids.size() > kReducedEntryGroupThreshold
+              ? std::min<IdxType>(runtime.num_entry_points, kReducedEntryPointsPerLargeGroupSet)
+              : runtime.num_entry_points;
+      for (IdxType group_id : entry_group_ids)
+      {
+         if (group_id >= _group_id_to_range.size())
+            continue;
+         const auto &range = _group_id_to_range[group_id];
+         if (range.second <= range.first)
+            continue;
+         const IdxType take = std::min<IdxType>(effective_num_entry_points, range.second - range.first);
+         for (IdxType local = 0; local < take; ++local)
+         {
+            const IdxType point_id =
+                (local == 0 && group_id < _group_entry_points.size() &&
+                 _group_entry_points[group_id] >= range.first && _group_entry_points[group_id] < range.second)
+                    ? _group_entry_points[group_id]
+                    : range.first + local;
+            insert_candidate(point_id);
+         }
+      }
+
+      if (candidate_heap.empty())
+      {
+         stats.num_distance_calcs = 0;
+         return false;
+      }
+
+      while (!candidate_heap.empty())
+      {
+         const FavorCandidate cur = candidate_heap.top();
+         candidate_heap.pop();
+         if (cur.id >= candidate_active.size() || candidate_active[cur.id] == 0)
+            continue;
+         if (cur.target)
+            stats.special_regular_nodes_expanded++;
+         else
+            stats.special_free_nodes_expanded++;
+
+         const IdxType block_id = cur.id < _point_to_special_block.size() ? _point_to_special_block[cur.id] : 0;
+         if (has_block_space && block_id > 0 && block_id < selected_block.size() &&
+             selected_block[block_id] != 0 && cur.id < _special_edges_by_point.size())
+         {
+            const bool budget_exhausted =
+                block_source_budget > 0 && block_source_expanded[block_id] >= block_source_budget;
+            if (budget_exhausted)
+            {
+               stats.favor_block_edge_scans_skipped += _special_edges_by_point[cur.id].size();
+            }
+            else
+            {
+               block_source_expanded[block_id]++;
+               stats.favor_blocks_expanded++;
+               for (const SpecialEdge &edge : _special_edges_by_point[cur.id])
+               {
+                  stats.special_edges_scanned++;
+                  if (edge.kind == SpecialEdgeKind::InterBlock)
+                     stats.special_inter_edges_scanned++;
+                  else
+                     stats.special_intra_edges_scanned++;
+                  if (insert_candidate(edge.target_point_id))
+                     stats.special_edges_accepted++;
+               }
+            }
+         }
+
+         const GraphNeighborView neighbors = graph_backend.neighbors(cur.id);
+         for (size_t i = 0; i < neighbors.size; ++i)
+         {
+            stats.special_regular_edges_scanned++;
+            if (insert_candidate(neighbors.ids[i]))
+               stats.special_regular_edges_accepted++;
+         }
+      }
+
+      cur_result.clear();
+      std::vector<FavorCandidate> final_candidates;
+      final_candidates.reserve(best_heap.size());
+      while (!best_heap.empty())
+      {
+         final_candidates.push_back(best_heap.top());
+         best_heap.pop();
+      }
+      std::sort(final_candidates.begin(), final_candidates.end(),
+                [](const FavorCandidate &a, const FavorCandidate &b) {
+                   if (a.raw_distance != b.raw_distance)
+                      return a.raw_distance < b.raw_distance;
+                   return a.id < b.id;
+                });
+      for (const FavorCandidate &candidate : final_candidates)
+      {
+         if (!candidate.target)
+            continue;
+         cur_result.insert(candidate.id, candidate.raw_distance);
+         stats.favor_td_results++;
+      }
+
+      stats.special_regular_distance_calcs = stats.favor_td_candidates_inserted;
+      stats.special_free_distance_calcs = stats.favor_ntd_candidates_inserted;
+      stats.num_distance_calcs = comparisons;
+      num_cmps[query_id] = comparisons;
+      stats.core_search_time_ms =
+          std::chrono::duration<double, std::milli>(
+              std::chrono::high_resolution_clock::now() - search_time_start_ms)
+              .count();
+      stats.search_time_ms = stats.core_search_time_ms;
+      return stats.favor_td_results > 0;
    }
 
    CrossEdgeCsrOutput UniNavGraph::build_search_graph_csr() const

@@ -29,6 +29,7 @@ public:
    GpuCoverFrontierProvider(const GpuCoverFrontierProvider &) = delete;
    GpuCoverFrontierProvider &operator=(const GpuCoverFrontierProvider &) = delete;
 
+   void reserve_workspaces(size_t workspace_count, size_t max_query_labels);
    EntryGroupProviderResult run(const EntryGroupProviderRequest &request, QueryStats &stats) const;
 
 private:

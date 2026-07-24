@@ -1,0 +1,75 @@
+{
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "selector_model_prefix": "/home/dev/graphdb/FilterVectorResult/SelectModels",
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "num_entry_points": 16,
+    "lsearch_start": 1000,
+    "lsearch_end": 20000,
+    "lsearch_step": 1000,
+    "efs_start": 10,
+    "efs_step_slow": 10,
+    "efs_step_fast": 10,
+    "lsearch_threshold": 1000
+  },
+  "datasets": [
+    {
+      "dataset": "Genome",
+      "query_task": "query_A_B_C-weighted-sub-base-123456789"
+    },
+    {
+      "dataset": "Reviews",
+      "query_task": "query_A_B_C-sub-base-123456789"
+    },
+    {
+      "dataset": "VariousImg",
+      "query_task": "query_A_B_C-weighted-sub-base-123456789"
+    }
+  ],
+  "methods": [
+    {
+      "name": "UNG",
+      "index_name": "UNG",
+      "entry_group_provider": "cpu_min_super_sets",
+      "special_block_search": false,
+      "is_new_trie_method": false,
+      "is_rec_more_start": false
+    },
+    {
+      "name": "cpu_bruteforce_els_ung",
+      "index_name": "UNG",
+      "entry_group_provider": "cpu_bruteforce_els",
+      "special_block_search": false,
+      "is_new_trie_method": false,
+      "is_rec_more_start": false
+    },
+    {
+      "name": "gpu_bruteforce_els_special_blocks",
+      "index_name": "UNG_special_blocks",
+      "entry_group_provider": "gpu_cover_frontier",
+      "special_block_search": true,
+      "is_new_trie_method": false,
+      "is_rec_more_start": false
+    },
+    {
+      "name": "cpu_bruteforce_els_special_blocks",
+      "index_name": "UNG_special_blocks",
+      "entry_group_provider": "cpu_bruteforce_els",
+      "special_block_search": true,
+      "is_new_trie_method": false,
+      "is_rec_more_start": false
+    },
+    {
+      "name": "gpu_bruteforce_els_ung",
+      "index_name": "UNG",
+      "entry_group_provider": "gpu_cover_frontier",
+      "special_block_search": false,
+      "is_new_trie_method": false,
+      "is_rec_more_start": false
+    }
+  ]
+}

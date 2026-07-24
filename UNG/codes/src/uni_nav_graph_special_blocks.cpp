@@ -556,10 +556,12 @@ void UniNavGraph::build_special_blocks()
       {
          SpecialBlock block;
          block.block_id = static_cast<IdxType>(_special_blocks.size() + 1);
-         block.root_group_id = nodes[idx].group_id;
          block.subtree_point_count = subtree_points;
          block.root_labels = nodes[idx].labels;
          collect_special_block_members(nodes, idx, block, node_to_block);
+         if (block.member_group_ids.empty())
+            continue;
+         block.root_group_id = block.member_group_ids.front();
          _special_blocks.push_back(std::move(block));
          node_to_block[idx] = static_cast<IdxType>(_special_blocks.size());
          nodes[idx].uncovered_points = 0;
@@ -616,7 +618,13 @@ void UniNavGraph::build_special_edge_overlay()
       std::cerr << "[special_edges][GPU_INTRA][unsupported_config] " << msg << std::endl;
       throw std::runtime_error(msg);
    }
-   const CpuGroupGraphSettings group_cfg = make_cpu_group_graph_settings(_max_degree, _num_threads);
+   const IdxType special_block_max_degree = _build_config.special_block_max_degree > 0
+                                             ? static_cast<IdxType>(_build_config.special_block_max_degree)
+                                             : _max_degree;
+   const IdxType special_block_num_cross_edges = _build_config.special_block_num_cross_edges > 0
+                                                ? static_cast<IdxType>(_build_config.special_block_num_cross_edges)
+                                                : _num_cross_edges;
+   const CpuGroupGraphSettings group_cfg = make_cpu_group_graph_settings(special_block_max_degree, _num_threads);
    const IdxType legacy_special_complete_threshold =
        std::max<IdxType>(group_cfg.complete_threshold,
                          static_cast<IdxType>(_build_config.special_block_min_points));
@@ -628,7 +636,7 @@ void UniNavGraph::build_special_edge_overlay()
    const IdxType special_intra_complete_threshold = read_env_idxtype(
        "UNG_SPECIAL_INTRA_COMPLETE_NX",
        gpu_intra_enabled ? gpu_special_complete_default : cpu_special_complete_default,
-       _max_degree,
+       special_block_max_degree,
        1 << 20);
    const bool special_intra_bounded_complete =
        read_env_bool_default("UNG_SPECIAL_INTRA_BOUNDED_COMPLETE", true);
@@ -655,9 +663,9 @@ void UniNavGraph::build_special_edge_overlay()
       if (n <= special_intra_complete_threshold)
       {
          if (special_intra_exact_topk)
-            build_exact_topk_graph_for_points(local_graph, _base_storage, _distance_handler, points, _max_degree);
+            build_exact_topk_graph_for_points(local_graph, _base_storage, _distance_handler, points, special_block_max_degree);
          else if (special_intra_bounded_complete)
-            build_bounded_complete_graph(local_graph, n, _max_degree);
+            build_bounded_complete_graph(local_graph, n, special_block_max_degree);
          else
             build_complete_graph(local_graph, n);
          block_indexes[block.block_id] = std::make_shared<Vamana>(
@@ -679,13 +687,13 @@ void UniNavGraph::build_special_edge_overlay()
                TagoreGroupRequest request{packed.data(), static_cast<uint32_t>(n)};
                const TagoreCudaRuntimeConfig runtime_cfg =
                    make_tagore_cuda_runtime_config(_build_config.tagore_k,
-                                                   static_cast<uint32_t>(_max_degree),
+                                                   static_cast<uint32_t>(special_block_max_degree),
                                                    false);
                TagoreBatchBuildResult batch = build_tagore_vamana_cuda_batch(
                    std::vector<TagoreGroupRequest>{request},
                    static_cast<uint32_t>(_base_storage->get_dim()),
                    _build_config.tagore_k,
-                   static_cast<uint32_t>(_max_degree),
+                   static_cast<uint32_t>(special_block_max_degree),
                    _build_config.tagore_m,
                    _build_config.tagore_iter,
                    _alpha,
@@ -696,9 +704,9 @@ void UniNavGraph::build_special_edge_overlay()
                fill_special_graph_from_tagore_result(local_graph,
                                                      batch.groups.front(),
                                                      n,
-                                                     _max_degree,
-                                                     _build_config.tagore_k <= _max_degree
-                                                         ? static_cast<uint32_t>(_max_degree + 1)
+                                                     special_block_max_degree,
+                                                     _build_config.tagore_k <= special_block_max_degree
+                                                         ? static_cast<uint32_t>(special_block_max_degree + 1)
                                                          : _build_config.tagore_k);
                block_indexes[block.block_id] = std::make_shared<Vamana>(
                    std::make_shared<SpecialBlockStorageView>(_base_storage, points),
@@ -720,7 +728,7 @@ void UniNavGraph::build_special_edge_overlay()
          {
             auto local_storage = std::make_shared<SpecialBlockStorageView>(_base_storage, points);
             auto local_index = std::make_shared<Vamana>(false);
-            local_index->build(local_storage, _distance_handler, local_graph, _max_degree, _Lbuild, _alpha, 1);
+            local_index->build(local_storage, _distance_handler, local_graph, special_block_max_degree, _Lbuild, _alpha, 1);
             block_indexes[block.block_id] = local_index;
             cpu_intra_vamana_blocks += 1;
             cpu_intra_vamana_points += static_cast<size_t>(n);
@@ -828,7 +836,7 @@ void UniNavGraph::build_special_edge_overlay()
          }
          if (child_count == 0)
             continue;
-         const IdxType extra = child_count * _num_cross_edges;
+         const IdxType extra = child_count * special_block_num_cross_edges;
          for (IdxType source : src_points)
             if (source < extra_edges_by_point.size())
                extra_edges_by_point[source] += extra;
@@ -895,13 +903,14 @@ void UniNavGraph::build_special_edge_overlay()
             {
                const IdxType source = src_points[src_idx];
                SearchQueue local_topk;
-               local_topk.reserve(_num_cross_edges);
+               local_topk.reserve(special_block_num_cross_edges);
                append_cross_edges_from_target_points(source,
                                                      dst_points,
                                                      child_index,
                                                      &search_cache_list,
                                                      use_exact_scan,
-                                                     local_topk);
+                                                     local_topk,
+                                                     special_block_num_cross_edges);
                if (profile_inter_no_output)
                {
                   inter_edges_added += static_cast<unsigned long long>(local_topk.size());

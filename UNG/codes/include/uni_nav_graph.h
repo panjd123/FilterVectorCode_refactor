@@ -113,6 +113,10 @@ namespace ANNS
           double beta = 1.0,
           IdxType true_query_group_id = 0) const;
 
+      void initialize_gpu_cover_frontier_provider(size_t workspace_count = 0,
+                                                  size_t max_query_labels = 0);
+      void warmup_gpu_cover_frontier_provider(const std::vector<LabelType> &query_labels);
+
       void get_min_super_sets_debug(const std::vector<LabelType> &query_label_set,
                                     std::vector<IdxType> &min_super_set_ids,
                                     bool avoid_self, bool need_containment,
@@ -129,6 +133,7 @@ namespace ANNS
       void thread_function(IdxType query_id,
                            const SearchRuntimeConfig &runtime,
                            const GraphSearchBackend &graph_backend,
+                           SearchCacheList &search_cache_list,
                            std::pair<IdxType, float> *results,
                            std::vector<float> &num_cmps,
                            std::vector<QueryStats> &query_stats,
@@ -158,6 +163,8 @@ namespace ANNS
                                                         QueryStats &stats);
       EntryGroupProviderResult compute_cpu_entry_groups_for_execution(const EntryGroupProviderRequest &request,
                                                                       QueryStats &stats);
+      EntryGroupProviderResult compute_cpu_bruteforce_entry_groups_for_execution(const EntryGroupProviderRequest &request,
+                                                                                 QueryStats &stats);
       EntryGroupProviderResult compute_gpu_entry_groups_for_execution(const EntryGroupProviderRequest &request,
                                                                       QueryStats &stats);
 
@@ -194,6 +201,7 @@ namespace ANNS
                              SearchQueue &cur_result,
                              QueryStats &stats);
       bool execute_special_block_ung_query(const char *query,
+                                           std::shared_ptr<SearchCache> search_cache,
                                            const SearchRuntimeConfig &runtime,
                                            const GraphSearchBackend &graph_backend,
                                            const std::vector<IdxType> &entry_group_ids,
@@ -202,6 +210,15 @@ namespace ANNS
                                            std::vector<float> &num_cmps,
                                            SearchQueue &cur_result,
                                            QueryStats &stats);
+      bool execute_favor_block_ung_query(const char *query,
+                                         std::shared_ptr<SearchCache> search_cache,
+                                         const SearchRuntimeConfig &runtime,
+                                         const GraphSearchBackend &graph_backend,
+                                         const std::vector<IdxType> &entry_group_ids,
+                                         IdxType query_id,
+                                         std::vector<float> &num_cmps,
+                                         SearchQueue &cur_result,
+                                         QueryStats &stats);
 
       // Query feature and selector diagnostics. These helpers feed route
       // decisions and benchmark CSVs; they should stay side-effect-light.
@@ -399,7 +416,8 @@ namespace ANNS
                                                  std::shared_ptr<Vamana> target_index,
                                                  SearchCacheList *search_cache_list,
                                                  bool use_exact_scan,
-                                                 SearchQueue &out_neighbors) const;
+                                                 SearchQueue &out_neighbors,
+                                                 IdxType max_neighbors) const;
       bool build_cross_edges_generate_gpu_optimized(std::vector<SearchQueue> &cross_group_neighbors,
                                                     const CrossEdgeGpuRuntimeConfig &gpu_route,
                                                     std::vector<std::vector<IdxType>> *cross_group_neighbor_ids,

@@ -1,0 +1,65 @@
+{
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "query_tasks": [
+    {
+      "enabled": true,
+      "task_name": "minlen1_cov20k",
+      "mode": "variable_sub_base",
+      "dataset": "Reviews",
+      "data_dir": "/home/dev/graphdb/FilterVectorData/Reviews",
+      "overwrite": false,
+      "sub_base_params": {
+        "num_points": 3000,
+        "min_query_length": 1,
+        "max_query_length": 0,
+        "K": 20001,
+        "max_coverage": 288065,
+        "min_children": 0,
+        "cache-file": "/home/dev/graphdb/FilterVectorData/Reviews/sub_base_cache"
+      },
+      "analysis_params": {
+        "analyze": true
+      }
+    },
+    {
+      "enabled": true,
+      "task_name": "minlen1_cov20k",
+      "mode": "variable_sub_base",
+      "dataset": "VariousImg",
+      "data_dir": "/home/dev/graphdb/FilterVectorData/VariousImg",
+      "overwrite": false,
+      "sub_base_params": {
+        "num_points": 3000,
+        "min_query_length": 1,
+        "max_query_length": 0,
+        "K": 20001,
+        "max_coverage": 758935,
+        "min_children": 0,
+        "cache-file": "/home/dev/graphdb/FilterVectorData/VariousImg/sub_base_cache"
+      },
+      "analysis_params": {
+        "analyze": true
+      }
+    },
+    {
+      "enabled": true,
+      "task_name": "minlen1_cov10k",
+      "mode": "variable_sub_base",
+      "dataset": "Genome",
+      "data_dir": "/home/dev/graphdb/FilterVectorData/Genome",
+      "overwrite": false,
+      "sub_base_params": {
+        "num_points": 3000,
+        "min_query_length": 1,
+        "max_query_length": 0,
+        "K": 10001,
+        "max_coverage": 108077,
+        "min_children": 0,
+        "cache-file": "/home/dev/graphdb/FilterVectorData/Genome/sub_base_cache"
+      },
+      "analysis_params": {
+        "analyze": true
+      }
+    }
+  ]
+}

@@ -96,6 +96,8 @@ struct UngBuildConfig
    uint32_t tagore_m = 64;
    bool special_blocks_enabled = false;
    uint32_t special_block_min_points = 100;
+   uint32_t special_block_max_degree = 0; // 0 means use build max_degree.
+   uint32_t special_block_num_cross_edges = 0; // 0 means use build num_cross_edges.
    std::string special_block_data_mode;
    bool special_block_skip_trivial = true;
 

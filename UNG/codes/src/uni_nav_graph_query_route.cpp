@@ -71,6 +71,17 @@ namespace ANNS
       runtime.entry_group_provider = entry_group_provider;
       runtime.graph_backend = graph_backend;
       runtime.special_block_search = std::getenv("UNG_SPECIAL_BLOCK_SEARCH") != nullptr;
+      if (const char *value = std::getenv("UNG_SPECIAL_SEARCH_MODE"))
+      {
+         const std::string mode(value);
+         if (mode == "favor_blocks")
+            runtime.special_search_mode = SpecialSearchMode::FavorBlocks;
+         else if (mode == "free_state" || mode == "free" || mode == "0")
+            runtime.special_search_mode = SpecialSearchMode::FreeState;
+         else
+            throw std::invalid_argument("Invalid UNG_SPECIAL_SEARCH_MODE: " + mode +
+                                        " (expected free_state or favor_blocks)");
+      }
       runtime.special_block_free_use_regular = std::getenv("UNG_SPECIAL_BLOCK_FREE_USE_REGULAR") != nullptr;
       runtime.special_heavy_edge_search = std::getenv("UNG_SPECIAL_HEAVY_EDGE_SEARCH") != nullptr;
       if (const char *value = std::getenv("UNG_SPECIAL_HEAVY_EDGE_MIN_QUERY_SIZE"))

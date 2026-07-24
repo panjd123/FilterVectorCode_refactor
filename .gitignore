@@ -8,7 +8,11 @@ Makefile
 __pycache__/
 *.pyc
 .tmp/
-
+core.*
+*.log
+run.log
+tmp/
+tune_par/
 # macOS AppleDouble files accidentally copied into remote worktrees
 ._*
 **/._*

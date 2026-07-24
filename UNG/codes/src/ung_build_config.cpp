@@ -348,6 +348,10 @@ UngBuildConfig UngBuildConfig::from_env(uint32_t build_threads)
    cfg.special_blocks_enabled = env_bool("UNG_SPECIAL_BLOCKS", false);
    cfg.special_block_min_points =
        static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_MIN_POINTS", 100, 1, 1 << 30));
+   cfg.special_block_max_degree =
+       static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_MAX_DEGREE", 0, 0, 1 << 20));
+   cfg.special_block_num_cross_edges =
+       static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_NUM_CROSS_EDGES", 0, 0, 1 << 20));
    cfg.special_block_data_mode = env_string("UNG_SPECIAL_BLOCK_DATA_MODE", "");
    cfg.special_block_skip_trivial = env_bool("UNG_SPECIAL_BLOCK_SKIP_TRIVIAL", true);
    if (cfg.special_blocks_enabled && cfg.special_block_data_mode != "x1")

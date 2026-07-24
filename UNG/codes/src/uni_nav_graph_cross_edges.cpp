@@ -69,7 +69,8 @@ namespace ANNS
                                                            std::shared_ptr<Vamana> target_index,
                                                            SearchCacheList *search_cache_list,
                                                            bool use_exact_scan,
-                                                           SearchQueue &out_neighbors) const
+                                                           SearchQueue &out_neighbors,
+                                                           IdxType max_neighbors) const
    {
       if (target_point_ids.empty())
          return;
@@ -78,7 +79,7 @@ namespace ANNS
       if (use_exact_scan || target_index == nullptr || search_cache_list == nullptr)
       {
          SearchQueue local_topk;
-         local_topk.reserve(_num_cross_edges);
+         local_topk.reserve(max_neighbors);
          const IdxType dim = _base_storage->get_dim();
          for (IdxType target_id : target_point_ids)
          {

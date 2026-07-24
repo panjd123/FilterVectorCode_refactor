@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstdint>
 #include <limits>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -169,10 +170,114 @@ void set_group_bit(std::vector<uint64_t> &bits, DeviceId words, DeviceId row, De
    bits[static_cast<size_t>(row) * words + (group_id >> 6)] |= uint64_t{1} << (group_id & 63);
 }
 
+void require_dense_descendant_bitset_memory(size_t required_bytes)
+{
+   size_t free_bytes = 0;
+   size_t total_bytes = 0;
+   ANNS_CUDA_CHECK(cudaMemGetInfo(&free_bytes, &total_bytes));
+   if (required_bytes > free_bytes)
+   {
+      throw std::runtime_error(
+          "gpu_cover_frontier requires dense descendant bitset of " +
+          std::to_string(required_bytes) + " bytes, but CUDA reports only " +
+          std::to_string(free_bytes) + " free bytes");
+   }
+}
+
 } // namespace
 
 struct GpuCoverFrontierProvider::Impl
 {
+   struct Workspace
+   {
+      DeviceId *d_query_offsets = nullptr;
+      DeviceLabel *d_query_labels = nullptr;
+      uint64_t *d_candidate_bits = nullptr;
+      uint64_t *d_frontier_bits = nullptr;
+      uint64_t *d_selected_frontier_bits = nullptr;
+      uint64_t *d_covered_bits = nullptr;
+      uint64_t *d_out_bits = nullptr;
+      DeviceId *d_frontier_counts = nullptr;
+      DeviceId *d_frontier_ids = nullptr;
+      size_t query_offsets_capacity = 0;
+      size_t query_labels_capacity = 0;
+      size_t words_bytes_capacity = 0;
+      bool in_use = false;
+      std::vector<uint64_t> host_bits;
+
+      ~Workspace()
+      {
+         cudaFree(d_query_offsets);
+         cudaFree(d_query_labels);
+         cudaFree(d_candidate_bits);
+         cudaFree(d_frontier_bits);
+         cudaFree(d_selected_frontier_bits);
+         cudaFree(d_covered_bits);
+         cudaFree(d_out_bits);
+         cudaFree(d_frontier_counts);
+         cudaFree(d_frontier_ids);
+      }
+
+      Workspace(const Workspace &) = delete;
+      Workspace &operator=(const Workspace &) = delete;
+      Workspace() = default;
+
+      void reserve(size_t query_label_capacity, size_t words_bytes, DeviceId words_per_query)
+      {
+         if (query_offsets_capacity < 2)
+         {
+            cudaFree(d_query_offsets);
+            ANNS_CUDA_CHECK(cudaMalloc(&d_query_offsets, 2 * sizeof(DeviceId)));
+            query_offsets_capacity = 2;
+         }
+         if (query_labels_capacity < query_label_capacity)
+         {
+            cudaFree(d_query_labels);
+            ANNS_CUDA_CHECK(cudaMalloc(&d_query_labels, query_label_capacity * sizeof(DeviceLabel)));
+            query_labels_capacity = query_label_capacity;
+         }
+         if (words_bytes_capacity < words_bytes)
+         {
+            cudaFree(d_candidate_bits);
+            cudaFree(d_frontier_bits);
+            cudaFree(d_selected_frontier_bits);
+            cudaFree(d_covered_bits);
+            cudaFree(d_out_bits);
+            ANNS_CUDA_CHECK(cudaMalloc(&d_candidate_bits, words_bytes));
+            ANNS_CUDA_CHECK(cudaMalloc(&d_frontier_bits, words_bytes));
+            ANNS_CUDA_CHECK(cudaMalloc(&d_selected_frontier_bits, words_bytes));
+            ANNS_CUDA_CHECK(cudaMalloc(&d_covered_bits, words_bytes));
+            ANNS_CUDA_CHECK(cudaMalloc(&d_out_bits, words_bytes));
+            words_bytes_capacity = words_bytes;
+            host_bits.resize(words_per_query);
+         }
+         if (d_frontier_counts == nullptr)
+            ANNS_CUDA_CHECK(cudaMalloc(&d_frontier_counts, sizeof(DeviceId)));
+         if (d_frontier_ids == nullptr)
+            ANNS_CUDA_CHECK(cudaMalloc(&d_frontier_ids, static_cast<size_t>(kDefaultFrontierCoverCap) * sizeof(DeviceId)));
+      }
+   };
+
+   struct WorkspaceLease
+   {
+      const Impl *owner = nullptr;
+      Workspace *workspace = nullptr;
+
+      WorkspaceLease(const Impl *owner_in, Workspace *workspace_in)
+          : owner(owner_in), workspace(workspace_in)
+      {
+      }
+
+      WorkspaceLease(const WorkspaceLease &) = delete;
+      WorkspaceLease &operator=(const WorkspaceLease &) = delete;
+
+      ~WorkspaceLease()
+      {
+         if (owner != nullptr && workspace != nullptr)
+            owner->release_workspace(*workspace);
+      }
+   };
+
    explicit Impl(const GpuCoverFrontierBuildInput &input)
    {
       if (input.group_labels == nullptr)
@@ -209,7 +314,9 @@ struct GpuCoverFrontierProvider::Impl
             set_group_bit(label_group_bits, words_per_query, label_to_dense.at(label), gid);
       }
 
-      std::vector<uint64_t> descendant_bits(static_cast<size_t>(num_groups_including_zero) * words_per_query, 0);
+      const size_t descendant_word_count = static_cast<size_t>(num_groups_including_zero) * words_per_query;
+      require_dense_descendant_bitset_memory(descendant_word_count * sizeof(uint64_t));
+      std::vector<uint64_t> descendant_bits(descendant_word_count, 0);
       if (input.lng_descendants != nullptr && input.lng_descendants->size() > input.num_groups)
       {
          for (DeviceId gid = 1; gid <= input.num_groups; ++gid)
@@ -255,6 +362,59 @@ struct GpuCoverFrontierProvider::Impl
       cudaFree(d_descendant_bits);
    }
 
+   void reserve_workspaces(size_t workspace_count, size_t max_query_labels) const
+   {
+      const size_t label_capacity = std::max<size_t>(max_query_labels, 1);
+      const size_t words_bytes = static_cast<size_t>(words_per_query) * sizeof(uint64_t);
+      std::lock_guard<std::mutex> lock(workspace_mutex);
+      while (workspaces.size() < workspace_count)
+         workspaces.emplace_back(std::make_unique<Workspace>());
+      for (size_t i = 0; i < workspace_count; ++i)
+         workspaces[i]->reserve(label_capacity, words_bytes, words_per_query);
+   }
+
+   WorkspaceLease acquire_workspace(size_t query_label_count) const
+   {
+      Workspace *workspace = nullptr;
+      {
+         std::lock_guard<std::mutex> lock(workspace_mutex);
+         for (const auto &candidate : workspaces)
+         {
+            if (!candidate->in_use)
+            {
+               workspace = candidate.get();
+               workspace->in_use = true;
+               break;
+            }
+         }
+         if (workspace == nullptr)
+         {
+            workspaces.emplace_back(std::make_unique<Workspace>());
+            workspace = workspaces.back().get();
+            workspace->in_use = true;
+         }
+      }
+
+      const size_t label_capacity = std::max<size_t>(query_label_count, 1);
+      const size_t words_bytes = static_cast<size_t>(words_per_query) * sizeof(uint64_t);
+      try
+      {
+         workspace->reserve(label_capacity, words_bytes, words_per_query);
+      }
+      catch (...)
+      {
+         release_workspace(*workspace);
+         throw;
+      }
+      return WorkspaceLease(this, workspace);
+   }
+
+   void release_workspace(Workspace &workspace) const
+   {
+      std::lock_guard<std::mutex> lock(workspace_mutex);
+      workspace.in_use = false;
+   }
+
    EntryGroupProviderResult run(const EntryGroupProviderRequest &request, QueryStats &stats) const
    {
       const auto start = std::chrono::high_resolution_clock::now();
@@ -268,68 +428,40 @@ struct GpuCoverFrontierProvider::Impl
       if (dense_query_labels.empty())
          dense_query_labels.push_back(kInvalidDenseLabel);
 
-      const std::vector<DeviceId> query_offsets = {0, static_cast<DeviceId>(request.query_labels->size())};
-      DeviceId *d_query_offsets = nullptr;
-      DeviceLabel *d_query_labels = nullptr;
-      uint64_t *d_candidate_bits = nullptr;
-      uint64_t *d_frontier_bits = nullptr;
-      uint64_t *d_selected_frontier_bits = nullptr;
-      uint64_t *d_covered_bits = nullptr;
-      uint64_t *d_out_bits = nullptr;
-      DeviceId *d_frontier_counts = nullptr;
-      DeviceId *d_frontier_ids = nullptr;
-
+      const DeviceId query_offsets[] = {0, static_cast<DeviceId>(request.query_labels->size())};
+      WorkspaceLease lease = acquire_workspace(dense_query_labels.size());
+      Workspace &workspace = *lease.workspace;
       const size_t words_bytes = static_cast<size_t>(words_per_query) * sizeof(uint64_t);
-      ANNS_CUDA_CHECK(cudaMalloc(&d_query_offsets, query_offsets.size() * sizeof(DeviceId)));
-      ANNS_CUDA_CHECK(cudaMalloc(&d_query_labels, dense_query_labels.size() * sizeof(DeviceLabel)));
-      ANNS_CUDA_CHECK(cudaMalloc(&d_candidate_bits, words_bytes));
-      ANNS_CUDA_CHECK(cudaMalloc(&d_frontier_bits, words_bytes));
-      ANNS_CUDA_CHECK(cudaMalloc(&d_selected_frontier_bits, words_bytes));
-      ANNS_CUDA_CHECK(cudaMalloc(&d_covered_bits, words_bytes));
-      ANNS_CUDA_CHECK(cudaMalloc(&d_out_bits, words_bytes));
-      ANNS_CUDA_CHECK(cudaMalloc(&d_frontier_counts, sizeof(DeviceId)));
-      ANNS_CUDA_CHECK(cudaMalloc(&d_frontier_ids, static_cast<size_t>(kDefaultFrontierCoverCap) * sizeof(DeviceId)));
 
-      ANNS_CUDA_CHECK(cudaMemcpy(d_query_offsets, query_offsets.data(),
-                                 query_offsets.size() * sizeof(DeviceId), cudaMemcpyHostToDevice));
-      ANNS_CUDA_CHECK(cudaMemcpy(d_query_labels, dense_query_labels.data(),
+      ANNS_CUDA_CHECK(cudaMemcpy(workspace.d_query_offsets, query_offsets,
+                                 2 * sizeof(DeviceId), cudaMemcpyHostToDevice));
+      ANNS_CUDA_CHECK(cudaMemcpy(workspace.d_query_labels, dense_query_labels.data(),
                                  dense_query_labels.size() * sizeof(DeviceLabel), cudaMemcpyHostToDevice));
-      ANNS_CUDA_CHECK(cudaMemset(d_selected_frontier_bits, 0, words_bytes));
+      ANNS_CUDA_CHECK(cudaMemset(workspace.d_selected_frontier_bits, 0, words_bytes));
 
       dim3 block(256);
       dim3 grid((words_per_query + block.x - 1) / block.x, 1);
       gpu_cover_candidate_frontier_kernel<<<grid, block>>>(d_label_group_bits, d_size_group_bits,
                                                            words_per_query, max_group_label_size,
-                                                           d_query_labels, d_query_offsets, 1,
+                                                           workspace.d_query_labels, workspace.d_query_offsets, 1,
                                                            kDefaultFrontierDelta,
-                                                           d_candidate_bits, d_frontier_bits);
+                                                           workspace.d_candidate_bits, workspace.d_frontier_bits);
       ANNS_CUDA_CHECK(cudaGetLastError());
-      gpu_cover_compact_frontier_ids_kernel<<<1, 256>>>(d_frontier_bits, num_groups_including_zero,
+      gpu_cover_compact_frontier_ids_kernel<<<1, 256>>>(workspace.d_frontier_bits, num_groups_including_zero,
                                                         words_per_query, 1, kDefaultFrontierCoverCap,
-                                                        d_selected_frontier_bits,
-                                                        d_frontier_counts, d_frontier_ids);
+                                                        workspace.d_selected_frontier_bits,
+                                                        workspace.d_frontier_counts, workspace.d_frontier_ids);
       ANNS_CUDA_CHECK(cudaGetLastError());
-      gpu_cover_descendant_cover_list_kernel<<<grid, block>>>(d_frontier_counts, d_frontier_ids,
+      gpu_cover_descendant_cover_list_kernel<<<grid, block>>>(workspace.d_frontier_counts, workspace.d_frontier_ids,
                                                               d_descendant_bits, words_per_query,
                                                               1, kDefaultFrontierCoverCap,
-                                                              d_covered_bits);
+                                                              workspace.d_covered_bits);
       ANNS_CUDA_CHECK(cudaGetLastError());
-      gpu_cover_select_kernel<<<grid, block>>>(d_candidate_bits, d_selected_frontier_bits,
-                                               d_covered_bits, words_per_query, 1, d_out_bits);
+      gpu_cover_select_kernel<<<grid, block>>>(workspace.d_candidate_bits, workspace.d_selected_frontier_bits,
+                                               workspace.d_covered_bits, words_per_query, 1, workspace.d_out_bits);
       ANNS_CUDA_CHECK(cudaGetLastError());
 
-      std::vector<uint64_t> host_bits(words_per_query);
-      ANNS_CUDA_CHECK(cudaMemcpy(host_bits.data(), d_out_bits, words_bytes, cudaMemcpyDeviceToHost));
-
-      cudaFree(d_query_offsets);
-      cudaFree(d_query_labels);
-      cudaFree(d_candidate_bits);
-      cudaFree(d_frontier_bits);
-      cudaFree(d_selected_frontier_bits);
-      cudaFree(d_covered_bits);
-      cudaFree(d_out_bits);
-      cudaFree(d_frontier_counts);
-      cudaFree(d_frontier_ids);
+      ANNS_CUDA_CHECK(cudaMemcpy(workspace.host_bits.data(), workspace.d_out_bits, words_bytes, cudaMemcpyDeviceToHost));
 
       EntryGroupProviderResult result;
       result.requested_impl = request.impl;
@@ -338,7 +470,7 @@ struct GpuCoverFrontierProvider::Impl
       result.exact_minimal = false;
       for (DeviceId word = 0; word < words_per_query; ++word)
       {
-         uint64_t bits = host_bits[word];
+         uint64_t bits = workspace.host_bits[word];
          while (bits)
          {
             DeviceId bit = static_cast<DeviceId>(__builtin_ctzll(bits));
@@ -362,6 +494,8 @@ struct GpuCoverFrontierProvider::Impl
    uint64_t *d_label_group_bits = nullptr;
    uint64_t *d_size_group_bits = nullptr;
    uint64_t *d_descendant_bits = nullptr;
+   mutable std::mutex workspace_mutex;
+   mutable std::vector<std::unique_ptr<Workspace>> workspaces;
 };
 
 GpuCoverFrontierProvider::GpuCoverFrontierProvider(const GpuCoverFrontierBuildInput &input)
@@ -370,6 +504,11 @@ GpuCoverFrontierProvider::GpuCoverFrontierProvider(const GpuCoverFrontierBuildIn
 }
 
 GpuCoverFrontierProvider::~GpuCoverFrontierProvider() = default;
+
+void GpuCoverFrontierProvider::reserve_workspaces(size_t workspace_count, size_t max_query_labels)
+{
+   impl_->reserve_workspaces(workspace_count, max_query_labels);
+}
 
 EntryGroupProviderResult GpuCoverFrontierProvider::run(const EntryGroupProviderRequest &request,
                                                        QueryStats &stats) const
