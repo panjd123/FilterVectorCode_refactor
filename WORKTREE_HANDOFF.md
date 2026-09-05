@@ -26,10 +26,12 @@
 - 候选去重与 loader 修复：`368227e`
 - 外部 baseline runners：`fb9baa2`、`a8ce77e`、`8e21b83`
 - ACORN gamma/正式重复 runner：`f2360f1`、`ca8fd41`
+- 论文级结果与方法报告：`5cff515`
+- 官方 ACORN x1 可复现 patch：`4169be6`
 
 服务器 Git 1.8.3.1 不支持 `git worktree`，因此这里使用 `git clone --shared` 创建等价隔离目录：branch/index 独立，但共享对象库。仓库没有配置 submodule。
 
-隔离分支的 tracked 文件在本次文档更新前为 clean；`runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 为未跟踪实验产物/nested clones，不应提交。`UNG/codes/third_party/CRoaring/build/src/libroaring.a` 是 ignored、可丢弃的构建缓存，也不应提交。
+隔离分支的 tracked 文件在最终验证时为 clean；`runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 为未跟踪实验产物/nested clones，不应提交。`UNG/codes/third_party/CRoaring/build/src/libroaring.a` 是 ignored、可丢弃的构建缓存，也不应提交。
 
 原始 checkout 的 HEAD 没有前进，但仍有大量用户的 tracked/untracked 改动。检查显示其文件内容与隔离分支的快照提交 `7811846` 一致。不要在原始 checkout 直接执行 merge、reset、checkout 或覆盖文件。安全回合并方式是：先由用户把原始脏状态形成自己的 checkpoint commit，再仅 cherry-pick `ab984da` 之后的实现提交，并处理 handoff 文档是否需要进入主分支。
 
@@ -186,14 +188,14 @@ ctest -R 'special_block_trie|special_block_free_state|special_candidate_queue|sp
   --output-on-failure
 ```
 
-最新结果为 focused C++ 4/4、multilevel Python 13/13、Curator 12/12；ACORN adapter/build/smoke 通过，所有纳入正式表的 ACORN 结果均为 0 filter violations。`git diff --check` 通过。重点测试覆盖普通->中层->上层激活约束、候选按 point 唯一及 level upgrade 后重新扩展、metadata v3 round-trip、新旧 index format 白名单。
+最新结果为 focused C++ 4/4、multilevel Python 13/13、Curator 12/12；ACORN adapter/build/smoke 通过，所有纳入正式表的 ACORN 结果均为 0 filter violations。论文主表可由 `generate_paper_results.py` 重生成，最终 SHA-256 为 `74fb87c5dfc94af9ceb926cb1d4c1370ae2a8f1e76f37a5fe2802ec139012516`。官方 ACORN patch 已在干净 `c259f11c` archive 上通过 `git apply --check` 和实际应用验证；`git diff --check` 通过。重点测试覆盖普通->中层->上层激活约束、候选按 point 唯一及 level upgrade 后重新扩展、metadata v3 round-trip、新旧 index format 白名单。
 
 ## Merge-back 提示
 
 不要把 `runs/` 或本机构建缓存提交到主分支。原始工作树仍是大型 dirty tree，即使 HEAD 未前进，也不满足直接 merge 条件。建议：
 
 1. 在原始分支先审阅并提交当前用户改动，确保形成与 `7811846` 等价的基线；
-2. 从该 clean checkpoint cherry-pick `ab984da` 之后的意图提交；核心实现是 `1f0c1e6`、`368227e`，实验/报告提交延续到 `ca8fd41` 及本 handoff 最终提交；`cea584c` 仅是旧 handoff，可跳过；
+2. 从该 clean checkpoint cherry-pick `ab984da` 之后的意图提交；核心实现是 `1f0c1e6`、`368227e`，实验/报告提交延续到 `4169be6`；`cea584c` 仅是旧 handoff，可跳过；
 3. 对涉及 `search_cache.h`、`uni_nav_graph*.cpp`、special block headers/tests 的文件人工审阅冲突；
 4. 合并后重跑上述 4 个 focused tests，并至少复跑单层 L1000 与多层 L532 的端到端 Recall；
 5. 保持单层默认兼容：未设置 `UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS` 时不得生成上层 block。
