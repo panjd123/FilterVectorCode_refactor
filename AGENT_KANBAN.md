@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-06 01:36 +0800`
+最后更新：`2026-09-06 04:25 +0800`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`f53784b`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
+检查点：`8e21b83`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
 ## 目标
 
@@ -11,11 +11,11 @@
 ## 当前状态
 
 - 总体：`进行中`
-- 摘要：两层实现和 Amazon x1 内部正式矩阵已完成。多层在高质量 50%/75% 查询上最高达到 4.936x/6.274x，25% 仅在最高质量点达到 1.220x、其余多为持平或减速。NaviX/FAVOR 粗网格已完成；Curator 已从 x1 隔离重建并通过 filter/Recall smoke，当前正在补 warmup 与逐 repeat 稳健计时。
+- 摘要：两层实现和 Amazon x1 内部正式矩阵已完成。多层在高质量 50%/75% 查询上最高达到 4.936x/6.274x，25% 最高 1.220x。NaviX/FAVOR/Curator 的稳健统计已完成；官方 ACORN x1 adapter 与 filter correctness 修复已提交，ACORN-1/ACORN-gamma 两端配置均完成全量构建和查询，当前补 gamma=2/4/8，避免用单一 ACORN 配置作不公平结论。
 
 ## 进行中
 
-- 修复 Curator runner 的稳健计时并复跑三档：每个 `search_ef` 先 warmup 1 批，再保存 5 个原始 batch wall times；随后拆分 filter preparation、临时树构建和 ANN search 时间。
+- 构建并测试官方 ACORN 的 gamma=2/4/8 中间配置；每档先跑 25%/50%/75% 三种 workload 的代表 efSearch，检查 Recall 上限、查询时间和 0 filter violations，再决定正式细扫范围。
 
 ## 完成历史
 
@@ -44,10 +44,15 @@
 - fresh single 与多层中层 partition/trie 完全一致；中层 intra edges 相差 10,602/约 0.038%，来自并行建图非确定性，因此同索引 upper on/off 用于机制，fresh single vs multi 用于系统等 Recall。
 - NaviX/FAVOR 三档 x1、100 threads、5-repeat 粗网格已完成；FAVOR 50% 的 L200/L500 存在 15--18 秒调度长尾，后续统一报告 median/CV 与 raw repeats。
 - Curator 使用独立 `thirdparty/curator-v2` clone 和 Python 3.10/FAISS 1.7.4 环境从 602,453-point x1 重建：build 102.207 s、磁盘 2.046 GB、内存估计 2.184 GB；16-query smoke 的 320 个返回 ID 无 containment 违规。
+- Curator 三档已按每个 `search_ef` 1 warmup + 5 measured repeats 完成；质量跨 repeat 确定，时间按 warm median/CV 汇总。50% 反向预算阶段剖析表明小 `ef` 的异常慢主要发生在 `prepare_filter`，不是 ANN search 本身；当前归因为 100-thread 共享映射/内存争用，仍需 barrier/precompute 实验才能定论。
+- 官方 ACORN 已固定到独立 clone commit `c259f11c`；确认 `IndexACORNFlat::search` 接受每 query 的显式 `filter_id_map`，语义上可表达 Amazon containment 合法集合，但项目尚无可直接运行的 x1 adapter。
+- 官方 ACORN Amazon x1 adapter 已完成，直接读取项目向量、label rows 和 GT，分解 lookup/materialize/search/total 时间；nested checkpoint `fb07f1d`。发现并修复官方 hybrid 初始 candidate 未检查 `filter_map` 的结果泄漏，补丁后三档正式矩阵均为 0 filter violations，Recall 不变。
+- ACORN-gamma（M=32, gamma=12, M_beta=32）全量构建 212.311 s，索引 2.081 GB；三档 ef=16--32768 完成，Recall 饱和于 0.8582/0.8165/0.8750（25%/50%/75%）。
+- ACORN-1（M=32, gamma=1, M_beta=64）全量构建 17.268 s，索引 2.130 GB；三档 ef=64--32768 完成，当前最高 Recall 0.9014/0.8563/0.8875。两端配置均未达到多层正式目标，因此不能在目标 Recall 下声称速度胜负，需补中间 gamma 调参。
 
 ## 下一步
 
-等待 Curator warmup/raw-repeat 三档复测完成，检查 Recall 稳定性与 per-budget median/CV；再做 3 个代表 `search_ef` 的阶段 profile，完成 ACORN provenance 审计和跨系统同 Recall 主表。
+完成 gamma=2/4/8 的构建和代表预算 probe；选择 Pareto 最优变体补 5-repeat 正式细扫，然后生成跨系统同 Recall/质量上限主表并更新论文级方法文档、实验状态与 handoff。
 
 ## 阻塞与问题
 
@@ -59,8 +64,8 @@
 - plain UNG 使用随机搜索路径，3 repeats 的 Recall 最大 spread 为 0.0029；所有等 Recall 结论需保留质量余量或在最终候选上增加 repeats，不能按 1e-4 差异排序。
 - 两次旧 T2 初筛分别因运行中重编译、instrumentation 条件误放而隔离在 `runs/quarantine/20260905T2218_binary_rebuild/` 和 `runs/quarantine/20260905T2225_instrumentation_bug/`；禁止用于结论。
 - `runs/quarantine/20260905T_current_label_mismatch/` 使用了错误的 21,834-label hybrid 主图；仅可作机制诊断，禁止用于 Recall/QPS 主张。
-- Curator 首轮只保存 5-repeat mean，出现 `search_ef` 增大但 batch time 下降；该时间结论已降级，必须使用新增 raw-repeat 文件和阶段 profile 解释。
-- ACORN 当前隔离仓库内只有 Curator-v2 自带 wrapper/源码线索，尚未确认 x1 index、输入 hash 和可直接运行的独立入口，未满足主表 provenance。
+- Curator 的小 `search_ef` 反而更慢在 raw-repeat median 与反向预算 profile 中仍存在；已定位到 `prepare_filter` 并发阶段，但尚未通过 barrier/precompute 实验证明具体争用机制。
+- ACORN-gamma 与 ACORN-1 在高 ef 下均出现 Recall 饱和且低于部分多层目标；在 gamma=2/4/8 调参完成前，不把该负结果泛化为整个 ACORN 方法的质量上限。
 
 ## 验证
 
@@ -71,6 +76,8 @@
 - `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py` — `通过`：13/13，含 method-specific L、查询 provenance 与不可变二进制快照。
 - `.venv_curator/bin/python -m unittest -v experiments.curator_baseline.test_curator_*` — `通过`：12/12，含持久化加载、ID 映射、optimized bitmap filter 和 raw-repeat 输出。
 - Curator x1 smoke — `通过`：build/save/load 成功，16 queries、2 个 ef，320 个返回 ID 的 containment 违规数为 0。
+- ACORN adapter build/smoke — `通过`：20k prefix Recall 0.9000；全量 16-query Recall 0.9375；均为 0 filter violations。
+- ACORN correctness/formal sweeps — `通过`：ACORN-gamma 和 ACORN-1 全量索引可重复加载；补丁后三档所有已测预算均为 0 filter violations。
 
 ## 仅在需要时阅读的细节
 
