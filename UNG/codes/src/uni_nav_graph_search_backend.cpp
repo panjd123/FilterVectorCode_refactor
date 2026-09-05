@@ -1056,14 +1056,19 @@ namespace ANNS
             for (const SpecialEdge edge : edges)
             {
                if (edge.special_block_id == 0 ||
-                   edge.special_block_id > _special_blocks.size() ||
-                   edge.special_block_id >= query_free_block.size() ||
-                   query_free_block[edge.special_block_id] == 0)
+                   edge.special_block_id > _special_blocks.size())
                   continue;
-               const uint8_t edge_level = static_cast<uint8_t>(
-                   _special_blocks[edge.special_block_id - 1].level + 1);
-               if (edge_level > source_level + 1)
+               const SpecialBlock &edge_owner =
+                   _special_blocks[edge.special_block_id - 1];
+               const bool query_covers_owner =
+                   edge.special_block_id < query_free_block.size() &&
+                   query_free_block[edge.special_block_id] != 0;
+               const SpecialBlockEdgeTransition transition =
+                   special_block_edge_transition(source_level, edge_owner,
+                                                 query_covers_owner);
+               if (!transition.allowed)
                   continue;
+               const uint8_t edge_level = special_block_activation_level(edge_owner);
                if (edge.kind == SpecialEdgeKind::InterBlock &&
                    inter_edges_seen >= free_inter_edge_scan_cap)
                {
@@ -1089,7 +1094,7 @@ namespace ANNS
                      stats.special_intra_edges_scanned++;
                }
                if (visit_neighbor(edge.target_point_id,
-                                  std::max(source_level, edge_level),
+                                  transition.successor_activation_level,
                                   source_level) && detail_stats)
                {
                   stats.special_preexpand_edges_accepted++;
@@ -1308,18 +1313,21 @@ namespace ANNS
                         if (edge.special_block_id == 0 ||
                             edge.special_block_id > _special_blocks.size())
                            continue;
+                        const SpecialBlock &edge_owner =
+                            _special_blocks[edge.special_block_id - 1];
+                        const bool query_covers_owner =
+                            edge.special_block_id < query_free_block.size() &&
+                            query_free_block[edge.special_block_id] != 0;
+                        const SpecialBlockEdgeTransition transition =
+                            special_block_edge_transition(cur.activation_level,
+                                                         edge_owner,
+                                                         query_covers_owner);
+                        if (!transition.allowed)
+                           continue;
                         const uint8_t edge_activation_level =
-                            static_cast<uint8_t>(_special_blocks[edge.special_block_id - 1].level + 1);
-                        if (edge.special_block_id >= query_free_block.size() ||
-                            query_free_block[edge.special_block_id] == 0)
-                           continue;
-                        // Ordinary search may activate only the middle layer;
-                        // an upper-layer edge is legal only after middle
-                        // activation has already happened.
-                        if (edge_activation_level > cur.activation_level + 1)
-                           continue;
-                        const uint8_t next_level = std::max(
-                            cur.activation_level, edge_activation_level);
+                            special_block_activation_level(edge_owner);
+                        const uint8_t next_level =
+                            transition.successor_activation_level;
                         if (edge.kind == SpecialEdgeKind::InterBlock &&
                             inter_edges_seen_for_node >= active_inter_edge_scan_cap)
                         {

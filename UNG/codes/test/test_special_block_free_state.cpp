@@ -51,18 +51,38 @@ int main()
    middle_block.level = 0;
    ANNS::SpecialBlock upper_block;
    upper_block.level = 1;
-   expect(ANNS::special_block_edge_is_allowed(0, middle_block, true),
-          "ordinary search may enter a covered middle block");
-   expect(!ANNS::special_block_edge_is_allowed(0, upper_block, true),
+   const auto ordinary_to_middle =
+       ANNS::special_block_edge_transition(0, middle_block, true);
+   expect(ordinary_to_middle.allowed &&
+              ordinary_to_middle.successor_activation_level == 1,
+          "ordinary search may enter a covered middle block at level one");
+   const auto ordinary_to_upper =
+       ANNS::special_block_edge_transition(0, upper_block, true);
+   expect(!ordinary_to_upper.allowed &&
+              ordinary_to_upper.successor_activation_level == 0,
           "ordinary search must not bypass the middle layer");
-   expect(ANNS::special_block_edge_is_allowed(1, upper_block, true),
-          "middle search may enter a covered upper block");
-   expect(!ANNS::special_block_edge_is_allowed(1, upper_block, false),
-          "query coverage remains mandatory at every layer");
-   expect(ANNS::special_block_successor_activation_level(1, upper_block) == 2,
-          "upper edges must promote middle candidates to level two");
-   expect(ANNS::special_block_successor_activation_level(2, middle_block) == 2,
+   const auto middle_to_upper =
+       ANNS::special_block_edge_transition(1, upper_block, true);
+   expect(middle_to_upper.allowed &&
+              middle_to_upper.successor_activation_level == 2,
+          "middle search may enter a covered upper block at level two");
+   const auto uncovered_upper =
+       ANNS::special_block_edge_transition(1, upper_block, false);
+   expect(!uncovered_upper.allowed &&
+              uncovered_upper.successor_activation_level == 1,
+          "query coverage remains mandatory and rejected edges preserve source state");
+   const auto upper_to_middle =
+       ANNS::special_block_edge_transition(2, middle_block, true);
+   expect(upper_to_middle.allowed &&
+              upper_to_middle.successor_activation_level == 2,
           "activation must be monotone when traversing a lower-layer edge");
+
+   expect(ANNS::special_batch_gpu_search_is_allowed(true, 0),
+          "single-layer indexes must retain the requested batch GPU path");
+   expect(!ANNS::special_batch_gpu_search_is_allowed(true, 1),
+          "multilevel indexes must use the activation-gated search path");
+   expect(!ANNS::special_batch_gpu_search_is_allowed(false, 0),
+          "an unset batch GPU option must remain disabled");
 
    std::vector<ANNS::SpecialBlock> gate_blocks(3);
    gate_blocks[0].block_id = 1;

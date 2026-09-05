@@ -1,4 +1,5 @@
 #include "include/uni_nav_graph.h"
+#include "include/ung_special_block_activation.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -185,9 +186,20 @@ namespace ANNS
       const GraphSearchBackend graph_backend =
           use_csr_graph_backend ? GraphSearchBackend(csr_graph) : GraphSearchBackend(*_graph);
 
+      const bool special_batch_gpu_requested =
+          ung_env_flag_enabled("UNG_SPECIAL_BATCH_GPU_SEARCH");
       if (runtime.special_block_search && !_special_blocks.empty() &&
           runtime.entry_group_provider != EntryGroupProviderImpl::SpecialBlockTrie &&
-          ung_env_flag_enabled("UNG_SPECIAL_BATCH_GPU_SEARCH"))
+          special_batch_gpu_requested && _special_block_summary.upper_blocks > 0)
+      {
+         std::cerr << "[special_batch_gpu] disabled for multilevel indexes; "
+                      "using activation-gated CPU search path"
+                   << std::endl;
+      }
+      if (runtime.special_block_search && !_special_blocks.empty() &&
+          runtime.entry_group_provider != EntryGroupProviderImpl::SpecialBlockTrie &&
+          special_batch_gpu_search_is_allowed(
+              special_batch_gpu_requested, _special_block_summary.upper_blocks))
       {
          if (execute_special_batch_gpu_candidate_search(query_storage, distance_handler, runtime,
                                                         results, num_cmps, query_stats,

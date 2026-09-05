@@ -35,18 +35,38 @@ inline uint8_t special_block_activation_level(const SpecialBlock &block)
    return static_cast<uint8_t>(block.level + 1);
 }
 
-inline bool special_block_edge_is_allowed(uint8_t current_level,
-                                          const SpecialBlock &owner,
-                                          bool query_covers_owner)
+struct SpecialBlockEdgeTransition
 {
-   return query_covers_owner &&
-          special_block_activation_level(owner) <= current_level + 1;
+   bool allowed = false;
+   uint8_t successor_activation_level = 0;
+};
+
+// Authorize an overlay edge and compute the state carried by its target as one
+// indivisible operation. Keeping these decisions together prevents a caller
+// from accepting an upper edge with one policy and then assigning the target
+// a different activation level.
+inline SpecialBlockEdgeTransition special_block_edge_transition(
+    uint8_t current_level, const SpecialBlock &owner, bool query_covers_owner)
+{
+   SpecialBlockEdgeTransition transition;
+   transition.successor_activation_level = current_level;
+   if (!query_covers_owner)
+      return transition;
+
+   const uint8_t owner_level = special_block_activation_level(owner);
+   if (static_cast<unsigned int>(owner_level) >
+       static_cast<unsigned int>(current_level) + 1U)
+      return transition;
+
+   transition.allowed = true;
+   transition.successor_activation_level = std::max(current_level, owner_level);
+   return transition;
 }
 
-inline uint8_t special_block_successor_activation_level(
-    uint8_t current_level, const SpecialBlock &owner)
+inline bool special_batch_gpu_search_is_allowed(bool requested,
+                                                size_t upper_block_count)
 {
-   return std::max(current_level, special_block_activation_level(owner));
+   return requested && upper_block_count == 0;
 }
 
 struct SpecialBlockLevelGateResult
