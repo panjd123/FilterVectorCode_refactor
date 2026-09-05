@@ -91,9 +91,17 @@ def equal_recall_rows(rows: list[dict[str, Any]], baseline: str, targets: list[f
             for method, row in selected.items():
                 enriched = dict(row)
                 enriched["target_recall"] = target
+                enriched["recall_margin"] = row[recall_field] - target
                 enriched["baseline_method"] = baseline
                 enriched["speedup_vs_baseline"] = (
                     base["batch_ms_warm"] / row["batch_ms_warm"] if base else ""
+                )
+                enriched["speedup_vs_baseline_median"] = (
+                    base["batch_ms_warm_median"] / row["batch_ms_warm_median"]
+                    if base else ""
+                )
+                enriched["lsearch_reduction_vs_baseline"] = (
+                    1.0 - row["lsearch"] / base["lsearch"] if base else ""
                 )
                 output.append(enriched)
     return output
@@ -166,14 +174,19 @@ def write_markdown(path: Path, equal_rows: list[dict[str, Any]], baseline: str,
             continue
         lines.extend([f"## {workload}（平均选择率 {subset[0]['mean_selectivity']:.3%}）", "",
                       f"Baseline: `{baseline}`", "",
-                      "| Recall target | 方法 | 实测 Recall | L | warm batch ms | 相对 baseline |",
-                      "|---:|---|---:|---:|---:|---:|"] )
+                      "| Recall target | 方法 | 实测 Recall | margin | L | warm mean ms | warm median ms | CV | mean 加速 | median 加速 |",
+                      "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|"] )
         for row in sorted(subset, key=lambda item: (item["target_recall"], item["method"])):
             speedup = row["speedup_vs_baseline"]
             speedup_text = f"{speedup:.3f}x" if isinstance(speedup, float) else "NA"
+            median_speedup = row["speedup_vs_baseline_median"]
+            median_speedup_text = (f"{median_speedup:.3f}x"
+                                   if isinstance(median_speedup, float) else "NA")
             lines.append(
                 f"| {row['target_recall']:.3f} | {row['method']} | {row['recall']:.6f} | "
-                f"{row['lsearch']} | {row['batch_ms_warm']:.3f} | {speedup_text} |"
+                f"{row['recall_margin']:+.6f} | {row['lsearch']} | "
+                f"{row['batch_ms_warm']:.3f} | {row['batch_ms_warm_median']:.3f} | "
+                f"{row['batch_ms_warm_cv']:.3f} | {speedup_text} | {median_speedup_text} |"
             )
         lines.append("")
     lines.extend(["## 扫描范围内最大 Recall", "",

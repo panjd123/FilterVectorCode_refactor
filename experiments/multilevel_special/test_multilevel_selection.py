@@ -187,14 +187,20 @@ class SelectionSweepTest(unittest.TestCase):
 
     def test_equal_recall_uses_fastest_observed_feasible_point(self):
         rows = [
-            {"workload": "w", "method": "single", "recall": 0.91, "batch_ms_warm": 10.0},
-            {"workload": "w", "method": "multi", "recall": 0.90, "batch_ms_warm": 7.0},
-            {"workload": "w", "method": "multi", "recall": 0.93, "batch_ms_warm": 8.0},
+            {"workload": "w", "method": "single", "lsearch": 1000,
+             "recall": 0.91, "batch_ms_warm": 10.0, "batch_ms_warm_median": 9.0},
+            {"workload": "w", "method": "multi", "lsearch": 500,
+             "recall": 0.90, "batch_ms_warm": 7.0, "batch_ms_warm_median": 6.0},
+            {"workload": "w", "method": "multi", "lsearch": 700,
+             "recall": 0.93, "batch_ms_warm": 8.0, "batch_ms_warm_median": 7.0},
         ]
         result = summarize_selection_sweep.equal_recall_rows(rows, "single", [0.9])
         selected = {row["method"]: row for row in result}
         self.assertEqual(selected["multi"]["batch_ms_warm"], 7.0)
         self.assertAlmostEqual(selected["multi"]["speedup_vs_baseline"], 10.0 / 7.0)
+        self.assertAlmostEqual(selected["multi"]["speedup_vs_baseline_median"], 1.5)
+        self.assertAlmostEqual(selected["multi"]["lsearch_reduction_vs_baseline"], 0.5)
+        self.assertAlmostEqual(selected["multi"]["recall_margin"], 0.0)
 
     def test_baseline_l_targets_are_workload_specific(self):
         rows = [
@@ -210,11 +216,14 @@ class SelectionSweepTest(unittest.TestCase):
     def test_conservative_equal_recall_uses_minimum_repeat_recall(self):
         rows = [
             {"workload": "w", "method": "single", "lsearch": 500,
-             "recall": 0.91, "recall_min": 0.90, "batch_ms_warm": 10.0},
+             "recall": 0.91, "recall_min": 0.90, "batch_ms_warm": 10.0,
+             "batch_ms_warm_median": 9.0},
             {"workload": "w", "method": "multi", "lsearch": 400,
-             "recall": 0.92, "recall_min": 0.89, "batch_ms_warm": 6.0},
+             "recall": 0.92, "recall_min": 0.89, "batch_ms_warm": 6.0,
+             "batch_ms_warm_median": 5.5},
             {"workload": "w", "method": "multi", "lsearch": 500,
-             "recall": 0.93, "recall_min": 0.91, "batch_ms_warm": 8.0},
+             "recall": 0.93, "recall_min": 0.91, "batch_ms_warm": 8.0,
+             "batch_ms_warm_median": 7.5},
         ]
         targets = summarize_selection_sweep.baseline_l_targets(
             rows, "single", [500], recall_field="recall_min")
