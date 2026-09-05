@@ -46,7 +46,8 @@
 | M4 | correctness | RESOLVED | 多 level 候选重复占槽 | `368227e` 后 Recall 恢复 | 保留回归测试 |
 | M5 | compatibility | RESOLVED | loader 不接受 multilevel format | 格式白名单和 round-trip test | 保留回归测试 |
 | M6 | interpretation | RESOLVED | 同 L 慢是否否定多层 | 同 L Recall 更高；等 Recall 已有 1.124x--1.331x | 后续只按等 Recall主张 |
-| M7 | measurement | ACTIVE | plain UNG 的 CPU ELS warmup 曾被错误绑定到 Special Block 开关 | sel_0p5 首次 L50 为 7.29 s，后续约 14 ms；代码条件要求 `UNG_SPECIAL_BLOCK_SEARCH` | 移除错误条件并重跑旧 smoke |
+| M7 | measurement | RESOLVED | plain UNG 的 CPU ELS warmup 曾被错误绑定到 Special Block 开关 | 修复后 CPU ELS 在计时前预热 156 ms；首个 L50 从 7.29 s 降到 264 ms，warm repeats 13.6--14.5 ms | 主表继续用 warm mean，并保留 all-repeat |
+| M8 | measurement | ACTIVE | 搜索线程池/工作区仍使每进程第一个 L 的 repeat 0 偏高 | 修复 ELS warmup 后，sel_0p5 L50 cold 264 ms、warm 约 14 ms | 初筛按 warm mean，最终复测增加独立 warmup 或丢弃 repeat 0 |
 
 ## 当前假设
 
@@ -56,4 +57,4 @@
 
 ## 下一最小实验及判据
 
-先用 plain、single_1k、multi_1k_10k 在六档选择率上扫描同一 L 网格。若多层在至少两个选择率区间存在更优的 Recall-time Pareto 点，再扩展 T2 参数；若完全没有 Pareto 收益，先用 detailed stats 判断是覆盖率不足还是边扫描开销过高。
+先用 plain、single_1k、multi_1k_10k 在六档选择率上扫描 L=50--20000 的同一离散网格。若多层在至少两个选择率区间存在更优的 Recall-time Pareto 点，再扩展 T2 参数；若完全没有 Pareto 收益，先用 detailed stats 判断是覆盖率不足还是边扫描开销过高。

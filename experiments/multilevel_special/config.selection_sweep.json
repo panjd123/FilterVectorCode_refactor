@@ -9,7 +9,7 @@
   "num_threads": 100,
   "num_entry_points": 16,
   "num_repeats": 3,
-  "lsearch_values": [50, 100, 150, 200, 300, 400, 500, 600, 750, 1000, 1250, 1500, 2000, 3000, 4000],
+  "lsearch_values": [50, 100, 150, 200, 300, 400, 500, 600, 750, 1000, 1250, 1500, 2000, 3000, 4000, 5000, 7500, 10000, 15000, 20000],
   "workloads": [
     {"name": "sel_0p5", "query_dir": "query_minlen5_avgsel05pct", "mean_selectivity": 0.0049924907},
     {"name": "sel_1", "query_dir": "query_minlen5_avgsel1pct", "mean_selectivity": 0.0090305484},
