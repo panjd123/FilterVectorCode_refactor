@@ -41,7 +41,7 @@
 | ID | 类型 | 状态 | 描述 | 当前证据 | 下一步 |
 |---|---|---|---|---|---|
 | M1 | measurement | RESOLVED | 六档选择率统一结果已完成 | 18 case x 20 L x 3 repeats；验证器通过 | 保留初筛表，最终候选增加 repeats |
-| M2 | tuning | ACTIVE | 上层 T2=10k 未证明全局最优 | 正确 Amazon x1 主图的 T2=4k/10k/25k/50k 已完成，upper blocks 为 46/22/8/5 | 在统一 ELS/route 下运行查询初筛 |
+| M2 | tuning | PARTIAL | 上层 T2 未证明全局最优 | 粗网格中 4k 从未全局最佳；10k/25k/50k 各在不同 Recall 区间占优 | 对后三档加密 L，再选最终候选 |
 | M3 | baseline | ACTIVE | 其他系统方法尚未统一数据与 Recall 口径 | 历史结果路径混杂 Amazon/Amazon_hybrid | 校验 index fingerprint 和 GT 后运行 |
 | M4 | correctness | RESOLVED | 多 level 候选重复占槽 | `368227e` 后 Recall 恢复 | 保留回归测试 |
 | M5 | compatibility | RESOLVED | loader 不接受 multilevel format | 格式白名单和 round-trip test | 保留回归测试 |
@@ -50,11 +50,13 @@
 | M8 | measurement | ACTIVE | 搜索线程池/工作区仍使每进程第一个 L 的 repeat 0 偏高 | 修复 ELS warmup 后，sel_0p5 L50 cold 264 ms、warm 约 14 ms | 初筛按 warm mean，最终复测增加独立 warmup 或丢弃 repeat 0 |
 | M9 | orchestration | RESOLVED | 旧系统异常的 `ps -o` 输出造成旧 driver 已退出的误判，两个 runner 曾短暂并发 | 进程树确认 PID 10039 在跑 sel_75、新 tmux 在跑 sel_50；已同时停止，并隔离受影响产物 | runner 增加 output-root 独占锁；只用重新单独运行的 sel_50/sel_75 |
 | M10 | measurement | PARTIAL | plain UNG Recall 跨 repeat 有随机波动 | 最大 spread 0.0029；single/multi 在该矩阵中为 0 | 等 Recall 保留质量 margin；最终点增加 repeats 并报告范围 |
-| M11 | algorithm | ACTIVE | 10k 上层对低选择率常有额外开销、对高选择率显著有利 | 相对 single：0.5%--10% 多数 speedup <1；50%/75% 多点为 1.06--3.19x | 扫 T2，并考虑按完整上层覆盖/选择率门控启用 |
+| M11 | algorithm | PARTIAL | 多层对 25% 整体粗网格暂慢、对 50%/75% 明显有利 | 保守粗网格：25% 为 0.80--0.92x；50% 多数 1.18--3.42x；75% 为 1.66--5.59x。逐 query 显示 25% 中完整覆盖上层的 26% query Recall 显著提升 | 加密 L，检验质量收益能否转化为更小 L |
 | M12 | measurement | REGRESSED | 历史 UNG 50% Recall 显著高于当前矩阵 | provenance 审计发现 query/GT 属于 30,723-label Amazon x1，而当前 overlay 主图仅 21,834 labels；query `{1}` 匹配点为 582,582 vs 290,684 | 废弃该 overlay 的 Recall 结论，在 30,723-label 主图重建 |
 | M13 | measurement | RESOLVED | T2 初筛曾受到运行中重编译和错误 instrumentation 条件影响 | 两轮结果已隔离；新 runner 把搜索程序复制为 content-addressed 只读快照并记录 SHA-256 | 只接受 `runs/t2_query_screen_amazon_x1` 且 hash 固定的结果 |
 | M14 | mechanism | PARTIAL | 需要证明上层不是只增加静态数据而未参与查询 | 10k、50% detail smoke：每查询平均覆盖 5.089 个上层 block、展开 52.207 个上层节点、扫描 2,834.590 条上层边、发生 46.101 次上层激活 | 最终候选另做不计入性能主表的 detail run，并报告分位数 |
 | M15 | provenance | RESOLVED | 所有核心 overlay 必须绑定主图 labels hash | 四档均通过 `new_to_old` 标签重排验证，绑定 602,453 points、482,387 groups 和 fingerprint `91d78580ae29f468` | 查询 runner 持续校验 hash/fingerprint |
+| M16 | ablation | ACTIVE | 需要证明同一多层索引关闭 level 2 后确实退化为 single，而非被静态上层边或 loader 改变 | 代码已有 `UNG_SPECIAL_MAX_ACTIVE_LEVEL=1`，尚缺同数据实测 | 运行 25k upper-off 与 single 配对消融 |
+| M17 | measurement | ACTIVE | 粗 L 网格会误判等 Recall 性能 | 50% 中 single L5k Recall 0.9183；25k L2k 已达 0.9124，但下一点直接跳到 L5k | 在关键区间使用 25--500 的小步长及 200--2000 的中步长 |
 
 ## 当前假设
 
@@ -64,4 +66,4 @@
 
 ## 下一最小实验及判据
 
-固定 Amazon x1 主图、query/GT、`cpu_bruteforce_els`、100 threads 和搜索二进制快照，仅替换 single/T2 overlay，运行 25%/50%/75% 初筛。若 T2 在相同 Recall 下优于 single，再增加 repeats；若仅同 L 更快或 Recall 不同，则不能主张加速。
+先固定 25k overlay 并设置 `UNG_SPECIAL_MAX_ACTIVE_LEVEL=1`，与 single 做严格消融。若 Recall 在实验波动内一致且时间接近，则 M16 解决；随后仅对 10k/25k/50k 运行 dense-L。所有性能主张仍以 `recall_min` 达到 single 目标为准，不插值、不用同 L 替代等 Recall。

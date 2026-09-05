@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-05 22:31 +0800`
+最后更新：`2026-09-05 23:15 +0800`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`a1cd432`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
+检查点：`80a955a`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
 ## 目标
 
@@ -11,11 +11,11 @@
 ## 当前状态
 
 - 总体：`进行中`
-- 摘要：两层实现正确，但 provenance 审计发现此前 overlay 基于 21,834-label hybrid 主图，而六档 query/GT 属于 30,723-label Amazon x1，导致 Recall 人为在约 0.52 饱和。该轮结果已停止并隔离；正在切换到数据一致的 482,387-group 主图重建 overlay。
+- 摘要：两层实现和 Amazon x1 四档 T2 overlay 均已验证；正确数据上的 18/18 粗网格查询 case 已完成。多层在 50%/75% 选择率显示明显潜力，25% 的逐 query 分析显示上层覆盖 query 的 Recall 提升被粗 L 网格掩盖；正在做 upper-off 严格消融和 dense-L 等 Recall 扫描。
 
 ## 进行中
 
-- 在固定 Amazon x1 主图、query/GT、CPU brute-force ELS、100 threads 和搜索二进制快照下运行 single/T2 的 25%/50%/75% 查询初筛。
+- 在同一 25k 索引上禁用 level 2，验证退化到 single 语义；随后对 single、10k、25k、50k 加密 L，寻找保守等 Recall 的最小实测时间。
 
 ## 完成历史
 
@@ -37,17 +37,19 @@
 - Amazon x1 正确主图上的 T2=4k/10k overlay 已通过标签重排语义与 fingerprint 校验；构建分别为 94.43 s/89.05 s，upper blocks 为 46/22。
 - T2=25k/50k 也已完成并通过相同校验；构建分别为 92.02 s/94.40 s，upper blocks 为 8/5；四档复用验证全部通过。
 - 查询 sweep 新增输入 provenance 校验和 content-addressed 只读搜索二进制快照，防止运行中重编译污染整轮结果；11 项 Python 单测通过 — 证据：`2ffcf3d`。
+- 正确 Amazon x1 初筛完成 18/18 case（plain/single/4k/10k/25k/50k × 25%/50%/75%），每点 3 repeats；统一验证和保守等 Recall 汇总通过 — 证据：`166fd06` 与 `runs/t2_query_screen_amazon_x1/summary/`。
+- gate probe 表明上层完整覆盖 query 比例为 26.0%/51.3%/77.3%（25%/50%/75% workload）；绝对 covered-points threshold 区分力有限。
 
 ## 下一步
 
-监控 `t2_query_amazon_x1`，完成后验证 15/15 case、固定 binary hash 和三次 repeats，再生成同 Recall 初筛表。
+先完成 `upper_off_ablation_amazon_x1`；若 25k+level1 与 single 的 Recall/时间一致，再运行三份 dense-L 配置，并据保守等 Recall 前沿选最终复测点。
 
 ## 阻塞与问题
 
 - 原始 checkout 有大量未提交/未跟踪文件；禁止直接 merge 或覆盖。
 - 搜索进程第一个 L 的 repeat 0 仍有线程池/工作区冷启动，初筛主指标使用 repeats 1--2 的 warm mean；最终复测增加重复数。
 - 远端磁盘使用率 94%，尚余约 835 GB；实验产物必须限制在必要矩阵，不复制主向量数据。
-- `sunyahuia600-sunyahui` 未在本机配置；使用 `ssh -l sunyahui sunyahuia6000`。
+- `sunyahuia600-sunyahui` 本机别名未配置且跳板无法解析该名字；当前可用路由为 `ssh -J W300-pub sunyahui@10.77.110.170`。
 - 旧系统 `ps -o pid=,etime=,stat=,cmd=` 输出异常曾造成 PID 10039 已退出的误判；已停止两个 runner，并给 runner 增加 output-root 独占锁。受资源竞争影响的结果位于 `runs/quarantine/20260905T2119_contention/`，禁止进入汇总。
 - plain UNG 使用随机搜索路径，3 repeats 的 Recall 最大 spread 为 0.0029；所有等 Recall 结论需保留质量余量或在最终候选上增加 repeats，不能按 1e-4 差异排序。
 - 两次旧 T2 初筛分别因运行中重编译、instrumentation 条件误放而隔离在 `runs/quarantine/20260905T2218_binary_rebuild/` 和 `runs/quarantine/20260905T2225_instrumentation_bug/`；禁止用于结论。

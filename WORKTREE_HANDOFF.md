@@ -2,13 +2,13 @@
 
 ## 目标与结论
 
-本分支在隔离 checkout 中实现并验证了真正的两层 Special Block overlay：保留阈值 `T1=1000` 的中层 block，再叠加阈值 `T2=10000` 的上层 block。查询候选的激活状态由布尔值改为有序层级：
+本分支在隔离 checkout 中实现并验证了真正的两层 Special Block overlay：保留阈值 `T1=1000` 的中层 block，再叠加可配置的 `T2` 上层 block。已在 Amazon 原始 100% x1 上构建 `T2=4k/10k/25k/50k`。查询候选的激活状态由布尔值改为有序层级：
 
 ```text
 0: 普通图  ->  1: 中层 Special Block  ->  2: 上层 Special Block
 ```
 
-候选只能沿已激活层级允许的边扩展，普通候选不能直接跳到上层。实验表明，多层结构的主要价值不是相同 `Lsearch` 下更快，而是改善导航质量，使查询用约 47%--53% 的 `Lsearch` 达到单层相同 Recall；在两个实测等 Recall 工作点上，整批查询分别加速 `1.124x` 和 `1.331x`。代价是构建时间增加 18.4%，磁盘增加 42.4%。
+候选只能沿已激活层级允许的边扩展，普通候选不能直接跳到上层。当前正确 Amazon x1 粗网格显示：多层的主要价值是改善导航质量，以更小 `Lsearch` 达到单层相同 Recall；50%/75% 选择率下多数目标有益，25% 尚需 dense-L 才能公平判断。本文后面保留的早期 1.124x/1.331x 数字来自旧 hybrid 主图，只能作为机制历史，禁止作为最终 Recall/QPS 结果。
 
 当前 ELS 输出契约仍是 `search_UNG_index` 可直接消费的 group IDs，不是 trie-node cover。质量只以端到端 filtered-search Recall 判定；block 数、入口数和边数仅用于诊断。
 
@@ -68,20 +68,28 @@
 
 这两个问题说明不能用结构计数代替端到端 Recall 验证。
 
-## 正式数据与实验口径
+## 当前正式数据与实验口径
 
 - 数据集：Amazon，原始 100% x1 label/group 口径；
-- points：602,453；groups：510,639；维度：768；
-- workload：`query_selected_recall_advantage`；
-- queries：1,971；query labels：79；K=10；
-- Ground Truth：`/home/graphdb/FilterVectorResult/Amazon_hybrid/GroundTruth/query_selected_recall_advantage/Amazon_gt_labels_containment.bin`；
+- points：602,453；groups：482,387；labels：30,723；维度：768；
+- workload：25%/50%/75% 三档真实 query 集，每档 1,000 queries；K=10；
+- Ground Truth：`/home/graphdb/FilterVectorResult/Amazon/GroundTruth/<query_dir>/Amazon_gt_labels_containment.bin`；
 - 100 search threads，CPU brute-force ELS，neighbor-list backend；
-- 每个工作点 5 repeats；表中 batch time 是整批 1,971 queries 的 wall time，不是单 query latency；
+- 初筛每个工作点 3 repeats；表中 batch time 是整批 1,000 queries 的 wall time，不是单 query latency；最终候选将增加 repeats；
 - 单层查询显式启用 root-label coverage，使覆盖语义与多层一致。
 
 构建共用参数：max degree 64、cross edges 4、Lbuild 100、alpha 1.2；intra route 的 small/mid/large 分界为 2048/8192，large backend 为 `jasper_style`，mid sampling 256；CPU inter graph route 的强制阈值为 pair-work 10000，`inter_search_ef=32`。
 
-## 构建结果
+## 当前 Amazon x1 构建结果
+
+| T2 | upper blocks | total build s | overlay s | intra s | inter s | edges | disk MiB | loaded MiB |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 4k | 46 | 94.425 | 73.003 | 44.523 | 28.475 | 72,733,732 | 762.6 | 850.2 |
+| 10k | 22 | 89.051 | 68.690 | 40.847 | 27.838 | 71,753,752 | 755.1 | 842.4 |
+| 25k | 8 | 92.024 | 70.157 | 40.599 | 29.554 | 69,343,169 | 736.7 | 824.0 |
+| 50k | 5 | 94.396 | 70.898 | 43.289 | 27.604 | 66,543,978 | 715.2 | 802.2 |
+
+以下旧 1k/10k hybrid 表只用于保留实现过程证据，不进入最终论文主表。
 
 | 指标 | 单层 T1=1k | 多层 T1=1k, T2=10k | 多层代价 |
 |---|---:|---:|---:|
