@@ -16,3 +16,5 @@ tune_par/
 # macOS AppleDouble files accidentally copied into remote worktrees
 ._*
 **/._*
+.venv_curator/
+thirdparty/curator-v2/3rd_party/faiss/build/

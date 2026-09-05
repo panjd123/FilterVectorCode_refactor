@@ -1,0 +1,77 @@
+{
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "selector_model_prefix": "/home/dev/graphdb/FilterVectorResult/SelectModels",
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "num_entry_points": 16,
+    "lsearch_values": [1000, 5000, 10000, 20000],
+    "lsearch_start": 1000,
+    "lsearch_end": 20000,
+    "lsearch_step": 1000,
+    "efs_start": 10,
+    "efs_step_slow": 10,
+    "efs_step_fast": 10,
+    "lsearch_threshold": 1000
+  },
+  "datasets": [
+    {
+      "dataset": "Amazon",
+      "query_task": "query_selected_recall_advantage"
+    }
+  ],
+  "methods": [
+    {
+      "name": "cpu_els_clean_avx2",
+      "index_name": "UNG_special_block_trie_entry",
+      "entry_group_provider": "cpu_bruteforce_els",
+      "special_block_search": true,
+      "env": {
+        "UNG_SPECIAL_LIGHT_STATS": "1",
+        "UNG_SPECIAL_PROFILE_TIMING": null,
+        "UNG_SPECIAL_EARLY_STOP": null,
+        "UNG_L2_KERNEL": "avx2"
+      }
+    },
+    {
+      "name": "cpu_els_clean_fma4",
+      "index_name": "UNG_special_block_trie_entry",
+      "entry_group_provider": "cpu_bruteforce_els",
+      "special_block_search": true,
+      "env": {
+        "UNG_SPECIAL_LIGHT_STATS": "1",
+        "UNG_SPECIAL_PROFILE_TIMING": null,
+        "UNG_SPECIAL_EARLY_STOP": null,
+        "UNG_L2_KERNEL": "avx2_fma4"
+      }
+    },
+    {
+      "name": "cpu_els_clean_fma4_early_stop",
+      "index_name": "UNG_special_block_trie_entry",
+      "entry_group_provider": "cpu_bruteforce_els",
+      "special_block_search": true,
+      "env": {
+        "UNG_SPECIAL_LIGHT_STATS": "1",
+        "UNG_SPECIAL_PROFILE_TIMING": null,
+        "UNG_SPECIAL_EARLY_STOP": "1",
+        "UNG_L2_KERNEL": "avx2_fma4"
+      }
+    },
+    {
+      "name": "cpu_els_clean_fma4_approx384",
+      "index_name": "UNG_special_block_trie_entry",
+      "entry_group_provider": "cpu_bruteforce_els",
+      "special_block_search": true,
+      "env": {
+        "UNG_SPECIAL_LIGHT_STATS": "1",
+        "UNG_SPECIAL_PROFILE_TIMING": null,
+        "UNG_SPECIAL_EARLY_STOP": null,
+        "UNG_L2_KERNEL": "avx2_fma4",
+        "UNG_SPECIAL_APPROX_DIMS": "384"
+      }
+    }
+  ]
+}

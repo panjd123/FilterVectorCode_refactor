@@ -5,6 +5,7 @@
 #include <deque>
 #include "visited_set.h"
 #include "search_queue.h"
+#include "ung_special_candidate_queue.h"
 
 namespace ANNS
 {
@@ -15,13 +16,18 @@ namespace ANNS
       VisitedSet visited_set;
       VisitedSet special_visited_regular;
       VisitedSet special_visited_free;
+      SpecialCandidateQueue special_candidate_queue;
       std::vector<Candidate> expanded_list;
       std::vector<float> occlude_factor;
       std::vector<uint8_t> favor_target_map;
       std::vector<IdxType> favor_target_touched;
+      std::vector<uint8_t> special_free_state_cache;
+      std::vector<IdxType> special_free_state_touched;
       std::vector<uint8_t> favor_selected_blocks;
       std::vector<uint32_t> favor_block_source_expanded;
       std::vector<uint8_t> favor_candidate_active;
+      std::vector<IdxType> gpu_distance_ids;
+      std::vector<float> gpu_distance_values;
 
       SearchCache(IdxType visited_set_size, int32_t search_queue_capacity)
       {
@@ -43,13 +49,15 @@ namespace ANNS
             pool.emplace_back(std::make_shared<SearchCache>(visited_set_size, search_queue_capacity));
       }
 
-      std::shared_ptr<SearchCache> get_free_cache()
+      std::shared_ptr<SearchCache> get_free_cache(int32_t requested_capacity = -1)
       {
          std::unique_lock<std::mutex> lock(pool_guard);
+         const int32_t capacity = requested_capacity >= 0 ? requested_capacity : _search_queue_capacity;
          if (pool.empty())
-            return std::make_shared<SearchCache>(_visited_set_size, _search_queue_capacity);
+            return std::make_shared<SearchCache>(_visited_set_size, capacity);
          auto cache = pool.front();
          pool.pop_front();
+         cache->search_queue.reserve(capacity);
          return cache;
       }
 

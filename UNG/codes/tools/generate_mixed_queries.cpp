@@ -13,6 +13,7 @@
 #include <memory>
 #include <algorithm>
 #include <map>
+#include <limits>
 #include <cstdint>
 #include <stdexcept>
 #include <atomic>
@@ -344,6 +345,32 @@ void write_fvecs(const std::string &filename, const std::vector<std::vector<floa
       output.write(reinterpret_cast<const char *>(&dimension), sizeof(int));
       output.write(reinterpret_cast<const char *>(vec.data()), dimension * sizeof(float));
    }
+}
+
+void write_query_batch(
+    const std::string &output_file,
+    const std::string &output_vectors_file,
+    const std::vector<std::vector<LabelType>> &label_sets,
+    const std::vector<std::vector<float>> &vectors)
+{
+   std::ofstream outfile(output_file);
+   if (!outfile)
+   {
+      throw std::runtime_error("Cannot open query label output file: " + output_file);
+   }
+
+   for (const auto &label_set : label_sets)
+   {
+      for (size_t i = 0; i < label_set.size(); ++i)
+      {
+         outfile << label_set[i] << (i + 1 == label_set.size() ? "" : ",");
+      }
+      outfile << '\n';
+   }
+
+   std::cout << label_sets.size() << " query labels written to " << output_file << std::endl;
+   write_fvecs(output_vectors_file, vectors);
+   std::cout << vectors.size() << " query vectors written to " << output_vectors_file << std::endl;
 }
 
 void run_generate_mode(const po::variables_map &vm)
@@ -689,12 +716,20 @@ void run_sub_base_subset_mode(const po::variables_map &vm)
    IdxType query_length = vm["query-length"].as<IdxType>();
    IdxType K = vm["K"].as<IdxType>();
    IdxType max_coverage = vm["max-coverage"].as<IdxType>();
+   IdxType min_groundtruth = vm["min-groundtruth"].as<IdxType>();
    IdxType min_children = vm["min-children"].as<IdxType>();
+   const IdxType minimum_coverage = std::max(K, min_groundtruth);
+
+   if (min_groundtruth < 20)
+   {
+      std::cerr << "Error: min-groundtruth must be at least 20." << std::endl;
+      return;
+   }
 
    std::cout << "======================================================" << std::endl;
    std::cout << "--- Running in SUB_BASE (Random Parent + Random Subset) mode ---" << std::endl;
    std::cout << "Target query length: " << query_length << std::endl;
-   std::cout << "Target coverage range: [" << K << ", " << max_coverage << "]" << std::endl;
+   std::cout << "Target coverage range: [" << minimum_coverage << ", " << max_coverage << "]" << std::endl;
    std::cout << "Minimum children (supersets): " << min_children << std::endl;
    std::cout << "======================================================" << std::endl;
 
@@ -827,7 +862,7 @@ void run_sub_base_subset_mode(const po::variables_map &vm)
 
                IdxType coverage = trie_index.calculate_coverage(candidate_subset);
 
-               if (coverage < K || coverage > max_coverage)
+               if (coverage < minimum_coverage || coverage > max_coverage)
                {
                   continue;
                }
@@ -931,12 +966,20 @@ void run_weighted_sub_base_mode(const po::variables_map &vm)
    IdxType query_length = vm["query-length"].as<IdxType>();
    IdxType K = vm["K"].as<IdxType>();
    IdxType max_coverage = vm["max-coverage"].as<IdxType>();
+   IdxType min_groundtruth = vm["min-groundtruth"].as<IdxType>();
    IdxType min_children = vm["min-children"].as<IdxType>();
+   const IdxType minimum_coverage = std::max(K, min_groundtruth);
+
+   if (min_groundtruth < 20)
+   {
+      std::cerr << "Error: min-groundtruth must be at least 20." << std::endl;
+      return;
+   }
 
    std::cout << "========================================================" << std::endl;
    std::cout << "--- Running in WEIGHTED_SUB_BASE (Random Parent + Hot Subset) mode ---" << std::endl;
    std::cout << "Target query length: " << query_length << std::endl;
-   std::cout << "Target coverage range: [" << K << ", " << max_coverage << "]" << std::endl;
+   std::cout << "Target coverage range: [" << minimum_coverage << ", " << max_coverage << "]" << std::endl;
    std::cout << "Minimum children (supersets): " << min_children << std::endl;
    std::cout << "========================================================" << std::endl;
 
@@ -1074,7 +1117,7 @@ void run_weighted_sub_base_mode(const po::variables_map &vm)
 
                IdxType coverage = trie_index.calculate_coverage(candidate_subset);
 
-               if (coverage < K || coverage > max_coverage)
+               if (coverage < minimum_coverage || coverage > max_coverage)
                {
                   continue;
                }
@@ -1167,7 +1210,7 @@ void run_weighted_sub_base_mode(const po::variables_map &vm)
    std::cout << generated_vectors.size() << " query vectors written to " << output_vectors_file << std::endl;
 }
 
-void run_variable_sub_base_mode(const po::variables_map &vm)
+bool run_variable_sub_base_mode(const po::variables_map &vm)
 {
    std::string input_file = vm["input_file"].as<std::string>();
    std::string output_file = vm["output_file"].as<std::string>();
@@ -1178,23 +1221,55 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
    IdxType max_query_length = vm["max-query-length"].as<IdxType>();
    IdxType K = vm["K"].as<IdxType>();
    IdxType max_coverage = vm["max-coverage"].as<IdxType>();
+   IdxType min_groundtruth = vm["min-groundtruth"].as<IdxType>();
    IdxType min_children = vm["min-children"].as<IdxType>();
+   double target_average_selectivity = vm["target-average-selectivity"].as<double>();
+   double average_selectivity_tolerance = vm["average-selectivity-tolerance"].as<double>();
+   IdxType average_candidate_pool_size = vm["average-candidate-pool-size"].as<IdxType>();
    double parent_range_start = vm["parent-range-start"].as<double>();
    double parent_range_end = vm["parent-range-end"].as<double>();
+   const IdxType minimum_coverage = target_average_selectivity >= 0.0
+                                        ? min_groundtruth
+                                        : std::max(K, min_groundtruth);
 
    if (parent_range_start < 0.0 || parent_range_end > 1.0 || parent_range_start >= parent_range_end)
    {
       std::cerr << "Error: parent range must satisfy 0.0 <= start < end <= 1.0." << std::endl;
-      return;
+      return false;
+   }
+   if (target_average_selectivity > 1.0)
+   {
+      std::cerr << "Error: target-average-selectivity must be in [0.0, 1.0], or negative to disable batch-average mode." << std::endl;
+      return false;
+   }
+   if (average_selectivity_tolerance < 0.0 || average_selectivity_tolerance > 1.0)
+   {
+      std::cerr << "Error: average-selectivity-tolerance must be in [0.0, 1.0]." << std::endl;
+      return false;
+   }
+   if (min_groundtruth < 20)
+   {
+      std::cerr << "Error: min-groundtruth must be at least 20." << std::endl;
+      return false;
    }
 
    std::cout << "========================================================" << std::endl;
    std::cout << "--- Running in VARIABLE_SUB_BASE (Random Parent + Variable Subset) mode ---" << std::endl;
    std::cout << "Minimum query length: " << min_query_length << std::endl;
    std::cout << "Maximum query length: " << (max_query_length == 0 ? std::string("parent length") : std::to_string(max_query_length)) << std::endl;
-   std::cout << "Target coverage range: [" << K << ", " << max_coverage << "]" << std::endl;
    std::cout << "Minimum children (supersets): " << min_children << std::endl;
+   std::cout << "Minimum ground-truth count: " << min_groundtruth << std::endl;
    std::cout << "Parent label source range: [" << parent_range_start << ", " << parent_range_end << ")" << std::endl;
+   if (target_average_selectivity >= 0.0)
+   {
+      std::cout << "Batch-average selectivity target: " << target_average_selectivity
+                << " +/- " << average_selectivity_tolerance << std::endl;
+      std::cout << "Per-query upper coverage limit is disabled in batch-average mode; minimum ground-truth count remains enforced." << std::endl;
+   }
+   else
+   {
+      std::cout << "Target coverage range: [" << minimum_coverage << ", " << max_coverage << "]" << std::endl;
+   }
    std::cout << "========================================================" << std::endl;
 
    TrieIndex trie_index;
@@ -1211,12 +1286,12 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
    catch (const std::exception &e)
    {
       std::cerr << "Fatal Error loading base vectors: " << e.what() << std::endl;
-      return;
+      return false;
    }
 
    std::vector<std::vector<LabelType>> filtered_label_sets;
-   std::vector<std::vector<float>> filtered_vectors;
    std::vector<size_t> filtered_source_indices;
+   std::map<LabelType, IdxType> label_occurrence_counts;
 
    size_t line_index = 0;
    while (std::getline(infile, line))
@@ -1239,9 +1314,15 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
 
       if (!label_set.empty())
       {
+         std::vector<LabelType> unique_labels = label_set;
+         std::sort(unique_labels.begin(), unique_labels.end());
+         unique_labels.erase(std::unique(unique_labels.begin(), unique_labels.end()), unique_labels.end());
+         for (LabelType label : unique_labels)
+         {
+            ++label_occurrence_counts[label];
+         }
          trie_index.insert(label_set, new_label_set_id);
          filtered_label_sets.push_back(label_set);
-         filtered_vectors.push_back(all_base_vectors[line_index]);
          filtered_source_indices.push_back(line_index);
       }
       line_index++;
@@ -1299,12 +1380,308 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
       std::cerr << "Error: No base label sets found in parent range ["
                 << parent_range_start << ", " << parent_range_end
                 << ") with length >= " << min_query_length << ". Cannot generate queries." << std::endl;
-      return;
+      return false;
    }
 
    std::cout << "Found " << parent_pool_indices.size()
              << " valid parent label sets for sampling in base index range ["
              << parent_range_begin << ", " << parent_range_end_exclusive << ")." << std::endl;
+
+   if (target_average_selectivity >= 0.0)
+   {
+      struct AverageCandidate
+      {
+         std::vector<LabelType> labels;
+         IdxType coverage;
+      };
+
+      std::vector<AverageCandidate> candidates;
+      std::set<std::vector<LabelType>> seen_label_sets;
+
+      auto add_candidate = [&](std::vector<LabelType> labels, IdxType coverage)
+      {
+         std::sort(labels.begin(), labels.end());
+         labels.erase(std::unique(labels.begin(), labels.end()), labels.end());
+         if (labels.size() < min_query_length ||
+             (max_query_length > 0 && labels.size() > max_query_length) ||
+             coverage < minimum_coverage || !seen_label_sets.insert(labels).second)
+         {
+            return;
+         }
+
+         if (min_children > 0)
+         {
+            const TrieNode *node = trie_index.find_node(labels);
+            IdxType children_count = node ? node->superset_count.load() : 0;
+            if (children_count < min_children)
+            {
+               return;
+            }
+         }
+         candidates.push_back({std::move(labels), coverage});
+      };
+
+      // Singleton coverage is exactly the number of base rows containing the
+      // label. Seed these candidates without an expensive Trie traversal.
+      if (min_query_length <= 1 && (max_query_length == 0 || max_query_length >= 1))
+      {
+         std::set<LabelType> eligible_labels;
+         for (size_t parent_idx : parent_pool_indices)
+         {
+            eligible_labels.insert(filtered_label_sets[parent_idx].begin(), filtered_label_sets[parent_idx].end());
+         }
+         for (LabelType label : eligible_labels)
+         {
+            auto count_it = label_occurrence_counts.find(label);
+            if (count_it != label_occurrence_counts.end())
+            {
+               add_candidate({label}, count_it->second);
+            }
+         }
+      }
+
+      const double target_average_coverage =
+          target_average_selectivity * static_cast<double>(base_label_count);
+
+      auto choose_diverse_mix = [&](std::vector<size_t> &selected_indices,
+                                    double &actual_selectivity) -> bool
+      {
+         if (candidates.empty())
+         {
+            return false;
+         }
+
+         std::sort(candidates.begin(), candidates.end(), [](const auto &a, const auto &b)
+                   {
+                      if (a.coverage != b.coverage)
+                         return a.coverage < b.coverage;
+                      return a.labels < b.labels;
+                   });
+
+         const IdxType min_coverage = candidates.front().coverage;
+         const IdxType max_coverage = candidates.back().coverage;
+         if (target_average_coverage < static_cast<double>(min_coverage) ||
+             target_average_coverage > static_cast<double>(max_coverage))
+         {
+            return false;
+         }
+
+         const double target_total = target_average_coverage * static_cast<double>(num_points);
+         const double tolerance_total = average_selectivity_tolerance *
+                                        static_cast<double>(base_label_count) *
+                                        static_cast<double>(num_points);
+         const double target_total_low = target_total - tolerance_total;
+         const double target_total_high = target_total + tolerance_total;
+
+         std::set<std::pair<IdxType, size_t>> unused_candidates;
+         for (size_t i = 0; i < candidates.size(); ++i)
+         {
+            unused_candidates.insert({candidates[i].coverage, i});
+         }
+
+         auto closest_unused_in_range = [&](double desired, double allowed_low, double allowed_high) -> size_t
+         {
+            if (unused_candidates.empty() || allowed_low > allowed_high)
+               return candidates.size();
+
+            const IdxType low_key = allowed_low <= 0.0
+                                        ? 0
+                                        : static_cast<IdxType>(std::ceil(allowed_low));
+            const IdxType high_key = allowed_high >= std::numeric_limits<IdxType>::max()
+                                         ? std::numeric_limits<IdxType>::max()
+                                         : static_cast<IdxType>(std::floor(allowed_high));
+            if (low_key > high_key)
+               return candidates.size();
+
+            auto first_allowed = unused_candidates.lower_bound({low_key, 0});
+            auto after_allowed = unused_candidates.upper_bound({high_key, std::numeric_limits<size_t>::max()});
+            if (first_allowed == after_allowed)
+               return candidates.size();
+
+            auto upper = unused_candidates.lower_bound(
+                {desired <= 0.0 ? 0 : static_cast<IdxType>(std::ceil(desired)), 0});
+            size_t best_index = candidates.size();
+            double best_distance = std::numeric_limits<double>::infinity();
+            auto consider = [&](const auto &it)
+            {
+               if (it == unused_candidates.end() || it->first < low_key || it->first > high_key)
+                  return;
+               const double distance = std::abs(static_cast<double>(it->first) - desired);
+               if (distance < best_distance)
+               {
+                  best_distance = distance;
+                  best_index = it->second;
+               }
+            };
+            consider(upper);
+            if (upper != unused_candidates.begin())
+               consider(std::prev(upper));
+            if (best_index == candidates.size())
+               consider(first_allowed);
+            return best_index;
+         };
+
+         auto closest_any_in_range = [&](double desired, double allowed_low, double allowed_high) -> size_t
+         {
+            auto first = std::lower_bound(
+                candidates.begin(), candidates.end(), allowed_low,
+                [](const AverageCandidate &candidate, double value)
+                { return static_cast<double>(candidate.coverage) < value; });
+            auto after = std::upper_bound(
+                candidates.begin(), candidates.end(), allowed_high,
+                [](double value, const AverageCandidate &candidate)
+                { return value < static_cast<double>(candidate.coverage); });
+            if (first == after)
+               return candidates.size();
+
+            auto upper = std::lower_bound(
+                first, after, desired,
+                [](const AverageCandidate &candidate, double value)
+                { return static_cast<double>(candidate.coverage) < value; });
+            auto best = upper;
+            if (best == after)
+               best = std::prev(after);
+            if (upper != first)
+            {
+               auto lower = std::prev(upper);
+               if (upper == after ||
+                   std::abs(static_cast<double>(lower->coverage) - desired) <=
+                       std::abs(static_cast<double>(upper->coverage) - desired))
+                  best = lower;
+            }
+            return static_cast<size_t>(best - candidates.begin());
+         };
+
+         selected_indices.clear();
+         selected_indices.reserve(num_points);
+         double selected_total = 0.0;
+         for (size_t slot = 0; slot < num_points; ++slot)
+         {
+            const size_t remaining = static_cast<size_t>(num_points) - slot - 1;
+            const double allowed_low = target_total_low - selected_total -
+                                       static_cast<double>(remaining) * max_coverage;
+            const double allowed_high = target_total_high - selected_total -
+                                        static_cast<double>(remaining) * min_coverage;
+            // Error diffusion keeps the running mean near the target. Prefer
+            // an unused label set whenever it still leaves a feasible path
+            // to the requested final average.
+            const double desired = target_average_coverage * static_cast<double>(slot + 1) -
+                                   selected_total;
+            size_t selected_index = closest_unused_in_range(desired, allowed_low, allowed_high);
+            if (selected_index == candidates.size())
+               selected_index = closest_any_in_range(desired, allowed_low, allowed_high);
+            if (selected_index == candidates.size())
+               return false;
+
+            selected_indices.push_back(selected_index);
+            selected_total += candidates[selected_index].coverage;
+            unused_candidates.erase({candidates[selected_index].coverage, selected_index});
+         }
+
+         actual_selectivity = selected_total /
+                              (static_cast<double>(num_points) * base_label_count);
+         return true;
+      };
+
+      std::vector<size_t> selected_indices;
+      double actual_selectivity = std::numeric_limits<double>::quiet_NaN();
+      bool has_mix = choose_diverse_mix(selected_indices, actual_selectivity);
+      bool within_tolerance = has_mix &&
+                              std::abs(actual_selectivity - target_average_selectivity) <=
+                                  average_selectivity_tolerance;
+
+      // Longer queries, or a very tight tolerance, may need additional
+      // attainable coverage values between the singleton coverage levels.
+      if (!within_tolerance && average_candidate_pool_size > 0)
+      {
+         std::cout << "Sampling up to " << average_candidate_pool_size
+                   << " additional candidates for the batch-average target..." << std::endl;
+         std::vector<std::vector<LabelType>> sampled_labels(average_candidate_pool_size);
+         std::vector<IdxType> sampled_coverages(average_candidate_pool_size, 0);
+
+#pragma omp parallel
+         {
+            std::mt19937 gen(std::random_device{}() + omp_get_thread_num());
+            std::uniform_int_distribution<size_t> parent_dist(0, parent_pool_indices.size() - 1);
+
+#pragma omp for schedule(dynamic)
+            for (IdxType i = 0; i < average_candidate_pool_size; ++i)
+            {
+               size_t parent_idx = parent_pool_indices[parent_dist(gen)];
+               const auto &parent_labels = filtered_label_sets[parent_idx];
+               size_t effective_max_length = parent_labels.size();
+               if (max_query_length > 0)
+                  effective_max_length = std::min(effective_max_length, static_cast<size_t>(max_query_length));
+               if (effective_max_length < min_query_length)
+                  continue;
+
+               std::uniform_int_distribution<size_t> length_dist(min_query_length, effective_max_length);
+               std::vector<LabelType> labels = parent_labels;
+               std::shuffle(labels.begin(), labels.end(), gen);
+               labels.resize(length_dist(gen));
+               std::sort(labels.begin(), labels.end());
+               labels.erase(std::unique(labels.begin(), labels.end()), labels.end());
+               if (labels.size() < min_query_length)
+                  continue;
+               sampled_coverages[i] = trie_index.calculate_coverage(labels);
+               sampled_labels[i] = std::move(labels);
+            }
+         }
+
+         for (size_t i = 0; i < sampled_labels.size(); ++i)
+         {
+            if (!sampled_labels[i].empty())
+               add_candidate(std::move(sampled_labels[i]), sampled_coverages[i]);
+         }
+         has_mix = choose_diverse_mix(selected_indices, actual_selectivity);
+         within_tolerance = has_mix &&
+                            std::abs(actual_selectivity - target_average_selectivity) <=
+                                average_selectivity_tolerance;
+      }
+
+      if (!has_mix)
+      {
+         IdxType min_coverage = candidates.empty() ? 0 : candidates.front().coverage;
+         IdxType max_attainable_coverage = candidates.empty() ? 0 : candidates.back().coverage;
+         std::cerr << "Error: sampled candidates do not bracket target average selectivity "
+                   << target_average_selectivity << ". Attainable sampled coverage range is ["
+                   << min_coverage << ", " << max_attainable_coverage << "] out of "
+                   << base_label_count << " base vectors." << std::endl;
+         return false;
+      }
+      if (!within_tolerance)
+      {
+         std::cerr << "Error: closest batch average selectivity " << actual_selectivity
+                   << " misses target " << target_average_selectivity
+                   << " by more than tolerance " << average_selectivity_tolerance
+                   << ". Increase num_points, tolerance, or average_candidate_pool_size." << std::endl;
+         return false;
+      }
+
+      std::mt19937 gen(std::random_device{}());
+      std::shuffle(selected_indices.begin(), selected_indices.end(), gen);
+      std::uniform_int_distribution<size_t> vector_dist(0, all_base_vectors.size() - 1);
+      std::vector<std::vector<LabelType>> generated_label_sets;
+      std::vector<std::vector<float>> generated_vectors;
+      generated_label_sets.reserve(num_points);
+      generated_vectors.reserve(num_points);
+      for (size_t candidate_index : selected_indices)
+      {
+         generated_label_sets.push_back(candidates[candidate_index].labels);
+         generated_vectors.push_back(all_base_vectors[vector_dist(gen)]);
+      }
+
+      std::set<size_t> unique_selected_indices(selected_indices.begin(), selected_indices.end());
+
+      std::cout << "Batch-average generation complete. target_selectivity="
+                << target_average_selectivity << ", actual_selectivity="
+                << actual_selectivity << ", candidate_pool=" << candidates.size()
+                << ", unique_label_sets=" << unique_selected_indices.size()
+                << ", duplicate_queries=" << (selected_indices.size() - unique_selected_indices.size())
+                << std::endl;
+      write_query_batch(output_file, output_vectors_file, generated_label_sets, generated_vectors);
+      return true;
+   }
 
    std::vector<std::vector<LabelType>> slot_label_sets(num_points);
    std::vector<std::vector<float>> slot_vectors(num_points);
@@ -1353,7 +1730,7 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
 
                IdxType coverage = trie_index.calculate_coverage(candidate_subset);
 
-               if (coverage < K || coverage > max_coverage)
+               if (coverage < minimum_coverage || coverage > max_coverage)
                {
                   continue;
                }
@@ -1476,6 +1853,7 @@ void run_variable_sub_base_mode(const po::variables_map &vm)
 
    write_fvecs(output_vectors_file, generated_vectors);
    std::cout << generated_vectors.size() << " query vectors written to " << output_vectors_file << std::endl;
+   return true;
 }
 
 
@@ -1491,7 +1869,7 @@ int main(int argc, char **argv)
    analyze_opts.add_options()("candidate_file", boost::program_options::value<std::string>(), "Path to the candidate query file to be analyzed")("profiled_output", boost::program_options::value<std::string>(), "Output path for the analysis result (.csv)");
 
    po::options_description sub_base_opts("Modes sub_base/weighted_sub_base/variable_sub_base: Generate hard queries using subset expansion");
-   sub_base_opts.add_options()("query-length", boost::program_options::value<IdxType>()->default_value(5), "Exact number of labels for fixed-length modes")("min-query-length", boost::program_options::value<IdxType>()->default_value(3), "Minimum number of labels for variable_sub_base")("max-query-length", boost::program_options::value<IdxType>()->default_value(0), "Maximum labels for variable_sub_base, 0 means parent length")("max-coverage", boost::program_options::value<IdxType>()->default_value(1000), "Maximum number of matching vectors for a valid query")("min-children", boost::program_options::value<IdxType>()->default_value(1), "Minimum number of supersets a query must have in the dataset")("parent-range-start", boost::program_options::value<double>()->default_value(0.0), "Start ratio of the base-label parent source range for variable_sub_base")("parent-range-end", boost::program_options::value<double>()->default_value(1.0), "End ratio of the base-label parent source range for variable_sub_base")("cache-file", boost::program_options::value<std::string>(), "[Optional] Path to save/load the pre-computation cache");
+   sub_base_opts.add_options()("query-length", boost::program_options::value<IdxType>()->default_value(5), "Exact number of labels for fixed-length modes")("min-query-length", boost::program_options::value<IdxType>()->default_value(3), "Minimum number of labels for variable_sub_base")("max-query-length", boost::program_options::value<IdxType>()->default_value(0), "Maximum labels for variable_sub_base, 0 means parent length")("max-coverage", boost::program_options::value<IdxType>()->default_value(1000), "Maximum number of matching vectors for a valid query")("min-groundtruth", boost::program_options::value<IdxType>()->default_value(20), "Minimum number of matching base vectors (valid ground-truth count) for every query")("min-children", boost::program_options::value<IdxType>()->default_value(1), "Minimum number of supersets a query must have in the dataset")("target-average-selectivity", boost::program_options::value<double>()->default_value(-1.0), "Target mean coverage/base-vector ratio for the whole variable_sub_base batch; negative disables")("average-selectivity-tolerance", boost::program_options::value<double>()->default_value(0.001), "Allowed absolute error for target-average-selectivity")("average-candidate-pool-size", boost::program_options::value<IdxType>()->default_value(20000), "Maximum random candidates used when fast singleton mixing cannot meet the batch-average target")("parent-range-start", boost::program_options::value<double>()->default_value(0.0), "Start ratio of the base-label parent source range for variable_sub_base")("parent-range-end", boost::program_options::value<double>()->default_value(1.0), "End ratio of the base-label parent source range for variable_sub_base")("cache-file", boost::program_options::value<std::string>(), "[Optional] Path to save/load the pre-computation cache");
 
    po::options_description cmdline_opts;
    cmdline_opts.add(generic_opts).add(generate_opts).add(analyze_opts).add(sub_base_opts);
@@ -1556,7 +1934,10 @@ int main(int argc, char **argv)
          std::cerr << "Error: Mode 'variable_sub_base' requires --base_vectors_file, --output_vectors_file, and --K." << std::endl;
          return 1;
       }
-      run_variable_sub_base_mode(vm);
+      if (!run_variable_sub_base_mode(vm))
+      {
+         return 1;
+      }
    }
    else
    {

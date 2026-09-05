@@ -1,0 +1,57 @@
+{
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "query_tasks": [
+    {
+      "enabled": true,
+      "task_name": "minlen5_avgsel1pct",
+      "mode": "variable_sub_base",
+      "dataset": "Amazon",
+      "data_dir": "/home/dev/graphdb/FilterVectorData/Amazon",
+      "overwrite": true,
+      "sub_base_params": {
+        "num_points": 1000,
+        "min_query_length": 5,
+        "max_query_length": 0,
+        "K": 20,
+        "max_coverage": 602453,
+        "min_groundtruth": 20,
+        "target_average_selectivity": 0.01,
+        "average_selectivity_tolerance": 0.001,
+        "average_candidate_pool_size": 20000,
+        "min_children": 0,
+        "cache-file": "/home/dev/graphdb/FilterVectorData/Amazon/sub_base_cache",
+        "parent_range_start": 0,
+        "parent_range_end": 1
+      },
+      "analysis_params": {
+        "analyze": true
+      }
+    },
+    {
+      "enabled": true,
+      "task_name": "minlen5_avgsel05pct",
+      "mode": "variable_sub_base",
+      "dataset": "Amazon",
+      "data_dir": "/home/dev/graphdb/FilterVectorData/Amazon",
+      "overwrite": true,
+      "sub_base_params": {
+        "num_points": 1000,
+        "min_query_length": 5,
+        "max_query_length": 0,
+        "K": 20,
+        "max_coverage": 602453,
+        "min_groundtruth": 20,
+        "target_average_selectivity": 0.005,
+        "average_selectivity_tolerance": 0.001,
+        "average_candidate_pool_size": 20000,
+        "min_children": 0,
+        "cache-file": "/home/dev/graphdb/FilterVectorData/Amazon/sub_base_cache",
+        "parent_range_start": 0,
+        "parent_range_end": 1
+      },
+      "analysis_params": {
+        "analyze": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "source_dir": "/home/dev/graphdb/FilterVectorCode_refactor/UNG/codes",
+  "selector_model_prefix": "/home/dev/graphdb/FilterVectorResult/SelectModels",
+  "generated_config_dir": "/home/dev/graphdb/FilterVectorCode_refactor/experiments/batch_run/generated",
+  "continue_on_error": false,
+  "ensure_special_blocks_index": true,
+  "datasets": [
+    {
+      "dataset": "Reviews",
+      "query_task": "query_selected_recall_curator_time_advantage"
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_selected_recall_curator_time_advantage"
+    }
+  ],
+  "methods": [
+    "UNG__hybrid",
+    "cpu_bruteforce_els_ung",
+    "cpu_bruteforce_els_special_blocks",
+    "favor",
+    "Navix",
+    "curator"
+  ],
+  "overrides": {
+    "favor": {
+      "auto_build_favor": true
+    },
+    "Navix": {
+      "auto_compile": true
+    },
+    "curator": {
+      "auto_compile": false
+    },
+    "UNG__hybrid": {},
+    "cpu_special_blocks_index": {},
+    "search_comparison": {}
+  },
+  "build": {
+    "num_threads": 60,
+    "max_degree": 64,
+    "Lbuild": 200,
+    "alpha": 1.2,
+    "num_cross_edges": 4,
+    "M": 64,
+    "ef_construction": 200
+  },
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100
+  },
+  "method_search": {
+    "favor": {
+      "num_threads": 100,
+      "sweeps": [
+        {
+          "start": 100,
+          "end": 1000,
+          "step": 100
+        },
+        {
+          "start": 2000,
+          "end": 20000,
+          "step": 1000
+        }
+      ]
+    },
+    "Navix": {
+      "num_entry_points": 16,
+      "efs_start": 1,
+      "efs_step_slow": 1,
+      "efs_step_fast": 1,
+      "lsearch_threshold": 1000,
+      "sweeps": [
+        {
+          "start": 100,
+          "end": 1000,
+          "step": 100
+        },
+        {
+          "start": 2000,
+          "end": 20000,
+          "step": 1000
+        }
+      ]
+    },
+    "curator": {
+      "search_parameter": "search_ef",
+      "ef_values": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        2048,
+        3072,
+        4096,
+        5120,
+        8192,
+        10240
+      ],
+      "filter_mode": "indexed"
+    },
+    "search_comparison": {
+      "num_entry_points": 16,
+      "efs_start": 10,
+      "efs_step_slow": 10,
+      "efs_step_fast": 10,
+      "lsearch_threshold": 1000,
+      "sweeps": [
+        {
+          "start": 100,
+          "end": 1000,
+          "step": 100
+        },
+        {
+          "start": 2000,
+          "end": 20000,
+          "step": 1000
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "query_tasks": [
+    {
+      "enabled": true,
+      "task_name": "minlen2_cov5k",
+      "mode": "variable_sub_base",
+      "dataset": "VariousImg",
+      "data_dir": "/home/dev/graphdb/FilterVectorData/VariousImg",
+      "overwrite": true,
+      "sub_base_params": {
+        "num_points": 3000,
+        "min_query_length": 2,
+        "max_query_length": 0,
+        "K": 5001,
+        "max_coverage": 758935,
+        "min_children": 0,
+        "cache-file": "/home/dev/graphdb/FilterVectorData/VariousImg/sub_base_cache",
+        "parent_range_start": 0,
+        "parent_range_end": 1
+      },
+      "analysis_params": {
+        "analyze": true
+      }
+    }
+  ]
+}

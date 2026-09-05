@@ -91,8 +91,7 @@ def ensure_gt(cfg, dataset_cfg, query_bin: Path, gt_dir: Path) -> Path:
     query_task = dataset_cfg["query_task"]
     data_root = Path(cfg["data_root"])
     build_dir = Path(cfg["build_dir"])
-    search_cfg = dict(cfg["search"])
-    search_cfg.update(dataset_cfg.get("search", {}))
+    search_cfg = effective_search_cfg(cfg, dataset_cfg)
     data_dir = data_root / dataset
     gt_file = gt_dir / f"{dataset}_gt_labels_containment.bin"
     if gt_file.exists():
@@ -137,11 +136,33 @@ def bool_arg(value: bool) -> str:
     return "true" if value else "false"
 
 
+def effective_search_cfg(cfg: dict, dataset_cfg: dict, method: dict | None = None) -> dict:
+    """Merge search settings from global, dataset, and optional method scopes."""
+    search_cfg = dict(cfg["search"])
+    search_cfg.update(dataset_cfg.get("search", {}))
+    if method is not None:
+        search_cfg.update(method.get("search", {}))
+    return search_cfg
+
+
 def result_query_dir_name(query_task: str, search_cfg: dict) -> str:
     return (
         f"{query_task}_{search_cfg['lsearch_start']}_"
         f"{search_cfg['lsearch_step']}_{search_cfg['lsearch_end']}"
     )
+
+
+def lsearch_values(search_cfg: dict) -> list[int]:
+    if search_cfg.get("lsearch_values"):
+        return [int(value) for value in search_cfg["lsearch_values"]]
+    return list(
+        range(
+            int(search_cfg["lsearch_start"]),
+            int(search_cfg["lsearch_end"]) + 1,
+            int(search_cfg["lsearch_step"]),
+        )
+    )
+
 
 
 def write_qps_summary(summary_csv: Path, output_csv: Path, num_queries: int) -> None:
@@ -166,11 +187,20 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
     data_root = Path(cfg["data_root"])
     result_root = Path(cfg["result_root"])
     build_dir = Path(cfg["build_dir"])
-    search_cfg = dict(cfg["search"])
-    search_cfg.update(dataset_cfg.get("search", {}))
+    search_cfg = effective_search_cfg(cfg, dataset_cfg, method)
     data_dir = data_root / dataset
     query_dir = data_dir / query_task
     index_dir = result_root / dataset / "index" / method["index_name"] / "index_files"
+    if method.get("block_index_name"):
+        block_index_dir = (
+            result_root
+            / dataset
+            / "index"
+            / method["block_index_name"]
+            / "block_index_files"
+        )
+    else:
+        block_index_dir = index_dir.parent / "block_index_files"
     result_query_task = result_query_dir_name(query_task, search_cfg)
     result_dir = result_root / dataset / "results" / method["name"] / result_query_task
     raw_results_dir = result_dir / "results"
@@ -181,13 +211,7 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
     if not (index_dir / "meta").exists():
         raise FileNotFoundError(f"missing index meta: {index_dir / 'meta'}")
 
-    lsearch_values = list(
-        range(
-            int(search_cfg["lsearch_start"]),
-            int(search_cfg["lsearch_end"]) + 1,
-            int(search_cfg["lsearch_step"]),
-        )
-    )
+    values = lsearch_values(search_cfg)
 
     query_group_file = query_dir / f"{dataset}_query_source_groups.txt"
     if not query_group_file.exists():
@@ -206,6 +230,22 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
         else:
             env[key] = str(value)
 
+    reuse_els = method.get("reuse_els", True)
+    if not isinstance(reuse_els, bool):
+        raise TypeError(f"{method['name']}.reuse_els must be a boolean")
+    if reuse_els:
+        env.pop("UNG_DISABLE_ELS_REUSE", None)
+    else:
+        env["UNG_DISABLE_ELS_REUSE"] = "1"
+        env["UNG_DISABLE_CPU_ELS_WARMUP"] = "1"
+        env["UNG_DISABLE_SPECIAL_BLOCK_TRIE_WARMUP"] = "1"
+
+    if reuse_els and method.get("entry_group_provider") == "special_block_trie":
+        warmup_special_block_trie = method.get("warmup_special_block_trie", True)
+        env["UNG_DISABLE_SPECIAL_BLOCK_TRIE_WARMUP"] = (
+            "0" if warmup_special_block_trie else "1"
+        )
+
     cmd = [
         str(build_dir / "apps" / "search_UNG_index"),
         "--data_type",
@@ -223,7 +263,7 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
         "--is_new_method",
         "true",
         "--force_use_alg",
-        "1",
+        str(method.get("force_use_alg", 1)),
         "--is_idea2_available",
         "false",
         "--is_new_trie_method",
@@ -251,7 +291,7 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
         "--num_entry_points",
         str(search_cfg["num_entry_points"]),
         "--Lsearch",
-        *[str(v) for v in lsearch_values],
+        *[str(v) for v in values],
         "--lsearch_start",
         str(search_cfg["lsearch_start"]),
         "--lsearch_step",
@@ -273,6 +313,17 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
         "--skip_bitmap_comparison",
         "true",
     ]
+    if (block_index_dir / "meta").exists():
+        cmd.extend(["--block_index_path_prefix", str(block_index_dir) + "/"])
+    elif method.get("entry_group_provider") == "special_block_trie" and not (
+        index_dir / "special_block_trie.bin"
+    ).exists():
+        raise FileNotFoundError(
+            f"missing independent or legacy Trie block index for {method['name']}: "
+            f"{block_index_dir}"
+        )
+    if "scalar_els_cap" in method:
+        cmd.extend(["--scalar_els_cap", str(method["scalar_els_cap"])])
 
     log(f"[{dataset}][{method['name']}] search start")
     run_command(cmd, other_dir / f"{dataset}_search_output.txt", env=env)

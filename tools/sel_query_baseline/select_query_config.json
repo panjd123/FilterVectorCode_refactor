@@ -1,0 +1,22 @@
+{
+  "dataset": "Amazon",
+  "input_task_dir": "/home/dev/graphdb/FilterVectorData/Amazon/query_selected_recall_advantage",
+  "results_root": "/home/dev/graphdb/FilterVectorResult/Amazon/results",
+  "query_result_task": "query_selected_recall_advantage_1000_1000_20000",
+  "curator_query_result_task": "query_selected_recall_advantage_search_ef64_search_ef10240",
+  "selection_mode": "curator_time_advantage",
+  "special_method": "cpu_bruteforce_els_special_blocks",
+  "curator_method": "Curator",
+  "special_result_file": "query_details_repeat1.csv",
+  "curator_result_file": "curator_results.csv",
+  "special_lsearch_column": "Lsearch",
+  "curator_lsearch_column": "search_ef",
+  "special_time_column": "Time_ms",
+  "curator_time_column": "Search_Time_ms",
+  "output_task": "query_selected_recall_curator_time_advantage",
+  "min_recall": 0.95,
+  "min_speedup": 2.0,
+  "min_delta_ms": 0.0,
+  "target_num_queries": 1000,
+  "overwrite": false
+}

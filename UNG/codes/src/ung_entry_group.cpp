@@ -1,5 +1,7 @@
 #include "include/ung_entry_group.h"
 
+#include <algorithm>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -16,6 +18,10 @@ const char *entry_group_provider_impl_name(EntryGroupProviderImpl impl)
       return "gpu_cover_frontier";
    case EntryGroupProviderImpl::CpuBruteForceEls:
       return "cpu_bruteforce_els";
+   case EntryGroupProviderImpl::CpuBruteForceElsScalar:
+      return "cpu_bruteforce_els_scalar";
+   case EntryGroupProviderImpl::SpecialBlockTrie:
+      return "special_block_trie";
    }
    return "unknown";
 }
@@ -34,6 +40,10 @@ const char *entry_group_provider_kind_name(EntryGroupProviderKind kind)
       return "gpu_cover_frontier";
    case EntryGroupProviderKind::CpuBruteForceEls:
       return "cpu_bruteforce_els";
+   case EntryGroupProviderKind::CpuBruteForceElsScalar:
+      return "cpu_bruteforce_els_scalar";
+   case EntryGroupProviderKind::SpecialBlockTrie:
+      return "special_block_trie";
    }
    return "unknown";
 }
@@ -46,9 +56,33 @@ EntryGroupProviderImpl parse_entry_group_provider_impl(const std::string &value)
       return EntryGroupProviderImpl::GpuCoverFrontier;
    if (value == "2" || value == "cpu_bruteforce" || value == "cpu_bruteforce_els" || value == "bruteforce_els")
       return EntryGroupProviderImpl::CpuBruteForceEls;
+   if (value == "3" || value == "cpu_bruteforce_els_scalar" || value == "scalar_bruteforce_els")
+      return EntryGroupProviderImpl::CpuBruteForceElsScalar;
+   if (value == "4" || value == "special_block_trie" || value == "special_trie")
+      return EntryGroupProviderImpl::SpecialBlockTrie;
    throw std::invalid_argument(
        "Invalid entry_group_provider: " + value +
-       " (expected cpu_min_super_sets/cpu/0, gpu_cover_frontier/gpu/1, or cpu_bruteforce_els/2)");
+       " (expected cpu_min_super_sets/cpu/0, gpu_cover_frontier/gpu/1, "
+       "cpu_bruteforce_els/2, cpu_bruteforce_els_scalar/3, or special_block_trie/4)");
+}
+
+std::string make_entry_group_label_cache_key(EntryGroupProviderImpl impl,
+                                             const std::vector<LabelType> &query_labels,
+                                             bool recursive_more_start,
+                                             bool ung_more_entry,
+                                             size_t scalar_els_cap)
+{
+   std::vector<LabelType> labels = query_labels;
+   std::sort(labels.begin(), labels.end());
+
+   std::ostringstream out;
+   out << static_cast<int>(impl) << '|';
+   out << (recursive_more_start ? '1' : '0') << '|';
+   out << (ung_more_entry ? '1' : '0') << '|';
+   out << scalar_els_cap << '|';
+   for (LabelType label : labels)
+      out << label << ',';
+   return out.str();
 }
 
 void EntryGroupProviderRequest::validate() const
@@ -105,6 +139,14 @@ EntryGroupProviderResult SearchEntryProvider::run(const EntryGroupProviderReques
       result.requested_impl = request.impl;
       break;
    case EntryGroupProviderImpl::CpuBruteForceEls:
+      result = cpu_provider_(request, stats);
+      result.requested_impl = request.impl;
+      break;
+   case EntryGroupProviderImpl::CpuBruteForceElsScalar:
+      result = cpu_provider_(request, stats);
+      result.requested_impl = request.impl;
+      break;
+   case EntryGroupProviderImpl::SpecialBlockTrie:
       result = cpu_provider_(request, stats);
       result.requested_impl = request.impl;
       break;

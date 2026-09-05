@@ -73,6 +73,9 @@ endif()
 
 # FetchContent_GetProperties(nlohmann_json)
 include(FetchContent)
+# nlohmann_json 3.10.4 declares cmake_minimum_required(VERSION 3.1),
+# which CMake 4 no longer accepts without an explicit compatibility floor.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 set(FILTERVECTOR_THIRDPARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty" CACHE PATH "Path to local thirdparty artifacts")
 set(JSON_TARBALL "${FILTERVECTOR_THIRDPARTY_DIR}/json-3.10.4.tar.gz")
 if(NOT EXISTS "${JSON_TARBALL}")
@@ -84,6 +87,7 @@ if(NOT EXISTS "${JSON_TARBALL}")
 endif()
 FetchContent_Declare(nlohmann_json
     URL "file://${JSON_TARBALL}"
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(nlohmann_json)
 if(NOT nlohmann_json_POPULATED)

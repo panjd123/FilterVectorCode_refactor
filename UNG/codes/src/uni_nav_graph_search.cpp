@@ -6,6 +6,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <stdexcept>
 #include <vector>
 
 #include <ThreadPool.h>
@@ -49,7 +50,11 @@ namespace ANNS
           runtime.recursive_more_start,
           runtime.ung_more_entry,
           &true_query_group_ids,
-          &entry_group_ids};
+          &entry_group_ids,
+          runtime.scalar_els_cap,
+          runtime.special_block_search &&
+              (runtime.entry_group_provider == EntryGroupProviderImpl::CpuBruteForceEls ||
+               runtime.entry_group_provider == EntryGroupProviderImpl::SpecialBlockTrie)};
       prepare_entry_groups_for_execution(entry_request, entry_group_ids, stats);
       populate_special_query_stats(query_labels, stats);
 
@@ -67,7 +72,7 @@ namespace ANNS
       }
       else
       {
-         auto search_cache = search_cache_list.get_free_cache();
+         auto search_cache = search_cache_list.get_free_cache(runtime.Lsearch);
          bool search_ok = false;
          if (runtime.special_block_search && !_special_blocks.empty() &&
              runtime.special_search_mode == SpecialSearchMode::FavorBlocks)
@@ -115,6 +120,12 @@ namespace ANNS
               .count();
    }
 
+   std::unique_ptr<SearchExecutionContext> UniNavGraph::create_search_execution_context(
+       uint32_t num_threads, IdxType max_lsearch) const
+   {
+      return std::make_unique<SearchExecutionContext>(num_threads, _num_points, max_lsearch);
+   }
+
    void UniNavGraph::search_hybrid(std::shared_ptr<IStorage> &query_storage,
                                    std::shared_ptr<DistanceHandler> &distance_handler,
                                    const SearchRuntimeConfig &runtime,
@@ -123,6 +134,38 @@ namespace ANNS
                                    std::vector<QueryStats> &query_stats,
                                    const std::vector<IdxType> &true_query_group_ids)
    {
+      auto execution_context = create_search_execution_context(runtime.num_threads, runtime.Lsearch);
+      search_hybrid(query_storage, distance_handler, runtime, *execution_context,
+                    results, num_cmps, query_stats, true_query_group_ids);
+   }
+
+   void UniNavGraph::search_hybrid(std::shared_ptr<IStorage> &query_storage,
+                                   std::shared_ptr<DistanceHandler> &distance_handler,
+                                   const SearchRuntimeConfig &runtime,
+                                   SearchExecutionContext &execution_context,
+                                   std::pair<IdxType, float> *results,
+                                   std::vector<float> &num_cmps,
+                                   std::vector<QueryStats> &query_stats,
+                                   const std::vector<IdxType> &true_query_group_ids)
+   {
+      if (execution_context.num_threads != runtime.num_threads)
+         throw std::invalid_argument("SearchExecutionContext thread count does not match runtime");
+      if (runtime.entry_group_provider == EntryGroupProviderImpl::SpecialBlockTrie)
+      {
+         if (!runtime.special_block_search)
+            throw std::invalid_argument(
+                "special_block_trie entry provider requires UNG_SPECIAL_BLOCK_SEARCH=1");
+         if (_special_block_trie_index.empty())
+            throw std::runtime_error(
+                "special_block_trie entry provider requires a trie-partitioned index");
+         if (!_special_trie_regular_edges_available)
+            throw std::runtime_error(
+                "special_block_trie entry provider requires special_trie_regular_edges.bin; rebuild the index");
+         if (runtime.special_search_mode == SpecialSearchMode::FavorBlocks)
+            throw std::invalid_argument(
+                "special_block_trie entry provider does not support favor_blocks; use free_state");
+      }
+
       auto num_queries = query_storage->get_num_points();
       _query_storage = query_storage;
       _distance_handler = distance_handler;
@@ -142,8 +185,19 @@ namespace ANNS
       const GraphSearchBackend graph_backend =
           use_csr_graph_backend ? GraphSearchBackend(csr_graph) : GraphSearchBackend(*_graph);
 
-      SearchCacheList search_cache_list(runtime.num_threads, _num_points, runtime.Lsearch);
-      ThreadPool pool(runtime.num_threads);
+      if (runtime.special_block_search && !_special_blocks.empty() &&
+          runtime.entry_group_provider != EntryGroupProviderImpl::SpecialBlockTrie &&
+          ung_env_flag_enabled("UNG_SPECIAL_BATCH_GPU_SEARCH"))
+      {
+         if (execute_special_batch_gpu_candidate_search(query_storage, distance_handler, runtime,
+                                                        results, num_cmps, query_stats,
+                                                        true_query_group_ids))
+            return;
+         std::cerr << "[special_batch_gpu] falling back to CPU search path" << std::endl;
+      }
+
+      SearchCacheList &search_cache_list = execution_context.search_cache_list;
+      ThreadPool &pool = execution_context.pool;
       std::vector<std::future<void>> tp_results;
       tp_results.reserve(num_queries);
       for (auto id = 0; id < num_queries; ++id)

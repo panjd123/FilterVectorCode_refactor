@@ -8,8 +8,15 @@ enable_testing()
 get_filename_component(_DEFAULT_GRAPHDB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
 set(GRAPHDB_ROOT "${_DEFAULT_GRAPHDB_ROOT}" CACHE PATH "graphdb workspace root")
 set(TAGORE_ROOT "${GRAPHDB_ROOT}/Tagore" CACHE PATH "Tagore source tree")
-set(BOOST_ROOT "${GRAPHDB_ROOT}/boost-local" CACHE PATH "Boost installation prefix")
+set(BOOST_ROOT "${GRAPHDB_ROOT}/boost_1_89_0" CACHE PATH "Boost installation prefix")
 set(Boost_ROOT "${BOOST_ROOT}")
+option(UNG_BOOST_USE_CXX11_ABI "Use the new libstdc++ C++11 ABI for the selected Boost binaries" OFF)
+if(NOT UNG_BOOST_USE_CXX11_ABI AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # The bundled boost_1_89_0 binaries in this workspace were built with the
+    # legacy libstdc++ ABI (their exported symbols use std::string, not
+    # std::__cxx11::basic_string).  Keep all targets ABI-consistent.
+    add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
+endif()
 set(OPENBLAS_ROOT "${GRAPHDB_ROOT}/openblas" CACHE PATH "OpenBLAS installation prefix")
 set(ZLIB_ROOT "${GRAPHDB_ROOT}/zlib" CACHE PATH "zlib installation prefix")
 list(PREPEND CMAKE_PREFIX_PATH "${OPENBLAS_ROOT}" "${ZLIB_ROOT}")
@@ -22,12 +29,22 @@ list(APPEND CMAKE_BUILD_RPATH
     "${ZLIB_ROOT}/lib"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/onnxruntime-linux-x64-1.16.3/lib")
 
-# Enable CUDA for GPU cross-group edge kernels.
-enable_language(CUDA)
-set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 86)
+option(UNG_ENABLE_CUDA "Build CUDA kernels and GPU search paths" ON)
+if(UNG_ENABLE_CUDA)
+    # Enable CUDA for GPU cross-group edge kernels.
+    include(CheckLanguage)
+    check_language(CUDA)
+    if(CMAKE_CUDA_COMPILER)
+        enable_language(CUDA)
+        set(CMAKE_CUDA_STANDARD 17)
+        set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+        if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+            set(CMAKE_CUDA_ARCHITECTURES 86)
+        endif()
+    else()
+        message(WARNING "CUDA compiler not found; configuring CPU sources only. Set UNG_ENABLE_CUDA=ON on a CUDA toolchain.")
+        set(UNG_ENABLE_CUDA OFF CACHE BOOL "Build CUDA kernels and GPU search paths" FORCE)
+    endif()
 endif()
 
 # cmake setting
@@ -67,16 +84,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mfma -msse2 -ftree-vectorize -fn
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g -DNDEBUG -Ofast -march=native -mtune=native")
 
-# include directories
-include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${PROJECT_SOURCE_DIR})
-include_directories(${PROJECT_SOURCE_DIR}/third_party/CRoaring/include)
-
 # Find pre-built CRoaring library
-set(ROARING_LIB_DIR "${PROJECT_SOURCE_DIR}/third_party/CRoaring/build/src")
+set(CROARING_ROOT "${PROJECT_SOURCE_DIR}/third_party/CRoaring" CACHE PATH "CRoaring source/install root")
+set(ROARING_LIB_DIR "${CROARING_ROOT}/build/src")
 find_library(ROARING_LIB
     NAMES roaring libroaring
-    PATHS ${ROARING_LIB_DIR}
+    PATHS ${ROARING_LIB_DIR} "${CROARING_ROOT}/install/lib"
     PATH_SUFFIXES lib lib64
     NO_DEFAULT_PATH
 )
@@ -104,6 +117,15 @@ endif()
 # add subdirectories
 add_subdirectory(vamana)
 add_subdirectory(src)
-add_subdirectory(tools)
-add_subdirectory(test)
-add_subdirectory(apps)
+option(UNG_BUILD_TOOLS "Build command-line tools" ${UNG_ENABLE_CUDA})
+option(UNG_BUILD_TESTS "Build test executables" ${UNG_ENABLE_CUDA})
+option(UNG_BUILD_APPS "Build index/search applications" ${UNG_ENABLE_CUDA})
+if(UNG_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
+if(UNG_BUILD_TESTS)
+    add_subdirectory(test)
+endif()
+if(UNG_BUILD_APPS)
+    add_subdirectory(apps)
+endif()

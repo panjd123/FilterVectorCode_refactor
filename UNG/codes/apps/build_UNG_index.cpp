@@ -3,6 +3,7 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 #include "uni_nav_graph.h"
+#include "navix_index.h"
 
 namespace po = boost::program_options;
 
@@ -52,7 +53,7 @@ int main(int argc, char **argv)
       desc.add_options()("scenario", po::value<std::string>(&scenario)->default_value("general"),
                          "Scenario for building UniNavGraph, <equality/general>");
       desc.add_options()("index_type", po::value<std::string>(&index_type)->default_value("Vamana"),
-                         "Type of index to build, <Vamana>");
+                         "Type of index to build, <Vamana/HNSW/NaviX>");
       desc.add_options()("num_cross_edges", po::value<ANNS::IdxType>(&num_cross_edges)->default_value(ANNS::default_paras::NUM_CROSS_EDGES),
                          "Number of cross edges for building Vamana");
       desc.add_options()("max_degree", po::value<ANNS::IdxType>(&max_degree)->default_value(ANNS::default_paras::MAX_DEGREE),
@@ -92,13 +93,34 @@ int main(int argc, char **argv)
    std::cout << "Building Unified Navigating Graph index based on " << index_type << " algorithm ..." << std::endl;
    std::shared_ptr<ANNS::DistanceHandler> distance_handler = ANNS::get_distance_handler(data_type, dist_fn);
 
+   const bool use_standalone_navix = index_type == "HNSW" || index_type == "NaviX" || index_type == "Navix";
+   auto start_time = std::chrono::high_resolution_clock::now();
+   if (use_standalone_navix)
+   {
+      ANNS::StandaloneNavixIndex index;
+      index.build(base_storage, distance_handler, max_degree, Lbuild,
+                  ANNS::default_paras::MAX_CANDIDATE_SIZE, num_threads);
+      const double build_ms = std::chrono::duration<double, std::milli>(
+                                  std::chrono::high_resolution_clock::now() - start_time)
+                                  .count();
+      std::cout << "Index time: " << build_ms << "ms" << std::endl;
+      index.save(index_path_prefix, result_path_prefix, build_ms);
+      return 0;
+   }
+
+   if (index_type != "Vamana")
+   {
+      std::cerr << "Invalid UNG index_type: " << index_type
+                << ". Use Vamana for UNG or NaviX/HNSW for the standalone NaviX baseline." << std::endl;
+      return -1;
+   }
+
    // Legacy ACORN augmentation is disabled by default. The struct owns the
    // historical defaults so app code does not duplicate that config.
    ANNS::AcornInUng new_cross_edge;
 
    // build index
    ANNS::UniNavGraph index;
-   auto start_time = std::chrono::high_resolution_clock::now();
    std::cout << "new_cross_edge.ung_and_acorn: " << new_cross_edge.ung_and_acorn << std::endl;
    index.build(base_storage, distance_handler, scenario, index_type, num_threads, num_cross_edges, max_degree, Lbuild, alpha, dataset, new_cross_edge);
    std::cout << "Index time: " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time).count() << "ms" << std::endl;

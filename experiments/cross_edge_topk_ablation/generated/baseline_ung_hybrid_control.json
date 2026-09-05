@@ -1,0 +1,25 @@
+{
+  "run_name": "cross_edge_baseline_ung_hybrid_control",
+  "output_layout": "index_by_dataset",
+  "index_name": "UNG_cross_edge_baseline_hybrid_control",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "datasets": [
+    "Reviews"
+  ],
+  "build": {
+    "data_type": "float",
+    "dist_fn": "L2",
+    "scenario": "general",
+    "num_threads": 60,
+    "max_degree": 32,
+    "Lbuild": 100,
+    "alpha": 1.2,
+    "num_cross_edges": 4
+  },
+  "ung_env": {
+    "UNG_LNG_IMPL": "1",
+    "UNG_DESCENDANTS_IMPL": "1"
+  }
+}

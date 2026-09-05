@@ -8,8 +8,10 @@ cmake -S "${SCRIPT_DIR}/UNG/codes" -B "${UNG_BUILD_DIR}" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CUDA_ARCHITECTURES="${UNG_CUDA_ARCH:-86}" \
   -DGRAPHDB_ROOT="${GRAPHDB_ROOT}" \
-  -DBOOST_ROOT="${GRAPHDB_ROOT}/boost-local" \
-  -DBoost_DIR="${GRAPHDB_ROOT}/boost-local/lib/cmake/Boost-1.89.0" \
+  -DBOOST_ROOT="${GRAPHDB_ROOT}/boost_1_89_0" \
+  -DBoost_DIR="${GRAPHDB_ROOT}/boost_1_89_0/lib/cmake/Boost-1.89.0" \
+  -DBoost_NO_SYSTEM_PATHS=ON \
+  -DUNG_BOOST_USE_CXX11_ABI=OFF \
   -DZLIB_ROOT="${GRAPHDB_ROOT}/zlib" \
   -DBLA_VENDOR=OpenBLAS
 

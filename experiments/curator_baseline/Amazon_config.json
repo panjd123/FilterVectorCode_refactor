@@ -1,0 +1,76 @@
+{
+  "curator_repo": "/home/dev/graphdb/FilterVectorCode_refactor/thirdparty/curator-v2",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "source_dir": "/home/dev/graphdb/FilterVectorCode_refactor/UNG/codes",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "auto_compile": false,
+  "allow_fvecs_conversion": true,
+  "allow_gt_generation": true,
+  "build_jobs": 16,
+  "data_type": "float",
+  "dist_fn": "L2",
+  "scenario": "containment",
+  "index_name": "Curator",
+  "method_name": "Curator",
+  "build": {
+    "nlist": 32,
+    "bf_capacity": 1000,
+    "bf_error_rate": 0.001,
+    "max_sl_size": 128,
+    "clus_niter": 20,
+    "max_leaf_size": 128,
+    "prune_thres": 1.6,
+    "variance_boost": 0.2,
+    "search_ef": 64,
+    "beam_size": 4,
+    "use_temp_index_caching": false,
+    "num_threads": 60
+  },
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "search_parameter": "search_ef",
+    "ef_values": [
+      64,
+      128,
+      256,
+      512,
+      1024,
+      2048,
+      3072,
+      4096,
+      5120,
+      8192,
+      10240
+    ],
+    "filter_mode": "indexed"
+  },
+  "datasets": [
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_avgsel50pct"
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_avgsel75pct"
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen2_avgsel25pct"
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen3_avgsel10pct"
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen5_avgsel1pct"
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen5_avgsel05pct"
+    }
+  ]
+}

@@ -76,6 +76,12 @@ enum class UngGpuTopkImpl : int
    FusedGroupTopk = 3,
 };
 
+enum class UngSpecialBlockPartition : int
+{
+   Trie = 0,
+   Lng = 1,
+};
+
 struct UngBuildConfig
 {
    UngBuildProfile profile = UngBuildProfile::Custom;
@@ -95,11 +101,14 @@ struct UngBuildConfig
    uint32_t tagore_iter = 10; // GRNND-style paths default to 4 in from_env unless UNG_TAGORE_ITER is set.
    uint32_t tagore_m = 64;
    bool special_blocks_enabled = false;
+   UngSpecialBlockPartition special_block_partition = UngSpecialBlockPartition::Trie;
    uint32_t special_block_min_points = 100;
    uint32_t special_block_max_degree = 0; // 0 means use build max_degree.
    uint32_t special_block_num_cross_edges = 0; // 0 means use build num_cross_edges.
    std::string special_block_data_mode;
    bool special_block_skip_trivial = true;
+   std::string special_block_tree_mode = "random"; // random or bfs for LNG partition.
+   uint64_t special_block_tree_seed = 1;
 
    static UngBuildConfig from_env(uint32_t build_threads);
    bool is_original_cpu_pipeline() const { return profile == UngBuildProfile::OriginalCpu; }
@@ -115,6 +124,7 @@ const char *to_string(UngCoverageImpl v);
 const char *to_string(UngCrossEdgeImpl v);
 const char *to_string(UngAdditionalEdgesImpl v);
 const char *to_string(UngGpuTopkImpl v);
+const char *to_string(UngSpecialBlockPartition v);
 
 } // namespace ANNS
 

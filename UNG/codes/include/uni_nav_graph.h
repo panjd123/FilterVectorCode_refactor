@@ -17,12 +17,16 @@
 #include "ung_graph_search_backend.h"
 #include "ung_cross_edge_output_writer.h"
 #include "ung_special_blocks.h"
+#include "ung_special_block_trie.h"
+#include "ung_special_edge_io.h"
+#include "ung_search_execution_context.h"
 #include <unordered_map>
 #include <bitset>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <queue>
 #include <boost/dynamic_bitset.hpp>
 #include <roaring/roaring.h>
 #include <roaring/roaring.hh>
@@ -39,8 +43,22 @@ namespace faiss
 
 namespace ANNS
 {
+   struct CpuElsWarmupStats
+   {
+      size_t unique_query_keys = 0;
+      size_t prepared_labels = 0;
+      double elapsed_ms = 0.0;
+   };
+
+   struct SpecialBlockTrieWarmupStats
+   {
+      size_t unique_query_keys = 0;
+      double elapsed_ms = 0.0;
+   };
+
    class Vamana;
    class GpuCoverFrontierProvider;
+   class SpecialBlockIndexBuilder;
 
    class UniNavGraph
    {
@@ -74,6 +92,16 @@ namespace ANNS
                          const std::vector<IdxType> &true_query_group_ids = {});
       void search_hybrid(std::shared_ptr<IStorage> &query_storage,
                          std::shared_ptr<DistanceHandler> &distance_handler,
+                         const SearchRuntimeConfig &runtime,
+                         SearchExecutionContext &execution_context,
+                         std::pair<IdxType, float> *results,
+                         std::vector<float> &num_cmps,
+                         std::vector<QueryStats> &query_stats,
+                         const std::vector<IdxType> &true_query_group_ids = {});
+      std::unique_ptr<SearchExecutionContext> create_search_execution_context(
+          uint32_t num_threads, IdxType max_lsearch) const;
+      void search_hybrid(std::shared_ptr<IStorage> &query_storage,
+                         std::shared_ptr<DistanceHandler> &distance_handler,
                          uint32_t num_threads, IdxType Lsearch,
                          IdxType num_entry_points, std::string scenario,
                          IdxType K, std::pair<IdxType, float> *results,
@@ -90,6 +118,7 @@ namespace ANNS
       // I/O
       void save(std::string index_path_prefix, std::string results_path_prefix);
       void load(std::string index_path_prefix, std::string selector_model_prefix, const std::string &data_type, const std::string &acorn_index_path, const std::string &acorn_1_index_path, const std::string &dataset);
+      void load_special_block_index(const std::string &block_index_path_prefix);
       void load_bipartite_graph(const std::string &filename);
 
       // Diagnostic and benchmark-facing helpers. These are intentionally
@@ -116,6 +145,13 @@ namespace ANNS
       void initialize_gpu_cover_frontier_provider(size_t workspace_count = 0,
                                                   size_t max_query_labels = 0);
       void warmup_gpu_cover_frontier_provider(const std::vector<LabelType> &query_labels);
+      CpuElsWarmupStats warmup_cpu_bruteforce_els(
+          const std::shared_ptr<IStorage> &query_storage,
+          bool recursive_more_start,
+          bool ung_more_entry,
+          size_t scalar_els_cap);
+      SpecialBlockTrieWarmupStats warmup_special_block_trie(
+          const std::shared_ptr<IStorage> &query_storage);
 
       void get_min_super_sets_debug(const std::vector<LabelType> &query_label_set,
                                     std::vector<IdxType> &min_super_set_ids,
@@ -126,6 +162,52 @@ namespace ANNS
       void warmup_selectors(uint32_t num_threads);
 
    private:
+      friend class SpecialBlockIndexBuilder;
+
+      template <typename T>
+      struct ContiguousView
+      {
+         const T *data = nullptr;
+         size_t count = 0;
+         const T *begin() const { return data; }
+         const T *end() const { return data == nullptr ? nullptr : data + count; }
+         size_t size() const { return count; }
+         bool empty() const { return count == 0; }
+         const T &operator[](size_t index) const { return data[index]; }
+      };
+
+      struct SpecialEdgeView
+      {
+         struct Iterator
+         {
+            const SpecialEdge *expanded = nullptr;
+            const PackedSpecialEdge *packed = nullptr;
+            size_t index = 0;
+            SpecialEdge operator*() const
+            {
+               return packed != nullptr ? packed[index].unpack() : expanded[index];
+            }
+            Iterator &operator++()
+            {
+               ++index;
+               return *this;
+            }
+            bool operator!=(const Iterator &other) const { return index != other.index; }
+         };
+
+         const SpecialEdge *expanded = nullptr;
+         const PackedSpecialEdge *packed = nullptr;
+         size_t count = 0;
+         Iterator begin() const { return {expanded, packed, 0}; }
+         Iterator end() const { return {expanded, packed, count}; }
+         size_t size() const { return count; }
+         bool empty() const { return count == 0; }
+         SpecialEdge operator[](size_t index) const
+         {
+            return packed != nullptr ? packed[index].unpack() : expanded[index];
+         }
+      };
+
 
       // Search runtime orchestration. This layer owns query-level threading,
       // runtime config fan-out, and result writeback only.
@@ -165,6 +247,11 @@ namespace ANNS
                                                                       QueryStats &stats);
       EntryGroupProviderResult compute_cpu_bruteforce_entry_groups_for_execution(const EntryGroupProviderRequest &request,
                                                                                  QueryStats &stats);
+      EntryGroupProviderResult compute_cpu_bruteforce_scalar_entry_groups_for_execution(const EntryGroupProviderRequest &request,
+                                                                                        QueryStats &stats);
+      EntryGroupProviderResult compute_special_block_trie_entry_groups_for_execution(
+          const EntryGroupProviderRequest &request,
+          QueryStats &stats);
       EntryGroupProviderResult compute_gpu_entry_groups_for_execution(const EntryGroupProviderRequest &request,
                                                                       QueryStats &stats);
 
@@ -219,6 +306,13 @@ namespace ANNS
                                          std::vector<float> &num_cmps,
                                          SearchQueue &cur_result,
                                          QueryStats &stats);
+      bool execute_special_batch_gpu_candidate_search(std::shared_ptr<IStorage> &query_storage,
+                                                      std::shared_ptr<DistanceHandler> &distance_handler,
+                                                      const SearchRuntimeConfig &runtime,
+                                                      std::pair<IdxType, float> *results,
+                                                      std::vector<float> &num_cmps,
+                                                      std::vector<QueryStats> &query_stats,
+                                                      const std::vector<IdxType> &true_query_group_ids);
 
       // Query feature and selector diagnostics. These helpers feed route
       // decisions and benchmark CSVs; they should stay side-effect-light.
@@ -227,6 +321,8 @@ namespace ANNS
       std::vector<float> calculate_idea1_features(const QueryStats &stats) const;
       std::vector<float> calculate_idea2_features(const QueryStats &stats) const;
       std::optional<bool> check_pre_trie_heuristic(const std::string& dataset_name, size_t query_length, size_t candidate_set_size) const;
+      EntryGroupRouteStats compute_entry_group_route_stats(
+          const std::vector<IdxType> &entry_group_ids) const;
       void populate_entry_group_route_stats(const std::vector<IdxType> &entry_group_ids,
                                             QueryStats &stats) const;
 
@@ -240,12 +336,14 @@ namespace ANNS
       IdxType iterate_to_fixed_point(const char *query, std::shared_ptr<SearchCache> search_cache,
                                      IdxType target_id, const std::vector<IdxType> &entry_points,
                                      size_t &num_nodes_visited,
-                                     bool clear_search_queue = true, bool clear_visited_set = true);
+                                     bool clear_search_queue = true, bool clear_visited_set = true,
+                                     QueryStats *stats = nullptr);
       IdxType iterate_to_fixed_point(const char *query, std::shared_ptr<SearchCache> search_cache,
                                      const GraphSearchBackend &graph_backend,
                                      IdxType target_id, const std::vector<IdxType> &entry_points,
                                      size_t &num_nodes_visited,
-                                     bool clear_search_queue = true, bool clear_visited_set = true);
+                                     bool clear_search_queue = true, bool clear_visited_set = true,
+                                     QueryStats *stats = nullptr);
       CrossEdgeCsrOutput build_search_graph_csr() const;
 
       // data
@@ -271,10 +369,9 @@ namespace ANNS
       std::vector<std::vector<LabelType>> _group_id_to_label_set;
       void build_trie_and_divide_groups();
 
-      // Special block overlay. Disabled by default; enabled with
-      // UNG_SPECIAL_BLOCKS=1. Construction lives in
-      // uni_nav_graph_special_blocks.cpp.
+      // Optional runtime overlay loaded from an independent block index.
       std::vector<SpecialBlock> _special_blocks;
+      SpecialBlockTrieIndex _special_block_trie_index;
       std::vector<IdxType> _group_id_to_special_block;
       std::vector<uint8_t> _group_is_special_block_root;
       std::vector<uint8_t> _group_is_trivial_special_block_root;
@@ -282,12 +379,36 @@ namespace ANNS
       std::vector<uint8_t> _point_is_special_block_root;
       std::vector<std::vector<SpecialEdge>> _special_edges_by_point;
       std::vector<std::vector<SpecialEdge>> _special_heavy_edges_by_point;
+      std::vector<std::vector<IdxType>> _special_trie_regular_edges_by_point;
+      SpecialEdgeCsr _special_edges_csr;
+      SpecialEdgeCsr _special_heavy_edges_csr;
+      RegularEdgeCsr _special_trie_regular_edges_csr;
+      bool _special_trie_regular_edges_available = false;
       SpecialBlockBuildSummary _special_block_summary;
+      void build_special_block_index(const std::string &ung_index_path_prefix,
+                                     const std::string &base_bin_file,
+                                     const std::string &base_label_file,
+                                     const std::string &block_index_path_prefix,
+                                     const std::string &results_path_prefix,
+                                     const std::string &data_type,
+                                     const std::shared_ptr<DistanceHandler> &distance_handler,
+                                     uint32_t num_threads,
+                                     IdxType min_points,
+                                     IdxType max_degree,
+                                     IdxType num_cross_edges,
+                                     IdxType Lbuild,
+                                     float alpha);
       void build_special_blocks();
       void rebuild_special_block_indexes();
       void build_special_edge_overlay();
-      void save_special_blocks(const std::string &prefix) const;
+      void build_special_trie_regular_edge_overlay();
+      void save_special_blocks(const std::string &prefix);
       void load_special_blocks(const std::string &prefix, const std::map<std::string, std::string> &meta_data);
+      void refresh_special_block_memory_stats();
+      SpecialEdgeView special_edges_for_point(IdxType point_id) const;
+      SpecialEdgeView special_heavy_edges_for_point(IdxType point_id) const;
+      ContiguousView<IdxType> special_regular_edges_for_point(IdxType point_id) const;
+      bool has_special_edges() const;
       bool is_trivial_special_block_root_group(IdxType group_id) const;
       bool is_special_block_root_group(IdxType group_id) const;
       bool is_special_block_root_point(IdxType point_id) const;
@@ -369,8 +490,27 @@ namespace ANNS
       std::vector<BitsetType> _covered_sets_bits;
       std::vector<roaring::Roaring> _lng_descendants_rb;
       std::vector<roaring::Roaring> _covered_sets_rb;
+      struct CpuBruteForceElsCache
+      {
+         bool valid = false;
+         IdxType num_groups_including_zero = 0;
+         IdxType words_per_query = 0;
+         IdxType max_group_label_size = 0;
+         std::unordered_map<LabelType, std::shared_ptr<const std::vector<uint64_t>>> label_group_bits;
+         std::vector<uint64_t> size_group_bits;
+      };
+      CpuBruteForceElsCache _cpu_bruteforce_els_cache;
+      std::mutex _cpu_bruteforce_els_cache_mutex;
+      EntryGroupResultCache _cpu_bruteforce_els_query_cache;
+      EntryGroupResultCache _special_block_trie_query_cache;
+      std::unordered_map<std::string, SpecialBlockTrieSearchStats>
+          _special_block_trie_search_stats_cache;
+      std::mutex _special_block_trie_query_cache_mutex;
       std::unique_ptr<GpuCoverFrontierProvider> _gpu_cover_frontier_provider;
       std::mutex _gpu_cover_frontier_provider_mutex;
+      void ensure_cpu_bruteforce_els_cache();
+      std::vector<std::shared_ptr<const std::vector<uint64_t>>>
+      prepare_cpu_bruteforce_els_label_rows(const std::vector<LabelType> &query_labels);
       void initialize_lng_descendants_coverage_bitsets();
       void initialize_roaring_bitsets();
 

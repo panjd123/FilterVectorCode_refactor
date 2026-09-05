@@ -1,0 +1,45 @@
+{
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "selector_model_prefix": "/home/dev/graphdb/FilterVectorResult/SelectModels",
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "num_entry_points": 16,
+    "lsearch_start": 1000,
+    "lsearch_end": 20000,
+    "lsearch_step": 1000,
+    "efs_start": 10,
+    "efs_step_slow": 10,
+    "efs_step_fast": 10,
+    "lsearch_threshold": 1000
+  },
+  "datasets": [
+    {
+      "dataset": "Reviews",
+      "query_task": "query_selected_time_advantage"
+    }
+  ],
+  "methods": [
+    {
+      "name": "cpu_bruteforce_els_scalar_ung",
+      "index_name": "UNG__hybrid",
+      "entry_group_provider": "cpu_bruteforce_els_scalar",
+      "scalar_els_cap": 8192,
+      "special_block_search": false,
+      "is_new_trie_method": false,
+      "is_rec_more_start": false
+    },
+    {
+      "name": "cpu_bruteforce_els_scalar_special_blocks",
+      "index_name": "UNG_special_blocks_hybrid_bdeg128_bcross10",
+      "entry_group_provider": "cpu_bruteforce_els_scalar",
+      "special_block_search": true,
+      "is_new_trie_method": false,
+      "is_rec_more_start": false,
+      "scalar_els_cap": 8192
+    }
+  ]
+}

@@ -425,19 +425,14 @@ namespace ANNS
       return features;
    }
 
-   void UniNavGraph::populate_entry_group_route_stats(const std::vector<IdxType> &entry_group_ids,
-                                                      QueryStats &stats) const
+   EntryGroupRouteStats UniNavGraph::compute_entry_group_route_stats(
+       const std::vector<IdxType> &entry_group_ids) const
    {
+      EntryGroupRouteStats route_stats;
+      route_stats.valid = true;
+      route_stats.num_entry_points = entry_group_ids.size();
       if (entry_group_ids.empty())
-      {
-         stats.num_entry_points = 0;
-         stats.num_lng_descendants = 0;
-         stats.entry_group_matched_points = 0;
-         stats.entry_group_total_coverage = 0.0f;
-         return;
-      }
-
-      stats.num_entry_points = entry_group_ids.size();
+         return route_stats;
 
       roaring::Roaring descendants;
       roaring::Roaring coverage;
@@ -449,9 +444,20 @@ namespace ANNS
          coverage |= _covered_sets_rb[group_id];
       }
 
-      stats.num_lng_descendants = descendants.cardinality();
-      stats.entry_group_matched_points = coverage.cardinality();
-      stats.entry_group_total_coverage = static_cast<float>(stats.entry_group_matched_points) / _num_points;
+      route_stats.num_lng_descendants = descendants.cardinality();
+      route_stats.entry_group_matched_points = coverage.cardinality();
+      if (_num_points != 0)
+      {
+         route_stats.entry_group_total_coverage =
+             static_cast<float>(route_stats.entry_group_matched_points) / _num_points;
+      }
+      return route_stats;
+   }
+
+   void UniNavGraph::populate_entry_group_route_stats(const std::vector<IdxType> &entry_group_ids,
+                                                      QueryStats &stats) const
+   {
+      apply_entry_group_route_stats(compute_entry_group_route_stats(entry_group_ids), stats);
    }
 
    void UniNavGraph::calculate_query_features_only(std::shared_ptr<IStorage> query_storage,

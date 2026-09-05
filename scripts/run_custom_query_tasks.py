@@ -108,6 +108,8 @@ def main():
                     params.get("K", 10),
                     "--max-coverage",
                     params.get("max_coverage", 2_000_000_000),
+                    "--min-groundtruth",
+                    params.get("min_groundtruth", 20),
                     "--min-children",
                     params.get("min_children", 0 if mode == "variable_sub_base" else 1),
                     "--parent-range-start",
@@ -118,6 +120,15 @@ def main():
                 cache_file = params.get("cache-file")
                 if cache_file:
                     cmd += ["--cache-file", cache_file]
+                if "target_average_selectivity" in params:
+                    cmd += [
+                        "--target-average-selectivity",
+                        params["target_average_selectivity"],
+                        "--average-selectivity-tolerance",
+                        params.get("average_selectivity_tolerance", 0.001),
+                        "--average-candidate-pool-size",
+                        params.get("average_candidate_pool_size", 20_000),
+                    ]
             elif mode == "generate":
                 params = task.get("generation_params", {})
                 cmd += [

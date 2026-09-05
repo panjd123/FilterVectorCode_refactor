@@ -822,8 +822,17 @@ std::vector<std::vector<int>> load_aq_multi(
    }
    else
    {
-      std::cerr << "Invalid dataset in load_aq_multi" << std::endl;
-      return std::vector<std::vector<int>>();
+      std::stringstream filepath_stream;
+      filepath_stream << ATTR_DATA_DIR << "/" << dataset << "_query_labels.txt";
+      std::string filepath = filepath_stream.str();
+      if (!fileExists(filepath))
+      {
+         std::cerr << "Invalid dataset in load_aq_multi and generic query label file not found: " << filepath << std::endl;
+         return std::vector<std::vector<int>>();
+      }
+      std::vector<std::vector<int>> v = load_txt_to_vector_multi<int>(filepath);
+      printf("loaded query attributes from generic file: %s\n", filepath.c_str());
+      return v;
    }
 }
 
@@ -1173,8 +1182,15 @@ std::vector<std::vector<int>> load_ab_muti(
    }
    else
    {
-      std::cerr << "Invalid dataset in load_ab_multi" << std::endl;
-      return std::vector<std::vector<int>>();
+      std::string filepath = ATTR_DATA_DIR;
+      if (!fileExists(filepath))
+      {
+         std::cerr << "Invalid dataset in load_ab_multi and generic base label file not found: " << filepath << std::endl;
+         return std::vector<std::vector<int>>();
+      }
+      std::vector<std::vector<int>> v = load_txt_to_vector_multi<int>(filepath);
+      std::cout << "loaded base attributes from generic file:" << filepath.c_str() << std::endl;
+      return v;
    }
 }
 

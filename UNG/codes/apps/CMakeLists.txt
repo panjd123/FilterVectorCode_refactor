@@ -4,6 +4,9 @@ set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 add_executable(build_UNG_index build_UNG_index.cpp)
 target_link_libraries(build_UNG_index ${PROJECT_NAME} Vamana Boost::program_options Boost::filesystem ${ROARING_LIB} onnxruntime faiss)
 
+add_executable(build_special_block_index build_special_block_index.cpp)
+target_link_libraries(build_special_block_index ${PROJECT_NAME} Vamana Boost::program_options Boost::filesystem ${ROARING_LIB} onnxruntime faiss)
+
 add_executable(search_UNG_index search_UNG_index.cpp)
 target_link_libraries(search_UNG_index ${PROJECT_NAME} Vamana Boost::program_options Boost::filesystem ${ROARING_LIB} onnxruntime faiss)
 

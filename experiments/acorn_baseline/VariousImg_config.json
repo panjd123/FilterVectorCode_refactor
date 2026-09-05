@@ -1,0 +1,37 @@
+{
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "source_dir": "/home/dev/graphdb/FilterVectorCode_refactor/ACORN",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_acorn_rel",
+  "ung_source_dir": "/home/dev/graphdb/FilterVectorCode_refactor/UNG/codes",
+  "ung_build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "auto_compile": true,
+  "auto_compile_ung_tools": true,
+  "build_jobs": 16,
+  "data_type": "float",
+  "dist_fn": "L2",
+  "scenario": "containment",
+  "index_name": "ACORN",
+  "method_name": "ACORN",
+  "build": {
+    "M": 32,
+    "M_beta": 64,
+    "gamma": 80,
+    "num_threads": 60
+  },
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "efs_start": 1000,
+    "efs_end": 20000,
+    "efs_step": 1000,
+    "if_bfs_filter": true
+  },
+  "datasets": [
+    {
+      "dataset": "VariousImg",
+      "query_task": "query_minlen2_cov5k"
+    }
+  ]
+}

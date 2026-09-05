@@ -1,0 +1,115 @@
+{
+  "script": "/home/dev/graphdb/FilterVectorCode_refactor/experiments/plot_qps_recall/plot_qps_recall_from_summary.py",
+  "dataset": "Amazon",
+  "query_tasks": [
+    "query_minlen1_avgsel50pct",
+    "query_minlen1_avgsel75pct",
+    "query_minlen2_avgsel25pct",
+    "query_minlen3_avgsel10pct",
+    "query_minlen5_avgsel1pct",
+    "query_minlen5_avgsel05pct"
+  ],
+  "paths": {
+    "repo_root": "/home/dev/graphdb",
+    "results_root": "/home/dev/graphdb/FilterVectorResult/Amazon/results",
+    "data_root": "/home/dev/graphdb/FilterVectorData/Amazon",
+    "output_dir": null
+  },
+  "methods": [
+    {
+      "method_dir": "UNG__hybrid",
+      "label": "Original UNG",
+      "color": "#4c78a8",
+      "marker": "circle",
+      "skip_first_lsearch": true
+    },
+    {
+      "method_dir": "Trie_block",
+      "label": "trie + special_blocks",
+      "color": "#72b7b2",
+      "marker": "cross",
+      "skip_first_lsearch": true
+    },
+    {
+      "method_dir": "favor",
+      "label": "FAVOR",
+      "color": "#b279a2",
+      "marker": "plus",
+      "lsearch": {
+        "start": 1000,
+        "step": 1000,
+        "end": 20000
+      }
+    },
+    {
+      "method_dir": "NaviX",
+      "label": "NaviX",
+      "color": "#ff9da6",
+      "marker": "x",
+      "lsearch": {
+        "start": 1000,
+        "step": 1000,
+        "end": 20000
+      }
+    },
+    {
+      "method_dir": "Curator",
+      "label": "Curator",
+      "color": "#9d755d",
+      "marker": "triangle",
+      "result_task": "{query_task}_search_ef64_search_ef10240"
+    },
+    {
+      "method_dir": "ACORN",
+      "label": "ACORN",
+      "color": "#bab0ac",
+      "marker": "diamond",
+      "lsearch": {
+        "start": 1000,
+        "step": 1000,
+        "end": 20000
+      }
+    },
+    {
+      "method_dir": "ACORN-1",
+      "label": "ACORN-1",
+      "color": "#59a14f",
+      "marker": "cross",
+      "lsearch": {
+        "start": 1000,
+        "step": 1000,
+        "end": 20000
+      }
+    }
+  ],
+  "draw_options": {
+    "sort_mode": "time-column-only",
+    "legend_outside": true,
+    "skip_missing": false,
+    "write_log_scale_svg": true,
+    "recall_thresholds": "auto",
+    "threshold_step": 0.05
+  },
+  "input_templates": {
+    "summary_csv": "<results_root>/<method_dir>/<result_task>/results/search_time_summary.csv",
+    "query_bin": "<data_root>/**/<query_task>/<dataset>_query.bin"
+  },
+  "outputs": {
+    "plot_dir": "<results_root>/plot/<result_task>",
+    "per_method_draw_csv": "<results_root>/<method_dir>/<result_task>/results/search_time_summary_draw.csv",
+    "combined_csv": "<plot_dir>/combined_qps_recall_draw.csv",
+    "threshold_summary_csv": "<plot_dir>/recall_threshold_summary_draw.csv",
+    "summary_markdown": "<plot_dir>/summary_draw.md",
+    "linear_svg": "<plot_dir>/qps_recall_draw_linear.svg",
+    "log_svg": "<plot_dir>/qps_recall_draw_log.svg"
+  },
+  "qps_formula": "QPS = num_queries * 1000 / Average_Time_ms",
+  "run": [
+    "bash /home/dev/graphdb/FilterVectorCode_refactor/experiments/plot_qps_recall/plot_qps_recall_config.sh"
+  ],
+  "lsearch": {
+    "start": 1000,
+    "step": 1000,
+    "end": 20000
+  }
+}

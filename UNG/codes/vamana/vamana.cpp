@@ -48,6 +48,78 @@ namespace ANNS
                    << SEP_LINE;
    }
 
+   void Vamana::build_from_candidate_pools(std::shared_ptr<IStorage> base_storage,
+                                             std::shared_ptr<DistanceHandler> distance_handler,
+                                             std::shared_ptr<Graph> graph,
+                                             const std::vector<std::vector<Candidate>> &candidate_pools,
+                                             IdxType max_degree, IdxType Lbuild, float alpha,
+                                             uint32_t num_threads,
+                                             IdxType max_candidate_size)
+   {
+      if (_verbose)
+      {
+         std::cout << "Building Vamana index from candidate pools ..." << std::endl;
+         std::cout << "- max_degree: " << max_degree << std::endl;
+         std::cout << "- Lbuild: " << Lbuild << std::endl;
+         std::cout << "- alpha: " << alpha << std::endl;
+         std::cout << "- max_candidate_size: " << max_candidate_size << std::endl;
+         std::cout << "- num_threads: " << num_threads << std::endl;
+      }
+
+      _base_storage = base_storage;
+      _distance_handler = distance_handler;
+      _graph = graph;
+      _num_threads = num_threads;
+      _max_degree = max_degree;
+      _Lbuild = Lbuild;
+      _alpha = alpha;
+      _max_candidate_size = max_candidate_size;
+      _entry_point = 0;
+
+      const auto num_points = _base_storage->get_num_points();
+      SearchCacheList search_cache_list(_num_threads, num_points, _Lbuild);
+      omp_set_num_threads(_num_threads);
+#pragma omp parallel for schedule(dynamic, 1)
+      for (auto id = 0; id < num_points; ++id)
+      {
+         auto search_cache = search_cache_list.get_free_cache();
+         std::vector<Candidate> candidates;
+         if (id < static_cast<IdxType>(candidate_pools.size()))
+            candidates = candidate_pools[id];
+
+         std::vector<IdxType> pruned_list;
+         prune_neighbors(id, candidates, pruned_list, search_cache);
+         {
+            std::lock_guard<std::mutex> lock(_graph->neighbor_locks[id]);
+            _graph->neighbors[id] = pruned_list;
+         }
+         inter_insert(id, pruned_list, search_cache);
+         search_cache_list.release_cache(search_cache);
+      }
+
+#pragma omp parallel for schedule(dynamic, 1)
+      for (auto id = 0; id < num_points; ++id)
+         if (_graph->neighbors[id].size() > _max_degree)
+         {
+            const auto dim = _base_storage->get_dim();
+            std::vector<Candidate> candidates;
+            candidates.reserve(_graph->neighbors[id].size());
+            for (auto &neighbor : _graph->neighbors[id])
+               candidates.emplace_back(neighbor, _distance_handler->compute(_base_storage->get_vector(id),
+                                                                            _base_storage->get_vector(neighbor), dim));
+
+            std::vector<IdxType> new_neighbors;
+            auto search_cache = search_cache_list.get_free_cache();
+            prune_neighbors(id, candidates, new_neighbors, search_cache);
+            _graph->neighbors[id] = new_neighbors;
+            search_cache_list.release_cache(search_cache);
+         }
+
+      if (_verbose)
+         std::cout << "Finish." << std::endl
+                   << SEP_LINE;
+   }
+
    void Vamana::link()
    {
       auto num_points = _base_storage->get_num_points();

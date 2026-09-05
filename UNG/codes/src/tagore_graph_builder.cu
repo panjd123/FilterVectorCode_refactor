@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <iostream>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -26,6 +27,30 @@ void ck(cudaError_t err, const char *what)
 {
    if (err != cudaSuccess)
       throw std::runtime_error(std::string("TagoreCuda CUDA error at ") + what + ": " + cudaGetErrorString(err));
+}
+
+void normalize_tagore_runtime_params(uint32_t &k, uint32_t &final_degree, uint32_t &top_m, const char *context)
+{
+   if (final_degree > FINAL_DEGREE_SIZE)
+      throw std::runtime_error(std::string(context) + " final_degree exceeds Tagore FINAL_DEGREE_SIZE=64.");
+   if (top_m > TOPM_SIZE)
+   {
+      std::cerr << "[TagoreCuda][param_clamp] context=" << context
+                << " top_m=" << top_m << " -> " << TOPM_SIZE << std::endl;
+      top_m = TOPM_SIZE;
+   }
+   const uint32_t min_k = final_degree + 1;
+   if (k < min_k)
+      k = min_k;
+   if (k > K_SIZE)
+   {
+      if (K_SIZE < min_k)
+         throw std::runtime_error(std::string(context) + " cannot satisfy final_degree + 1 within Tagore K_SIZE=96.");
+      std::cerr << "[TagoreCuda][param_clamp] context=" << context
+                << " k=" << k << " -> " << K_SIZE
+                << " final_degree=" << final_degree << std::endl;
+      k = K_SIZE;
+   }
 }
 
 float compute_norm_factor(const float *data, uint32_t num_points, uint32_t dim)
@@ -1599,8 +1624,7 @@ TagoreBuildResult build_tagore_vamana_cuda(const float *data,
       throw std::runtime_error("TagoreCuda requires non-empty data.");
    if (k == 0 || final_degree == 0 || top_m == 0)
       throw std::runtime_error("TagoreCuda requires positive k/final_degree/top_m.");
-   if (k <= final_degree)
-      k = final_degree + 1;
+   normalize_tagore_runtime_params(k, final_degree, top_m, "single");
 
    TagoreBuildResult result;
    result.graph.resize(static_cast<size_t>(num_points) * k);
@@ -1788,8 +1812,7 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
       return {};
    if (dim == 0 || k == 0 || final_degree == 0 || top_m == 0)
       throw std::runtime_error("TagoreCuda batch requires positive dim/k/final_degree/top_m.");
-   if (k <= final_degree)
-      k = final_degree + 1;
+   normalize_tagore_runtime_params(k, final_degree, top_m, "batch");
 
    uint32_t max_points = 0;
    bool can_use_fast_exact_batch = prune_mode == TagorePruneMode::FastGrnnd;

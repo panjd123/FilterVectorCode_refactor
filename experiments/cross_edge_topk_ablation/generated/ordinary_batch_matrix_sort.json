@@ -1,0 +1,41 @@
+{
+  "run_name": "cross_edge_batch_matrix_sort",
+  "output_layout": "index_by_dataset",
+  "index_name": "UNG_cross_edge_batch_matrix_sort",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "datasets": [
+    "Reviews"
+  ],
+  "build": {
+    "data_type": "float",
+    "dist_fn": "L2",
+    "scenario": "general",
+    "num_threads": 60,
+    "max_degree": 32,
+    "Lbuild": 100,
+    "alpha": 1.2,
+    "num_cross_edges": 4
+  },
+  "ung_env": {
+    "UNG_CROSS_EDGE_IMPL": "1",
+    "UNG_GPU_TOPK_IMPL": "2",
+    "UNG_GPU_DOUBLE_BUFFER": "0",
+    "UNG_UNIVERSAL_GPU": "0",
+    "UNG_GPU_X_STREAMING": "0",
+    "UNG_FORCE_CUSTOM_KERNEL": "0",
+    "UNG_GEMM_IMPL": "1",
+    "UNG_NAIVE_HEAVY_SGEMM": "1",
+    "UNG_NAIVE_HEAVY_NX": "1",
+    "UNG_NAIVE_HEAVY_NQ": "1",
+    "UNG_BUCKET_GROUP_FUSED": "0",
+    "UNG_SMALL_GROUP_FUSED": "0",
+    "UNG_MEDIUM_GROUP_FUSED": "0",
+    "UNG_LARGE_GROUP_FUSED": "0",
+    "UNG_DIRECT_QID_FUSED": "0",
+    "UNG_DIRECT_QID_ALL_FUSED": "0",
+    "UNG_GPU_GLOBAL_MERGE": "0",
+    "UNG_GPU_ID_ONLY_WRITEBACK": "0"
+  }
+}

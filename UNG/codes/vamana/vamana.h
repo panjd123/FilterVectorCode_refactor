@@ -25,6 +25,14 @@ namespace ANNS
                  std::shared_ptr<Graph> graph, IdxType max_degree, IdxType Lbuild, float alpha,
                  uint32_t num_threads, IdxType max_candidate_size = default_paras::MAX_CANDIDATE_SIZE);
 
+      void build_from_candidate_pools(std::shared_ptr<IStorage> base_storage,
+                                      std::shared_ptr<DistanceHandler> distance_handler,
+                                      std::shared_ptr<Graph> graph,
+                                      const std::vector<std::vector<Candidate>> &candidate_pools,
+                                      IdxType max_degree, IdxType Lbuild, float alpha,
+                                      uint32_t num_threads,
+                                      IdxType max_candidate_size = default_paras::MAX_CANDIDATE_SIZE);
+
       void search(std::shared_ptr<IStorage> base_storage, std::shared_ptr<IStorage> query_storage,
                   std::shared_ptr<DistanceHandler> distance_handler, IdxType K, IdxType Lsearch,
                   uint32_t num_threads, std::pair<IdxType, float> *results, std::vector<IdxType> &num_cmps);

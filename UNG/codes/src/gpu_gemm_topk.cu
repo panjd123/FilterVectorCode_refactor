@@ -977,7 +977,9 @@ bool ANNS::UniNavGraph::gpu_build_special_inter_edges(
     double& gpu_ms)
 {
     const int dim = _base_storage->get_dim();
-    const int topk = static_cast<int>(_num_cross_edges);
+    const int topk = static_cast<int>(_build_config.special_block_num_cross_edges > 0
+                                      ? _build_config.special_block_num_cross_edges
+                                      : _num_cross_edges);
     if (special_blocks.empty() || topk <= 0 || dim <= 0) return true;
     if (topk > 32) return false;
 
@@ -1216,6 +1218,7 @@ bool ANNS::UniNavGraph::gpu_build_special_inter_edges(
     gpu_ms = elapsed_ms(total_start, std::chrono::high_resolution_clock::now());
     std::cout << "[special_edges][gpu_inter] queries=" << h_queries.size()
               << " segments=" << h_segments.size()
+              << " topk=" << topk
               << " mode=" << (use_wmma_inter ? "tf32_wmma" : "cuda_core")
               << " tiles=" << h_tiles.size()
               << " pack_ms=" << pack_ms

@@ -1,0 +1,78 @@
+{
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "favor_source_dir": "/home/dev/graphdb/FilterVectorCode_refactor/FAVOR",
+  "favor_build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/FAVOR/build",
+  "build_jobs": 16,
+  "build": {
+    "data_type": "float",
+    "dist_fn": "L2",
+    "scenario": "containment",
+    "num_threads": 60,
+    "max_degree": 64,
+    "Lbuild": 200,
+    "alpha": 1.2,
+    "num_cross_edges": 4,
+    "M": 64,
+    "ef_construction": 200
+  },
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "lsearch_start": 10000,
+    "lsearch_end": 200000,
+    "lsearch_step": 10000
+  },
+  "datasets": [
+    {
+      "dataset": "Reviews",
+      "query_task": "query_selected_recall_curator_time_advantage"
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_selected_recall_curator_time_advantage"
+    }
+  ],
+  "methods": [
+    {
+      "name": "favor",
+      "index_name": "FAVOR"
+    }
+  ],
+  "auto_build_favor": true,
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "source_dir": "/home/dev/graphdb/FilterVectorCode_refactor/UNG/codes",
+  "selector_model_prefix": "/home/dev/graphdb/FilterVectorResult/SelectModels",
+  "ef_values": [
+    100,
+    200,
+    300,
+    400,
+    500,
+    600,
+    700,
+    800,
+    900,
+    1000,
+    2000,
+    3000,
+    4000,
+    5000,
+    6000,
+    7000,
+    8000,
+    9000,
+    10000,
+    11000,
+    12000,
+    13000,
+    14000,
+    15000,
+    16000,
+    17000,
+    18000,
+    19000,
+    20000
+  ]
+}

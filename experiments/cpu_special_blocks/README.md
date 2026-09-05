@@ -23,6 +23,15 @@ Use a different config:
 Outputs are written under `result_root/run_name_timestamp/` for the default run-root layout, or under `result_root/<Dataset>/index/<index_name>/` when `output_layout` is `index_by_dataset`.
 Each dataset directory contains `index_files/`, `results/`, `others/build.log`, and `others/time.txt`. The runner does not write config-directory run logs or summary CSV files.
 
+## Trie Block Without UNG Rebuild
+
+Set `"build_ung": false` to skip `build_UNG_index`. The block builder reuses
+the required UNG files when available. When any required source file or
+metadata is unavailable, it automatically rebuilds its block-only input from
+`<data_root>/<Dataset>/<Dataset>_base.bin` and `<data_root>/<Dataset>/<Dataset>_base_labels.txt`.
+This fallback builds only the independent Trie block sidecar; it does not save
+a full UNG index under `index_files/`.
+
 ## Index Name Parameter Suffix
 
 `run_cpu_special_blocks_experiment.sh` supports an optional `index_name_params` list in the config. Each item appends one build/env value to the final index directory name, so different block settings do not overwrite each other under `FilterVectorResult/<Dataset>/index/`.
@@ -42,4 +51,3 @@ With the default config this produces an index name like:
 ```text
 UNG_special_blocks_bdeg32_bcross4
 ```
-

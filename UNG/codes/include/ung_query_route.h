@@ -19,7 +19,7 @@ struct QueryRouteDecision
 
    bool uses_acorn() const
    {
-      return algorithm > 0;
+      return algorithm == 1 || algorithm == 2;
    }
 
    bool use_old_bitmap_search(int force_use_alg) const
@@ -73,6 +73,16 @@ enum class SpecialSearchMode : int
    FavorBlocks = 1,
 };
 
+bool ung_env_flag_enabled(const char *name);
+bool should_stop_special_block_search(bool enabled,
+                                      size_t result_size,
+                                      IdxType k,
+                                      float best_unexpanded_distance,
+                                      float second_best_unexpanded_distance,
+                                      float worst_result_distance,
+                                      size_t nodes_visited,
+                                      size_t min_nodes_visited);
+
 struct SearchRuntimeConfig
 {
    uint32_t num_threads = 1;
@@ -88,7 +98,11 @@ struct SearchRuntimeConfig
    bool bfs_filter = false;
    EntryGroupProviderImpl entry_group_provider = EntryGroupProviderImpl::CpuMinSuperSets;
    SearchGraphBackendImpl graph_backend = SearchGraphBackendImpl::NeighborList;
+   size_t scalar_els_cap = 0;
    bool special_block_search = false;
+   bool special_block_early_stop = false;
+   bool special_block_prefetch = true;
+   bool special_light_stats = false;
    SpecialSearchMode special_search_mode = SpecialSearchMode::FreeState;
    bool special_block_free_use_regular = false;
    bool special_heavy_edge_search = false;
@@ -125,7 +139,8 @@ SearchRuntimeConfig make_search_runtime_config(uint32_t num_threads,
                                                 EntryGroupProviderImpl entry_group_provider =
                                                     EntryGroupProviderImpl::CpuMinSuperSets,
                                                 SearchGraphBackendImpl graph_backend =
-                                                    SearchGraphBackendImpl::NeighborList);
+                                                    SearchGraphBackendImpl::NeighborList,
+                                                size_t scalar_els_cap = 0);
 
 } // namespace ANNS
 

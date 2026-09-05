@@ -1,0 +1,24 @@
+{
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "num_labels": 1000,
+  "distribution_type": "zipf",
+  "expected_num_label": 3,
+  "max_num_label": 12,
+  "datasets": [
+    {
+      "dataset": "Reviews",
+      "output_file": "/home/dev/graphdb/FilterVectorData/Reviews/Reviews_base_labels.txt",
+      "num_points": 288065
+    },
+    {
+      "dataset": "VariousImg",
+      "output_file": "/home/dev/graphdb/FilterVectorData/VariousImg/VariousImg_base_labels.txt",
+      "num_points": 758935
+    },
+    {
+      "dataset": "Genome",
+      "output_file": "/home/dev/graphdb/FilterVectorData/Genome/Genome_base_labels.txt",
+      "num_points": 108077
+    }
+  ]
+}

@@ -73,6 +73,13 @@ void print_label_nav_graph_summary(const std::shared_ptr<LabelNavGraph> &label_n
       _num_threads = num_threads;
       _scenario = scenario;
       _build_config = UngBuildConfig::from_env(num_threads);
+      if (_build_config.special_blocks_enabled)
+      {
+         std::cerr << "[UNG config] UNG_SPECIAL_BLOCKS is ignored by build_UNG_index; "
+                      "use build_special_block_index after the UNG index is saved."
+                   << std::endl;
+         _build_config.special_blocks_enabled = false;
+      }
       _build_config.print(std::cout);
 
       std::cout << "Dividing groups and building the trie tree index ..." << std::endl;
@@ -82,7 +89,6 @@ void print_label_nav_graph_summary(const std::shared_ptr<LabelNavGraph> &label_n
       _global_graph = std::make_shared<ANNS::Graph>(base_storage->get_num_points());
       std::cout << "begin prepare_group_storages_graphs" << std::endl;
       prepare_group_storages_graphs();
-      build_special_blocks();
       reserve_graph_neighbor_capacity();
       _label_processing_time = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time).count();
       std::cout << "- Finished in " << _label_processing_time << " ms" << std::endl;
@@ -101,7 +107,8 @@ void print_label_nav_graph_summary(const std::shared_ptr<LabelNavGraph> &label_n
       {
 
          // build the label navigating graph
-         build_label_nav_graph();
+         if (!_label_nav_graph)
+            build_label_nav_graph();
          if (!_build_config.is_original_cpu_pipeline())
          {
             get_descendants_info();
@@ -135,9 +142,6 @@ void print_label_nav_graph_summary(const std::shared_ptr<LabelNavGraph> &label_n
                 new_cross_edge);
          }
       }
-
-      if (_build_config.special_blocks_enabled)
-         build_special_edge_overlay();
 
       // index time
       _index_time = std::chrono::duration<double, std::milli>(

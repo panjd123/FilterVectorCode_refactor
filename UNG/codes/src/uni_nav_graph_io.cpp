@@ -234,28 +234,6 @@ namespace ANNS
       meta_data["cross_edge_step2_acorn_time(ms)"] = std::to_string(_cross_edge_step2_acorn_time_ms);
       meta_data["cross_edge_step3_add_dist_edges_time(ms)"] = std::to_string(_cross_edge_step3_add_dist_edges_time_ms);
       meta_data["cross_edge_step4_add_hierarchy_edges_time(ms)"] = std::to_string(_cross_edge_step4_add_hierarchy_edges_time_ms);
-      meta_data["special_blocks_enabled"] = std::to_string(_build_config.special_blocks_enabled ? 1 : 0);
-      meta_data["special_block_skip_trivial"] = std::to_string(_build_config.special_block_skip_trivial ? 1 : 0);
-      meta_data["special_block_min_points"] = std::to_string(_special_block_summary.threshold);
-      meta_data["special_block_count"] = std::to_string(_special_block_summary.num_blocks);
-      meta_data["special_block_trivial_count"] = std::to_string(_special_block_summary.trivial_blocks);
-      meta_data["special_block_member_groups"] = std::to_string(_special_block_summary.member_groups);
-      meta_data["special_block_member_points"] = std::to_string(_special_block_summary.member_points);
-      meta_data["special_block_child_edges"] = std::to_string(_special_block_summary.child_block_edges);
-      meta_data["special_edge_count"] = std::to_string(_special_block_summary.special_edges);
-      meta_data["special_edge_intra_count"] = std::to_string(_special_block_summary.intra_special_edges);
-      meta_data["special_edge_inter_count"] = std::to_string(_special_block_summary.inter_special_edges);
-      meta_data["special_block_metadata_time(ms)"] = std::to_string(_special_block_summary.metadata_ms);
-      meta_data["special_edge_overlay_time(ms)"] = std::to_string(_special_block_summary.edge_overlay_ms);
-      meta_data["special_edge_intra_build_time(ms)"] = std::to_string(_special_block_summary.intra_edge_build_ms);
-      meta_data["special_edge_inter_build_time(ms)"] = std::to_string(_special_block_summary.inter_edge_build_ms);
-      meta_data["special_group_graph_trivial_skipped_groups"] = std::to_string(_special_block_summary.group_graph_trivial_skipped_groups);
-      meta_data["special_group_graph_trivial_skipped_points"] = std::to_string(_special_block_summary.group_graph_trivial_skipped_points);
-      meta_data["special_cross_trivial_skipped_pairs"] = std::to_string(_special_block_summary.cross_trivial_skipped_pairs);
-      meta_data["special_cross_trivial_skipped_query_vectors"] = std::to_string(_special_block_summary.cross_trivial_skipped_query_vectors);
-      meta_data["special_additional_trivial_skipped_groups"] = std::to_string(_special_block_summary.additional_trivial_skipped_groups);
-      meta_data["special_additional_trivial_skipped_points"] = std::to_string(_special_block_summary.additional_trivial_skipped_points);
-
       std::cout << "Calculating and saving Trie static metrics..." << std::endl;
       TrieStaticMetrics trie_metrics = _trie_index.calculate_static_metrics();
       meta_data["trie_label_cardinality"] = std::to_string(trie_metrics.label_cardinality);
@@ -310,27 +288,6 @@ namespace ANNS
       build_time_file << "cross_edge_step2_acorn_time" << "," << _cross_edge_step2_acorn_time_ms << "\n";
       build_time_file << "cross_edge_step3_add_dist_edges_time" << "," << _cross_edge_step3_add_dist_edges_time_ms << "\n";
       build_time_file << "cross_edge_step4_add_hierarchy_edges_time" << "," << _cross_edge_step4_add_hierarchy_edges_time_ms << "\n";
-      build_time_file << "special_blocks_enabled" << "," << (_build_config.special_blocks_enabled ? 1 : 0) << "\n";
-      build_time_file << "special_block_skip_trivial" << "," << (_build_config.special_block_skip_trivial ? 1 : 0) << "\n";
-      build_time_file << "special_block_min_points" << "," << _special_block_summary.threshold << "\n";
-      build_time_file << "special_block_metadata_time" << "," << _special_block_summary.metadata_ms << "\n";
-      build_time_file << "special_block_count" << "," << _special_block_summary.num_blocks << "\n";
-      build_time_file << "special_block_trivial_count" << "," << _special_block_summary.trivial_blocks << "\n";
-      build_time_file << "special_block_member_groups" << "," << _special_block_summary.member_groups << "\n";
-      build_time_file << "special_block_member_points" << "," << _special_block_summary.member_points << "\n";
-      build_time_file << "special_block_child_edges" << "," << _special_block_summary.child_block_edges << "\n";
-      build_time_file << "special_edge_overlay_time" << "," << _special_block_summary.edge_overlay_ms << "\n";
-      build_time_file << "special_edge_intra_build_time" << "," << _special_block_summary.intra_edge_build_ms << "\n";
-      build_time_file << "special_edge_inter_build_time" << "," << _special_block_summary.inter_edge_build_ms << "\n";
-      build_time_file << "special_edge_count" << "," << _special_block_summary.special_edges << "\n";
-      build_time_file << "special_edge_intra_count" << "," << _special_block_summary.intra_special_edges << "\n";
-      build_time_file << "special_edge_inter_count" << "," << _special_block_summary.inter_special_edges << "\n";
-      build_time_file << "special_group_graph_trivial_skipped_groups" << "," << _special_block_summary.group_graph_trivial_skipped_groups << "\n";
-      build_time_file << "special_group_graph_trivial_skipped_points" << "," << _special_block_summary.group_graph_trivial_skipped_points << "\n";
-      build_time_file << "special_cross_trivial_skipped_pairs" << "," << _special_block_summary.cross_trivial_skipped_pairs << "\n";
-      build_time_file << "special_cross_trivial_skipped_query_vectors" << "," << _special_block_summary.cross_trivial_skipped_query_vectors << "\n";
-      build_time_file << "special_additional_trivial_skipped_groups" << "," << _special_block_summary.additional_trivial_skipped_groups << "\n";
-      build_time_file << "special_additional_trivial_skipped_points" << "," << _special_block_summary.additional_trivial_skipped_points << "\n";
       build_time_file.close();
       log_save_stage("meta_and_build_time");
 
@@ -357,9 +314,6 @@ namespace ANNS
       write_2d_vectors(group_id_to_vec_ids_filename, _group_id_to_vec_ids);
       std::cout << "group_id_to_vec_ids saved." << std::endl;
       log_save_stage("group_metadata");
-
-      save_special_blocks(index_path_prefix);
-      log_save_stage("special_blocks");
 
       auto graph_stage_start = std::chrono::high_resolution_clock::now();
       auto log_graph_substage = [&](const char *stage_name) {
@@ -587,6 +541,15 @@ namespace ANNS
       // load group id to range
       std::string group_id_to_range_filename = index_path_prefix + "group_id_to_range";
       load_2d_vectors(group_id_to_range_filename, _group_id_to_range);
+      _new_vec_id_to_group_id.assign(_num_points, 0);
+      for (IdxType group_id = 1; group_id < _group_id_to_range.size(); ++group_id)
+      {
+         const auto &range = _group_id_to_range[group_id];
+         for (IdxType point_id = range.first;
+              point_id < range.second && point_id < _new_vec_id_to_group_id.size();
+              ++point_id)
+            _new_vec_id_to_group_id[point_id] = group_id;
+      }
 
       load_special_blocks(index_path_prefix, meta_data);
 
@@ -883,6 +846,39 @@ namespace ANNS
          group_to_vec_size += vec_ids.size() * sizeof(ANNS::IdxType);
       }
       _index_size += group_to_vec_size;
+
+      size_t special_block_size = 0;
+      special_block_size += _special_blocks.size() * sizeof(SpecialBlock);
+      for (const SpecialBlock &block : _special_blocks)
+      {
+         special_block_size += block.root_labels.size() * sizeof(LabelType);
+         special_block_size += block.common_labels.size() * sizeof(LabelType);
+         special_block_size += block.member_group_ids.size() * sizeof(IdxType);
+         special_block_size += block.child_block_ids.size() * sizeof(IdxType);
+      }
+      special_block_size += _group_id_to_special_block.size() * sizeof(IdxType);
+      special_block_size += _group_is_special_block_root.size() * sizeof(uint8_t);
+      special_block_size += _group_is_trivial_special_block_root.size() * sizeof(uint8_t);
+      special_block_size += _point_to_special_block.size() * sizeof(IdxType);
+      special_block_size += _point_is_special_block_root.size() * sizeof(uint8_t);
+      special_block_size += _special_edges_by_point.size() * sizeof(std::vector<SpecialEdge>);
+      for (const auto &edges : _special_edges_by_point)
+         special_block_size += edges.size() * sizeof(SpecialEdge);
+      special_block_size += _special_heavy_edges_by_point.size() * sizeof(std::vector<SpecialEdge>);
+      for (const auto &edges : _special_heavy_edges_by_point)
+         special_block_size += edges.size() * sizeof(SpecialEdge);
+      special_block_size += _special_trie_regular_edges_by_point.size() * sizeof(std::vector<IdxType>);
+      for (const auto &edges : _special_trie_regular_edges_by_point)
+         special_block_size += edges.size() * sizeof(IdxType);
+      special_block_size += _special_edges_csr.offsets.capacity() * sizeof(uint64_t);
+      special_block_size += _special_edges_csr.edges.capacity() * sizeof(PackedSpecialEdge);
+      special_block_size += _special_heavy_edges_csr.offsets.capacity() * sizeof(uint64_t);
+      special_block_size += _special_heavy_edges_csr.edges.capacity() * sizeof(PackedSpecialEdge);
+      special_block_size += _special_trie_regular_edges_csr.offsets.capacity() * sizeof(uint64_t);
+      special_block_size += _special_trie_regular_edges_csr.targets.capacity() * sizeof(IdxType);
+      special_block_size += static_cast<size_t>(_special_block_trie_index.memory_size_bytes());
+      _special_block_summary.index_bytes = static_cast<uint64_t>(special_block_size);
+      _index_size += special_block_size;
 
       _index_size_add_rb = _index_size;
 

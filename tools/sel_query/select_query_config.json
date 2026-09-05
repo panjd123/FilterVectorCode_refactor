@@ -1,0 +1,38 @@
+{
+  "dataset": "Genome",
+  "results_root": "/home/dev/graphdb/FilterVectorResult/Genome/results",
+  "query_data_root": "/home/dev/graphdb/FilterVectorData",
+  "output_task": "query_selected_mixed_advantage",
+  "result_task_suffix": "_1000_1000_20000",
+  "skip_first_lsearch": true,
+  "time_column": "Time_ms",
+  "min_recall": 0.0,
+  "overwrite": false,
+  "selections": [
+    {
+      "name": "Trie_block_hybrid_faster_than_favor",
+      "source_task": "query_minlen2_cov1k",
+      "faster_method": "Trie_block_hybrid",
+      "slower_method": "favor",
+      "faster_time_column": "Time_ms",
+      "slower_time_column": "SearchTime_ms",
+      "min_speedup": 2.0,
+      "result_task_suffix": "_1000_1000_20000",
+      "max_queries": 400
+    },
+    {
+      "name": "Trie_block_hybrid_faster_than_favor",
+      "source_task": "query_minlen5_cov0.1k",
+      "faster_method": "Trie_block_hybrid",
+      "slower_method": "favor",
+      "faster_time_column": "Time_ms",
+      "slower_time_column": "SearchTime_ms",
+      "lsearch_alignment": "ordinal",
+      "min_speedup": 5.0,
+      "faster_result_task_suffix": "_1000_1000_20000",
+      "slower_result_task_suffix": "_1000_1000_20000",
+      "max_queries": 0
+    }
+  ],
+  "max_queries": 0
+}

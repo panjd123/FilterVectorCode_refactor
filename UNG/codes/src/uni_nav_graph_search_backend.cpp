@@ -1,6 +1,8 @@
 #include "include/uni_nav_graph.h"
 #include "include/ung_special_block_activation.h"
+#include "include/ung_special_trie_regular_search.h"
 #include "include/ung_favor_block_search.h"
+#include "include/ung_gpu_l2_batch.h"
 
 #include <algorithm>
 #include <chrono>
@@ -11,6 +13,10 @@
 #include <limits>
 #include <queue>
 #include <vector>
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#include <immintrin.h>
+#endif
 
 #include <roaring/roaring.hh>
 
@@ -142,10 +148,17 @@ namespace ANNS
                                        QueryStats &stats)
    {
       auto search_time_start_ms = std::chrono::high_resolution_clock::now();
+      auto core_search_start_time = search_time_start_ms;
+      auto entry_point_setup_start_time = core_search_start_time;
       search_cache->visited_set.clear();
       std::vector<IdxType> entry_points;
       for (const auto &group_id : entry_group_ids)
          get_entry_points_given_group_id(num_entry_points, search_cache->visited_set, group_id, entry_points);
+
+      stats.entry_point_setup_time_ms =
+          std::chrono::duration<double, std::milli>(
+              std::chrono::high_resolution_clock::now() - entry_point_setup_start_time)
+              .count();
 
       if (entry_points.empty())
       {
@@ -153,9 +166,9 @@ namespace ANNS
          return false;
       }
 
-      auto core_search_start_time = std::chrono::high_resolution_clock::now();
       num_cmps[query_id] = iterate_to_fixed_point(query, search_cache, graph_backend,
-                                                  query_id, entry_points, stats.num_nodes_visited);
+                                                  query_id, entry_points, stats.num_nodes_visited,
+                                                  true, true, &stats);
       stats.core_search_time_ms =
           std::chrono::duration<double, std::milli>(
               std::chrono::high_resolution_clock::now() - core_search_start_time)
@@ -211,21 +224,32 @@ namespace ANNS
       if (group_range.second - group_range.first <= num_entry_points)
       {
          for (auto i = 0; i < group_range.second - group_range.first; ++i)
-            entry_points.emplace_back(i + group_range.first);
+         {
+            const IdxType entry_point = i + group_range.first;
+            if (!visited_set.check(entry_point))
+            {
+               visited_set.set(entry_point);
+               entry_points.emplace_back(entry_point);
+            }
+         }
          return;
       }
 
       const auto &group_entry_point = _group_entry_points[group_id];
-      visited_set.set(group_entry_point);
-      entry_points.emplace_back(group_entry_point);
+      if (group_entry_point >= group_range.first && group_entry_point < group_range.second &&
+          !visited_set.check(group_entry_point))
+      {
+         visited_set.set(group_entry_point);
+         entry_points.emplace_back(group_entry_point);
+      }
 
       for (auto i = 1; i < num_entry_points; ++i)
       {
-         auto entry_point = rand() % (group_range.second - group_range.first) + group_range.first;
-         if (visited_set.check(entry_point) == false)
+         const IdxType entry_point = rand() % (group_range.second - group_range.first) + group_range.first;
+         if (!visited_set.check(entry_point))
          {
             visited_set.set(entry_point);
-            entry_points.emplace_back(i + group_range.first);
+            entry_points.emplace_back(entry_point);
          }
       }
    }
@@ -236,11 +260,12 @@ namespace ANNS
                                                const std::vector<IdxType> &entry_points,
                                                size_t &num_nodes_visited,
                                                bool clear_search_queue,
-                                               bool clear_visited_set)
+                                               bool clear_visited_set,
+                                               QueryStats *stats)
    {
       const GraphSearchBackend graph_backend(*_graph);
       return iterate_to_fixed_point(query, search_cache, graph_backend, target_id, entry_points,
-                                    num_nodes_visited, clear_search_queue, clear_visited_set);
+                                    num_nodes_visited, clear_search_queue, clear_visited_set, stats);
    }
 
    IdxType UniNavGraph::iterate_to_fixed_point(const char *query,
@@ -250,9 +275,11 @@ namespace ANNS
                                                const std::vector<IdxType> &entry_points,
                                                size_t &num_nodes_visited,
                                                bool clear_search_queue,
-                                               bool clear_visited_set)
+                                               bool clear_visited_set,
+                                               QueryStats *stats)
    {
       (void)target_id;
+      const auto entry_point_scoring_start_time = std::chrono::high_resolution_clock::now();
       auto dim = _base_storage->get_dim();
       auto &search_queue = search_cache->search_queue;
       auto &visited_set = search_cache->visited_set;
@@ -264,11 +291,20 @@ namespace ANNS
       for (const auto &entry_point : entry_points)
          search_queue.insert(entry_point, _distance_handler->compute(query, _base_storage->get_vector(entry_point), dim));
       IdxType num_cmps = entry_points.size();
+      if (stats != nullptr)
+      {
+         stats->entry_point_setup_time_ms +=
+             std::chrono::duration<double, std::milli>(
+                 std::chrono::high_resolution_clock::now() - entry_point_scoring_start_time)
+                 .count();
+      }
 
       while (search_queue.has_unexpanded_node())
       {
          const Candidate &cur = search_queue.get_closest_unexpanded();
          const GraphNeighborView neighbors = graph_backend.neighbors(cur.id);
+         if (stats != nullptr)
+            stats->regular_edges_scanned += neighbors.size;
          for (size_t i = 0; i < neighbors.size; ++i)
          {
             if (i + 1 < neighbors.size && visited_set.check(neighbors.ids[i + 1]) == false)
@@ -298,54 +334,18 @@ namespace ANNS
                                                      SearchQueue &cur_result,
                                                      QueryStats &stats)
    {
-      struct SpecialCandidate
-      {
-         IdxType id = 0;
-         float distance = 0.0f;
-         bool expanded = false;
-         bool free = false;
-      };
-
-      auto less_candidate = [](const SpecialCandidate &a, const SpecialCandidate &b) {
-         if (a.distance != b.distance)
-            return a.distance < b.distance;
-         if (a.id != b.id)
-            return a.id < b.id;
-         return static_cast<int>(a.free) < static_cast<int>(b.free);
-      };
-
-      auto insert_candidate = [&](std::vector<SpecialCandidate> &queue,
-                                  IdxType id,
-                                  float distance,
-                                  bool is_free,
-                                  IdxType capacity,
-                                  size_t &cur_unexpanded) {
-         SpecialCandidate candidate{id, distance, false, is_free};
-         if (queue.size() >= capacity && less_candidate(queue.back(), candidate))
-            return;
-
-         size_t lo = 0;
-         size_t hi = queue.size();
-         while (lo < hi)
-         {
-            const size_t mid = (lo + hi) >> 1;
-            if (less_candidate(candidate, queue[mid]))
-               hi = mid;
-            else if (queue[mid].id == id && queue[mid].free == is_free)
-               return;
-            else
-               lo = mid + 1;
-         }
-         queue.insert(queue.begin() + static_cast<std::ptrdiff_t>(lo), candidate);
-         if (queue.size() > capacity)
-            queue.pop_back();
-         if (lo < cur_unexpanded)
-            cur_unexpanded = lo;
-      };
+      const bool profile_timing = std::getenv("UNG_SPECIAL_PROFILE_TIMING") != nullptr;
+      const bool detail_stats = !runtime.special_light_stats;
 
       auto search_time_start_ms = std::chrono::high_resolution_clock::now();
       stats.special_search_enabled = true;
       stats.special_free_use_regular = runtime.special_block_free_use_regular;
+      const bool trie_regular_search =
+          runtime.entry_group_provider == EntryGroupProviderImpl::SpecialBlockTrie &&
+          !ung_env_flag_enabled("UNG_SPECIAL_TRIE_LEGACY_LNG_REGULAR");
+      const bool lazy_block_activation =
+          trie_regular_search && ung_env_flag_enabled("UNG_SPECIAL_TRIE_LAZY_BLOCK_ACTIVATION");
+      stats.special_trie_regular_search_enabled = trie_regular_search;
       const bool heavy_query_size_ok =
           runtime.special_heavy_edge_min_query_size == 0 ||
           stats.query_length >= runtime.special_heavy_edge_min_query_size;
@@ -356,7 +356,6 @@ namespace ANNS
             stats.entry_group_matched_points >= runtime.special_heavy_edge_min_matched_points) ||
            (runtime.special_heavy_edge_min_entries > 0 &&
             stats.num_entry_points >= runtime.special_heavy_edge_min_entries));
-      const bool profile_timing = std::getenv("UNG_SPECIAL_PROFILE_TIMING") != nullptr;
       auto elapsed_ms = [](const std::chrono::high_resolution_clock::time_point &start) {
          return std::chrono::duration<double, std::milli>(
                     std::chrono::high_resolution_clock::now() - start)
@@ -365,6 +364,93 @@ namespace ANNS
 
       const IdxType dim = _base_storage->get_dim();
       const IdxType capacity = runtime.Lsearch;
+      size_t free_node_expansions_per_block = std::numeric_limits<size_t>::max();
+      if (const char *value = std::getenv("UNG_SPECIAL_FREE_NODE_EXPANSIONS_PER_BLOCK"))
+      {
+         const size_t configured_cap = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+         if (configured_cap > 0)
+            free_node_expansions_per_block = configured_cap;
+      }
+      size_t free_node_cap_min_free_blocks = 0;
+      if (const char *value = std::getenv("UNG_SPECIAL_FREE_NODE_CAP_MIN_FREE_BLOCKS"))
+         free_node_cap_min_free_blocks =
+             static_cast<size_t>(std::strtoull(value, nullptr, 10));
+      size_t free_intra_edge_scan_cap = std::numeric_limits<size_t>::max();
+      if (const char *value = std::getenv("UNG_SPECIAL_FREE_INTRA_EDGE_SCAN_CAP"))
+      {
+         const size_t configured_cap = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+         if (configured_cap > 0)
+            free_intra_edge_scan_cap = configured_cap;
+      }
+      // Optional cap on inter-block edges examined from each free source
+      // point.  The default is unlimited for backward compatibility.  This
+      // is deliberately separate from the intra-block cap because a parent
+      // block may have many child blocks and therefore a very large
+      // inter-block fanout.
+      size_t free_inter_edge_scan_cap = std::numeric_limits<size_t>::max();
+      if (const char *value = std::getenv("UNG_SPECIAL_FREE_INTER_EDGE_SCAN_CAP"))
+      {
+         const size_t configured_cap = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+         if (configured_cap > 0)
+            free_inter_edge_scan_cap = configured_cap;
+      }
+      size_t free_inter_edge_per_block_cap = std::numeric_limits<size_t>::max();
+      if (const char *value = std::getenv("UNG_SPECIAL_FREE_INTER_EDGE_PER_BLOCK_CAP"))
+      {
+         const size_t configured_cap = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+         if (configured_cap > 0)
+            free_inter_edge_per_block_cap = configured_cap;
+      }
+      size_t free_inter_edge_cap_min_child_blocks = 0;
+      if (const char *value =
+              std::getenv("UNG_SPECIAL_FREE_INTER_EDGE_CAP_MIN_CHILD_BLOCKS"))
+         free_inter_edge_cap_min_child_blocks =
+             static_cast<size_t>(std::strtoull(value, nullptr, 10));
+      size_t free_block_stall_limit = 0;
+      if (const char *value = std::getenv("UNG_SPECIAL_BLOCK_STALL_NO_UPDATE_LIMIT"))
+         free_block_stall_limit = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+      size_t trie_block_portal_min_lsearch = 0;
+      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_BLOCK_PORTAL_MIN_LSEARCH"))
+         trie_block_portal_min_lsearch = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+      const bool trie_block_portals =
+          trie_regular_search &&
+          !ung_env_flag_enabled("UNG_SPECIAL_TRIE_DISABLE_BLOCK_PORTALS") &&
+          (lazy_block_activation ||
+           static_cast<size_t>(capacity) >= trie_block_portal_min_lsearch);
+      IdxType approx_dims = 0;
+      if (const char *value = std::getenv("UNG_SPECIAL_APPROX_DIMS"))
+         approx_dims = static_cast<IdxType>(std::strtoull(value, nullptr, 10));
+      if (approx_dims >= dim)
+         approx_dims = 0;
+      const float approx_scale = approx_dims > 0 ? static_cast<float>(dim) / static_cast<float>(approx_dims) : 1.0f;
+      bool gpu_free_distance = ung_env_flag_enabled("UNG_SPECIAL_FREE_GPU_DISTANCE") && approx_dims == 0 &&
+                               _base_storage->get_data_type() == DataType::FLOAT;
+      size_t gpu_free_distance_min = 4096;
+      if (const char *value = std::getenv("UNG_SPECIAL_FREE_GPU_DISTANCE_MIN"))
+         gpu_free_distance_min = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+      const float *gpu_base_vectors = gpu_free_distance
+                                          ? reinterpret_cast<const float *>(_base_storage->get_vector(0))
+                                          : nullptr;
+      const float *gpu_query_vector = gpu_free_distance
+                                         ? reinterpret_cast<const float *>(query)
+                                         : nullptr;
+      auto exact_distance = [&](IdxType point_id) {
+         return _distance_handler->compute(query, _base_storage->get_vector(point_id), dim);
+      };
+      auto score_distance = [&](IdxType point_id) {
+         if (approx_dims == 0)
+            return exact_distance(point_id);
+         const float *q = reinterpret_cast<const float *>(query);
+         const float *v = reinterpret_cast<const float *>(_base_storage->get_vector(point_id));
+         float sum = 0.0f;
+         for (IdxType s = 0; s < approx_dims; ++s)
+         {
+            const IdxType d = (s * dim) / approx_dims;
+            const float diff = q[d] - v[d];
+            sum += diff * diff;
+         }
+         return sum * approx_scale;
+      };
       std::chrono::high_resolution_clock::time_point cover_time_start;
       if (profile_timing)
          cover_time_start = std::chrono::high_resolution_clock::now();
@@ -373,17 +459,96 @@ namespace ANNS
       {
          std::vector<LabelType> sorted_query = query_labels;
          std::sort(sorted_query.begin(), sorted_query.end());
+         const bool root_label_coverage =
+             ung_env_flag_enabled("UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE");
          for (size_t block_idx = 0; block_idx < _special_blocks.size(); ++block_idx)
          {
-            std::vector<LabelType> sorted_root = _special_blocks[block_idx].root_labels;
-            std::sort(sorted_root.begin(), sorted_root.end());
-            if (std::includes(sorted_root.begin(), sorted_root.end(),
+            const std::vector<LabelType> &coverage_labels =
+                root_label_coverage
+                    ? _special_blocks[block_idx].root_labels
+                    : _special_blocks[block_idx].common_labels;
+            if (std::includes(coverage_labels.begin(), coverage_labels.end(),
                               sorted_query.begin(), sorted_query.end()))
                query_covers_block[block_idx + 1] = 1;
          }
       }
+      std::vector<uint8_t> query_free_block = query_covers_block;
+      // Free state is monotone down the Trie block hierarchy.
+      if (runtime.scenario == "containment")
+      {
+         std::vector<IdxType> pending_blocks;
+         pending_blocks.reserve(_special_blocks.size());
+         for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
+         {
+            if (query_free_block[block_id] != 0)
+               pending_blocks.push_back(block_id);
+         }
+         for (size_t pending_idx = 0; pending_idx < pending_blocks.size(); ++pending_idx)
+         {
+            const IdxType block_id = pending_blocks[pending_idx];
+            for (IdxType child_block_id : _special_blocks[block_id - 1].child_block_ids)
+            {
+               if (child_block_id == 0 || child_block_id >= query_free_block.size() ||
+                   query_free_block[child_block_id] != 0)
+                  continue;
+               query_free_block[child_block_id] = 1;
+               pending_blocks.push_back(child_block_id);
+            }
+         }
+      }
+
+      std::vector<uint8_t> query_free_block_frontier(query_free_block.size(), 0);
+      std::vector<IdxType> special_block_parent(query_free_block.size(), 0);
+      for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
+      {
+         for (IdxType child_block_id : _special_blocks[block_id - 1].child_block_ids)
+         {
+            if (child_block_id > 0 && child_block_id < special_block_parent.size())
+               special_block_parent[child_block_id] = block_id;
+         }
+      }
+      for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
+      {
+         if (query_free_block[block_id] == 0)
+            continue;
+         const IdxType parent_block_id = special_block_parent[block_id];
+         if (parent_block_id == 0 || query_free_block[parent_block_id] == 0)
+         {
+            query_free_block_frontier[block_id] = 1;
+            stats.special_free_block_frontier_count++;
+         }
+      }
+      stats.special_free_block_count = static_cast<size_t>(
+          std::count(query_free_block.begin(), query_free_block.end(), uint8_t{1}));
+      size_t lazy_seed_depth = 0;
+      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_LAZY_SEED_DEPTH"))
+         lazy_seed_depth = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+      const std::vector<uint8_t> query_seed_block =
+          lazy_block_activation
+              ? special_block_lazy_seed_mask(query_free_block_frontier,
+                                             _special_blocks, lazy_seed_depth)
+              : query_free_block;
       if (profile_timing)
          stats.special_cover_time_ms = elapsed_ms(cover_time_start);
+      std::vector<uint8_t> searched_blocks(_special_blocks.size() + 1, 0);
+      std::vector<size_t> free_nodes_expanded_by_block(
+          free_node_expansions_per_block != std::numeric_limits<size_t>::max() &&
+                  stats.special_free_block_count >= free_node_cap_min_free_blocks
+              ? _special_blocks.size() + 1
+          : 0,
+          0);
+      std::vector<size_t> free_block_stall_counts(
+          free_block_stall_limit > 0 ? _special_blocks.size() + 1 : 0, 0);
+      std::vector<uint8_t> free_block_paused(
+          free_block_stall_limit > 0 ? _special_blocks.size() + 1 : 0, 0);
+      std::vector<size_t> inter_edges_seen_by_target_block(
+          free_inter_edge_per_block_cap != std::numeric_limits<size_t>::max()
+              ? _special_blocks.size() + 1
+              : 0,
+          0);
+      std::vector<IdxType> inter_target_blocks_touched;
+      if (!inter_edges_seen_by_target_block.empty())
+         inter_target_blocks_touched.reserve(32);
 
       auto core_search_start_time = std::chrono::high_resolution_clock::now();
       const auto entry_time_start = core_search_start_time;
@@ -391,7 +556,44 @@ namespace ANNS
       auto &visited_free = search_cache->special_visited_free;
       visited_regular.clear();
       visited_free.clear();
-      std::vector<SpecialCandidate> queue;
+      auto &free_state_cache = search_cache->special_free_state_cache;
+      auto &free_state_touched = search_cache->special_free_state_touched;
+      if (free_state_cache.size() < _num_points)
+         free_state_cache.assign(_num_points, 0);
+      for (IdxType point_id : free_state_touched)
+      {
+         if (point_id < free_state_cache.size())
+            free_state_cache[point_id] = 0;
+      }
+      free_state_touched.clear();
+
+      auto cached_point_is_free = [&](IdxType point_id) {
+         uint8_t &state = free_state_cache[point_id];
+         if (state == 0)
+         {
+            const bool is_free = special_block_member_is_free(runtime.scenario,
+                                                              _point_to_special_block,
+                                                              point_id,
+                                                              query_free_block);
+            state = is_free ? 2 : 1;
+            free_state_touched.push_back(point_id);
+         }
+         return state == 2;
+      };
+
+      auto prefetch_point = [&](IdxType point_id) {
+         if (!runtime.special_block_prefetch || point_id >= _num_points)
+            return;
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+         visited_regular.prefetch(point_id);
+         visited_free.prefetch(point_id);
+         _mm_prefetch(_base_storage->get_vector(point_id), _MM_HINT_T0);
+#endif
+      };
+
+      auto &candidate_queue = search_cache->special_candidate_queue;
+      candidate_queue.reset(static_cast<size_t>(capacity), static_cast<size_t>(runtime.K),
+                            ung_env_flag_enabled("UNG_SPECIAL_CANDIDATE_HEAP"));
       constexpr size_t kReducedEntryGroupThreshold = 1000;
       constexpr IdxType kReducedEntryPointsPerLargeGroupSet = 4;
       const IdxType effective_num_entry_points =
@@ -401,33 +603,126 @@ namespace ANNS
       const size_t entry_reserve = std::max<size_t>(
           static_cast<size_t>(capacity) + 1,
           entry_group_ids.size() * static_cast<size_t>(effective_num_entry_points));
-      queue.reserve(entry_reserve);
-      size_t cur_unexpanded = 0;
-
       std::vector<IdxType> entry_point_ids;
       std::vector<uint8_t> entry_is_free;
+      std::vector<uint8_t> entry_is_block_seed;
       entry_point_ids.reserve(entry_reserve);
       entry_is_free.reserve(entry_reserve);
+      entry_is_block_seed.reserve(entry_reserve);
 
-      auto add_entry_point = [&](IdxType point_id, bool is_free) {
-         if (visited_regular.check(point_id) || visited_free.check(point_id))
-            return;
+      auto add_entry_point = [&](IdxType point_id, bool is_free, bool is_block_seed = false) {
+         if (visited_free.check(point_id) ||
+             (!is_free && visited_regular.check(point_id)))
+            return false;
 
          entry_point_ids.push_back(point_id);
          entry_is_free.push_back(is_free ? 1 : 0);
+         entry_is_block_seed.push_back(is_block_seed ? 1 : 0);
          if (is_free)
          {
             visited_free.set(point_id);
             stats.special_entry_free_points++;
-            stats.special_free_candidates_inserted++;
+            if (detail_stats)
+            {
+               stats.special_free_candidates_inserted++;
+            }
          }
          else
          {
             visited_regular.set(point_id);
             stats.special_entry_regular_points++;
-            stats.special_regular_candidates_inserted++;
+            if (detail_stats)
+            {
+               stats.special_regular_candidates_inserted++;
+            }
          }
+         if (is_block_seed)
+            stats.special_block_seed_points++;
+         return true;
       };
+      const bool seed_free_blocks =
+          trie_regular_search && ung_env_flag_enabled("UNG_SPECIAL_TRIE_SEED_FREE_BLOCKS");
+      size_t block_seed_cap = std::numeric_limits<size_t>::max();
+      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_BLOCK_SEED_CAP"))
+      {
+         const size_t configured_cap = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+         if (configured_cap > 0)
+            block_seed_cap = configured_cap;
+      }
+      size_t block_seeds_per_block = 1;
+      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_BLOCK_SEEDS_PER_BLOCK"))
+      {
+         const size_t configured_count = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+         if (configured_count > 0)
+            block_seeds_per_block = configured_count;
+      }
+      size_t block_seeds_retained_per_block = block_seeds_per_block;
+      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_BLOCK_SEEDS_RETAIN_PER_BLOCK"))
+      {
+         const size_t configured_count = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+         if (configured_count > 0)
+            block_seeds_retained_per_block = configured_count;
+      }
+      size_t frontier_block_seeds_retained_per_block = block_seeds_retained_per_block;
+      if (const char *value =
+              std::getenv("UNG_SPECIAL_TRIE_FRONTIER_BLOCK_SEEDS_RETAIN_PER_BLOCK"))
+      {
+         const size_t configured_count = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+         if (configured_count > 0)
+            frontier_block_seeds_retained_per_block = configured_count;
+      }
+      if (seed_free_blocks)
+      {
+         // Candidate landmarks are structurally spread across each block's direct members.
+         for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
+         {
+            if (query_seed_block[block_id] == 0)
+               continue;
+            const IdxType entry_point = _special_blocks[block_id - 1].entry_point_id;
+            if (entry_point == SpecialBlock::kInvalidEntryPoint || entry_point >= _num_points)
+               continue;
+            add_entry_point(entry_point, true, true);
+
+            const std::vector<IdxType> &member_group_ids =
+                _special_blocks[block_id - 1].member_group_ids;
+            for (size_t seed_idx = 1;
+                 seed_idx < block_seeds_per_block && !member_group_ids.empty();
+                 ++seed_idx)
+            {
+               const size_t member_idx = std::min(
+                   member_group_ids.size() - 1,
+                   (seed_idx * member_group_ids.size()) / block_seeds_per_block);
+               const IdxType group_id = member_group_ids[member_idx];
+               if (group_id >= _group_id_to_range.size())
+                  continue;
+               const auto &range = _group_id_to_range[group_id];
+               if (range.second <= range.first)
+                  continue;
+               const IdxType landmark =
+                   group_id < _group_entry_points.size() &&
+                           _group_entry_points[group_id] >= range.first &&
+                           _group_entry_points[group_id] < range.second
+                       ? _group_entry_points[group_id]
+                       : range.first;
+               add_entry_point(landmark, true, true);
+            }
+         }
+      }
+      const char *free_group_entry_cap_value =
+          std::getenv("UNG_SPECIAL_TRIE_FREE_GROUP_ENTRY_CAP");
+      const bool free_group_entry_cap_enabled = free_group_entry_cap_value != nullptr;
+      const size_t free_group_entry_cap = free_group_entry_cap_enabled
+                                              ? static_cast<size_t>(std::strtoull(
+                                                    free_group_entry_cap_value, nullptr, 10))
+                                              : std::numeric_limits<size_t>::max();
+      size_t exact_group_entry_cap = 16;
+      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_EXACT_GROUP_ENTRY_CAP"))
+         exact_group_entry_cap = static_cast<size_t>(std::strtoull(value, nullptr, 10));
+      std::vector<size_t> free_group_entries_by_block(
+          free_group_entry_cap_enabled ? _special_blocks.size() + 1 : 0, 0);
+      size_t exact_group_entries = 0;
+      std::vector<uint8_t> entry_portal_seen(
+          trie_block_portals ? _special_blocks.size() + 1 : 0, 0);
       for (IdxType group_id : entry_group_ids)
       {
          if (group_id >= _group_id_to_range.size())
@@ -435,124 +730,593 @@ namespace ANNS
          const bool covered_root = special_block_member_is_free(runtime.scenario,
                                                                 _group_id_to_special_block,
                                                                 group_id,
-                                                                query_covers_block);
+                                                                query_free_block);
          const auto &range = _group_id_to_range[group_id];
          if (range.second <= range.first)
             continue;
+         const bool exact_query_group =
+             covered_root && group_id < _group_id_to_label_set.size() &&
+             _group_id_to_label_set[group_id] == query_labels;
+         const IdxType block_id =
+             covered_root && group_id < _group_id_to_special_block.size()
+                 ? _group_id_to_special_block[group_id]
+                 : 0;
          const IdxType take = std::min<IdxType>(effective_num_entry_points, range.second - range.first);
+         if (lazy_block_activation && covered_root && !exact_query_group &&
+             (block_id == 0 || block_id >= query_seed_block.size() ||
+              query_seed_block[block_id] == 0))
+         {
+            stats.special_group_entry_points_policy_skipped += take;
+            continue;
+         }
          for (IdxType local = 0; local < take; ++local)
          {
+            size_t *policy_count = nullptr;
+            size_t policy_cap = std::numeric_limits<size_t>::max();
+            if (seed_free_blocks && exact_query_group)
+            {
+               policy_count = &exact_group_entries;
+               policy_cap = exact_group_entry_cap;
+            }
+            else if (seed_free_blocks && covered_root && free_group_entry_cap_enabled &&
+                     block_id > 0 && block_id < free_group_entries_by_block.size())
+            {
+               policy_count = &free_group_entries_by_block[block_id];
+               policy_cap = free_group_entry_cap;
+            }
+            if (policy_count != nullptr && *policy_count >= policy_cap)
+            {
+               stats.special_group_entry_points_policy_skipped++;
+               continue;
+            }
             const IdxType point_id =
                 (local == 0 && group_id < _group_entry_points.size() &&
                  _group_entry_points[group_id] >= range.first && _group_entry_points[group_id] < range.second)
                     ? _group_entry_points[group_id]
                     : range.first + local;
-            add_entry_point(point_id, covered_root);
+            if (add_entry_point(point_id, covered_root))
+            {
+               if (policy_count != nullptr)
+                  ++(*policy_count);
+               if (covered_root)
+                  stats.special_group_entry_free_points++;
+               else
+                  stats.special_group_entry_regular_points++;
+            }
+         }
+         if (trie_block_portals && covered_root &&
+             group_id < _group_id_to_special_block.size())
+         {
+            const IdxType block_id = _group_id_to_special_block[group_id];
+            if (block_id > 0 && block_id <= _special_blocks.size() &&
+                (!lazy_block_activation || query_seed_block[block_id] != 0) &&
+                entry_portal_seen[block_id] == 0)
+            {
+               entry_portal_seen[block_id] = 1;
+               stats.special_trie_block_portals_scanned++;
+               const IdxType entry_point = _special_blocks[block_id - 1].entry_point_id;
+               if (entry_point != SpecialBlock::kInvalidEntryPoint &&
+                   entry_point < _num_points && add_entry_point(entry_point, true))
+                  stats.special_trie_block_portals_accepted++;
+            }
          }
       }
 
       if (entry_point_ids.empty())
       {
          stats.num_distance_calcs = 0;
+         for (IdxType point_id : free_state_touched)
+         {
+            if (point_id < free_state_cache.size())
+               free_state_cache[point_id] = 0;
+         }
+         free_state_touched.clear();
          return false;
       }
 
-      queue.reserve(std::max(queue.capacity(), entry_point_ids.size()));
+      std::vector<SpecialSearchCandidate> block_seed_candidates;
+      std::vector<SpecialSearchCandidate> other_entry_candidates;
+      block_seed_candidates.reserve(stats.special_block_seed_points);
+      other_entry_candidates.reserve(entry_point_ids.size() - stats.special_block_seed_points);
       for (size_t i = 0; i < entry_point_ids.size(); ++i)
       {
          const IdxType point_id = entry_point_ids[i];
-         queue.push_back(SpecialCandidate{point_id,
-                                          _distance_handler->compute(query, _base_storage->get_vector(point_id), dim),
-                                          false, entry_is_free[i] != 0});
+         SpecialSearchCandidate candidate{point_id,
+                                          score_distance(point_id),
+                                          entry_is_free[i] != 0};
+         if (entry_is_block_seed[i] != 0)
+            block_seed_candidates.push_back(candidate);
+         else
+            other_entry_candidates.push_back(candidate);
       }
 
-      if (queue.size() > static_cast<size_t>(capacity))
+      auto retain_closest = [&](std::vector<SpecialSearchCandidate> &candidates, size_t keep) {
+         if (candidates.size() <= keep)
+            return;
+         auto keep_end = candidates.begin() + static_cast<std::ptrdiff_t>(keep);
+         std::nth_element(candidates.begin(), keep_end, candidates.end(), special_candidate_less);
+         candidates.resize(keep);
+      };
+      if (block_seeds_retained_per_block < block_seeds_per_block &&
+          !block_seed_candidates.empty())
       {
-         auto keep_end = queue.begin() + static_cast<std::ptrdiff_t>(capacity);
-         std::nth_element(queue.begin(), keep_end, queue.end(), less_candidate);
-         queue.resize(static_cast<size_t>(capacity));
+         // Route each block through its query-nearest landmark without widening the search beam.
+         std::vector<std::vector<SpecialSearchCandidate>> candidates_by_block(
+             _special_blocks.size() + 1);
+         for (const SpecialSearchCandidate &candidate : block_seed_candidates)
+         {
+            const IdxType block_id =
+                candidate.id < _point_to_special_block.size()
+                    ? _point_to_special_block[candidate.id]
+                    : 0;
+            if (block_id > 0 && block_id < candidates_by_block.size())
+               candidates_by_block[block_id].push_back(candidate);
+         }
+         block_seed_candidates.clear();
+         for (IdxType block_id = 1; block_id < candidates_by_block.size(); ++block_id)
+         {
+            std::vector<SpecialSearchCandidate> &block_candidates = candidates_by_block[block_id];
+            const size_t keep = query_free_block_frontier[block_id] != 0
+                                    ? frontier_block_seeds_retained_per_block
+                                    : block_seeds_retained_per_block;
+            retain_closest(block_candidates, keep);
+            block_seed_candidates.insert(block_seed_candidates.end(),
+                                         block_candidates.begin(), block_candidates.end());
+         }
       }
-      std::sort(queue.begin(), queue.end(), less_candidate);
+      const size_t entry_capacity = static_cast<size_t>(capacity);
+      const size_t seed_capacity = std::min(entry_capacity, block_seed_cap);
+      retain_closest(block_seed_candidates, seed_capacity);
+      stats.special_block_seed_points_retained = block_seed_candidates.size();
+      const size_t remaining_capacity = entry_capacity - block_seed_candidates.size();
+      retain_closest(other_entry_candidates, remaining_capacity);
+
+      std::vector<SpecialSearchCandidate> initial_candidates;
+      initial_candidates.reserve(block_seed_candidates.size() + other_entry_candidates.size());
+      initial_candidates.insert(initial_candidates.end(),
+                                block_seed_candidates.begin(), block_seed_candidates.end());
+      initial_candidates.insert(initial_candidates.end(),
+                                other_entry_candidates.begin(), other_entry_candidates.end());
+      candidate_queue.initialize(std::move(initial_candidates));
+      const std::vector<SpecialSearchCandidate> retained_initial_candidates =
+          candidate_queue.sorted_results();
+
+      std::vector<uint8_t> entry_blocks(_special_blocks.size() + 1, 0);
+      std::vector<uint8_t> retained_entry_blocks(_special_blocks.size() + 1, 0);
+      for (IdxType point_id : entry_point_ids)
+      {
+         if (point_id >= _point_to_special_block.size())
+            continue;
+         const IdxType block_id = _point_to_special_block[point_id];
+         if (block_id > 0 && block_id < entry_blocks.size())
+            entry_blocks[block_id] = 1;
+      }
+      for (const SpecialSearchCandidate &candidate : retained_initial_candidates)
+      {
+         if (candidate.id >= _point_to_special_block.size())
+            continue;
+         const IdxType block_id = _point_to_special_block[candidate.id];
+         if (block_id > 0 && block_id < retained_entry_blocks.size())
+            retained_entry_blocks[block_id] = 1;
+      }
+      stats.special_entry_blocks = static_cast<size_t>(
+          std::count(entry_blocks.begin(), entry_blocks.end(), uint8_t{1}));
+      stats.special_retained_entry_blocks = static_cast<size_t>(
+          std::count(retained_entry_blocks.begin(), retained_entry_blocks.end(), uint8_t{1}));
       stats.special_entry_time_ms = elapsed_ms(entry_time_start);
+      stats.entry_point_setup_time_ms = stats.special_entry_time_ms;
 
-
-      IdxType comparisons = static_cast<IdxType>(queue.size());
-      stats.special_free_distance_calcs += stats.special_entry_free_points;
-      stats.special_regular_distance_calcs += stats.special_entry_regular_points;
-      while (cur_unexpanded < queue.size())
+      IdxType comparisons = static_cast<IdxType>(entry_point_ids.size());
+      size_t queue_insertions_total = 0;
+      if (detail_stats)
       {
-         const size_t cur_idx = cur_unexpanded;
-         queue[cur_idx].expanded = true;
-         while (cur_unexpanded < queue.size() && queue[cur_unexpanded].expanded)
-            ++cur_unexpanded;
-         const SpecialCandidate cur = queue[cur_idx];
-
-         auto visit_neighbor = [&](IdxType neighbor, bool next_free) {
-            if (neighbor >= _num_points)
-               return false;
-            if (next_free)
+         stats.special_free_distance_calcs += stats.special_entry_free_points;
+         stats.special_regular_distance_calcs += stats.special_entry_regular_points;
+      }
+      auto insert_candidate = [&](IdxType id, float distance, bool is_free) {
+         if (detail_stats)
+            stats.special_queue_insert_attempts++;
+         const SpecialCandidateInsertResult result =
+             candidate_queue.insert(id, distance, is_free);
+         if (detail_stats)
+         {
+            if (result == SpecialCandidateInsertResult::Inserted)
             {
-               if (visited_free.check(neighbor))
-                  return false;
-               visited_free.set(neighbor);
-               stats.special_free_candidates_inserted++;
-               if (!cur.free)
-                  stats.special_free_upgrades++;
+               stats.special_queue_insertions++;
+               stats.special_queue_shifted_candidates +=
+                   candidate_queue.last_shifted_candidates();
             }
             else
+               stats.special_queue_bound_rejections++;
+         }
+         if (result == SpecialCandidateInsertResult::Inserted)
+            ++queue_insertions_total;
+      };
+      auto visit_neighbor = [&](IdxType neighbor, bool next_free, bool from_free) {
+         if (neighbor >= _num_points)
+            return false;
+         if (next_free)
+         {
+            if (visited_free.check(neighbor))
+               return false;
+            visited_free.set(neighbor);
+            if (detail_stats)
             {
-               if (visited_regular.check(neighbor))
-                  return false;
-               visited_regular.set(neighbor);
-               stats.special_regular_candidates_inserted++;
+               stats.special_free_candidates_inserted++;
+               if (!from_free)
+                  stats.special_free_upgrades++;
             }
-            stats.num_nodes_visited++;
-            insert_candidate(queue, neighbor,
-                             _distance_handler->compute(query, _base_storage->get_vector(neighbor), dim),
-                             next_free, capacity, cur_unexpanded);
+         }
+         else
+         {
+            if (visited_regular.check(neighbor))
+               return false;
+            visited_regular.set(neighbor);
+            if (detail_stats)
+               stats.special_regular_candidates_inserted++;
+         }
+         stats.num_nodes_visited++;
+         insert_candidate(neighbor, score_distance(neighbor), next_free);
+         if (detail_stats)
+         {
             if (next_free)
                stats.special_free_distance_calcs++;
             else
                stats.special_regular_distance_calcs++;
-            comparisons++;
-            return true;
+         }
+         comparisons++;
+         return true;
+      };
+
+      const bool preexpand_block_seeds =
+          seed_free_blocks && ung_env_flag_enabled("UNG_SPECIAL_TRIE_PREEXPAND_BLOCK_SEEDS");
+      if (preexpand_block_seeds)
+      {
+         std::chrono::high_resolution_clock::time_point preexpand_time_start;
+         if (profile_timing)
+            preexpand_time_start = std::chrono::high_resolution_clock::now();
+         const char *preexpand_per_block_value =
+             std::getenv("UNG_SPECIAL_TRIE_BLOCK_SEEDS_PREEXPAND_PER_BLOCK");
+         const bool preexpand_per_block_enabled = preexpand_per_block_value != nullptr;
+         const size_t preexpand_per_block = preexpand_per_block_enabled
+                                                ? static_cast<size_t>(std::strtoull(
+                                                      preexpand_per_block_value, nullptr, 10))
+                                                : std::numeric_limits<size_t>::max();
+         // Give every routed block one navigation step before global distance competition.
+         auto preexpand_edges = [&](SpecialEdgeView edges, bool heavy,
+                                    size_t &inter_edges_seen) {
+            for (const SpecialEdge edge : edges)
+            {
+               if (edge.kind == SpecialEdgeKind::InterBlock &&
+                   inter_edges_seen >= free_inter_edge_scan_cap)
+               {
+                  if (detail_stats)
+                     stats.special_free_inter_edges_cap_skipped++;
+                  continue;
+               }
+               if (edge.kind == SpecialEdgeKind::InterBlock)
+                  ++inter_edges_seen;
+               if (detail_stats)
+               {
+                  stats.special_preexpand_edges_scanned++;
+                  stats.special_edges_scanned++;
+                  if (heavy)
+                     stats.special_heavy_edges_scanned++;
+                  if (edge.kind == SpecialEdgeKind::InterBlock)
+                     stats.special_inter_edges_scanned++;
+                  else
+                     stats.special_intra_edges_scanned++;
+               }
+               if (visit_neighbor(edge.target_point_id, true, true) && detail_stats)
+               {
+                  stats.special_preexpand_edges_accepted++;
+                  stats.special_edges_accepted++;
+                  if (heavy)
+                     stats.special_heavy_edges_accepted++;
+               }
+            }
          };
 
-         if (cur.free)
-            stats.special_free_nodes_expanded++;
-         else
-            stats.special_regular_nodes_expanded++;
+         std::vector<IdxType> preexpanded_seed_ids;
+         preexpanded_seed_ids.reserve(block_seed_candidates.size());
+         std::vector<SpecialSearchCandidate> preexpand_candidates = block_seed_candidates;
+         std::sort(preexpand_candidates.begin(), preexpand_candidates.end(), special_candidate_less);
+         std::vector<size_t> preexpanded_by_block(
+             preexpand_per_block_enabled ? _special_blocks.size() + 1 : 0, 0);
+         for (const SpecialSearchCandidate &seed : preexpand_candidates)
+         {
+            const IdxType block_id =
+                seed.id < _point_to_special_block.size()
+                    ? _point_to_special_block[seed.id]
+                    : 0;
+            if (preexpand_per_block_enabled && block_id > 0 &&
+                block_id < preexpanded_by_block.size())
+            {
+               if (preexpanded_by_block[block_id] >= preexpand_per_block)
+                  continue;
+               preexpanded_by_block[block_id]++;
+            }
+            preexpanded_seed_ids.push_back(seed.id);
+            stats.special_block_seed_points_preexpanded++;
+            if (block_id > 0)
+            {
+               if (block_id < searched_blocks.size() &&
+                   searched_blocks[block_id] == 0)
+               {
+                  searched_blocks[block_id] = 1;
+                  stats.special_blocks_searched++;
+               }
+            }
+            if (detail_stats)
+               stats.special_free_nodes_expanded++;
+            size_t preexpand_inter_edges_seen = 0;
+            preexpand_edges(special_edges_for_point(seed.id), false,
+                            preexpand_inter_edges_seen);
+            if (stats.special_heavy_edges_enabled)
+               preexpand_edges(special_heavy_edges_for_point(seed.id), true,
+                               preexpand_inter_edges_seen);
+         }
+         std::sort(preexpanded_seed_ids.begin(), preexpanded_seed_ids.end());
+         candidate_queue.mark_expanded_ids(preexpanded_seed_ids);
+         if (profile_timing)
+            stats.special_preexpand_time_ms = elapsed_ms(preexpand_time_start);
+      }
+      const size_t early_stop_min_nodes = static_cast<size_t>(std::max<IdxType>(runtime.K, runtime.Lsearch));
+      while (candidate_queue.has_unexpanded())
+      {
+         const bool can_consider_early_stop =
+             runtime.K > 0 && candidate_queue.size() >= static_cast<size_t>(runtime.K);
+         float best_unexpanded = 0.0f;
+         float second_unexpanded = 0.0f;
+         if (runtime.special_block_early_stop && can_consider_early_stop &&
+             candidate_queue.peek_two_unexpanded(best_unexpanded, second_unexpanded) &&
+             should_stop_special_block_search(runtime.special_block_early_stop,
+                                              candidate_queue.size(),
+                                              runtime.K,
+                                              best_unexpanded,
+                                              second_unexpanded,
+                                              candidate_queue.kth_distance(),
+                                              stats.num_nodes_visited,
+                                              early_stop_min_nodes))
+            break;
+
+         SpecialSearchCandidate cur;
+         if (!candidate_queue.pop_closest_unexpanded(cur))
+            break;
+
+         if (cur.free && cur.id < _point_to_special_block.size())
+         {
+            const IdxType block_id = _point_to_special_block[cur.id];
+            if (block_id > 0 && block_id < searched_blocks.size() &&
+                searched_blocks[block_id] == 0)
+            {
+               searched_blocks[block_id] = 1;
+               stats.special_blocks_searched++;
+            }
+         }
+
+         auto activate_trie_block_portal = [&](IdxType member_point) {
+            if (!trie_block_portals || member_point >= _point_to_special_block.size())
+               return;
+            stats.special_trie_block_portals_scanned++;
+            const IdxType block_id = _point_to_special_block[member_point];
+            if (block_id == 0 || block_id > _special_blocks.size() ||
+                block_id >= query_free_block.size() || query_free_block[block_id] == 0)
+               return;
+            const IdxType entry_point = _special_blocks[block_id - 1].entry_point_id;
+            if (entry_point != SpecialBlock::kInvalidEntryPoint &&
+                entry_point < _num_points && visit_neighbor(entry_point, true, cur.free))
+               stats.special_trie_block_portals_accepted++;
+         };
+
+         if (detail_stats)
+         {
+            if (cur.free)
+               stats.special_free_nodes_expanded++;
+            else
+               stats.special_regular_nodes_expanded++;
+         }
 
          if (cur.free)
          {
-            if (cur.id < _special_edges_by_point.size())
+            bool scan_free_edges = true;
+            IdxType current_free_block = 0;
+            size_t block_insertions_before = queue_insertions_total;
+            if (cur.id < _point_to_special_block.size())
+               current_free_block = _point_to_special_block[cur.id];
+            if (free_block_stall_limit > 0 && current_free_block > 0 &&
+                current_free_block < free_block_paused.size() &&
+                free_block_paused[current_free_block] != 0)
+               scan_free_edges = false;
+            if (!free_nodes_expanded_by_block.empty() &&
+                current_free_block > 0)
             {
-               auto scan_special_edges = [&](const std::vector<SpecialEdge> &edges, bool heavy) {
+               const IdxType block_id = current_free_block;
+               if (block_id > 0 && block_id < free_nodes_expanded_by_block.size())
+               {
+                  if (free_nodes_expanded_by_block[block_id] >=
+                      free_node_expansions_per_block)
+                  {
+                     scan_free_edges = false;
+                     if (detail_stats)
+                        stats.special_free_node_cap_skipped++;
+                  }
+                  else
+                  {
+                     free_nodes_expanded_by_block[block_id]++;
+                  }
+               }
+            }
+            if (scan_free_edges)
+            {
+               const bool cap_high_fanout_block =
+                   free_inter_edge_cap_min_child_blocks == 0 ||
+                   (current_free_block > 0 &&
+                    current_free_block <= _special_blocks.size() &&
+                    _special_blocks[current_free_block - 1].child_block_ids.size() >=
+                        free_inter_edge_cap_min_child_blocks);
+               const size_t active_inter_edge_scan_cap =
+                   cap_high_fanout_block
+                       ? free_inter_edge_scan_cap
+                       : std::numeric_limits<size_t>::max();
+               const size_t active_inter_edge_per_block_cap =
+                   cap_high_fanout_block
+                       ? free_inter_edge_per_block_cap
+                       : std::numeric_limits<size_t>::max();
+               size_t inter_edges_seen_for_node = 0;
+               inter_target_blocks_touched.clear();
+               auto scan_special_edges = [&](SpecialEdgeView edges, bool heavy) {
+                  if (edges.empty())
+                     return;
                   std::chrono::high_resolution_clock::time_point special_edges_time_start;
                   if (profile_timing)
                      special_edges_time_start = std::chrono::high_resolution_clock::now();
-                  for (const SpecialEdge &edge : edges)
-                  {
-                     stats.special_edges_scanned++;
-                     if (heavy)
-                        stats.special_heavy_edges_scanned++;
-                     if (edge.kind == SpecialEdgeKind::InterBlock)
-                        stats.special_inter_edges_scanned++;
-                     else
-                        stats.special_intra_edges_scanned++;
-                     if (visit_neighbor(edge.target_point_id, true))
+                  auto &gpu_ids = search_cache->gpu_distance_ids;
+                  auto &gpu_distances = search_cache->gpu_distance_values;
+                  gpu_ids.clear();
+                  const bool try_gpu_batch = gpu_free_distance && edges.size() >= gpu_free_distance_min;
+                  if (try_gpu_batch)
+                     gpu_ids.reserve(edges.size());
+                  auto process_edge_range = [&](size_t begin, size_t end) {
+                     for (size_t edge_idx = begin; edge_idx < end; ++edge_idx)
                      {
-                        stats.special_edges_accepted++;
-                        if (heavy)
-                           stats.special_heavy_edges_accepted++;
+                        const SpecialEdge edge = edges[edge_idx];
+                        if (edge.kind == SpecialEdgeKind::InterBlock &&
+                            inter_edges_seen_for_node >= active_inter_edge_scan_cap)
+                        {
+                           if (detail_stats)
+                              stats.special_free_inter_edges_cap_skipped++;
+                           continue;
+                        }
+                        if (edge.kind == SpecialEdgeKind::InterBlock &&
+                            !inter_edges_seen_by_target_block.empty())
+                        {
+                           const IdxType target_block =
+                               edge.target_point_id < _point_to_special_block.size()
+                                   ? _point_to_special_block[edge.target_point_id]
+                                   : 0;
+                           if (target_block > 0 &&
+                               target_block < inter_edges_seen_by_target_block.size())
+                           {
+                              size_t &target_count =
+                                  inter_edges_seen_by_target_block[target_block];
+                              if (target_count >= active_inter_edge_per_block_cap)
+                              {
+                                 if (detail_stats)
+                                    stats.special_free_inter_edges_cap_skipped++;
+                                 continue;
+                              }
+                              if (target_count == 0)
+                                 inter_target_blocks_touched.push_back(target_block);
+                              ++target_count;
+                           }
+                        }
+                        if (edge.kind == SpecialEdgeKind::InterBlock)
+                           ++inter_edges_seen_for_node;
+                        if (edge_idx + 1 < end)
+                           prefetch_point(edges[edge_idx + 1].target_point_id);
+                        if (detail_stats)
+                        {
+                           stats.special_edges_scanned++;
+                           if (heavy)
+                              stats.special_heavy_edges_scanned++;
+                           if (edge.kind == SpecialEdgeKind::InterBlock)
+                              stats.special_inter_edges_scanned++;
+                           else
+                              stats.special_intra_edges_scanned++;
+                        }
+                        const IdxType neighbor = edge.target_point_id;
+                        if (!try_gpu_batch)
+                        {
+                           if (visit_neighbor(
+                                   neighbor,
+                                   special_block_successor_is_free(cur.free, false),
+                                   cur.free))
+                           {
+                              if (detail_stats)
+                              {
+                                 stats.special_edges_accepted++;
+                                 if (heavy)
+                                    stats.special_heavy_edges_accepted++;
+                              }
+                           }
+                           continue;
+                        }
+                        if (neighbor >= _num_points || visited_free.check(neighbor))
+                           continue;
+                        visited_free.set(neighbor);
+                        gpu_ids.push_back(neighbor);
                      }
+                  };
+
+                  if (free_intra_edge_scan_cap == std::numeric_limits<size_t>::max())
+                  {
+                     process_edge_range(0, edges.size());
+                  }
+                  else
+                  {
+                     // Construction appends every block-local edge before its inter-block edges.
+                     size_t intra_count = 0;
+                     while (intra_count < edges.size() &&
+                            edges[intra_count].kind == SpecialEdgeKind::IntraBlock)
+                        ++intra_count;
+                     const size_t intra_kept = std::min(intra_count, free_intra_edge_scan_cap);
+                     if (detail_stats)
+                        stats.special_free_edges_cap_skipped += intra_count - intra_kept;
+                     process_edge_range(0, intra_kept);
+                     process_edge_range(intra_count, edges.size());
+                  }
+                  if (try_gpu_batch && !gpu_ids.empty())
+                  {
+                     gpu_distances.resize(gpu_ids.size());
+                     const bool gpu_ok = gpu_l2_batch_compute_float(gpu_base_vectors, _num_points, dim,
+                                                                     gpu_query_vector, gpu_ids.data(),
+                                                                     gpu_ids.size(), gpu_distances.data());
+                     for (size_t batch_idx = 0; batch_idx < gpu_ids.size(); ++batch_idx)
+                     {
+                        const IdxType neighbor = gpu_ids[batch_idx];
+                        if (detail_stats)
+                           stats.special_free_candidates_inserted++;
+                        stats.num_nodes_visited++;
+                        insert_candidate(neighbor,
+                                         gpu_ok ? gpu_distances[batch_idx] : exact_distance(neighbor),
+                                         true);
+                        if (detail_stats)
+                           stats.special_free_distance_calcs++;
+                        comparisons++;
+                        if (detail_stats)
+                        {
+                           stats.special_edges_accepted++;
+                           if (heavy)
+                              stats.special_heavy_edges_accepted++;
+                        }
+                     }
+                     if (!gpu_ok)
+                        gpu_free_distance = false;
                   }
                   if (profile_timing)
                      stats.special_special_edges_time_ms += elapsed_ms(special_edges_time_start);
                };
-               scan_special_edges(_special_edges_by_point[cur.id], false);
-               if (stats.special_heavy_edges_enabled && cur.id < _special_heavy_edges_by_point.size())
-                  scan_special_edges(_special_heavy_edges_by_point[cur.id], true);
+               scan_special_edges(special_edges_for_point(cur.id), false);
+               if (stats.special_heavy_edges_enabled)
+                  scan_special_edges(special_heavy_edges_for_point(cur.id), true);
+               for (IdxType target_block : inter_target_blocks_touched)
+                  inter_edges_seen_by_target_block[target_block] = 0;
+            }
+            if (free_block_stall_limit > 0 && current_free_block > 0 &&
+                current_free_block < free_block_stall_counts.size())
+            {
+               if (!scan_free_edges || queue_insertions_total == block_insertions_before)
+               {
+                  size_t &stall_count = free_block_stall_counts[current_free_block];
+                  ++stall_count;
+                  if (stall_count >= free_block_stall_limit)
+                     free_block_paused[current_free_block] = 1;
+               }
+               else
+               {
+                  free_block_stall_counts[current_free_block] = 0;
+               }
             }
             if (!runtime.special_block_free_use_regular)
                continue;
@@ -562,18 +1326,60 @@ namespace ANNS
          if (profile_timing)
             regular_edges_time_start = std::chrono::high_resolution_clock::now();
          const GraphNeighborView neighbors = graph_backend.neighbors(cur.id);
-         for (size_t i = 0; i < neighbors.size; ++i)
+         auto process_regular_neighbor = [&](IdxType neighbor) {
+            if (detail_stats)
+               stats.special_regular_edges_scanned++;
+            const bool target_block_is_covered =
+                cur.free ? false : cached_point_is_free(neighbor);
+            const bool next_free = special_block_successor_is_free(
+                cur.free, target_block_is_covered);
+            const bool accepted = visit_neighbor(neighbor, next_free, cur.free);
+            if (accepted && !cur.free && next_free)
+               activate_trie_block_portal(neighbor);
+            if (accepted)
+               if (detail_stats)
+                  stats.special_regular_edges_accepted++;
+            return accepted;
+         };
+         size_t i = 0;
+         for (; i + 1 < neighbors.size; i += 2)
          {
-            stats.special_regular_edges_scanned++;
+            prefetch_point(neighbors.ids[i]);
+            prefetch_point(neighbors.ids[i + 1]);
+            if (i + 2 < neighbors.size)
+               prefetch_point(neighbors.ids[i + 2]);
+            const IdxType first = neighbors.ids[i];
+            const IdxType second = neighbors.ids[i + 1];
+            if (!trie_regular_search ||
+                special_trie_regular_main_edge_allowed(_new_vec_id_to_group_id, cur.id, first))
+               process_regular_neighbor(first);
+            else if (detail_stats)
+               stats.special_lng_cross_edges_skipped++;
+            if (!trie_regular_search ||
+                special_trie_regular_main_edge_allowed(_new_vec_id_to_group_id, cur.id, second))
+               process_regular_neighbor(second);
+            else if (detail_stats)
+               stats.special_lng_cross_edges_skipped++;
+         }
+         for (; i < neighbors.size; ++i)
+         {
+            prefetch_point(neighbors.ids[i]);
             const IdxType neighbor = neighbors.ids[i];
-            bool next_free = cur.free;
-            if (!next_free)
-               next_free = special_block_member_is_free(runtime.scenario,
-                                                        _point_to_special_block,
-                                                        neighbor,
-                                                        query_covers_block);
-            if (visit_neighbor(neighbor, next_free))
-               stats.special_regular_edges_accepted++;
+            if (!trie_regular_search ||
+                special_trie_regular_main_edge_allowed(_new_vec_id_to_group_id, cur.id, neighbor))
+               process_regular_neighbor(neighbor);
+            else if (detail_stats)
+               stats.special_lng_cross_edges_skipped++;
+         }
+         if (trie_regular_search)
+         {
+            for (IdxType neighbor : special_regular_edges_for_point(cur.id))
+            {
+               if (detail_stats)
+                  stats.special_trie_regular_edges_scanned++;
+               if (process_regular_neighbor(neighbor) && detail_stats)
+                  stats.special_trie_regular_edges_accepted++;
+            }
          }
          if (profile_timing)
             stats.special_regular_edges_time_ms += elapsed_ms(regular_edges_time_start);
@@ -588,8 +1394,33 @@ namespace ANNS
       if (profile_timing)
          result_time_start = std::chrono::high_resolution_clock::now();
       cur_result.clear();
-      for (const SpecialCandidate &candidate : queue)
-         cur_result.insert(candidate.id, candidate.distance);
+      std::vector<SpecialSearchCandidate> final_candidates = candidate_queue.sorted_results();
+      if (approx_dims == 0)
+      {
+         const size_t result_count = std::min<size_t>(static_cast<size_t>(runtime.K),
+                                                      final_candidates.size());
+         for (size_t i = 0; i < result_count; ++i)
+            cur_result.insert(final_candidates[i].id, final_candidates[i].distance);
+      }
+      else
+      {
+         std::vector<SpecialSearchCandidate> exact_candidates;
+         exact_candidates.reserve(final_candidates.size());
+         for (const SpecialSearchCandidate &candidate : final_candidates)
+            exact_candidates.push_back(
+                SpecialSearchCandidate{candidate.id, exact_distance(candidate.id), candidate.free});
+         const size_t result_count = std::min<size_t>(static_cast<size_t>(runtime.K), exact_candidates.size());
+         if (result_count < exact_candidates.size())
+         {
+            auto kth = exact_candidates.begin() + static_cast<std::ptrdiff_t>(result_count);
+            std::nth_element(exact_candidates.begin(), kth, exact_candidates.end(),
+                             special_candidate_less);
+            exact_candidates.resize(result_count);
+         }
+         std::sort(exact_candidates.begin(), exact_candidates.end(), special_candidate_less);
+         for (const SpecialSearchCandidate &candidate : exact_candidates)
+            cur_result.insert(candidate.id, candidate.distance);
+      }
       if (profile_timing)
          stats.special_result_time_ms = elapsed_ms(result_time_start);
       num_cmps[query_id] = comparisons;
@@ -598,6 +1429,14 @@ namespace ANNS
           std::chrono::duration<double, std::milli>(
               std::chrono::high_resolution_clock::now() - search_time_start_ms)
               .count();
+      stats.regular_edges_scanned = stats.special_regular_edges_scanned;
+      stats.free_edges_scanned = stats.special_edges_scanned;
+      for (IdxType point_id : free_state_touched)
+      {
+         if (point_id < free_state_cache.size())
+            free_state_cache[point_id] = 0;
+      }
+      free_state_touched.clear();
       return true;
    }
 
@@ -859,19 +1698,20 @@ namespace ANNS
 
          const IdxType block_id = cur.id < _point_to_special_block.size() ? _point_to_special_block[cur.id] : 0;
          if (has_block_space && block_id > 0 && block_id < selected_block.size() &&
-             selected_block[block_id] != 0 && cur.id < _special_edges_by_point.size())
+             selected_block[block_id] != 0)
          {
+            const auto special_edges = special_edges_for_point(cur.id);
             const bool budget_exhausted =
                 block_source_budget > 0 && block_source_expanded[block_id] >= block_source_budget;
             if (budget_exhausted)
             {
-               stats.favor_block_edge_scans_skipped += _special_edges_by_point[cur.id].size();
+               stats.favor_block_edge_scans_skipped += special_edges.size();
             }
             else
             {
                block_source_expanded[block_id]++;
                stats.favor_blocks_expanded++;
-               for (const SpecialEdge &edge : _special_edges_by_point[cur.id])
+               for (const SpecialEdge edge : special_edges)
                {
                   stats.special_edges_scanned++;
                   if (edge.kind == SpecialEdgeKind::InterBlock)

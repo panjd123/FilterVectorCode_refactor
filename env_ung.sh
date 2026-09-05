@@ -7,7 +7,10 @@ GRAPHDB_ROOT="$(cd "${UNG_REPO_ROOT}/.." && pwd)"
 export GRAPHDB_ROOT
 export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda}"
 export PATH="${GRAPHDB_ROOT}/bin:${CUDA_HOME}/bin:${PATH}"
-export LD_LIBRARY_PATH="${GRAPHDB_ROOT}/boost-local/lib:${GRAPHDB_ROOT}/openblas/lib:${GRAPHDB_ROOT}/zlib/lib:${UNG_REPO_ROOT}/UNG/codes/third_party/onnxruntime-linux-x64-1.16.3/lib:${CUDA_HOME}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+# UNG is compiled with the legacy libstdc++ ABI and must run with the
+# matching Boost build.  boost-local has the same SONAME but was built with
+# the C++11 ABI, so putting it first causes a runtime symbol-lookup failure.
+export LD_LIBRARY_PATH="${GRAPHDB_ROOT}/boost_1_89_0/lib:${GRAPHDB_ROOT}/openblas/lib:${GRAPHDB_ROOT}/zlib/lib:${UNG_REPO_ROOT}/UNG/codes/third_party/onnxruntime-linux-x64-1.16.3/lib:${CUDA_HOME}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
 export UNG_BUILD_DIR="${UNG_BUILD_DIR:-${UNG_REPO_ROOT}/build_ung_rel}"
 export UNG_DATA_ROOT="${UNG_DATA_ROOT:-${GRAPHDB_ROOT}/FilterVectorBenchData}"

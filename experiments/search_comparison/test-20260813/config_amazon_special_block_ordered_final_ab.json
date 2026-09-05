@@ -1,0 +1,143 @@
+{
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "selector_model_prefix": "/home/dev/graphdb/FilterVectorResult/SelectModels",
+  "search": {
+    "K": 10,
+    "num_repeats": 3,
+    "num_threads": 100,
+    "num_entry_points": 16,
+    "lsearch_values": [2000, 2250, 2500],
+    "lsearch_start": 2000,
+    "lsearch_end": 2500,
+    "lsearch_step": 250,
+    "efs_start": 10,
+    "efs_step_slow": 10,
+    "efs_step_fast": 10,
+    "lsearch_threshold": 2000
+  },
+  "datasets": [{"dataset": "Amazon", "query_task": "query_selected_recall_advantage"}],
+  "methods": [
+    {
+      "name": "special_trie_ordered_baseline_final_repeat3",
+      "index_name": "UNG_special_block_trie_regular",
+      "entry_group_provider": "special_block_trie",
+      "special_block_search": true,
+      "env": {
+        "UNG_SPECIAL_LIGHT_STATS": "0",
+        "UNG_SPECIAL_CANDIDATE_HEAP": null,
+        "UNG_SPECIAL_FREE_INTRA_EDGE_SCAN_CAP": null,
+        "UNG_SPECIAL_TRIE_TERMINAL_ONLY": "1",
+        "UNG_SPECIAL_TRIE_LEGACY_LNG_REGULAR": null,
+        "UNG_SPECIAL_TRIE_LAZY_BLOCK_ACTIVATION": null,
+        "UNG_SPECIAL_TRIE_BLOCK_PORTAL_MIN_LSEARCH": "5000",
+        "UNG_SPECIAL_TRIE_SEED_FREE_BLOCKS": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PER_BLOCK": "16",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_RETAIN_PER_BLOCK": "1",
+        "UNG_SPECIAL_TRIE_FRONTIER_BLOCK_SEEDS_RETAIN_PER_BLOCK": "8",
+        "UNG_SPECIAL_TRIE_PREEXPAND_BLOCK_SEEDS": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PREEXPAND_PER_BLOCK": "2",
+        "UNG_SPECIAL_TRIE_FREE_GROUP_ENTRY_CAP": "256",
+        "UNG_SPECIAL_TRIE_EXACT_GROUP_ENTRY_CAP": "16",
+        "UNG_SPECIAL_SEARCH_MODE": "free_state"
+      }
+    },
+    {
+      "name": "special_trie_ordered_intra_cap32_final_repeat3",
+      "index_name": "UNG_special_block_trie_regular",
+      "entry_group_provider": "special_block_trie",
+      "special_block_search": true,
+      "env": {
+        "UNG_SPECIAL_LIGHT_STATS": "0",
+        "UNG_SPECIAL_CANDIDATE_HEAP": null,
+        "UNG_SPECIAL_FREE_INTRA_EDGE_SCAN_CAP": "32",
+        "UNG_SPECIAL_TRIE_TERMINAL_ONLY": "1",
+        "UNG_SPECIAL_TRIE_LEGACY_LNG_REGULAR": null,
+        "UNG_SPECIAL_TRIE_LAZY_BLOCK_ACTIVATION": null,
+        "UNG_SPECIAL_TRIE_BLOCK_PORTAL_MIN_LSEARCH": "5000",
+        "UNG_SPECIAL_TRIE_SEED_FREE_BLOCKS": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PER_BLOCK": "16",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_RETAIN_PER_BLOCK": "1",
+        "UNG_SPECIAL_TRIE_FRONTIER_BLOCK_SEEDS_RETAIN_PER_BLOCK": "8",
+        "UNG_SPECIAL_TRIE_PREEXPAND_BLOCK_SEEDS": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PREEXPAND_PER_BLOCK": "2",
+        "UNG_SPECIAL_TRIE_FREE_GROUP_ENTRY_CAP": "256",
+        "UNG_SPECIAL_TRIE_EXACT_GROUP_ENTRY_CAP": "16",
+        "UNG_SPECIAL_SEARCH_MODE": "free_state"
+      }
+    },
+    {
+      "name": "special_trie_heap_intra_cap32_confirm_repeat3",
+      "index_name": "UNG_special_block_trie_regular",
+      "entry_group_provider": "special_block_trie",
+      "special_block_search": true,
+      "env": {
+        "UNG_SPECIAL_LIGHT_STATS": "0",
+        "UNG_SPECIAL_CANDIDATE_HEAP": "1",
+        "UNG_SPECIAL_FREE_INTRA_EDGE_SCAN_CAP": "32",
+        "UNG_SPECIAL_TRIE_TERMINAL_ONLY": "1",
+        "UNG_SPECIAL_TRIE_LEGACY_LNG_REGULAR": null,
+        "UNG_SPECIAL_TRIE_LAZY_BLOCK_ACTIVATION": null,
+        "UNG_SPECIAL_TRIE_BLOCK_PORTAL_MIN_LSEARCH": "5000",
+        "UNG_SPECIAL_TRIE_SEED_FREE_BLOCKS": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PER_BLOCK": "16",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_RETAIN_PER_BLOCK": "1",
+        "UNG_SPECIAL_TRIE_FRONTIER_BLOCK_SEEDS_RETAIN_PER_BLOCK": "8",
+        "UNG_SPECIAL_TRIE_PREEXPAND_BLOCK_SEEDS": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PREEXPAND_PER_BLOCK": "2",
+        "UNG_SPECIAL_TRIE_FREE_GROUP_ENTRY_CAP": "256",
+        "UNG_SPECIAL_TRIE_EXACT_GROUP_ENTRY_CAP": "16",
+        "UNG_SPECIAL_SEARCH_MODE": "free_state"
+      }
+    },
+    {
+      "name": "special_trie_ordered_intra_cap16_final_repeat3",
+      "index_name": "UNG_special_block_trie_regular",
+      "entry_group_provider": "special_block_trie",
+      "special_block_search": true,
+      "env": {
+        "UNG_SPECIAL_LIGHT_STATS": "0",
+        "UNG_SPECIAL_CANDIDATE_HEAP": null,
+        "UNG_SPECIAL_FREE_INTRA_EDGE_SCAN_CAP": "16",
+        "UNG_SPECIAL_TRIE_TERMINAL_ONLY": "1",
+        "UNG_SPECIAL_TRIE_LEGACY_LNG_REGULAR": null,
+        "UNG_SPECIAL_TRIE_LAZY_BLOCK_ACTIVATION": null,
+        "UNG_SPECIAL_TRIE_BLOCK_PORTAL_MIN_LSEARCH": "5000",
+        "UNG_SPECIAL_TRIE_SEED_FREE_BLOCKS": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PER_BLOCK": "16",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_RETAIN_PER_BLOCK": "1",
+        "UNG_SPECIAL_TRIE_FRONTIER_BLOCK_SEEDS_RETAIN_PER_BLOCK": "8",
+        "UNG_SPECIAL_TRIE_PREEXPAND_BLOCK_SEEDS": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PREEXPAND_PER_BLOCK": "2",
+        "UNG_SPECIAL_TRIE_FREE_GROUP_ENTRY_CAP": "256",
+        "UNG_SPECIAL_TRIE_EXACT_GROUP_ENTRY_CAP": "16",
+        "UNG_SPECIAL_SEARCH_MODE": "free_state"
+      }
+    },
+    {
+      "name": "special_trie_ordered_intra_cap24_final_repeat3",
+      "index_name": "UNG_special_block_trie_regular",
+      "entry_group_provider": "special_block_trie",
+      "special_block_search": true,
+      "env": {
+        "UNG_SPECIAL_LIGHT_STATS": "0",
+        "UNG_SPECIAL_CANDIDATE_HEAP": null,
+        "UNG_SPECIAL_FREE_INTRA_EDGE_SCAN_CAP": "24",
+        "UNG_SPECIAL_TRIE_TERMINAL_ONLY": "1",
+        "UNG_SPECIAL_TRIE_LEGACY_LNG_REGULAR": null,
+        "UNG_SPECIAL_TRIE_LAZY_BLOCK_ACTIVATION": null,
+        "UNG_SPECIAL_TRIE_BLOCK_PORTAL_MIN_LSEARCH": "5000",
+        "UNG_SPECIAL_TRIE_SEED_FREE_BLOCKS": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PER_BLOCK": "16",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_RETAIN_PER_BLOCK": "1",
+        "UNG_SPECIAL_TRIE_FRONTIER_BLOCK_SEEDS_RETAIN_PER_BLOCK": "8",
+        "UNG_SPECIAL_TRIE_PREEXPAND_BLOCK_SEEDS": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PREEXPAND_PER_BLOCK": "2",
+        "UNG_SPECIAL_TRIE_FREE_GROUP_ENTRY_CAP": "256",
+        "UNG_SPECIAL_TRIE_EXACT_GROUP_ENTRY_CAP": "16",
+        "UNG_SPECIAL_SEARCH_MODE": "free_state"
+      }
+    }
+  ]
+}

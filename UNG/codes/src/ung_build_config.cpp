@@ -35,6 +35,18 @@ std::string env_string(const char *key, const std::string &fallback)
    return (s && *s) ? std::string(s) : fallback;
 }
 
+uint64_t env_u64(const char *key, uint64_t fallback)
+{
+   const char *s = std::getenv(key);
+   if (!s || !*s)
+      return fallback;
+   char *end = nullptr;
+   unsigned long long v = std::strtoull(s, &end, 10);
+   if (end == s || *end != '\0')
+      return fallback;
+   return static_cast<uint64_t>(v);
+}
+
 UngBuildProfile profile_from_env()
 {
    std::string s = env_string("UNG_BUILD_PROFILE", "custom");
@@ -124,6 +136,14 @@ UngGpuTopkImpl gpu_topk_impl_from_int(int value)
    default:
       return UngGpuTopkImpl::Auto;
    }
+}
+
+UngSpecialBlockPartition special_block_partition_from_env()
+{
+   const std::string value = env_string("UNG_SPECIAL_BLOCK_PARTITION", "trie");
+   if (value == "lng" || value == "LNG")
+      return UngSpecialBlockPartition::Lng;
+   return UngSpecialBlockPartition::Trie;
 }
 
 void apply_profile_defaults(UngBuildConfig &cfg)
@@ -309,6 +329,18 @@ const char *to_string(UngGpuTopkImpl v)
    return "unknown";
 }
 
+const char *to_string(UngSpecialBlockPartition v)
+{
+   switch (v)
+   {
+   case UngSpecialBlockPartition::Trie:
+      return "trie";
+   case UngSpecialBlockPartition::Lng:
+      return "lng";
+   }
+   return "unknown";
+}
+
 UngBuildConfig UngBuildConfig::from_env(uint32_t build_threads)
 {
    UngBuildConfig cfg;
@@ -346,6 +378,7 @@ UngBuildConfig UngBuildConfig::from_env(uint32_t build_threads)
    cfg.tagore_iter = static_cast<uint32_t>(env_int("UNG_TAGORE_ITER", static_cast<int>(default_tagore_iter), 1, 1000));
    cfg.tagore_m = static_cast<uint32_t>(env_int("UNG_TAGORE_M", 64, 1, 1024));
    cfg.special_blocks_enabled = env_bool("UNG_SPECIAL_BLOCKS", false);
+   cfg.special_block_partition = special_block_partition_from_env();
    cfg.special_block_min_points =
        static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_MIN_POINTS", 100, 1, 1 << 30));
    cfg.special_block_max_degree =
@@ -354,16 +387,10 @@ UngBuildConfig UngBuildConfig::from_env(uint32_t build_threads)
        static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_NUM_CROSS_EDGES", 0, 0, 1 << 20));
    cfg.special_block_data_mode = env_string("UNG_SPECIAL_BLOCK_DATA_MODE", "");
    cfg.special_block_skip_trivial = env_bool("UNG_SPECIAL_BLOCK_SKIP_TRIVIAL", true);
-   if (cfg.special_blocks_enabled && cfg.special_block_data_mode != "x1")
-   {
-      std::cerr
-          << "UNG_SPECIAL_BLOCKS=1 is only valid for explicit x1/original datasets. "
-          << "Set UNG_SPECIAL_BLOCK_DATA_MODE=x1 after verifying the input is not a repeated xN dataset."
-          << std::endl;
-      throw std::runtime_error(
-          "UNG_SPECIAL_BLOCKS=1 is only valid for explicit x1/original datasets. "
-          "Set UNG_SPECIAL_BLOCK_DATA_MODE=x1 after verifying the input is not a repeated xN dataset.");
-   }
+   cfg.special_block_tree_mode = env_string("UNG_SPECIAL_BLOCK_TREE_MODE", "random");
+   if (cfg.special_block_tree_mode != "random" && cfg.special_block_tree_mode != "bfs")
+      cfg.special_block_tree_mode = "random";
+   cfg.special_block_tree_seed = env_u64("UNG_SPECIAL_BLOCK_TREE_SEED", 1);
    return cfg;
 }
 
@@ -385,9 +412,12 @@ void UngBuildConfig::print(std::ostream &os) const
       << "[UNG config] tagore_iter=" << tagore_iter << '\n'
       << "[UNG config] tagore_m=" << tagore_m << '\n'
       << "[UNG config] special_blocks_enabled=" << (special_blocks_enabled ? 1 : 0) << '\n'
+      << "[UNG config] special_block_partition=" << to_string(special_block_partition) << '\n'
       << "[UNG config] special_block_min_points=" << special_block_min_points << '\n'
       << "[UNG config] special_block_data_mode=" << special_block_data_mode << '\n'
-      << "[UNG config] special_block_skip_trivial=" << (special_block_skip_trivial ? 1 : 0) << std::endl;
+      << "[UNG config] special_block_skip_trivial=" << (special_block_skip_trivial ? 1 : 0) << '\n'
+      << "[UNG config] special_block_tree_mode=" << special_block_tree_mode << '\n'
+      << "[UNG config] special_block_tree_seed=" << special_block_tree_seed << std::endl;
 }
 
 } // namespace ANNS

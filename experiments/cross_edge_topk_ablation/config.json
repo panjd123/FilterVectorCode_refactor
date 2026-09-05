@@ -1,0 +1,255 @@
+{
+  "description": "Fair ablation for UNG cross-group edge construction. All ordinary variants keep the same non-cross-edge settings as experiments/cpu_special_blocks/config_ung.json; only cross-edge computation knobs differ.",
+  "run_command_template": "Materialize one variants[].config object as a standalone JSON file, then run: ./run_cpu_special_blocks_experiment.sh <that-config.json>",
+  "shared": {
+    "data_root": "/home/dev/graphdb/FilterVectorData",
+    "result_root": "/home/dev/graphdb/FilterVectorResult",
+    "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+    "output_layout": "index_by_dataset",
+    "datasets": [
+      "Reviews"
+    ],
+    "build": {
+      "data_type": "float",
+      "dist_fn": "L2",
+      "scenario": "general",
+      "num_threads": 60,
+      "max_degree": 32,
+      "Lbuild": 100,
+      "alpha": 1.2,
+      "num_cross_edges": 4
+    }
+  },
+  "variants": [
+    {
+      "name": "baseline_ung_hybrid_control",
+      "purpose": "Control run matching the legacy special-block hybrid LNG/descendants choices for cross-edge ablation baseline; only index/run name differs.",
+      "expected_log_signals": [
+        "[UNG config] lng_impl=legacy_allocating",
+        "[UNG config] descendants_impl=legacy_hash_bfs",
+        "[cross_edges] gpu_topk_impl=auto"
+      ],
+      "config": {
+        "run_name": "cross_edge_baseline_ung_hybrid_control",
+        "output_layout": "index_by_dataset",
+        "index_name": "UNG_cross_edge_baseline_hybrid_control",
+        "data_root": "/home/dev/graphdb/FilterVectorData",
+        "result_root": "/home/dev/graphdb/FilterVectorResult",
+        "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+        "datasets": [
+          "Reviews"
+        ],
+        "build": {
+          "data_type": "float",
+          "dist_fn": "L2",
+          "scenario": "general",
+          "num_threads": 60,
+          "max_degree": 32,
+          "Lbuild": 100,
+          "alpha": 1.2,
+          "num_cross_edges": 4
+        },
+        "ung_env": {
+          "UNG_LNG_IMPL": "1",
+          "UNG_DESCENDANTS_IMPL": "1"
+        }
+      }
+    },
+    {
+      "name": "ordinary_batch_matrix_sort",
+      "purpose": "Ordinary UNG cross-group edges. Same non-cross-edge settings as UNG__hybrid; cross-edge path uses batched SGEMM/topK baseline with fused descriptor kernels disabled.",
+      "expected_log_signals": [
+        "[UNG config] lng_impl=optimized_phase1",
+        "[UNG config] descendants_impl=optimized_epoch_bfs",
+        "[cross_edges] gpu_topk_impl=sgemm_topk",
+        "[PROF] cross_edges.bucket_group_fused enabled=0"
+      ],
+      "config": {
+        "run_name": "cross_edge_batch_matrix_sort",
+        "output_layout": "index_by_dataset",
+        "index_name": "UNG_cross_edge_batch_matrix_sort",
+        "data_root": "/home/dev/graphdb/FilterVectorData",
+        "result_root": "/home/dev/graphdb/FilterVectorResult",
+        "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+        "datasets": [
+          "Reviews"
+        ],
+        "build": {
+          "data_type": "float",
+          "dist_fn": "L2",
+          "scenario": "general",
+          "num_threads": 60,
+          "max_degree": 32,
+          "Lbuild": 100,
+          "alpha": 1.2,
+          "num_cross_edges": 4
+        },
+        "ung_env": {
+          "UNG_CROSS_EDGE_IMPL": "1",
+          "UNG_GPU_TOPK_IMPL": "2",
+          "UNG_GPU_DOUBLE_BUFFER": "0",
+          "UNG_UNIVERSAL_GPU": "0",
+          "UNG_GPU_X_STREAMING": "0",
+          "UNG_FORCE_CUSTOM_KERNEL": "0",
+          "UNG_GEMM_IMPL": "1",
+          "UNG_NAIVE_HEAVY_SGEMM": "1",
+          "UNG_NAIVE_HEAVY_NX": "1",
+          "UNG_NAIVE_HEAVY_NQ": "1",
+          "UNG_BUCKET_GROUP_FUSED": "0",
+          "UNG_SMALL_GROUP_FUSED": "0",
+          "UNG_MEDIUM_GROUP_FUSED": "0",
+          "UNG_LARGE_GROUP_FUSED": "0",
+          "UNG_DIRECT_QID_FUSED": "0",
+          "UNG_DIRECT_QID_ALL_FUSED": "0",
+          "UNG_GPU_GLOBAL_MERGE": "0",
+          "UNG_GPU_ID_ONLY_WRITEBACK": "0"
+        }
+      }
+    },
+    {
+      "name": "ordinary_batch_onchip_topk",
+      "purpose": "Ordinary UNG cross-group edges. Same non-cross-edge settings as UNG__hybrid; cross-edge path uses descriptor-batched fused kernels and on-chip top-k.",
+      "expected_log_signals": [
+        "[UNG config] lng_impl=optimized_phase1",
+        "[UNG config] descendants_impl=optimized_epoch_bfs",
+        "[cross_edges] gpu_topk_impl=fused_group_topk",
+        "[PROF] cross_edges.bucket_group_fused enabled=1",
+        "[PROF] cross_edges.id_only_writeback"
+      ],
+      "config": {
+        "run_name": "cross_edge_batch_onchip_topk",
+        "output_layout": "index_by_dataset",
+        "index_name": "UNG_cross_edge_batch_onchip_topk",
+        "data_root": "/home/dev/graphdb/FilterVectorData",
+        "result_root": "/home/dev/graphdb/FilterVectorResult",
+        "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+        "datasets": [
+          "Reviews"
+        ],
+        "build": {
+          "data_type": "float",
+          "dist_fn": "L2",
+          "scenario": "general",
+          "num_threads": 60,
+          "max_degree": 32,
+          "Lbuild": 100,
+          "alpha": 1.2,
+          "num_cross_edges": 4
+        },
+        "ung_env": {
+          "UNG_CROSS_EDGE_IMPL": "1",
+          "UNG_GPU_TOPK_IMPL": "3",
+          "UNG_GPU_DOUBLE_BUFFER": "0",
+          "UNG_UNIVERSAL_GPU": "0",
+          "UNG_GPU_X_STREAMING": "0",
+          "UNG_FORCE_CUSTOM_KERNEL": "1",
+          "UNG_GEMM_IMPL": "2",
+          "UNG_BUCKET_GROUP_FUSED": "1",
+          "UNG_SMALL_GROUP_FUSED": "1",
+          "UNG_SMALL_GROUP_MAX_NX": "8",
+          "UNG_MEDIUM_GROUP_FUSED": "1",
+          "UNG_MEDIUM_GROUP_MAX_NX": "4096",
+          "UNG_DIRECT_QID_FUSED": "1",
+          "UNG_DIRECT_QID_ALL_FUSED": "1",
+          "UNG_GPU_GLOBAL_MERGE": "1",
+          "UNG_GPU_GLOBAL_MERGE_DIRECT": "1",
+          "UNG_GPU_ID_ONLY_WRITEBACK": "1",
+          "UNG_NAIVE_HEAVY_SGEMM": "0",
+          "UNG_LARGE_GROUP_FUSED": "1",
+          "UNG_LARGE_GROUP_FUSED_MODE": "2",
+          "UNG_LARGE_GROUP_MIN_NX": "32",
+          "UNG_LARGE_GROUP_MAX_NX": "128",
+          "UNG_LARGE_GROUP_WARPS": "4",
+          "UNG_TF32_GROUP_2D": "1"
+        }
+      }
+    },
+    {
+      "name": "special_blocks_gpu_inter_source_exact_topk",
+      "purpose": "special_blocks+UNG control. Enables GPU inter-block edge construction. This path batches source-block to child-block queries and uses source-exact/optional WMMA on-chip top-k; it is not the ordinary small/medium descriptor-bucket route.",
+      "expected_log_signals": [
+        "[special_edges][gpu_inter]",
+        "mode=cuda_core",
+        "queries=",
+        "segments="
+      ],
+      "config": {
+        "run_name": "special_blocks_gpu_inter_source_exact_topk",
+        "output_layout": "index_by_dataset",
+        "index_name": "UNG_special_blocks_gpu_inter_source_exact_topk",
+        "data_root": "/home/dev/graphdb/FilterVectorData",
+        "result_root": "/home/dev/graphdb/FilterVectorResult",
+        "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+        "datasets": [
+          "Reviews"
+        ],
+        "build": {
+          "data_type": "float",
+          "dist_fn": "L2",
+          "scenario": "general",
+          "num_threads": 60,
+          "max_degree": 32,
+          "Lbuild": 100,
+          "alpha": 1.2,
+          "num_cross_edges": 4
+        },
+        "ung_env": {
+          "UNG_CROSS_EDGE_IMPL": "1",
+          "UNG_GPU_TOPK_IMPL": "3",
+          "UNG_GPU_DOUBLE_BUFFER": "0",
+          "UNG_UNIVERSAL_GPU": "0",
+          "UNG_GPU_X_STREAMING": "0",
+          "UNG_FORCE_CUSTOM_KERNEL": "1",
+          "UNG_GEMM_IMPL": "2",
+          "UNG_BUCKET_GROUP_FUSED": "1",
+          "UNG_SMALL_GROUP_FUSED": "1",
+          "UNG_SMALL_GROUP_MAX_NX": "8",
+          "UNG_MEDIUM_GROUP_FUSED": "1",
+          "UNG_MEDIUM_GROUP_MAX_NX": "4096",
+          "UNG_DIRECT_QID_FUSED": "1",
+          "UNG_DIRECT_QID_ALL_FUSED": "1",
+          "UNG_GPU_GLOBAL_MERGE": "1",
+          "UNG_GPU_GLOBAL_MERGE_DIRECT": "1",
+          "UNG_GPU_ID_ONLY_WRITEBACK": "1",
+          "UNG_NAIVE_HEAVY_SGEMM": "0",
+          "UNG_LARGE_GROUP_FUSED": "1",
+          "UNG_LARGE_GROUP_FUSED_MODE": "2",
+          "UNG_LARGE_GROUP_MIN_NX": "32",
+          "UNG_LARGE_GROUP_MAX_NX": "128",
+          "UNG_LARGE_GROUP_WARPS": "4",
+          "UNG_TF32_GROUP_2D": "1",
+          "UNG_SPECIAL_BLOCKS": "1",
+          "UNG_SPECIAL_BLOCK_DATA_MODE": "x1",
+          "UNG_SPECIAL_BLOCK_SKIP_TRIVIAL": "1",
+          "UNG_SPECIAL_BLOCK_MIN_POINTS": "1000",
+          "UNG_SPECIAL_INTRA_COMPLETE_NX": "1024",
+          "UNG_SPECIAL_INTRA_EXACT_TOPK": "1",
+          "UNG_SPECIAL_INTRA_BOUNDED_COMPLETE": "1",
+          "UNG_SPECIAL_BLOCK_GPU_INTER": "1",
+          "UNG_SPECIAL_GPU_INTER_WMMA": "0",
+          "UNG_SPECIAL_GPU_INTER_WARPS": "2",
+          "UNG_SPECIAL_INTER_MAX_PAIR_WORK": "0",
+          "UNG_SPECIAL_BLOCK_MAX_DEGREE": "128",
+          "UNG_SPECIAL_BLOCK_NUM_CROSS_EDGES": "10"
+        },
+        "index_name_params": [
+          {
+            "source": "env",
+            "key": "UNG_SPECIAL_BLOCK_MAX_DEGREE",
+            "label": "bdeg"
+          },
+          {
+            "source": "env",
+            "key": "UNG_SPECIAL_BLOCK_NUM_CROSS_EDGES",
+            "label": "bcross"
+          },
+          {
+            "source": "env",
+            "key": "UNG_SPECIAL_BLOCK_GPU_INTER",
+            "label": "gpuinter"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -14,6 +14,32 @@
 namespace ANNS
 {
 
+   bool ung_env_flag_enabled(const char *name)
+   {
+      const char *value = std::getenv(name);
+      if (value == nullptr)
+         return false;
+      return !(value[0] == '0' || value[0] == 'f' || value[0] == 'F' ||
+               value[0] == 'n' || value[0] == 'N' || value[0] == 'o' || value[0] == 'O');
+   }
+
+   bool should_stop_special_block_search(bool enabled,
+                                         size_t result_size,
+                                         IdxType k,
+                                         float best_unexpanded_distance,
+                                         float second_best_unexpanded_distance,
+                                         float worst_result_distance,
+                                         size_t nodes_visited,
+                                         size_t min_nodes_visited)
+   {
+      if (!enabled || k == 0 || result_size < static_cast<size_t>(k))
+         return false;
+      if (nodes_visited < min_nodes_visited)
+         return false;
+      return best_unexpanded_distance > worst_result_distance &&
+             second_best_unexpanded_distance > worst_result_distance;
+   }
+
    const char *search_graph_backend_impl_name(SearchGraphBackendImpl impl)
    {
       switch (impl)
@@ -55,7 +81,8 @@ namespace ANNS
                                                    int lsearch_threshold,
                                                    int force_use_alg,
                                                    EntryGroupProviderImpl entry_group_provider,
-                                                   SearchGraphBackendImpl graph_backend)
+                                                   SearchGraphBackendImpl graph_backend,
+                                                   size_t scalar_els_cap)
    {
       SearchRuntimeConfig runtime;
       runtime.num_threads = num_threads;
@@ -70,7 +97,20 @@ namespace ANNS
       runtime.bfs_filter = bfs_filter;
       runtime.entry_group_provider = entry_group_provider;
       runtime.graph_backend = graph_backend;
-      runtime.special_block_search = std::getenv("UNG_SPECIAL_BLOCK_SEARCH") != nullptr;
+      runtime.scalar_els_cap = scalar_els_cap;
+      runtime.special_block_search = ung_env_flag_enabled("UNG_SPECIAL_BLOCK_SEARCH");
+      runtime.special_block_early_stop = ung_env_flag_enabled("UNG_SPECIAL_EARLY_STOP");
+      runtime.special_light_stats = true;
+      if (const char *value = std::getenv("UNG_SPECIAL_LIGHT_STATS"))
+      {
+         runtime.special_light_stats = !(value[0] == '0' || value[0] == 'f' || value[0] == 'F' ||
+                                         value[0] == 'n' || value[0] == 'N' || value[0] == 'o' || value[0] == 'O');
+      }
+      if (const char *value = std::getenv("UNG_SPECIAL_PREFETCH"))
+      {
+         runtime.special_block_prefetch = !(value[0] == '0' || value[0] == 'f' || value[0] == 'F' ||
+                                            value[0] == 'n' || value[0] == 'N' || value[0] == 'o' || value[0] == 'O');
+      }
       if (const char *value = std::getenv("UNG_SPECIAL_SEARCH_MODE"))
       {
          const std::string mode(value);
@@ -82,8 +122,8 @@ namespace ANNS
             throw std::invalid_argument("Invalid UNG_SPECIAL_SEARCH_MODE: " + mode +
                                         " (expected free_state or favor_blocks)");
       }
-      runtime.special_block_free_use_regular = std::getenv("UNG_SPECIAL_BLOCK_FREE_USE_REGULAR") != nullptr;
-      runtime.special_heavy_edge_search = std::getenv("UNG_SPECIAL_HEAVY_EDGE_SEARCH") != nullptr;
+      runtime.special_block_free_use_regular = ung_env_flag_enabled("UNG_SPECIAL_BLOCK_FREE_USE_REGULAR");
+      runtime.special_heavy_edge_search = ung_env_flag_enabled("UNG_SPECIAL_HEAVY_EDGE_SEARCH");
       if (const char *value = std::getenv("UNG_SPECIAL_HEAVY_EDGE_MIN_QUERY_SIZE"))
          runtime.special_heavy_edge_min_query_size = static_cast<size_t>(std::strtoull(value, nullptr, 10));
       if (const char *value = std::getenv("UNG_SPECIAL_HEAVY_EDGE_MIN_MATCHED_POINTS"))
@@ -177,7 +217,13 @@ namespace ANNS
                     .count();
 
             auto idea2_flag_start_time = std::chrono::high_resolution_clock::now();
-            populate_entry_group_route_stats(entry_group_ids, stats);
+            // Route statistics are optional metadata.  They are not required
+            // to execute the graph search after entry_group_ids are known.
+            // Keep the selector path usable when the caller explicitly asks
+            // to skip the expensive descendants/coverage bitmap unions.
+            stats.num_entry_points = entry_group_ids.size();
+            if (!ung_env_flag_enabled("UNG_DISABLE_ENTRY_ROUTE_STATS"))
+               populate_entry_group_route_stats(entry_group_ids, stats);
 
             std::vector<float> idea2_features = calculate_idea2_features(stats);
             if (!idea2_features.empty() && _ung_acorn_selector != nullptr && force_use_alg == 0)

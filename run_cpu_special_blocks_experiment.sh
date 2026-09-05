@@ -34,7 +34,10 @@ try:
     for part in sys.argv[2].strip(".").split("."):
         if part:
             cur=cur[part]
-    print(cur)
+    if isinstance(cur, bool):
+        print("true" if cur else "false")
+    else:
+        print(cur)
 except Exception:
     pass' "${CONFIG_PATH}" "${expr}")"
   fi
@@ -132,10 +135,12 @@ DATA_ROOT="$(json_get_default '.data_root' '/home/dev/graphdb/FilterVectorData')
 RESULT_ROOT="$(json_get_default '.result_root' '/home/dev/graphdb/FilterVectorResult')"
 BUILD_DIR="$(json_get_default '.build_dir' "${SCRIPT_DIR}/build_ung_rel")"
 BUILD_BIN="${BUILD_DIR}/apps/build_UNG_index"
+BLOCK_BUILD_BIN="${BUILD_DIR}/apps/build_special_block_index"
 OUTPUT_LAYOUT="$(json_get_default '.output_layout' 'run_root')"
 INDEX_NAME_BASE="$(json_get_default '.index_name' 'UNG_special_blocks')"
 INDEX_NAME="${INDEX_NAME_BASE}$(json_index_name_suffix)"
 RUN_ROOT="${RESULT_ROOT}/${RUN_NAME}"
+BUILD_UNG_INDEX="$(json_get_default '.build_ung' 'true')"
 
 DATA_TYPE="$(json_get_default '.build.data_type' 'float')"
 DIST_FN="$(json_get_default '.build.dist_fn' 'L2')"
@@ -145,13 +150,27 @@ MAX_DEGREE="$(json_get_default '.build.max_degree' '32')"
 LBUILD="$(json_get_default '.build.Lbuild' '100')"
 ALPHA="$(json_get_default '.build.alpha' '1.2')"
 NUM_CROSS_EDGES="$(json_get_default '.build.num_cross_edges' '4')"
-
-
-if [ ! -x "${BUILD_BIN}" ]; then
-  log "build_UNG_index not found at ${BUILD_BIN}; building it now"
-  cmake -S "${SCRIPT_DIR}/UNG/codes" -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE=Release || exit $?
-  cmake --build "${BUILD_DIR}" -j"${BUILD_JOBS:-16}" --target build_UNG_index || exit $?
+BUILD_SPECIAL_BLOCKS="$(json_get_default '.ung_env.UNG_SPECIAL_BLOCKS' '0')"
+SPECIAL_MIN_POINTS="$(json_get_default '.ung_env.UNG_SPECIAL_BLOCK_MIN_POINTS' '100')"
+SPECIAL_MAX_DEGREE="$(json_get_default '.ung_env.UNG_SPECIAL_BLOCK_MAX_DEGREE' "${MAX_DEGREE}")"
+SPECIAL_NUM_CROSS_EDGES="$(json_get_default '.ung_env.UNG_SPECIAL_BLOCK_NUM_CROSS_EDGES' "${NUM_CROSS_EDGES}")"
+if [ "${SPECIAL_MAX_DEGREE}" = "0" ]; then
+  SPECIAL_MAX_DEGREE="${MAX_DEGREE}"
 fi
+if [ "${SPECIAL_NUM_CROSS_EDGES}" = "0" ]; then
+  SPECIAL_NUM_CROSS_EDGES="${NUM_CROSS_EDGES}"
+fi
+
+
+compile_build_ung_index() {
+  log "compiling required index builders before dataset builds"
+  cmake -S "${SCRIPT_DIR}/UNG/codes" -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE=Release || exit $?
+  if [ "${BUILD_UNG_INDEX}" = "true" ] || [ "${BUILD_UNG_INDEX}" = "1" ]; then
+    cmake --build "${BUILD_DIR}" -j"${BUILD_JOBS:-16}" --target build_UNG_index build_special_block_index search_UNG_index || exit $?
+  else
+    cmake --build "${BUILD_DIR}" -j"${BUILD_JOBS:-16}" --target build_special_block_index || exit $?
+  fi
+}
 
 export_env_from_config() {
   while IFS='=' read -r key value; do
@@ -172,7 +191,9 @@ build_dataset() {
     out_dir="${RUN_ROOT}/${dataset}"
   fi
   local index_dir="${out_dir}/index_files"
+  local block_index_dir="${out_dir}/block_index_files"
   local results_dir="${out_dir}/results"
+  local block_results_dir="${out_dir}/block_results"
   local others_dir="${out_dir}/others"
   local placeholder="${others_dir}/placeholder.txt"
   local base_bin="${data_dir}/${dataset}_base.bin"
@@ -180,7 +201,7 @@ build_dataset() {
   local label_info="${data_dir}/${dataset}_base_labels_info.log"
   local tree_roots="${data_dir}/tree_roots.txt"
 
-  mkdir -p "${index_dir}" "${results_dir}" "${others_dir}"
+  mkdir -p "${index_dir}" "${block_index_dir}" "${results_dir}" "${block_results_dir}" "${others_dir}"
   : > "${placeholder}"
 
   if [ ! -f "${base_bin}" ] || [ ! -f "${base_labels}" ]; then
@@ -192,6 +213,7 @@ build_dataset() {
   [ -f "${tree_roots}" ] || tree_roots="${placeholder}"
 
   export_env_from_config
+  unset UNG_SPECIAL_BLOCKS
 
   log "[${dataset}] build start"
   local start_ts
@@ -205,7 +227,9 @@ build_dataset() {
     time_bin="/bin/time"
   fi
 
-  if [ -n "${time_bin}" ]; then
+  local exit_code=0
+  if [ "${BUILD_UNG_INDEX}" = "true" ] || [ "${BUILD_UNG_INDEX}" = "1" ]; then
+    if [ -n "${time_bin}" ]; then
     "${time_bin}" -f 'wall_seconds=%e\nmax_rss_kb=%M\nexit_code=%x' -o "${others_dir}/time.txt" \
       "${BUILD_BIN}" \
         --data_type "${DATA_TYPE}" \
@@ -224,7 +248,8 @@ build_dataset() {
         --scenario "${SCENARIO}" \
         --dataset "${dataset}" \
       > "${others_dir}/build.log" 2>&1
-  else
+    exit_code=$?
+    else
     log "[${dataset}] external time command not found; using shell wall-clock timing; max_rss_kb will be empty"
     local cmd_start_ts
     cmd_start_ts="$(date +%s)"
@@ -249,13 +274,38 @@ build_dataset() {
     local cmd_end_ts
     cmd_end_ts="$(date +%s)"
     printf 'wall_seconds=%s\nmax_rss_kb=\nexit_code=%s\n' "$((cmd_end_ts - cmd_start_ts))" "${cmd_exit_code}" > "${others_dir}/time.txt"
-    return_code_for_build=${cmd_exit_code}
+      exit_code=${cmd_exit_code}
+    fi
+  else
+    log "[${dataset}] skipping UNG index build; block builder will reuse index data or fall back to dataset files"
+    printf 'wall_seconds=0\nmax_rss_kb=\nexit_code=0\n' > "${others_dir}/time.txt"
+    printf 'UNG index build skipped (build_ung=false); block builder will reuse index input when complete, otherwise use dataset fallback.\n' > "${others_dir}/build.log"
   fi
-  local exit_code=${return_code_for_build:-$?}
-  unset return_code_for_build
+
+  if [ "${exit_code}" -eq 0 ] && [ "${BUILD_SPECIAL_BLOCKS}" = "1" ]; then
+    log "[${dataset}] independent Trie block build start"
+    printf '\n--- Independent Trie block index build ---\n' >> "${others_dir}/build.log"
+    "${BLOCK_BUILD_BIN}" \
+      --ung_index_path_prefix "${index_dir}/" \
+      --base_bin_file "${base_bin}" \
+      --base_label_file "${base_labels}" \
+      --block_index_path_prefix "${block_index_dir}/" \
+      --result_path_prefix "${block_results_dir}/" \
+      --data_type "${DATA_TYPE}" \
+      --dist_fn "${DIST_FN}" \
+      --num_threads "${NUM_THREADS}" \
+      --min_points "${SPECIAL_MIN_POINTS}" \
+      --max_degree "${SPECIAL_MAX_DEGREE}" \
+      --num_cross_edges "${SPECIAL_NUM_CROSS_EDGES}" \
+      --Lbuild "${LBUILD}" \
+      --alpha "${ALPHA}" \
+      >> "${others_dir}/build.log" 2>&1
+    exit_code=$?
+  fi
   local end_ts
   end_ts="$(date +%s)"
   local wall_seconds=$((end_ts - start_ts))
+  printf 'pipeline_wall_seconds=%s\n' "${wall_seconds}" >> "${others_dir}/time.txt"
 
   if [ "${exit_code}" -eq 0 ]; then
     log "[${dataset}] build done in ${wall_seconds}s"
@@ -271,6 +321,8 @@ log "output layout: ${OUTPUT_LAYOUT}"
 if [ "${OUTPUT_LAYOUT}" = "index_by_dataset" ]; then
   log "index name: ${INDEX_NAME}"
 fi
+
+compile_build_ung_index
 
 overall=0
 while IFS= read -r dataset; do
