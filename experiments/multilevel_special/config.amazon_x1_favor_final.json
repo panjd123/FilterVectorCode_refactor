@@ -2,7 +2,7 @@
   "result_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/external_baselines/favor",
   "data_root": "/home/graphdb/FilterVectorData",
   "favor_source_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/FAVOR",
-  "favor_build_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/FAVOR/build",
+  "favor_build_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/FAVOR/build_local_glibc217",
   "auto_build_favor": false,
   "build": {"num_threads": 60, "M": 64, "ef_construction": 200},
   "search": {"K": 10, "num_repeats": 5, "num_threads": 100, "lsearch_start": 50, "lsearch_end": 20000, "lsearch_step": 50},
