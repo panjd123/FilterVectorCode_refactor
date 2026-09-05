@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-05 23:15 +0800`
+最后更新：`2026-09-06 00:40 +0800`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`80a955a`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
+检查点：`f53784b`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
 ## 目标
 
@@ -11,11 +11,11 @@
 ## 当前状态
 
 - 总体：`进行中`
-- 摘要：两层实现和 Amazon x1 四档 T2 overlay 均已验证；正确数据上的 18/18 粗网格查询 case 已完成。多层在 50%/75% 选择率显示明显潜力，25% 的逐 query 分析显示上层覆盖 query 的 Recall 提升被粗 L 网格掩盖；正在做 upper-off 严格消融和 dense-L 等 Recall 扫描。
+- 摘要：两层实现、Amazon x1 四档 T2 overlay、upper on/off、dense-L、7-repeat 正式候选和 15-repeat 低 L 稳定性实验均已完成。多层在高质量 50%/75% 查询上最高达到 4.936x/6.274x，25% 仅在最高质量点达到 1.220x、其余多为持平或减速。当前转入 NaviX/FAVOR/Curator 外部系统 baseline 的同数据复测。
 
 ## 进行中
 
-- 在同一 25k 索引上禁用 level 2，验证退化到 single 语义；随后对 single、10k、25k、50k 加密 L，寻找保守等 Recall 的最小实测时间。
+- 固定 Amazon x1 query/GT、K=10、100 threads 和 5 repeats，校验并运行 NaviX、FAVOR、Curator；结果单列为系统级比较，不冒充纯 overlay 消融。
 
 ## 完成历史
 
@@ -39,10 +39,13 @@
 - 查询 sweep 新增输入 provenance 校验和 content-addressed 只读搜索二进制快照，防止运行中重编译污染整轮结果；11 项 Python 单测通过 — 证据：`2ffcf3d`。
 - 正确 Amazon x1 初筛完成 18/18 case（plain/single/4k/10k/25k/50k × 25%/50%/75%），每点 3 repeats；统一验证和保守等 Recall 汇总通过 — 证据：`166fd06` 与 `runs/t2_query_screen_amazon_x1/summary/`。
 - gate probe 表明上层完整覆盖 query 比例为 26.0%/51.3%/77.3%（25%/50%/75% workload）；绝对 covered-points threshold 区分力有限。
+- upper on/off 消融、三档 dense-L、7-repeat 正式候选和 15-repeat 低 L 稳定性复测全部完成并通过 validator；所有主要 sweep 使用同一 immutable binary SHA-256 `83c0444f...35e3`。
+- 正式等 Recall 结果：25% 高质量点最高 1.220x，但中档存在减速；50% 在代表性中高质量目标为 1.620x--4.936x；75% 为 2.349x--6.274x。低 L Recall 完全稳定，wall time 有 100-thread 短任务调度长尾，主表使用 warm median/mean 并报告 CV。
+- fresh single 与多层中层 partition/trie 完全一致；中层 intra edges 相差 10,602/约 0.038%，来自并行建图非确定性，因此同索引 upper on/off 用于机制，fresh single vs multi 用于系统等 Recall。
 
 ## 下一步
 
-先完成 `upper_off_ablation_amazon_x1`；若 25k+level1 与 single 的 Recall/时间一致，再运行三份 dense-L 配置，并据保守等 Recall 前沿选最终复测点。
+先完成 NaviX 与 FAVOR 的 runner/binary/provenance dry-run 并启动 5-repeat 搜索；Curator 缺可用 Python 环境，需在隔离目录准备环境后从 Amazon x1 重建。随后审计 ACORN，最后统一生成系统级 Recall--时间表。
 
 ## 阻塞与问题
 
@@ -54,14 +57,17 @@
 - plain UNG 使用随机搜索路径，3 repeats 的 Recall 最大 spread 为 0.0029；所有等 Recall 结论需保留质量余量或在最终候选上增加 repeats，不能按 1e-4 差异排序。
 - 两次旧 T2 初筛分别因运行中重编译、instrumentation 条件误放而隔离在 `runs/quarantine/20260905T2218_binary_rebuild/` 和 `runs/quarantine/20260905T2225_instrumentation_bug/`；禁止用于结论。
 - `runs/quarantine/20260905T_current_label_mismatch/` 使用了错误的 21,834-label hybrid 主图；仅可作机制诊断，禁止用于 Recall/QPS 主张。
+- NaviX 隔离 build 目录目前只有 `search_UNG_index`，runner 要求的 build/GT/conversion 工具需补编译或显式指向已校验 snapshot。
+- Curator 当前未发现可直接使用且能 import `faiss` 的 `.venv_curator`；重建前必须先固定环境，不能复用 provenance 不完整的历史索引作强结论。
+- ACORN 目前只有历史 metadata，输入 hash 与独立可执行入口尚未确认，暂不进入主表。
 
 ## 验证
 
 - `ctest -R 'special_block_trie|special_block_free_state|special_candidate_queue|special_edge_io'` — `通过`：4/4。
 - `cmake --build build_ung_rel -j16 --target build_special_block_index search_UNG_index` — `通过`。
 - `git diff --check` — `通过`。
-- `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：18/18 case，L 网格和 3 repeats 完整。
-- `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py` — `通过`：11/11，含查询 provenance 与不可变二进制快照。
+- `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：dense/final/stability 所有 case 完整。
+- `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py` — `通过`：13/13，含 method-specific L、查询 provenance 与不可变二进制快照。
 
 ## 仅在需要时阅读的细节
 
@@ -72,7 +78,7 @@
 
 1. 先读本看板，再读当前进行中的实验状态文档。
 2. 运行 `git status --short`，不要暂存 `runs/`。
-3. 检查 `tmux` 会话 `t2_query_amazon_x1`、`runs/t2_query_screen_amazon_x1/manifest.json` 和 `driver.log`。
+3. 检查 `runs/external_baselines/`、外部 baseline 配置和实际运行进程；不要覆盖 `/home/graphdb/FilterVectorResult` 的共享索引或历史结果。
 4. 从“下一步”继续；新实测结果必须先写实验账本，再更新结论。
 
 ## 清理提示

@@ -1,0 +1,16 @@
+{
+  "result_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/external_baselines/favor",
+  "data_root": "/home/graphdb/FilterVectorData",
+  "favor_source_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/FAVOR",
+  "favor_build_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/FAVOR/build",
+  "auto_build_favor": false,
+  "build": {"num_threads": 60, "M": 64, "ef_construction": 200},
+  "search": {"K": 10, "num_repeats": 5, "num_threads": 100, "lsearch_start": 50, "lsearch_end": 20000, "lsearch_step": 50},
+  "ef_values": [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000],
+  "datasets": [
+    {"dataset": "Amazon", "query_task": "query_minlen2_avgsel25pct", "index_file": "/home/graphdb/FilterVectorResult/Amazon/index/FAVOR/index_files/index.bin", "label_schema_file": "/home/graphdb/FilterVectorResult/Amazon/index/FAVOR/index_files/index.bin.labels", "groundtruth_file": "/home/graphdb/FilterVectorResult/Amazon/GroundTruth/query_minlen2_avgsel25pct/Amazon_gt_labels_containment.bin"},
+    {"dataset": "Amazon", "query_task": "query_minlen1_avgsel50pct", "index_file": "/home/graphdb/FilterVectorResult/Amazon/index/FAVOR/index_files/index.bin", "label_schema_file": "/home/graphdb/FilterVectorResult/Amazon/index/FAVOR/index_files/index.bin.labels", "groundtruth_file": "/home/graphdb/FilterVectorResult/Amazon/GroundTruth/query_minlen1_avgsel50pct/Amazon_gt_labels_containment.bin"},
+    {"dataset": "Amazon", "query_task": "query_minlen1_avgsel75pct", "index_file": "/home/graphdb/FilterVectorResult/Amazon/index/FAVOR/index_files/index.bin", "label_schema_file": "/home/graphdb/FilterVectorResult/Amazon/index/FAVOR/index_files/index.bin.labels", "groundtruth_file": "/home/graphdb/FilterVectorResult/Amazon/GroundTruth/query_minlen1_avgsel75pct/Amazon_gt_labels_containment.bin"}
+  ],
+  "methods": [{"name": "favor", "index_name": "FAVOR"}]
+}

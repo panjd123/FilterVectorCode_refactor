@@ -41,29 +41,30 @@
 | ID | 类型 | 状态 | 描述 | 当前证据 | 下一步 |
 |---|---|---|---|---|---|
 | M1 | measurement | RESOLVED | 六档选择率统一结果已完成 | 18 case x 20 L x 3 repeats；验证器通过 | 保留初筛表，最终候选增加 repeats |
-| M2 | tuning | PARTIAL | 上层 T2 未证明全局最优 | 粗网格中 4k 从未全局最佳；10k/25k/50k 各在不同 Recall 区间占优 | 对后三档加密 L，再选最终候选 |
-| M3 | baseline | ACTIVE | 其他系统方法尚未统一数据与 Recall 口径 | 历史结果路径混杂 Amazon/Amazon_hybrid | 校验 index fingerprint 和 GT 后运行 |
+| M2 | tuning | RESOLVED | 四档 T2 已完成粗网格、dense-L 和正式候选比较 | 25k/50k 在不同 workload/质量区间占优；4k 不进入最终候选 | 如论文需要再做局部阈值敏感性，不影响当前结论 |
+| M3 | baseline | ACTIVE | 其他系统方法正在统一数据与 Recall 口径 | NaviX labels hash 与 x1 一致；FAVOR 构建日志绑定 x1；Curator/ACORN provenance 尚不充分 | 运行 NaviX/FAVOR，隔离重建 Curator，继续审计 ACORN |
 | M4 | correctness | RESOLVED | 多 level 候选重复占槽 | `368227e` 后 Recall 恢复 | 保留回归测试 |
 | M5 | compatibility | RESOLVED | loader 不接受 multilevel format | 格式白名单和 round-trip test | 保留回归测试 |
 | M6 | interpretation | RESOLVED | 同 L 慢是否否定多层 | 同 L Recall 更高；等 Recall 已有 1.124x--1.331x | 后续只按等 Recall主张 |
 | M7 | measurement | RESOLVED | plain UNG 的 CPU ELS warmup 曾被错误绑定到 Special Block 开关 | 修复后 CPU ELS 在计时前预热 156 ms；首个 L50 从 7.29 s 降到 264 ms，warm repeats 13.6--14.5 ms | 主表继续用 warm mean，并保留 all-repeat |
-| M8 | measurement | ACTIVE | 搜索线程池/工作区仍使每进程第一个 L 的 repeat 0 偏高 | 修复 ELS warmup 后，sel_0p5 L50 cold 264 ms、warm 约 14 ms | 初筛按 warm mean，最终复测增加独立 warmup 或丢弃 repeat 0 |
+| M8 | measurement | PARTIAL | 100-thread 极短任务仍有 wall-time 长尾 | 15 repeats 中 Recall 完全稳定，低 L 的 CV 可达 0.273；中高质量点明显更稳定 | 主结论报告 warm median/mean/CV，避免用单次低 L 时间 |
 | M9 | orchestration | RESOLVED | 旧系统异常的 `ps -o` 输出造成旧 driver 已退出的误判，两个 runner 曾短暂并发 | 进程树确认 PID 10039 在跑 sel_75、新 tmux 在跑 sel_50；已同时停止，并隔离受影响产物 | runner 增加 output-root 独占锁；只用重新单独运行的 sel_50/sel_75 |
-| M10 | measurement | PARTIAL | plain UNG Recall 跨 repeat 有随机波动 | 最大 spread 0.0029；single/multi 在该矩阵中为 0 | 等 Recall 保留质量 margin；最终点增加 repeats 并报告范围 |
-| M11 | algorithm | PARTIAL | 多层对 25% 整体粗网格暂慢、对 50%/75% 明显有利 | 保守粗网格：25% 为 0.80--0.92x；50% 多数 1.18--3.42x；75% 为 1.66--5.59x。逐 query 显示 25% 中完整覆盖上层的 26% query Recall 显著提升 | 加密 L，检验质量收益能否转化为更小 L |
+| M10 | measurement | RESOLVED | 最终候选需要增加 repeats 和质量余量 | 7-repeat 正式矩阵完成，汇总含 Recall margin、median speedup、L reduction | 主表同时给目标 Recall 与实际 Recall |
+| M11 | algorithm | RESOLVED | 多层是否在不同选择率有效 | 正式结果：25% 多数持平/减速、最高质量 1.220x；50% 最高 4.936x；75% 最高 6.274x | 如实报告适用区间，不筛掉负结果 |
 | M12 | measurement | REGRESSED | 历史 UNG 50% Recall 显著高于当前矩阵 | provenance 审计发现 query/GT 属于 30,723-label Amazon x1，而当前 overlay 主图仅 21,834 labels；query `{1}` 匹配点为 582,582 vs 290,684 | 废弃该 overlay 的 Recall 结论，在 30,723-label 主图重建 |
 | M13 | measurement | RESOLVED | T2 初筛曾受到运行中重编译和错误 instrumentation 条件影响 | 两轮结果已隔离；新 runner 把搜索程序复制为 content-addressed 只读快照并记录 SHA-256 | 只接受 `runs/t2_query_screen_amazon_x1` 且 hash 固定的结果 |
 | M14 | mechanism | PARTIAL | 需要证明上层不是只增加静态数据而未参与查询 | 10k、50% detail smoke：每查询平均覆盖 5.089 个上层 block、展开 52.207 个上层节点、扫描 2,834.590 条上层边、发生 46.101 次上层激活 | 最终候选另做不计入性能主表的 detail run，并报告分位数 |
 | M15 | provenance | RESOLVED | 所有核心 overlay 必须绑定主图 labels hash | 四档均通过 `new_to_old` 标签重排验证，绑定 602,453 points、482,387 groups 和 fingerprint `91d78580ae29f468` | 查询 runner 持续校验 hash/fingerprint |
-| M16 | ablation | ACTIVE | 需要证明同一多层索引关闭 level 2 后确实退化为 single，而非被静态上层边或 loader 改变 | 代码已有 `UNG_SPECIAL_MAX_ACTIVE_LEVEL=1`，尚缺同数据实测 | 运行 25k upper-off 与 single 配对消融 |
-| M17 | measurement | ACTIVE | 粗 L 网格会误判等 Recall 性能 | 50% 中 single L5k Recall 0.9183；25k L2k 已达 0.9124，但下一点直接跳到 L5k | 在关键区间使用 25--500 的小步长及 200--2000 的中步长 |
+| M16 | ablation | RESOLVED | 同一多层索引关闭 level 2 是否退化为单层语义 | upper on/off 完成；开启 level 2 对所有 workload/L 提升 Recall，证明上层真实参与 | 保留机制表，不与 fresh single 的系统时间混用 |
+| M17 | measurement | RESOLVED | 粗 L 网格会误判等 Recall 性能 | 三档 dense-L 和 method-specific validator 已完成 | 正式结论只用实测匹配点，不插值外推 |
+| M18 | provenance | ACTIVE | 外部系统索引与 GT 是否满足强比较要求 | NaviX 已有 labels hash；FAVOR 有 x1 构建日志；Curator/ACORN 尚缺完整输入 hash | 分系统校验或隔离重建，无法确认则降级为附录 |
 
 ## 当前假设
 
-- H1（中高置信）：多层收益主要来自以更小 L 达到相同 Recall，而非降低单次 expansion 成本。
-- H2（中高置信）：中高选择率更容易完整覆盖上层 block，因此多层收益更明显；极低选择率收益小或为负。六档 sweep 与 10k/50% activation counters 均支持该解释，仍需最终候选的多选择率分位数验证。
-- H3（待验证）：T2 太小会引入过多边和扫描开销，T2 太大则 block 太少、导航收益不足，存在 workload-dependent 中间最优值。
+- H1（高置信）：多层收益主要来自以更小 L 达到相同 Recall，而非降低同 L expansion 成本；正式矩阵中 L reduction 与 speedup 一致。
+- H2（高置信）：完整覆盖上层 block 的 query 比例随选择率由 26.0% 增至 51.3%/77.3%，解释了 25% 收益弱而 50%/75% 收益强。
+- H3（中高置信）：T2 存在 workload/质量相关最优点；小 T2 边多、扫描代价高，大 T2 block 少但跨越更远，当前 25k/50k 分别占优。
 
 ## 下一最小实验及判据
 
-先固定 25k overlay 并设置 `UNG_SPECIAL_MAX_ACTIVE_LEVEL=1`，与 single 做严格消融。若 Recall 在实验波动内一致且时间接近，则 M16 解决；随后仅对 10k/25k/50k 运行 dense-L。所有性能主张仍以 `recall_min` 达到 single 目标为准，不插值、不用同 L 替代等 Recall。
+先对 NaviX/FAVOR 做 runner 与输入 dry-run，判据是三档 query、统一 GT、K=10、100 threads、5 repeats 均被实际命令采用且输出在隔离目录。随后从 x1 重建 Curator；任何缺输入 provenance 或无法复现的系统只能放附录。内部多层性能主张继续以实测 Recall 不低于 single 目标为准，不插值、不用同 L 替代等 Recall。
