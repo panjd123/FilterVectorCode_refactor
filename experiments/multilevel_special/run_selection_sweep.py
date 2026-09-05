@@ -11,14 +11,95 @@ from __future__ import annotations
 import argparse
 import csv
 import fcntl
+import hashlib
 import json
 import os
 import shlex
+import shutil
 import struct
 import subprocess
 import time
 from pathlib import Path
 from typing import Any
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def parse_meta(path: Path) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for line in path.read_text().splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            result[key.strip()] = value.strip()
+    return result
+
+
+def snapshot_search_app(search_app: Path, output_root: Path) -> tuple[Path, str]:
+    """Use one immutable executable for the whole sweep.
+
+    Rebuilding the normal build-tree target while a sweep is active otherwise
+    changes semantics midway through an apparently valid manifest.
+    """
+    digest = sha256_file(search_app)
+    snapshot_dir = output_root / ".binary_snapshots"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    snapshot = snapshot_dir / f"search_UNG_index.{digest}"
+    if not snapshot.exists():
+        temporary = snapshot.with_suffix(".tmp")
+        shutil.copy2(search_app, temporary)
+        if sha256_file(temporary) != digest:
+            temporary.unlink(missing_ok=True)
+            raise RuntimeError("search binary changed while it was being snapshotted")
+        temporary.chmod(0o555)
+        temporary.replace(snapshot)
+    elif sha256_file(snapshot) != digest:
+        raise RuntimeError(f"corrupt search binary snapshot: {snapshot}")
+    return snapshot, digest
+
+
+def validate_provenance(config: dict[str, Any], method: dict[str, Any]) -> dict[str, str]:
+    main_dir = Path(config["main_index"])
+    base_labels = Path(config["data_root"]) / f"{config.get('dataset', 'Amazon')}_base_labels.txt"
+    required = [main_dir / "meta", main_dir / "labels.txt", base_labels]
+    missing = [str(path) for path in required if not path.is_file()]
+    if missing:
+        raise FileNotFoundError("missing provenance inputs:\n" + "\n".join(missing))
+    expected_hash = config.get("expected_base_labels_sha256")
+    base_hash = sha256_file(base_labels)
+    main_labels_hash = sha256_file(main_dir / "labels.txt")
+    if expected_hash and base_hash != expected_hash:
+        raise ValueError("configured base labels hash does not match the query dataset")
+    expected_main_hash = config.get("expected_main_index_labels_sha256")
+    if expected_main_hash and main_labels_hash != expected_main_hash:
+        raise ValueError("configured main-index labels hash does not match the source graph")
+    expected_fingerprint = config.get("expected_source_fingerprint")
+    block_index = method.get("block_index")
+    if block_index:
+        block_meta = parse_meta(Path(block_index) / "meta")
+        actual_fingerprint = block_meta.get("source_ung_fingerprint")
+        if expected_fingerprint and actual_fingerprint != expected_fingerprint:
+            raise ValueError(
+                f"block/main source fingerprint mismatch for {method['name']}: "
+                f"{actual_fingerprint} != {expected_fingerprint}"
+            )
+        main_meta = parse_meta(main_dir / "meta")
+        for key in ("num_points", "num_groups"):
+            if block_meta.get(key) != main_meta.get(key):
+                raise ValueError(
+                    f"block/main {key} mismatch for {method['name']}: "
+                    f"{block_meta.get(key)} != {main_meta.get(key)}"
+                )
+    return {
+        "base_labels_sha256": base_hash,
+        "main_index_labels_sha256": main_labels_hash,
+        "expected_source_fingerprint": str(expected_fingerprint or ""),
+    }
 
 
 def acquire_run_lock(output_root: Path):
@@ -196,6 +277,10 @@ def main() -> int:
     # Retain this handle until main returns; closing it releases the advisory
     # lock even after an exception or normal process exit.
     run_lock = acquire_run_lock(output_root)
+    source_search_app = Path(config["search_app"])
+    search_snapshot, search_binary_sha256 = snapshot_search_app(
+        source_search_app, output_root)
+    config["search_app"] = str(search_snapshot)
     manifest_path = output_root / "manifest.json"
     selected_methods = set(args.method)
     selected_workloads = set(args.workload)
@@ -209,6 +294,7 @@ def main() -> int:
             run_dir = output_dir(config, method, workload)
             values = [int(value) for value in method.get("lsearch_values", config["lsearch_values"])]
             num_queries = validate_case(config, method, workload)
+            provenance = validate_provenance(config, method)
             if result_is_complete(run_dir, values) and not args.force:
                 print(f"[SKIP] {method['name']}/{workload['name']} complete", flush=True)
                 continue
@@ -231,6 +317,9 @@ def main() -> int:
                 "status": "dry_run" if args.dry_run else "running",
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                 "run_dir": str(run_dir),
+                "provenance": provenance,
+                "source_search_app": str(source_search_app),
+                "search_binary_sha256": search_binary_sha256,
             }
             update_manifest(manifest_path, run_record)
             print(f"[RUN] {method['name']}/{workload['name']}", flush=True)

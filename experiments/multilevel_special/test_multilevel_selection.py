@@ -31,6 +31,42 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertTrue(run_selection_sweep.result_is_complete(root, [100, 200]))
             self.assertFalse(run_selection_sweep.result_is_complete(root, [100, 200, 300]))
 
+    def test_search_binary_snapshot_is_content_addressed_and_read_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            binary = root / "search"
+            binary.write_bytes(b"version-one")
+            snapshot, digest = run_selection_sweep.snapshot_search_app(binary, root / "out")
+            self.assertTrue(snapshot.name.endswith(digest))
+            self.assertEqual(snapshot.read_bytes(), b"version-one")
+            self.assertEqual(snapshot.stat().st_mode & 0o222, 0)
+            binary.write_bytes(b"version-two")
+            next_snapshot, next_digest = run_selection_sweep.snapshot_search_app(
+                binary, root / "out")
+            self.assertNotEqual(next_digest, digest)
+            self.assertNotEqual(next_snapshot, snapshot)
+
+    def test_query_provenance_rejects_wrong_block_fingerprint(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            main = root / "main"
+            block = root / "block"
+            data = root / "data"
+            main.mkdir()
+            block.mkdir()
+            data.mkdir()
+            (main / "meta").write_text("num_points=2\nnum_groups=2\n")
+            (main / "labels.txt").write_text("1\n2\n")
+            (data / "Amazon_base_labels.txt").write_text("1\n2\n")
+            (block / "meta").write_text(
+                "num_points=2\nnum_groups=2\nsource_ung_fingerprint=wrong\n"
+            )
+            config = {"main_index": str(main), "data_root": str(data),
+                      "dataset": "Amazon", "expected_source_fingerprint": "right"}
+            with self.assertRaisesRegex(ValueError, "fingerprint mismatch"):
+                run_selection_sweep.validate_provenance(
+                    config, {"name": "multi", "block_index": str(block)})
+
     def test_run_lock_rejects_a_second_runner_for_same_output(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
