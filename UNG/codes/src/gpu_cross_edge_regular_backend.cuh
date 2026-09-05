@@ -308,7 +308,7 @@ inline void log_cross_edge_regular_backend_profile(
     profile_summary.tf32_group_count = bucket_descs.tf32_group_descs.size();
     profile_summary.tf32_group_tile_count =
         bucket_descs.tf32_group_tile_offsets.empty()
-            ? 0zu
+            ? size_t{0}
             : (size_t)bucket_descs.tf32_group_tile_offsets.back();
     profile_summary.direct_qid_fused = route_cfg.direct_qid_fused;
     profile_summary.direct_qid_all_effective = direct_qid_all_effective;
