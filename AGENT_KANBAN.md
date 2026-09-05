@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-05`
+最后更新：`2026-09-05 21:14 +0800`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`2f41145`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
+检查点：`9dbf33b`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 启动 plain/single/multi 在六档选择率、L=50--20000 的核心初筛矩阵。
+- 从 `single_1k/sel_50` 断点恢复 plain/single/multi 六档选择率、L=50--20000 的核心初筛矩阵。
 
 ## 完成历史
 
@@ -26,10 +26,11 @@
 - 六档 workload 数据审计：实际平均选择率 0.499%、0.903%、9.907%、24.915%、49.971%、74.994%，每档 1000 queries，均已有精确 GT。
 - 已新增断点续跑 runner、manifest、warm/cold 分离、Pareto 与等 Recall 汇总器；单元测试 3/3 通过 — 证据：`bfdd685`。
 - 修复 plain UNG 的 CPU ELS warmup 条件并通过真实 sel_0p5 smoke；旧 7.29 s 首点已判为无效 — 证据：`e0c8c63`。
+- 核心 sweep 已完成 plain 六档及 single 前四档；`single_1k/sel_25` 的 CSV 完整，外层 driver 在进入下一 case 后退出，确认不是搜索程序失败。
 
 ## 下一步
 
-监控 18-case 核心矩阵；完成后生成 Pareto/等 Recall 表，据此决定 T2 参数扫描范围。
+用 detached `tmux` 从 CSV 完整性断点续跑剩余 8 case；完成后生成 Pareto/等 Recall 表，据此决定 T2 参数扫描范围。
 
 ## 阻塞与问题
 
@@ -37,6 +38,7 @@
 - 搜索进程第一个 L 的 repeat 0 仍有线程池/工作区冷启动，初筛主指标使用 repeats 1--2 的 warm mean；最终复测增加重复数。
 - 远端磁盘使用率 94%，尚余约 835 GB；实验产物必须限制在必要矩阵，不复制主向量数据。
 - `sunyahuia600-sunyahui` 未在本机配置；使用 `ssh -l sunyahui sunyahuia6000`。
+- 旧 PID 10039 已退出且 manifest 留有 `single_1k/sel_50=running`；runner 会按完整 CSV 重试该 case，后续长任务改由远端 detached `tmux` 托管。
 
 ## 验证
 
