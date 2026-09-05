@@ -28,6 +28,7 @@ void SpecialCandidateQueue::reset(size_t capacity, size_t top_k, bool use_heap)
    result_heap_.clear();
    expansion_heap_.clear();
    kth_scratch_.clear();
+   active_slot_by_id_.clear();
    result_heap_.reserve(capacity_);
    kth_scratch_.reserve(capacity_);
    ordered_.reserve(capacity_ + 1);
@@ -37,6 +38,7 @@ void SpecialCandidateQueue::add_slot(const SpecialSearchCandidate &candidate)
 {
    const uint32_t token = static_cast<uint32_t>(slots_.size());
    slots_.push_back(Slot{candidate, true, false});
+   active_slot_by_id_[candidate.id] = token;
 
    result_heap_.push_back(token);
    std::push_heap(result_heap_.begin(), result_heap_.end(), ResultHeapCompare{&slots_});
@@ -49,6 +51,22 @@ void SpecialCandidateQueue::initialize(std::vector<SpecialSearchCandidate> candi
 {
    if (capacity_ == 0)
       return;
+   std::unordered_map<IdxType, size_t> unique_index;
+   std::vector<SpecialSearchCandidate> unique_candidates;
+   unique_candidates.reserve(candidates.size());
+   for (const SpecialSearchCandidate &candidate : candidates)
+   {
+      const auto inserted = unique_index.emplace(candidate.id, unique_candidates.size());
+      if (inserted.second)
+      {
+         unique_candidates.push_back(candidate);
+         continue;
+      }
+      SpecialSearchCandidate &existing = unique_candidates[inserted.first->second];
+      existing.distance = std::min(existing.distance, candidate.distance);
+      existing.activation_level = std::max(existing.activation_level, candidate.activation_level);
+   }
+   candidates.swap(unique_candidates);
    if (candidates.size() > capacity_)
    {
       auto keep_end = candidates.begin() + static_cast<std::ptrdiff_t>(capacity_);
@@ -81,6 +99,19 @@ SpecialCandidateInsertResult SpecialCandidateQueue::insert(IdxType id,
 
    if (!use_heap_)
    {
+      for (size_t index = 0; index < ordered_.size(); ++index)
+      {
+         OrderedSlot &slot = ordered_[index];
+         if (slot.candidate.id != id)
+            continue;
+         if (activation_level <= slot.candidate.activation_level)
+            return SpecialCandidateInsertResult::BoundRejected;
+         slot.candidate.activation_level = activation_level;
+         slot.candidate.distance = std::min(slot.candidate.distance, distance);
+         slot.expanded = false;
+         ordered_cur_unexpanded_ = std::min(ordered_cur_unexpanded_, index);
+         return SpecialCandidateInsertResult::Inserted;
+      }
       if (ordered_.size() >= capacity_ &&
           special_candidate_less(ordered_.back().candidate, candidate))
          return SpecialCandidateInsertResult::BoundRejected;
@@ -105,6 +136,25 @@ SpecialCandidateInsertResult SpecialCandidateQueue::insert(IdxType id,
       return SpecialCandidateInsertResult::Inserted;
    }
 
+   const auto active_it = active_slot_by_id_.find(id);
+   if (active_it != active_slot_by_id_.end())
+   {
+      const uint32_t token = active_it->second;
+      Slot &slot = slots_[token];
+      if (activation_level <= slot.candidate.activation_level)
+         return SpecialCandidateInsertResult::BoundRejected;
+      slot.candidate.activation_level = activation_level;
+      slot.candidate.distance = std::min(slot.candidate.distance, distance);
+      if (slot.expanded)
+      {
+         slot.expanded = false;
+         expansion_heap_.push_back(token);
+      }
+      std::make_heap(result_heap_.begin(), result_heap_.end(), ResultHeapCompare{&slots_});
+      std::make_heap(expansion_heap_.begin(), expansion_heap_.end(), ExpansionHeapCompare{&slots_});
+      return SpecialCandidateInsertResult::Inserted;
+   }
+
    if (result_heap_.size() >= capacity_)
    {
       const uint32_t worst_token = result_heap_.front();
@@ -112,7 +162,11 @@ SpecialCandidateInsertResult SpecialCandidateQueue::insert(IdxType id,
          return SpecialCandidateInsertResult::BoundRejected;
 
       std::pop_heap(result_heap_.begin(), result_heap_.end(), ResultHeapCompare{&slots_});
-      slots_[result_heap_.back()].active = false;
+      const uint32_t evicted_token = result_heap_.back();
+      slots_[evicted_token].active = false;
+      const auto evicted_it = active_slot_by_id_.find(slots_[evicted_token].candidate.id);
+      if (evicted_it != active_slot_by_id_.end() && evicted_it->second == evicted_token)
+         active_slot_by_id_.erase(evicted_it);
       result_heap_.pop_back();
    }
 

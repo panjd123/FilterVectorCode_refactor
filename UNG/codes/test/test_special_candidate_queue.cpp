@@ -49,10 +49,10 @@ int main()
    queue.initialize({{10, 4.0f, false}, {7, 4.0f, true},
                      {8, 4.0f, true}, {8, 4.0f, false}});
    retained = queue.sorted_results();
-   expect(retained[0].id == 7 && retained[0].activation_level == 1 &&
-              retained[1].id == 8 && retained[1].activation_level == 0 &&
-              retained[2].id == 8 && retained[2].activation_level == 1 && retained[3].id == 10,
-          "equal distances must use id then activation-level tie ordering");
+   expect(retained.size() == 3 && retained[0].id == 7 &&
+              retained[1].id == 8 && retained[1].activation_level == 1 &&
+              retained[2].id == 10,
+          "initial candidates must be unique by point and retain the strongest activation");
 
    float first = 0.0f;
    float second = 0.0f;
@@ -67,10 +67,28 @@ int main()
    queue.reset(4, 2);
    queue.initialize({{4, 1.0f, 2}, {4, 1.0f, 1}, {4, 1.0f, 0}});
    retained = queue.sorted_results();
-   expect(retained[0].activation_level == 0 &&
-              retained[1].activation_level == 1 &&
-              retained[2].activation_level == 2,
-          "candidate queue must preserve distinct progressive activation states");
+   expect(retained.size() == 1 && retained[0].id == 4 &&
+              retained[0].activation_level == 2,
+          "candidate queue must collapse duplicate states to the strongest activation");
+   expect(queue.pop_closest_unexpanded(current) && current.activation_level == 2,
+          "the strongest initial state must remain expandable");
+   expect(queue.insert(4, 1.0f, 2) == ANNS::SpecialCandidateInsertResult::BoundRejected,
+          "an equal activation must not duplicate a point");
+
+   queue.reset(4, 2);
+   queue.initialize({{4, 1.0f, 1}, {9, 2.0f, 0}});
+   expect(queue.pop_closest_unexpanded(current) && current.id == 4 &&
+              current.activation_level == 1,
+          "middle state must expand before an upgrade");
+   expect(queue.insert(4, 1.0f, 2) == ANNS::SpecialCandidateInsertResult::Inserted,
+          "a higher overlay must upgrade an existing point");
+   expect(queue.pop_closest_unexpanded(current) && current.id == 4 &&
+              current.activation_level == 2,
+          "an upgraded point must become expandable again");
+   retained = queue.sorted_results();
+   expect(retained.size() == 2 && retained[0].id == 4 &&
+              retained[0].activation_level == 2,
+          "an activation upgrade must not consume another result slot");
 
    queue.reset(0, 0);
    expect(queue.insert(1, 1.0f, false) ==

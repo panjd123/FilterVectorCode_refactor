@@ -2166,8 +2166,7 @@ void UniNavGraph::load_special_block_index(const std::string &block_index_path_p
    const auto block_meta = parse_kv_file(prefix + "meta");
    const auto format_it = block_meta.find("index_format");
    if (format_it != block_meta.end() &&
-       format_it->second != "special_block_trie_v1" &&
-       format_it->second != "special_block_trie_v2")
+       !is_supported_special_block_index_format(format_it->second))
       throw std::runtime_error("unsupported special block index format: " + format_it->second);
    const auto points_it = block_meta.find("num_points");
    const auto groups_it = block_meta.find("num_groups");

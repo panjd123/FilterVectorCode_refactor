@@ -21,6 +21,12 @@ void expect(bool condition, const char *message)
 
 int main()
 {
+   expect(ANNS::is_supported_special_block_index_format("special_block_trie_v1") &&
+              ANNS::is_supported_special_block_index_format("special_block_trie_v2") &&
+              ANNS::is_supported_special_block_index_format("special_block_trie_multilevel_v1") &&
+              !ANNS::is_supported_special_block_index_format("special_block_trie_unknown"),
+          "loader format policy must accept legacy and multilevel indexes only");
+
    const auto root = std::filesystem::temp_directory_path() / "ung_special_edge_io_test";
    std::filesystem::create_directories(root);
    const auto csv = root / "edges.csv";

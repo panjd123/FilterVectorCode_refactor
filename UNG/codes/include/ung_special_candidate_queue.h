@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace ANNS
@@ -95,6 +96,10 @@ private:
    std::vector<uint32_t> result_heap_;
    std::vector<uint32_t> expansion_heap_;
    std::vector<float> kth_scratch_;
+   // A point may be reached through several overlay levels, but it must use
+   // only one result slot. Higher-level arrivals upgrade that slot and make
+   // it expandable again instead of consuming another unit of Lsearch.
+   std::unordered_map<IdxType, uint32_t> active_slot_by_id_;
 };
 
 } // namespace ANNS

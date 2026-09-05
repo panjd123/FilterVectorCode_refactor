@@ -13,6 +13,13 @@
 namespace ANNS
 {
 
+inline bool is_supported_special_block_index_format(const std::string &format)
+{
+   return format == "special_block_trie_v1" ||
+          format == "special_block_trie_v2" ||
+          format == "special_block_trie_multilevel_v1";
+}
+
 struct SpecialBlock
 {
    static constexpr IdxType kInvalidEntryPoint = std::numeric_limits<IdxType>::max();
