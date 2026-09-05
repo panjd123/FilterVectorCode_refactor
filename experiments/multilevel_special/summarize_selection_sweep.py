@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""Summarize fixed-L and equal-Recall results for a selection sweep."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import statistics
+from pathlib import Path
+from typing import Any
+
+
+def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    root = Path(config["output_root"])
+    workload_by_name = {item["name"]: item for item in config["workloads"]}
+    for method in config["methods"]:
+        for workload_name, workload in workload_by_name.items():
+            run_dir = root / method["name"] / workload_name
+            summary_path = run_dir / "search_time_summary.csv"
+            detail_path = run_dir / "search_time_details.csv"
+            if not summary_path.exists():
+                continue
+            detail_by_l: dict[int, list[dict[str, str]]] = {}
+            if detail_path.exists():
+                with detail_path.open(newline="") as stream:
+                    for detail in csv.DictReader(stream):
+                        detail_by_l.setdefault(int(detail["Lsearch"]), []).append(detail)
+            with summary_path.open(newline="") as stream:
+                for source in csv.DictReader(stream):
+                    lsearch = int(source["Lsearch"])
+                    detail = detail_by_l.get(lsearch, [])
+                    warm = [float(item["Time_ms"]) for item in detail if int(item["Repeat"]) > 0]
+                    all_times = [float(item["Time_ms"]) for item in detail]
+                    all_recall = [float(item["Avg_Recall"]) for item in detail]
+                    rows.append({
+                        "workload": workload_name,
+                        "query_dir": workload["query_dir"],
+                        "mean_selectivity": float(workload["mean_selectivity"]),
+                        "method": method["name"],
+                        "lsearch": lsearch,
+                        "recall": float(source["Average_Recall"]),
+                        "batch_ms_all": float(source["Average_Time_ms"]),
+                        "batch_ms_warm": statistics.mean(warm) if warm else float(source["Average_Time_ms"]),
+                        "batch_ms_min": min(all_times) if all_times else float(source["Average_Time_ms"]),
+                        "batch_ms_max": max(all_times) if all_times else float(source["Average_Time_ms"]),
+                        "recall_min": min(all_recall) if all_recall else float(source["Average_Recall"]),
+                        "recall_max": max(all_recall) if all_recall else float(source["Average_Recall"]),
+                        "summary_path": str(summary_path),
+                    })
+    return rows
+
+
+def pareto_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result = []
+    for row in rows:
+        dominated = any(
+            other["workload"] == row["workload"]
+            and other["method"] == row["method"]
+            and other["recall"] >= row["recall"]
+            and other["batch_ms_warm"] <= row["batch_ms_warm"]
+            and (other["recall"] > row["recall"] or other["batch_ms_warm"] < row["batch_ms_warm"])
+            for other in rows
+        )
+        if not dominated:
+            result.append(dict(row))
+    return result
+
+
+def equal_recall_rows(rows: list[dict[str, Any]], baseline: str, targets: list[float]) -> list[dict[str, Any]]:
+    output = []
+    workloads = sorted({row["workload"] for row in rows})
+    methods = sorted({row["method"] for row in rows})
+    for workload in workloads:
+        candidates = [row for row in rows if row["workload"] == workload]
+        for target in targets:
+            selected: dict[str, dict[str, Any]] = {}
+            for method in methods:
+                feasible = [row for row in candidates if row["method"] == method and row["recall"] >= target]
+                if feasible:
+                    selected[method] = min(feasible, key=lambda row: row["batch_ms_warm"])
+            base = selected.get(baseline)
+            for method, row in selected.items():
+                enriched = dict(row)
+                enriched["target_recall"] = target
+                enriched["baseline_method"] = baseline
+                enriched["speedup_vs_baseline"] = (
+                    base["batch_ms_warm"] / row["batch_ms_warm"] if base else ""
+                )
+                output.append(enriched)
+    return output
+
+
+def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not rows:
+        path.write_text("")
+        return
+    with path.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def write_markdown(path: Path, equal_rows: list[dict[str, Any]], baseline: str) -> None:
+    lines = ["# 多层 Special Block 选择率实验", "",
+             "主表使用 warm repeats 的离散实测点；每种方法选择达到目标 Recall 的最快配置，不做插值。", ""]
+    for workload in sorted({row["workload"] for row in equal_rows}):
+        subset = [row for row in equal_rows if row["workload"] == workload]
+        if not subset:
+            continue
+        lines.extend([f"## {workload}（平均选择率 {subset[0]['mean_selectivity']:.3%}）", "",
+                      f"Baseline: `{baseline}`", "",
+                      "| Recall target | 方法 | 实测 Recall | L | warm batch ms | 相对 baseline |",
+                      "|---:|---|---:|---:|---:|---:|"] )
+        for row in sorted(subset, key=lambda item: (item["target_recall"], item["method"])):
+            speedup = row["speedup_vs_baseline"]
+            speedup_text = f"{speedup:.3f}x" if isinstance(speedup, float) else "NA"
+            lines.append(
+                f"| {row['target_recall']:.3f} | {row['method']} | {row['recall']:.6f} | "
+                f"{row['lsearch']} | {row['batch_ms_warm']:.3f} | {speedup_text} |"
+            )
+        lines.append("")
+    path.write_text("\n".join(lines) + "\n")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("config", type=Path)
+    parser.add_argument("--baseline", default="single_1k")
+    parser.add_argument("--targets", nargs="*", type=float, default=[0.8, 0.9, 0.95, 0.98, 0.99])
+    args = parser.parse_args()
+    config = json.loads(args.config.read_text())
+    root = Path(config["output_root"]) / "summary"
+    rows = read_rows(config)
+    write_csv(root / "all_points.csv", rows)
+    write_csv(root / "pareto_points.csv", pareto_rows(rows))
+    equal = equal_recall_rows(rows, args.baseline, args.targets)
+    write_csv(root / "equal_recall.csv", equal)
+    write_markdown(root / "results.md", equal, args.baseline)
+    print(f"wrote {len(rows)} points to {root}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
