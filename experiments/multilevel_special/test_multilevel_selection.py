@@ -8,9 +8,23 @@ from pathlib import Path
 import run_selection_sweep
 import run_build_sweep
 import summarize_selection_sweep
+import validate_selection_sweep
 
 
 class SelectionSweepTest(unittest.TestCase):
+    def test_validator_uses_method_specific_lsearch_grid(self):
+        config = {"lsearch_values": [100]}
+        self.assertEqual(
+            validate_selection_sweep.expected_lsearch_values(
+                config, {"name": "single", "lsearch_values": [100, 500]}),
+            {100, 500},
+        )
+        self.assertEqual(
+            validate_selection_sweep.expected_lsearch_values(
+                config, {"name": "default"}),
+            {100},
+        )
+
     def test_clean_method_env_removes_inherited_special_settings(self):
         env = run_selection_sweep.clean_method_env(
             {"PATH": "/bin", "UNG_SPECIAL_BLOCK_SEARCH": "1",

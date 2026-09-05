@@ -10,13 +10,18 @@ import statistics
 from pathlib import Path
 
 
+def expected_lsearch_values(config: dict, method: dict) -> set[int]:
+    """Return the exact L grid used by the runner for one method."""
+    return {int(value) for value in method.get("lsearch_values",
+                                                config["lsearch_values"])}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
     root = Path(config["output_root"])
-    expected_l = {int(value) for value in config["lsearch_values"]}
     expected_repeats = int(config["num_repeats"])
     problems: list[str] = []
     expected_case_keys = {
@@ -25,6 +30,7 @@ def main() -> int:
     }
 
     for method in config["methods"]:
+        expected_l = expected_lsearch_values(config, method)
         for workload in config["workloads"]:
             name = f"{method['name']}/{workload['name']}"
             run_dir = root / method["name"] / workload["name"]
@@ -95,6 +101,12 @@ def main() -> int:
         if len(binary_hashes) != 1 or None in binary_hashes:
             problems.append(f"search binary hash mismatch: {sorted(str(x) for x in binary_hashes)}")
         for key, row in current.items():
+            method = next(item for item in config["methods"]
+                          if item["name"] == key[0])
+            expected_manifest_l = sorted(expected_lsearch_values(config, method))
+            actual_manifest_l = sorted(int(value) for value in row.get("lsearch_values", []))
+            if actual_manifest_l != expected_manifest_l:
+                problems.append(f"{key}: manifest L grid mismatch")
             provenance = row.get("provenance", {})
             if provenance.get("base_labels_sha256") != config.get("expected_base_labels_sha256"):
                 problems.append(f"{key}: base labels hash mismatch")
