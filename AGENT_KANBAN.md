@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-06 04:25 +0800`
+最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`8e21b83`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
+代码与实验 runner 检查点：`ca8fd41`；当前文档提交以 `git rev-parse HEAD` 为准（origin 指向用户的脏工作树，不直接 push）
 
 ## 目标
 
@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`进行中`
-- 摘要：两层实现和 Amazon x1 内部正式矩阵已完成。多层在高质量 50%/75% 查询上最高达到 4.936x/6.274x，25% 最高 1.220x。NaviX/FAVOR/Curator 的稳健统计已完成；官方 ACORN x1 adapter 与 filter correctness 修复已提交，ACORN-1/ACORN-gamma 两端配置均完成全量构建和查询，当前补 gamma=2/4/8，避免用单一 ACORN 配置作不公平结论。
+- 总体：`实现与正式实验完成，文档收尾`
+- 摘要：两层实现、Amazon x1 内部正式矩阵和 NaviX/FAVOR/Curator/官方 ACORN 对照均已完成。共同 Recall 门槛下，多层相对单层为 1.222x/1.530x/2.345x；单层最高质量附近为 1.222x/4.925x/6.290x。外部比较保留 FAVOR 三档更快等负结果。
 
 ## 进行中
 
-- 构建并测试官方 ACORN 的 gamma=2/4/8 中间配置；每档先跑 25%/50%/75% 三种 workload 的代表 efSearch，检查 Recall 上限、查询时间和 0 filter violations，再决定正式细扫范围。
+- 同步论文级多层报告、大方法文档、实验账本和 handoff；完成隔离分支 clean/diff/test/merge-back readiness 检查。
 
 ## 完成历史
 
@@ -40,7 +40,7 @@
 - 正确 Amazon x1 初筛完成 18/18 case（plain/single/4k/10k/25k/50k × 25%/50%/75%），每点 3 repeats；统一验证和保守等 Recall 汇总通过 — 证据：`166fd06` 与 `runs/t2_query_screen_amazon_x1/summary/`。
 - gate probe 表明上层完整覆盖 query 比例为 26.0%/51.3%/77.3%（25%/50%/75% workload）；绝对 covered-points threshold 区分力有限。
 - upper on/off 消融、三档 dense-L、7-repeat 正式候选和 15-repeat 低 L 稳定性复测全部完成并通过 validator；所有主要 sweep 使用同一 immutable binary SHA-256 `83c0444f...35e3`。
-- 正式等 Recall 结果：25% 高质量点最高 1.220x，但中档存在减速；50% 在代表性中高质量目标为 1.620x--4.936x；75% 为 2.349x--6.274x。低 L Recall 完全稳定，wall time 有 100-thread 短任务调度长尾，主表使用 warm median/mean 并报告 CV。
+- 正式等 Recall 结果（warm median）：共同门槛 25%/50%/75% 为 1.222x/1.530x/2.345x；单层最高质量附近为 1.222x/4.925x/6.290x。低 L Recall 完全稳定，wall time 有 100-thread 短任务调度长尾，主表同时报告 warm median/mean/CV。
 - fresh single 与多层中层 partition/trie 完全一致；中层 intra edges 相差 10,602/约 0.038%，来自并行建图非确定性，因此同索引 upper on/off 用于机制，fresh single vs multi 用于系统等 Recall。
 - NaviX/FAVOR 三档 x1、100 threads、5-repeat 粗网格已完成；FAVOR 50% 的 L200/L500 存在 15--18 秒调度长尾，后续统一报告 median/CV 与 raw repeats。
 - Curator 使用独立 `thirdparty/curator-v2` clone 和 Python 3.10/FAISS 1.7.4 环境从 602,453-point x1 重建：build 102.207 s、磁盘 2.046 GB、内存估计 2.184 GB；16-query smoke 的 320 个返回 ID 无 containment 违规。
@@ -48,24 +48,27 @@
 - 官方 ACORN 已固定到独立 clone commit `c259f11c`；确认 `IndexACORNFlat::search` 接受每 query 的显式 `filter_id_map`，语义上可表达 Amazon containment 合法集合，但项目尚无可直接运行的 x1 adapter。
 - 官方 ACORN Amazon x1 adapter 已完成，直接读取项目向量、label rows 和 GT，分解 lookup/materialize/search/total 时间；nested checkpoint `fb07f1d`。发现并修复官方 hybrid 初始 candidate 未检查 `filter_map` 的结果泄漏，补丁后三档正式矩阵均为 0 filter violations，Recall 不变。
 - ACORN-gamma（M=32, gamma=12, M_beta=32）全量构建 212.311 s，索引 2.081 GB；三档 ef=16--32768 完成，Recall 饱和于 0.8582/0.8165/0.8750（25%/50%/75%）。
-- ACORN-1（M=32, gamma=1, M_beta=64）全量构建 17.268 s，索引 2.130 GB；三档 ef=64--32768 完成，当前最高 Recall 0.9014/0.8563/0.8875。两端配置均未达到多层正式目标，因此不能在目标 Recall 下声称速度胜负，需补中间 gamma 调参。
+- ACORN-1（M=32, gamma=1, M_beta=64）全量构建 17.268 s，索引 2.130 GB；三档 ef=64--32768 完成，最高 Recall 0.9014/0.8563/0.8875。该质量上限只描述当前实测配置，不代表 ACORN 的理论上限。
+- ACORN gamma=2/4/8 中间配置已完成三档 workload 和 ef sweep；所有结果 0 filter violations。gamma 对 Recall 非单调，不能用更大 gamma 必然更好的假设选点。
+- ACORN-1 三个主表候选完成 1 warmup + 5 measured repeats；25% ef16384 为 R=.9011、8207.948 ms total，50% ef8192 为 R=.8531、3106.804 ms total，75% ef4096 为 R=.8716、2109.504 ms total。75% 最快达标 ACORN 点为 gamma12 ef2048：R=.8710、1148.216 ms total。
+- 跨系统主表使用共同 Recall 门槛 0.90/0.85/0.87，只选最快实测点，不插值、不外推；FAVOR 三档均领先，多层在 50%/75% 相对 NaviX/Curator 有优势。
 
 ## 下一步
 
-完成 gamma=2/4/8 的构建和代表预算 probe；选择 Pareto 最优变体补 5-repeat 正式细扫，然后生成跨系统同 Recall/质量上限主表并更新论文级方法文档、实验状态与 handoff。
+完成本轮文档提交和 merge-back readiness 检查。后续性能研究可让 GPU batch scratch 携带 activation level，恢复多层 batch path；任何优化仍必须重新跑相同 filtered-search Recall gate。
 
 ## 阻塞与问题
 
 - 原始 checkout 有大量未提交/未跟踪文件；禁止直接 merge 或覆盖。
 - 搜索进程第一个 L 的 repeat 0 仍有线程池/工作区冷启动，初筛主指标使用 repeats 1--2 的 warm mean；最终复测增加重复数。
 - 远端磁盘使用率 94%，尚余约 835 GB；实验产物必须限制在必要矩阵，不复制主向量数据。
-- `sunyahuia600-sunyahui` 本机别名未配置且跳板无法解析该名字；当前可用路由为 `ssh -J W300-pub sunyahui@10.77.110.170`。
+- `sunyahuia600-sunyahui` 本机别名未配置；当前可用路由为 `ssh sunyahui@sunyahuia6000-jump`。
 - 旧系统 `ps -o pid=,etime=,stat=,cmd=` 输出异常曾造成 PID 10039 已退出的误判；已停止两个 runner，并给 runner 增加 output-root 独占锁。受资源竞争影响的结果位于 `runs/quarantine/20260905T2119_contention/`，禁止进入汇总。
 - plain UNG 使用随机搜索路径，3 repeats 的 Recall 最大 spread 为 0.0029；所有等 Recall 结论需保留质量余量或在最终候选上增加 repeats，不能按 1e-4 差异排序。
 - 两次旧 T2 初筛分别因运行中重编译、instrumentation 条件误放而隔离在 `runs/quarantine/20260905T2218_binary_rebuild/` 和 `runs/quarantine/20260905T2225_instrumentation_bug/`；禁止用于结论。
 - `runs/quarantine/20260905T_current_label_mismatch/` 使用了错误的 21,834-label hybrid 主图；仅可作机制诊断，禁止用于 Recall/QPS 主张。
 - Curator 的小 `search_ef` 反而更慢在 raw-repeat median 与反向预算 profile 中仍存在；已定位到 `prepare_filter` 并发阶段，但尚未通过 barrier/precompute 实验证明具体争用机制。
-- ACORN-gamma 与 ACORN-1 在高 ef 下均出现 Recall 饱和且低于部分多层目标；在 gamma=2/4/8 调参完成前，不把该负结果泛化为整个 ACORN 方法的质量上限。
+- ACORN gamma=1/2/4/8/12 均已扫描；不同 gamma 的 Recall 非单调，主表只能表述当前实测 Pareto，不能泛化为方法理论上限。
 
 ## 验证
 

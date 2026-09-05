@@ -1,0 +1,28 @@
+comparison,workload,recall_threshold,method,variant,budget,recall,batch_median_ms,batch_mean_ms,cv,core_median_ms,repeats,timing_scope
+internal,sel_25,0.9000,Single,T1=1k,L20000,0.9057,6520.18,6511.293333333333,0.006963218176704132,,6,warm 1000-query batch excluding repeat 0
+internal,sel_25,0.9000,Multi,T1=1k_T2=25k,L16000,0.9062,5335.58,5336.661666666667,0.008542296245361996,,6,warm 1000-query batch excluding repeat 0
+high_quality,sel_25,0.9057,Single,T1=1k,L20000,0.9057,6520.18,6511.293333333333,0.006963218176704132,,6,warm 1000-query batch excluding repeat 0
+high_quality,sel_25,0.9057,Multi,T1=1k_T2=25k,L16000,0.9062,5335.58,5336.661666666667,0.008542296245361996,,6,warm 1000-query batch excluding repeat 0
+external,sel_25,0.9000,Multi,T1=1k_T2=25k,L16000,0.9062,5335.58,5336.661666666667,0.008542296245361996,,6,warm 1000-query batch excluding repeat 0
+external,sel_25,0.9000,FAVOR,official,L5000,0.9132999999999999,1754.6799999999998,1765.3775,0.012485554254735468,,4,warm total batch excluding repeat 0
+external,sel_25,0.9000,NaviX,project route,L2000,0.9153,2413.74,2495.37,0.059434436272522116,,4,warm total batch excluding repeat 0
+external,sel_25,0.9000,Curator,official v2 adapter,ef10240,0.9744,1838.553629,1953.601857,0.1648959732708451,,5,total batch
+external,sel_25,0.9000,ACORN,ACORN-1,ef16384,0.9011,8207.948,8258.4426,0.03299949020249774,7943.332,5,total includes lookup/materialization/search
+internal,sel_50,0.8500,Single,T1=1k,L2000,0.864,673.0195,674.9286666666667,0.011077889885779409,,6,warm 1000-query batch excluding repeat 0
+internal,sel_50,0.8500,Multi,T1=1k_T2=50k,L700,0.8661,439.8565,441.97016666666667,0.016437362856120175,,6,warm 1000-query batch excluding repeat 0
+high_quality,sel_50,0.9506,Single,T1=1k,L20000,0.9506,11518.55,11539.166666666666,0.005697239171428244,,6,warm 1000-query batch excluding repeat 0
+high_quality,sel_50,0.9506,Multi,T1=1k_T2=50k,L5500,0.9511,2338.77,2337.818333333333,0.007436369143259244,,6,warm 1000-query batch excluding repeat 0
+external,sel_50,0.8500,Multi,T1=1k_T2=50k,L700,0.8661,439.8565,441.97016666666667,0.016437362856120175,,6,warm 1000-query batch excluding repeat 0
+external,sel_50,0.8500,FAVOR,official,L100,0.8644000000000001,200.9295,200.16575,0.008636836072605904,,4,warm total batch excluding repeat 0
+external,sel_50,0.8500,NaviX,project route,L100,0.8695,2612.825,2614.27,0.06548226402807103,,4,warm total batch excluding repeat 0
+external,sel_50,0.8500,Curator,official v2 adapter,ef10240,0.9742,1590.117413,1596.0924366,0.03025457370683403,,5,total batch
+external,sel_50,0.8500,ACORN,ACORN-1,ef8192,0.8531,3106.804,3121.0262000000002,0.017203838011013464,2864.419,5,total includes lookup/materialization/search
+internal,sel_75,0.8700,Single,T1=1k,L5000,0.8865,2508.74,2510.3316666666665,0.006213287808670206,,6,warm 1000-query batch excluding repeat 0
+internal,sel_75,0.8700,Multi,T1=1k_T2=25k,L1600,0.8871,1069.745,1068.78,0.007861163716742135,,6,warm 1000-query batch excluding repeat 0
+high_quality,sel_75,0.9301,Single,T1=1k,L20000,0.9301,16614.45,16654.65,0.008846233947980219,,6,warm 1000-query batch excluding repeat 0
+high_quality,sel_75,0.9301,Multi,T1=1k_T2=50k,L4500,0.9311,2641.455,2654.713333333333,0.014464412634849018,,6,warm 1000-query batch excluding repeat 0
+external,sel_75,0.8700,Multi,T1=1k_T2=25k,L1600,0.8871,1069.745,1068.78,0.007861163716742135,,6,warm 1000-query batch excluding repeat 0
+external,sel_75,0.8700,FAVOR,official,L200,0.892,265.8405,264.6245,0.010098716901397893,,4,warm total batch excluding repeat 0
+external,sel_75,0.8700,NaviX,project route,L200,0.9179,2065.955,2079.9975,0.016792399346186107,,4,warm total batch excluding repeat 0
+external,sel_75,0.8700,Curator,official v2 adapter,ef10240,0.9629,1942.861971,1944.342558,0.01177507856322364,,5,total batch
+external,sel_75,0.8700,ACORN,ACORN-gamma12,ef2048,0.871,1148.216,1237.8022,0.19609587052166433,843.998,5,total includes lookup/materialization/search

@@ -1,6 +1,6 @@
 # 五条优化主线与 full-quality 输出边界：方法、baseline、数据集与加速比
 
-更新时间：2026-07-07
+更新时间：2026-09-06
 
 本文把当前工作拆成五条相互独立但会在端到端系统中相互影响的主线，并把 full-quality 下的 `additional_edges` / CPU-compatible graph materialization 单独列为系统边界章节：
 
@@ -30,6 +30,7 @@
 | additional/output boundary | CPU exact materialized additional + lazy reserve | CPU Vamana additional / eager SearchQueue reserve | Amazon 1%x200 / 10%x40 boundary A/B | additional `831.7 ms`; output storage `15.8 ms` | additional `7.16x`; output storage `1909.9 -> 15.8 ms` | 这是 CPU-compatible graph 边界优化，不是 GPU-native flat/CSR search backend |
 | special block graph/query | special block + free-state search + GPU intra/inter tuned | corrected CPU exact-topK/Vamana intra + CPU inter | Amazon 100% x1 restored, T=100, cap10/iter4 | GPU/GPU overlay `7.87-7.88 s`, Index `27.8-28.6 s` | intra `~14.4x` vs corrected CPU; inter `~4x` vs CPU inter | cap10/iter4 仍是近似构建 knob；必须用 filtered-search recall 验证，不能直接宣称 full-quality 默认 |
 | special save/load | binary-only sidecar + skip reordered export + CPU-provider-only skip LNG text | CSV sidecar / full save | Amazon 100% x1 restored | save `19.10 s` | full save `40.18 -> 19.10 s` | `UNG_SKIP_LNG_TEXT_SETS=1` 只适用于 CPU entry-provider/UNG special search，GPU cover-frontier 仍需要 `_lng_descendants` |
+| multi-level special query | T1=1k 中层 + 可配置 T2 上层，候选按 0->1->2 逐级激活 | 同一 Amazon x1 主图上的 single-level T1=1k | Amazon 原始 100% x1；1000 queries；100 threads；K=10 | 共同 Recall 门槛下 batch median：`5335.6 / 439.9 / 1069.7 ms`（25%/50%/75%） | vs single：`1.222x / 1.530x / 2.345x`；最高质量附近 `1.222x / 4.925x / 6.290x` | 收益来自更小 L 达到同 Recall；25% 收益有限；当前不优于 FAVOR |
 
 ### 0.2 Special Block 当前 2x2 构建表
 
@@ -554,6 +555,26 @@ additional_work appended_edges=55224
 不能写：不能把 skip additional 当 full-quality；不能把 reserve、NeighborList64 或 SearchQueue lazy reserve 写成 GPU-native graph backend 已完成；不能把 direct append additional 写成正结果；如果把 additional_edges 改成 GPU/flat backend，必须重新做 full-quality filtered-search recall A/B。
 
 ## 5. 特异块图构建与自由状态查询
+
+> **当前权威结果（2026-09-06）**：单层 Special Block 已扩展为真正的两层 overlay。完整方法、构建成本、同 Recall 内部比较和 FAVOR/NaviX/Curator/ACORN 对照见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md`。本节 5.4--5.6 保留的是早期单层 x1-restored 探索和负结果，用于追溯，不应覆盖新的 Amazon 原始 x1 结论。
+
+### 5.0 多层方法与最终主表
+
+多层方法保留 `T1=1000` 中层 block，再从同一 group trie 独立构造 `T2` 上层 block。普通图、中层 special graph、上层 special graph 同时存在；查询候选携带 `activation_level in {0,1,2}`，只能按普通 -> 中层 -> 上层逐级授权。同一 point 只占一个候选槽，更高层路径到达时原位升级并重新获得扩展资格。
+
+公平比较固定 Amazon 原始 100% x1（602,453 points、482,387 groups、30,723 labels、768D）、同一 query/GT、K=10、每档 1000 queries 和 100 search threads。时间为排除 cold repeat 后的 1000-query batch median。
+
+| 平均选择率 | 共同 Recall 门槛 | 单层 T1=1k | 最快多层实测点 | 加速比 |
+|---:|---:|---|---|---:|
+| 24.915% | >=0.90 | L20000, R=.9057, 6520.180 ms | T2=25k, L16000, R=.9062, 5335.580 ms | **1.222x** |
+| 49.971% | >=0.85 | L2000, R=.8640, 673.019 ms | T2=50k, L700, R=.8661, 439.856 ms | **1.530x** |
+| 74.994% | >=0.87 | L5000, R=.8865, 2508.740 ms | T2=25k, L1600, R=.8871, 1069.745 ms | **2.345x** |
+
+在单层扫描的最高质量附近，多层加速分别为 `1.222x / 4.925x / 6.290x`。原因是第二层把达到同 Recall 所需的 L 显著降低；固定 L 下多层通常更慢且 Recall 更高，不能把固定 L 当性能结论。
+
+多层 overlay build 为 `89.051--94.425 s`，单层为 `72.927 s`，即增加约 `22.1%--29.5%`；sidecar 增加约 `39.1%--48.3%`。这些都是已有 base UNG index 之上的 overlay 时间，不是完整 from-scratch index build。
+
+外部系统在共同门槛下的最快实测结果表明：FAVOR 三档均快于当前多层方案；多层在 50% 档快于 NaviX/Curator/ACORN，在 75% 档快于 NaviX/Curator、total time 略快于 ACORN-gamma12，但 25% 档不占优。因此当前论文核心 claim 是“多层相对单层的结构收益”，不是全面系统领先。
 
 ### 5.1 方法
 

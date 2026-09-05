@@ -8,7 +8,7 @@
 0: 普通图  ->  1: 中层 Special Block  ->  2: 上层 Special Block
 ```
 
-候选只能沿已激活层级允许的边扩展，普通候选不能直接跳到上层。当前正确 Amazon x1 粗网格显示：多层的主要价值是改善导航质量，以更小 `Lsearch` 达到单层相同 Recall；50%/75% 选择率下多数目标有益，25% 尚需 dense-L 才能公平判断。本文后面保留的早期 1.124x/1.331x 数字来自旧 hybrid 主图，只能作为机制历史，禁止作为最终 Recall/QPS 结果。
+候选只能沿已激活层级允许的边扩展，普通候选不能直接跳到上层。Amazon x1 的 dense-L、7-repeat 正式矩阵已经完成：多层的主要价值是改善导航质量，以更小 `Lsearch` 达到单层相同 Recall；共同 Recall 门槛下 25%/50%/75% 三档相对单层分别为 `1.222x/1.530x/2.345x`，单层最高质量附近为 `1.222x/4.925x/6.290x`。本文后面保留的早期 1.124x/1.331x 数字来自旧 hybrid 主图，只能作为机制历史，禁止作为最终 Recall/QPS 结果。
 
 当前 ELS 输出契约仍是 `search_UNG_index` 可直接消费的 group IDs，不是 trie-node cover。质量只以端到端 filtered-search Recall 判定；block 数、入口数和边数仅用于诊断。
 
@@ -24,10 +24,12 @@
 - 初版 handoff：`cea584c`
 - 多层实现：`1f0c1e6`
 - 候选去重与 loader 修复：`368227e`
+- 外部 baseline runners：`fb9baa2`、`a8ce77e`、`8e21b83`
+- ACORN gamma/正式重复 runner：`f2360f1`、`ca8fd41`
 
 服务器 Git 1.8.3.1 不支持 `git worktree`，因此这里使用 `git clone --shared` 创建等价隔离目录：branch/index 独立，但共享对象库。仓库没有配置 submodule。
 
-隔离分支的 tracked 文件在本次文档更新前为 clean，仅 `runs/` 为未跟踪实验产物；这些大文件不应提交。`UNG/codes/third_party/CRoaring/build/src/libroaring.a` 是 ignored、可丢弃的构建缓存，也不应提交。
+隔离分支的 tracked 文件在本次文档更新前为 clean；`runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 为未跟踪实验产物/nested clones，不应提交。`UNG/codes/third_party/CRoaring/build/src/libroaring.a` 是 ignored、可丢弃的构建缓存，也不应提交。
 
 原始 checkout 的 HEAD 没有前进，但仍有大量用户的 tracked/untracked 改动。检查显示其文件内容与隔离分支的快照提交 `7811846` 一致。不要在原始 checkout 直接执行 merge、reset、checkout 或覆盖文件。安全回合并方式是：先由用户把原始脏状态形成自己的 checkpoint commit，再仅 cherry-pick `ab984da` 之后的实现提交，并处理 handoff 文档是否需要进入主分支。
 
@@ -75,10 +77,12 @@
 - workload：25%/50%/75% 三档真实 query 集，每档 1,000 queries；K=10；
 - Ground Truth：`/home/graphdb/FilterVectorResult/Amazon/GroundTruth/<query_dir>/Amazon_gt_labels_containment.bin`；
 - 100 search threads，CPU brute-force ELS，neighbor-list backend；
-- 初筛每个工作点 3 repeats；表中 batch time 是整批 1,000 queries 的 wall time，不是单 query latency；最终候选将增加 repeats；
+- 初筛每个工作点 3 repeats；最终候选已经完成 7 repeats。表中 batch time 是整批 1,000 queries 的 wall time，不是单 query latency；
 - 单层查询显式启用 root-label coverage，使覆盖语义与多层一致。
 
 构建共用参数：max degree 64、cross edges 4、Lbuild 100、alpha 1.2；intra route 的 small/mid/large 分界为 2048/8192，large backend 为 `jasper_style`，mid sampling 256；CPU inter graph route 的强制阈值为 pair-work 10000，`inter_search_ef=32`。
+
+正式构建日志确认：虽然 route 统计字段名仍叫 `gpu_intra_blocks`，本轮没有设置全局 `UNG_SPECIAL_BLOCK_GPU_INTRA/INTER`；分流本身会让 `n>=8192` 的 large blocks 走 `jasper_style`/FastGrnnd CUDA，small/mid 分别走 CPU exact-topK / sampled-Vamana。inter 的 200--220 个 pair 全部走 CPU graph search，`gpu_inter_used=0`。因此 72--94 秒表应称为 hybrid-intra + CPU-inter overlay，而不是 GPU/GPU。
 
 ## 当前 Amazon x1 构建结果
 
@@ -114,7 +118,21 @@
 
 ## 查询结果
 
-### 固定 Lsearch
+### 当前正式 Amazon x1 主表
+
+以下结果使用正确的 30,723-label Amazon x1 主图。每行在预声明的共同 Recall 门槛下，从各方法实测点中选择最快 warm median，不插值、不外推。
+
+| 选择率 | Recall 门槛 | Single T1=1k | Multi-level | speedup |
+|---:|---:|---|---|---:|
+| 24.915% | >=.90 | L20000, R=.9057, 6520.180 ms | T2=25k, L16000, R=.9062, 5335.580 ms | 1.222x |
+| 49.971% | >=.85 | L2000, R=.8640, 673.019 ms | T2=50k, L700, R=.8661, 439.856 ms | 1.530x |
+| 74.994% | >=.87 | L5000, R=.8865, 2508.740 ms | T2=25k, L1600, R=.8871, 1069.745 ms | 2.345x |
+
+在单层最高质量附近，多层分别达到 `1.222x/4.925x/6.290x`。完整构建表、外部系统对照和 claim 边界见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md`。FAVOR 在当前三档共同门槛下均比多层快，因此不能声称系统全面领先。
+
+### 历史 hybrid 机制实验（不得进入最终性能主表）
+
+#### 固定 Lsearch
 
 | Lsearch | 单层 Recall | 单层 batch ms | 多层 Recall | 多层 batch ms |
 |---:|---:|---:|---:|---:|
@@ -127,7 +145,7 @@
 
 同 L 下多层做了更多有效搜索，因此耗时更高、Recall 也更高；不能据此宣称查询加速。
 
-### 相同 Recall 的公平比较
+#### 相同 Recall 的公平比较
 
 | 目标质量 | 单层 | 多层 | Recall 差 | batch speedup | L 缩减 |
 |---|---:|---:|---:|---:|---:|
@@ -168,14 +186,14 @@ ctest -R 'special_block_trie|special_block_free_state|special_candidate_queue|sp
   --output-on-failure
 ```
 
-最新结果为 4/4 passed，且 `git diff --check` 通过。重点测试覆盖普通->中层->上层激活约束、候选按 point 唯一及 level upgrade 后重新扩展、metadata v3 round-trip、新旧 index format 白名单。
+最新结果为 focused C++ 4/4、multilevel Python 13/13、Curator 12/12；ACORN adapter/build/smoke 通过，所有纳入正式表的 ACORN 结果均为 0 filter violations。`git diff --check` 通过。重点测试覆盖普通->中层->上层激活约束、候选按 point 唯一及 level upgrade 后重新扩展、metadata v3 round-trip、新旧 index format 白名单。
 
 ## Merge-back 提示
 
 不要把 `runs/` 或本机构建缓存提交到主分支。原始工作树仍是大型 dirty tree，即使 HEAD 未前进，也不满足直接 merge 条件。建议：
 
 1. 在原始分支先审阅并提交当前用户改动，确保形成与 `7811846` 等价的基线；
-2. 从该 clean checkpoint cherry-pick `ab984da`、`1f0c1e6`、`368227e` 以及本 handoff 的最终提交；`cea584c` 仅是旧 handoff，可跳过；
+2. 从该 clean checkpoint cherry-pick `ab984da` 之后的意图提交；核心实现是 `1f0c1e6`、`368227e`，实验/报告提交延续到 `ca8fd41` 及本 handoff 最终提交；`cea584c` 仅是旧 handoff，可跳过；
 3. 对涉及 `search_cache.h`、`uni_nav_graph*.cpp`、special block headers/tests 的文件人工审阅冲突；
 4. 合并后重跑上述 4 个 focused tests，并至少复跑单层 L1000 与多层 L532 的端到端 Recall；
 5. 保持单层默认兼容：未设置 `UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS` 时不得生成上层 block。
