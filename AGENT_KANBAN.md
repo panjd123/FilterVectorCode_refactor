@@ -1,6 +1,6 @@
 # Agent 看板
 
-最后更新：`2026-09-06 00:40 +0800`
+最后更新：`2026-09-06 01:36 +0800`
 分支：`codex/multilevel-special-block-20260905`
 检查点：`f53784b`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
@@ -11,11 +11,11 @@
 ## 当前状态
 
 - 总体：`进行中`
-- 摘要：两层实现、Amazon x1 四档 T2 overlay、upper on/off、dense-L、7-repeat 正式候选和 15-repeat 低 L 稳定性实验均已完成。多层在高质量 50%/75% 查询上最高达到 4.936x/6.274x，25% 仅在最高质量点达到 1.220x、其余多为持平或减速。当前转入 NaviX/FAVOR/Curator 外部系统 baseline 的同数据复测。
+- 摘要：两层实现和 Amazon x1 内部正式矩阵已完成。多层在高质量 50%/75% 查询上最高达到 4.936x/6.274x，25% 仅在最高质量点达到 1.220x、其余多为持平或减速。NaviX/FAVOR 粗网格已完成；Curator 已从 x1 隔离重建并通过 filter/Recall smoke，当前正在补 warmup 与逐 repeat 稳健计时。
 
 ## 进行中
 
-- 固定 Amazon x1 query/GT、K=10、100 threads 和 5 repeats，校验并运行 NaviX、FAVOR、Curator；结果单列为系统级比较，不冒充纯 overlay 消融。
+- 修复 Curator runner 的稳健计时并复跑三档：每个 `search_ef` 先 warmup 1 批，再保存 5 个原始 batch wall times；随后拆分 filter preparation、临时树构建和 ANN search 时间。
 
 ## 完成历史
 
@@ -42,10 +42,12 @@
 - upper on/off 消融、三档 dense-L、7-repeat 正式候选和 15-repeat 低 L 稳定性复测全部完成并通过 validator；所有主要 sweep 使用同一 immutable binary SHA-256 `83c0444f...35e3`。
 - 正式等 Recall 结果：25% 高质量点最高 1.220x，但中档存在减速；50% 在代表性中高质量目标为 1.620x--4.936x；75% 为 2.349x--6.274x。低 L Recall 完全稳定，wall time 有 100-thread 短任务调度长尾，主表使用 warm median/mean 并报告 CV。
 - fresh single 与多层中层 partition/trie 完全一致；中层 intra edges 相差 10,602/约 0.038%，来自并行建图非确定性，因此同索引 upper on/off 用于机制，fresh single vs multi 用于系统等 Recall。
+- NaviX/FAVOR 三档 x1、100 threads、5-repeat 粗网格已完成；FAVOR 50% 的 L200/L500 存在 15--18 秒调度长尾，后续统一报告 median/CV 与 raw repeats。
+- Curator 使用独立 `thirdparty/curator-v2` clone 和 Python 3.10/FAISS 1.7.4 环境从 602,453-point x1 重建：build 102.207 s、磁盘 2.046 GB、内存估计 2.184 GB；16-query smoke 的 320 个返回 ID 无 containment 违规。
 
 ## 下一步
 
-先完成 NaviX 与 FAVOR 的 runner/binary/provenance dry-run 并启动 5-repeat 搜索；Curator 缺可用 Python 环境，需在隔离目录准备环境后从 Amazon x1 重建。随后审计 ACORN，最后统一生成系统级 Recall--时间表。
+等待 Curator warmup/raw-repeat 三档复测完成，检查 Recall 稳定性与 per-budget median/CV；再做 3 个代表 `search_ef` 的阶段 profile，完成 ACORN provenance 审计和跨系统同 Recall 主表。
 
 ## 阻塞与问题
 
@@ -57,9 +59,8 @@
 - plain UNG 使用随机搜索路径，3 repeats 的 Recall 最大 spread 为 0.0029；所有等 Recall 结论需保留质量余量或在最终候选上增加 repeats，不能按 1e-4 差异排序。
 - 两次旧 T2 初筛分别因运行中重编译、instrumentation 条件误放而隔离在 `runs/quarantine/20260905T2218_binary_rebuild/` 和 `runs/quarantine/20260905T2225_instrumentation_bug/`；禁止用于结论。
 - `runs/quarantine/20260905T_current_label_mismatch/` 使用了错误的 21,834-label hybrid 主图；仅可作机制诊断，禁止用于 Recall/QPS 主张。
-- NaviX 隔离 build 目录目前只有 `search_UNG_index`，runner 要求的 build/GT/conversion 工具需补编译或显式指向已校验 snapshot。
-- Curator 当前未发现可直接使用且能 import `faiss` 的 `.venv_curator`；重建前必须先固定环境，不能复用 provenance 不完整的历史索引作强结论。
-- ACORN 目前只有历史 metadata，输入 hash 与独立可执行入口尚未确认，暂不进入主表。
+- Curator 首轮只保存 5-repeat mean，出现 `search_ef` 增大但 batch time 下降；该时间结论已降级，必须使用新增 raw-repeat 文件和阶段 profile 解释。
+- ACORN 当前隔离仓库内只有 Curator-v2 自带 wrapper/源码线索，尚未确认 x1 index、输入 hash 和可直接运行的独立入口，未满足主表 provenance。
 
 ## 验证
 
@@ -68,6 +69,8 @@
 - `git diff --check` — `通过`。
 - `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：dense/final/stability 所有 case 完整。
 - `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py` — `通过`：13/13，含 method-specific L、查询 provenance 与不可变二进制快照。
+- `.venv_curator/bin/python -m unittest -v experiments.curator_baseline.test_curator_*` — `通过`：12/12，含持久化加载、ID 映射、optimized bitmap filter 和 raw-repeat 输出。
+- Curator x1 smoke — `通过`：build/save/load 成功，16 queries、2 个 ef，320 个返回 ID 的 containment 违规数为 0。
 
 ## 仅在需要时阅读的细节
 

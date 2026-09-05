@@ -1,5 +1,5 @@
 {
-  "curator_repo": "/home/graphdb/FilterVectorCode_refactor/thirdparty/curator-v2",
+  "curator_repo": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/thirdparty/curator-v2",
   "data_root": "/home/graphdb/FilterVectorData",
   "result_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/external_baselines/curator",
   "source_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/UNG/codes",
@@ -15,7 +15,7 @@
     "search_ef": 64, "beam_size": 4, "use_temp_index_caching": false, "num_threads": 60
   },
   "search": {
-    "K": 10, "num_repeats": 5, "num_threads": 100, "search_parameter": "search_ef",
+    "K": 10, "num_warmup_repeats": 1, "num_repeats": 5, "num_threads": 100, "search_parameter": "search_ef",
     "ef_values": [64, 128, 256, 512, 1024, 2048, 4096, 8192, 10240], "filter_mode": "indexed"
   },
   "datasets": [

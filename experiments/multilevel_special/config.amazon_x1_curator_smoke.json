@@ -1,0 +1,46 @@
+{
+  "curator_repo": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/thirdparty/curator-v2",
+  "data_root": "/home/graphdb/FilterVectorData",
+  "result_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/external_baselines/curator_smoke",
+  "source_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/UNG/codes",
+  "build_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel",
+  "auto_compile": false,
+  "allow_fvecs_conversion": false,
+  "allow_gt_generation": false,
+  "data_type": "float",
+  "dist_fn": "L2",
+  "scenario": "containment",
+  "index_name": "Curator_x1_verified",
+  "method_name": "Curator_smoke",
+  "build": {
+    "nlist": 32,
+    "bf_capacity": 1000,
+    "bf_error_rate": 0.001,
+    "max_sl_size": 128,
+    "clus_niter": 20,
+    "max_leaf_size": 128,
+    "prune_thres": 1.6,
+    "variance_boost": 0.2,
+    "search_ef": 64,
+    "beam_size": 4,
+    "use_temp_index_caching": false,
+    "num_threads": 60
+  },
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "max_queries": 16,
+    "search_parameter": "search_ef",
+    "ef_values": [64, 256],
+    "filter_mode": "indexed"
+  },
+  "datasets": [
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen2_avgsel25pct",
+      "index_path_prefix": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/external_baselines/curator/Amazon/index/Curator_x1_verified/index_files",
+      "groundtruth_file": "/home/graphdb/FilterVectorResult/Amazon/GroundTruth/query_minlen2_avgsel25pct/Amazon_gt_labels_containment.bin"
+    }
+  ]
+}

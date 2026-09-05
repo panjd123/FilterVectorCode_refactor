@@ -151,9 +151,11 @@ class CuratorBaselineRunnerTest(unittest.TestCase):
             )
             summary = result_dir / "search_time_summary.csv"
             qps_summary = result_dir / "search_time_summary_qps.csv"
+            repeat_details = result_dir / "search_time_details.csv"
             result_file = result_dir / "curator_results.csv"
             self.assertTrue(summary.exists())
             self.assertTrue(qps_summary.exists())
+            self.assertTrue(repeat_details.exists())
             self.assertTrue(result_file.exists())
             build_time = root / "results" / "Tiny" / "index" / "Curator" / "build" / "build_time.csv"
             index_size = root / "results" / "Tiny" / "index" / "Curator" / "build" / "index_size.csv"
@@ -166,6 +168,8 @@ class CuratorBaselineRunnerTest(unittest.TestCase):
                 rows = list(csv.DictReader(f))
             with result_file.open(newline="", encoding="utf-8") as f:
                 result_rows = list(csv.DictReader(f))
+            with repeat_details.open(newline="", encoding="utf-8") as f:
+                repeat_rows = list(csv.DictReader(f))
 
             self.assertEqual(
                 set(rows[0].keys()),
@@ -190,10 +194,18 @@ class CuratorBaselineRunnerTest(unittest.TestCase):
                     "VisitedPoints",
                     "VisitedEdges",
                     "DistanceComputations",
+                    "FilterLookup_Time_ms",
+                    "PrepareFilter_Time_ms",
+                    "BackendSearch_Time_ms",
+                    "BuildTempIndex_Time_ms",
+                    "CuratorSearch_Time_ms",
                     "ResultIDs",
                 },
             )
             self.assertEqual(len(result_rows), 4)
+            self.assertEqual(len(repeat_rows), 2)
+            self.assertEqual([row["Lsearch"] for row in repeat_rows], ["2", "4"])
+            self.assertEqual([row["Repeat"] for row in repeat_rows], ["0", "0"])
             self.assertEqual(result_rows[0]["ResultIDs"], "0")
             self.assertAlmostEqual(float(result_rows[0]["Recall"]), 1.0)
             self.assertGreaterEqual(float(result_rows[0]["Search_Time_ms"]), 0.0)

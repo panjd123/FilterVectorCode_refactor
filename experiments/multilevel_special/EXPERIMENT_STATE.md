@@ -42,7 +42,7 @@
 |---|---|---|---|---|---|
 | M1 | measurement | RESOLVED | 六档选择率统一结果已完成 | 18 case x 20 L x 3 repeats；验证器通过 | 保留初筛表，最终候选增加 repeats |
 | M2 | tuning | RESOLVED | 四档 T2 已完成粗网格、dense-L 和正式候选比较 | 25k/50k 在不同 workload/质量区间占优；4k 不进入最终候选 | 如论文需要再做局部阈值敏感性，不影响当前结论 |
-| M3 | baseline | ACTIVE | 其他系统方法正在统一数据与 Recall 口径 | NaviX labels hash 与 x1 一致；FAVOR 构建日志绑定 x1；Curator/ACORN provenance 尚不充分 | 运行 NaviX/FAVOR，隔离重建 Curator，继续审计 ACORN |
+| M3 | baseline | PARTIAL | 其他系统方法正在统一数据与 Recall 口径 | NaviX/FAVOR 三档粗网格完成；Curator 已从 x1 隔离重建并完成首轮三档；ACORN 尚不充分 | 完成 Curator 稳健复测、NaviX/FAVOR 局部等 Recall、ACORN 审计 |
 | M4 | correctness | RESOLVED | 多 level 候选重复占槽 | `368227e` 后 Recall 恢复 | 保留回归测试 |
 | M5 | compatibility | RESOLVED | loader 不接受 multilevel format | 格式白名单和 round-trip test | 保留回归测试 |
 | M6 | interpretation | RESOLVED | 同 L 慢是否否定多层 | 同 L Recall 更高；等 Recall 已有 1.124x--1.331x | 后续只按等 Recall主张 |
@@ -58,6 +58,8 @@
 | M16 | ablation | RESOLVED | 同一多层索引关闭 level 2 是否退化为单层语义 | upper on/off 完成；开启 level 2 对所有 workload/L 提升 Recall，证明上层真实参与 | 保留机制表，不与 fresh single 的系统时间混用 |
 | M17 | measurement | RESOLVED | 粗 L 网格会误判等 Recall 性能 | 三档 dense-L 和 method-specific validator 已完成 | 正式结论只用实测匹配点，不插值外推 |
 | M18 | provenance | ACTIVE | 外部系统索引与 GT 是否满足强比较要求 | NaviX 已有 labels hash；FAVOR 有 x1 构建日志；Curator/ACORN 尚缺完整输入 hash | 分系统校验或隔离重建，无法确认则降级为附录 |
+| M19 | measurement | ACTIVE | Curator 首轮 5-repeat 只保存均值且时间随 `search_ef` 非单调 | x1 首轮三档完成；25% `ef=2048` 约 2.99 s、`ef=10240` 约 1.79 s；C++ 路径每 query 先构建临时过滤树 | 每 ef warmup 1 次并保存 5 个 raw repeats；再拆 filter/temp-index/search 时间 |
+| M20 | provenance | RESOLVED | Curator 是否能绑定当前 x1 和统一 GT | 602,453 points、768D；隔离重建 102.207 s；持久化成功；smoke 320 IDs 无 filter 违规 | 保留 meta/hash和 smoke 证据 |
 
 ## 当前假设
 
@@ -67,4 +69,4 @@
 
 ## 下一最小实验及判据
 
-先对 NaviX/FAVOR 做 runner 与输入 dry-run，判据是三档 query、统一 GT、K=10、100 threads、5 repeats 均被实际命令采用且输出在隔离目录。随后从 x1 重建 Curator；任何缺输入 provenance 或无法复现的系统只能放附录。内部多层性能主张继续以实测 Recall 不低于 single 目标为准，不插值、不用同 L 替代等 Recall。
+先完成 Curator raw-repeat 复测。判据是三档每个 ef 均有 1 warmup + 5 measured batches、Recall 与首轮一致、可计算 median/CV；若时间仍非单调，则用 C++ profile 的临时树构建与 ANN search 分项解释。之后补 NaviX/FAVOR 局部等 Recall 点并审计 ACORN；任何缺输入 provenance 或无法复现的系统只能放附录。

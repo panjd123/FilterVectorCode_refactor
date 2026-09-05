@@ -312,6 +312,11 @@ def append_result_row(
             "VisitedPoints": int(profile["visited_points"]),
             "VisitedEdges": int(profile["visited_edges"]),
             "DistanceComputations": int(profile["distance_computations"]),
+            "FilterLookup_Time_ms": f"{float(profile.get('filter_lookup_time_ms', 0.0)):.6f}",
+            "PrepareFilter_Time_ms": f"{float(profile.get('prepare_filter_time_ms', 0.0)):.6f}",
+            "BackendSearch_Time_ms": f"{float(profile.get('backend_search_time_ms', 0.0)):.6f}",
+            "BuildTempIndex_Time_ms": f"{float(profile.get('build_temp_index_time_ms', 0.0)):.6f}",
+            "CuratorSearch_Time_ms": f"{float(profile.get('search_time_ms', 0.0)):.6f}",
             "ResultIDs": ";".join(str(int(value)) for value in result_ids),
         }
     )
@@ -330,6 +335,11 @@ def write_result_file(path: Path, rows: list[dict[str, Any]]) -> None:
                 "VisitedPoints",
                 "VisitedEdges",
                 "DistanceComputations",
+                "FilterLookup_Time_ms",
+                "PrepareFilter_Time_ms",
+                "BackendSearch_Time_ms",
+                "BuildTempIndex_Time_ms",
+                "CuratorSearch_Time_ms",
                 "ResultIDs",
             ],
         )
@@ -364,6 +374,32 @@ def write_summary(result_dir: Path, rows: list[dict[str, Any]]) -> None:
         writer = csv.DictWriter(f, fieldnames=fieldnames + ["QPS"])
         writer.writeheader()
         writer.writerows(qps_rows)
+
+
+def write_repeat_details(result_dir: Path, rows: list[dict[str, Any]]) -> None:
+    """Persist every measured batch wall time instead of only their mean.
+
+    Keeping the raw repeats is important for highly parallel query batches: CPU
+    scheduling and cache effects can otherwise make a single mean look like an
+    algorithmic trend.  Warmup batches are intentionally excluded from this
+    file and identified separately by ``Warmup_Repeats``.
+    """
+    result_dir.mkdir(parents=True, exist_ok=True)
+    fieldnames = [
+        "search_parameter",
+        "Lsearch",
+        "Repeat",
+        "Warmup_Repeats",
+        "Num_Queries",
+        "Total_Time_ms",
+        "QPS",
+    ]
+    with (result_dir / "search_time_details.csv").open(
+        "w", newline="", encoding="utf-8"
+    ) as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def directory_size_bytes(path: Path) -> int:
@@ -501,6 +537,7 @@ def run_dataset(cfg: dict, dataset_cfg: dict) -> None:
     label_index = build_label_inverted_index(base_labels) if filter_mode == "indexed" else None
 
     summary_rows: list[dict[str, Any]] = []
+    repeat_rows: list[dict[str, Any]] = []
     result_rows: list[dict[str, Any]] = []
     result_dir = paths["result_dir"]
     other_dir = paths["other_dir"]
@@ -518,22 +555,32 @@ def run_dataset(cfg: dict, dataset_cfg: dict) -> None:
         total_visited_points = 0
         total_visited_edges = 0
         total_distance_computations = 0
-        for _repeat in range(int(search_cfg["num_repeats"])):
+        num_repeats = int(search_cfg["num_repeats"])
+        warmup_repeats = max(0, int(search_cfg.get("num_warmup_repeats", 0)))
+        for run_index in range(warmup_repeats + num_repeats):
             results = np.full((query_vectors.shape[0], k), -1, dtype=np.int64)
 
             def search_one(qid: int) -> tuple[int, np.ndarray, float, dict[str, Any]]:
                 query_start = time.perf_counter()
+                filter_start = query_start
                 if filter_mode == "indexed":
                     assert label_index is not None
                     qualified = qualified_ids_for_containment_indexed(label_index, len(base_labels), query_labels[qid])
                 else:
                     qualified = qualified_ids_for_containment(base_labels, query_labels[qid])
+                filter_end = time.perf_counter()
                 if hasattr(backend, "prepare_filter"):
                     qualified_filter = backend.prepare_filter(qualified)
                 else:
                     qualified_filter = qualified
+                prepare_end = time.perf_counter()
                 result_ids, profile = backend.search(query_vectors[qid], k, qualified_filter)
-                query_ms = (time.perf_counter() - query_start) * 1000.0
+                search_end = time.perf_counter()
+                query_ms = (search_end - query_start) * 1000.0
+                profile = dict(profile)
+                profile["filter_lookup_time_ms"] = (filter_end - filter_start) * 1000.0
+                profile["prepare_filter_time_ms"] = (prepare_end - filter_end) * 1000.0
+                profile["backend_search_time_ms"] = (search_end - prepare_end) * 1000.0
                 return qid, result_ids, query_ms, profile
 
             start = time.perf_counter()
@@ -551,18 +598,33 @@ def run_dataset(cfg: dict, dataset_cfg: dict) -> None:
                     results[qid, :] = result_ids
                     query_times_ms[qid] = query_ms
                     query_profiles[qid] = profile
+            batch_ms = (time.perf_counter() - start) * 1000.0
+            if run_index < warmup_repeats:
+                continue
+            measured_repeat = run_index - warmup_repeats
             total_visited_points += sum(int(profile["visited_points"]) for profile in query_profiles)
             total_visited_edges += sum(int(profile["visited_edges"]) for profile in query_profiles)
             total_distance_computations += sum(
                 int(profile["distance_computations"]) for profile in query_profiles
             )
-            repeat_total_ms += (time.perf_counter() - start) * 1000.0
+            repeat_total_ms += batch_ms
+            repeat_rows.append(
+                {
+                    "search_parameter": budget_parameter,
+                    "Lsearch": int(search_budget),
+                    "Repeat": measured_repeat,
+                    "Warmup_Repeats": warmup_repeats,
+                    "Num_Queries": query_vectors.shape[0],
+                    "Total_Time_ms": f"{batch_ms:.6f}",
+                    "QPS": f"{(query_vectors.shape[0] * 1000.0 / batch_ms) if batch_ms > 0 else 0.0:.6f}",
+                }
+            )
             best_results = results
-            if _repeat == int(search_cfg["num_repeats"]) - 1:
+            if measured_repeat == num_repeats - 1:
                 best_query_times_ms = query_times_ms
                 best_profiles = query_profiles
 
-        avg_time_ms = repeat_total_ms / float(max(1, int(search_cfg["num_repeats"])))
+        avg_time_ms = repeat_total_ms / float(max(1, num_repeats))
         recall = recall_at_k(best_results, groundtruth, k)
         for qid in range(best_results.shape[0]):
             append_result_row(
@@ -575,7 +637,7 @@ def run_dataset(cfg: dict, dataset_cfg: dict) -> None:
                 best_profiles[qid],
             )
         measurement_count = max(
-            1, query_vectors.shape[0] * int(search_cfg["num_repeats"])
+            1, query_vectors.shape[0] * num_repeats
         )
         summary_rows.append(
             {
@@ -598,6 +660,7 @@ def run_dataset(cfg: dict, dataset_cfg: dict) -> None:
 
     write_result_file(result_dir / "curator_results.csv", result_rows)
     write_summary(result_dir, summary_rows)
+    write_repeat_details(result_dir, repeat_rows)
     log(f"[{paths['dataset']}] Curator baseline done")
 
 
