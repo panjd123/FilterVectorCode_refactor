@@ -49,6 +49,50 @@ inline uint8_t special_block_successor_activation_level(
    return std::max(current_level, special_block_activation_level(owner));
 }
 
+struct SpecialBlockLevelGateResult
+{
+   size_t upper_covered_blocks = 0;
+   size_t upper_covered_points = 0;
+   bool upper_enabled = true;
+};
+
+// Apply a per-query gate after coverage has been propagated through each
+// layer. point_count contains direct members, so summing covered blocks within
+// one partition level does not double-count descendants. This gate changes
+// only which overlay levels may activate; it never changes ELS, ordinary graph
+// edges, or the middle-layer coverage mask.
+inline SpecialBlockLevelGateResult special_block_apply_level_gate(
+    std::vector<uint8_t> &query_free_block,
+    const std::vector<SpecialBlock> &blocks,
+    uint8_t max_activation_level,
+    size_t upper_min_covered_points)
+{
+   SpecialBlockLevelGateResult result;
+   for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
+   {
+      if (query_free_block[block_id] == 0 || block_id > blocks.size())
+         continue;
+      const SpecialBlock &block = blocks[block_id - 1];
+      if (block.level == 0)
+         continue;
+      ++result.upper_covered_blocks;
+      result.upper_covered_points += static_cast<size_t>(block.point_count);
+   }
+
+   result.upper_enabled = max_activation_level >= 2 &&
+                          result.upper_covered_points >= upper_min_covered_points;
+   for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
+   {
+      if (block_id > blocks.size())
+         continue;
+      const uint8_t activation_level = special_block_activation_level(blocks[block_id - 1]);
+      if (activation_level > max_activation_level ||
+          (blocks[block_id - 1].level > 0 && !result.upper_enabled))
+         query_free_block[block_id] = 0;
+   }
+   return result;
+}
+
 inline std::vector<uint8_t> special_block_lazy_seed_mask(
     const std::vector<uint8_t> &free_frontier,
     const std::vector<SpecialBlock> &blocks,

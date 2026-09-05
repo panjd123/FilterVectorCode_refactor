@@ -501,10 +501,25 @@ namespace ANNS
             }
          }
       }
+      const bool upper_gate_configured =
+          runtime.special_max_activation_level < std::numeric_limits<uint8_t>::max() ||
+          runtime.special_upper_min_covered_points > 0;
+      if (upper_gate_configured)
+      {
+         const SpecialBlockLevelGateResult gate = special_block_apply_level_gate(
+             query_free_block, _special_blocks,
+             runtime.special_max_activation_level,
+             runtime.special_upper_min_covered_points);
+         stats.special_query_upper_block_count = gate.upper_covered_blocks;
+         stats.special_query_upper_covered_points = gate.upper_covered_points;
+         stats.special_query_upper_enabled = gate.upper_enabled;
+      }
 
       std::vector<uint8_t> query_free_block_frontier(query_free_block.size(), 0);
       std::vector<IdxType> special_block_parent(query_free_block.size(), 0);
-      for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
+      for (IdxType block_id = 1;
+           (detail_stats || lazy_block_activation) && block_id < query_free_block.size();
+           ++block_id)
       {
          for (IdxType child_block_id : _special_blocks[block_id - 1].child_block_ids)
          {
@@ -512,7 +527,9 @@ namespace ANNS
                special_block_parent[child_block_id] = block_id;
          }
       }
-      for (IdxType block_id = 1; detail_stats && block_id < query_free_block.size(); ++block_id)
+      for (IdxType block_id = 1;
+           (detail_stats || lazy_block_activation) && block_id < query_free_block.size();
+           ++block_id)
       {
          if (query_free_block[block_id] == 0)
             continue;
@@ -520,19 +537,27 @@ namespace ANNS
          if (parent_block_id == 0 || query_free_block[parent_block_id] == 0)
          {
             query_free_block_frontier[block_id] = 1;
-            stats.special_free_block_frontier_count++;
+            if (detail_stats)
+               stats.special_free_block_frontier_count++;
          }
       }
       stats.special_free_block_count = static_cast<size_t>(
           std::count(query_free_block.begin(), query_free_block.end(), uint8_t{1}));
-      for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
+      for (IdxType block_id = 1; detail_stats && block_id < query_free_block.size(); ++block_id)
       {
          if (query_free_block[block_id] == 0)
             continue;
          if (_special_blocks[block_id - 1].level == 0)
             stats.special_query_middle_block_count++;
          else
-            stats.special_query_upper_block_count++;
+         {
+            if (!upper_gate_configured)
+            {
+               stats.special_query_upper_block_count++;
+               stats.special_query_upper_covered_points +=
+                   static_cast<size_t>(_special_blocks[block_id - 1].point_count);
+            }
+         }
       }
       size_t lazy_seed_depth = 0;
       if (const char *value = std::getenv("UNG_SPECIAL_TRIE_LAZY_SEED_DEPTH"))

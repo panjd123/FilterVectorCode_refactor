@@ -4,6 +4,9 @@
 #include "config.h"
 #include "ung_entry_group.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 
@@ -105,6 +108,13 @@ struct SearchRuntimeConfig
    bool special_light_stats = false;
    SpecialSearchMode special_search_mode = SpecialSearchMode::FreeState;
    bool special_block_free_use_regular = false;
+   // Highest Special Block activation level allowed for this query. Level 1
+   // is the historical/middle overlay and level 2 is the first coarser
+   // overlay. UINT8_MAX preserves all levels by default.
+   uint8_t special_max_activation_level = std::numeric_limits<uint8_t>::max();
+   // Suppress all upper overlays unless the query fully covers at least this
+   // many direct member points across upper blocks. Zero disables the gate.
+   size_t special_upper_min_covered_points = 0;
    bool special_heavy_edge_search = false;
    size_t special_heavy_edge_min_query_size = 0;
    size_t special_heavy_edge_min_matched_points = 0;

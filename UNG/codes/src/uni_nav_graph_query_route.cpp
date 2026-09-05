@@ -123,6 +123,16 @@ namespace ANNS
                                         " (expected free_state or favor_blocks)");
       }
       runtime.special_block_free_use_regular = ung_env_flag_enabled("UNG_SPECIAL_BLOCK_FREE_USE_REGULAR");
+      if (const char *value = std::getenv("UNG_SPECIAL_MAX_ACTIVE_LEVEL"))
+      {
+         const unsigned long configured_level = std::strtoul(value, nullptr, 10);
+         runtime.special_max_activation_level = static_cast<uint8_t>(
+             std::min<unsigned long>(configured_level,
+                                     std::numeric_limits<uint8_t>::max()));
+      }
+      if (const char *value = std::getenv("UNG_SPECIAL_UPPER_MIN_COVERED_POINTS"))
+         runtime.special_upper_min_covered_points =
+             static_cast<size_t>(std::strtoull(value, nullptr, 10));
       runtime.special_heavy_edge_search = ung_env_flag_enabled("UNG_SPECIAL_HEAVY_EDGE_SEARCH");
       if (const char *value = std::getenv("UNG_SPECIAL_HEAVY_EDGE_MIN_QUERY_SIZE"))
          runtime.special_heavy_edge_min_query_size = static_cast<size_t>(std::strtoull(value, nullptr, 10));

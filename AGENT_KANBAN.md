@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-05 22:08 +0800`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`ab4a94a`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
+检查点：`5f32fea`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
 ## 目标
 
@@ -11,11 +11,11 @@
 ## 当前状态
 
 - 总体：`进行中`
-- 摘要：两层 1k/10k 构建、持久化和普通->中层->上层查询已实现。T2=4k/10k/25k/50k 均已构建；基于最终修正二进制的干净查询初筛正在单实例运行。
+- 摘要：两层实现正确，但 provenance 审计发现此前 overlay 基于 21,834-label hybrid 主图，而六档 query/GT 属于 30,723-label Amazon x1，导致 Recall 人为在约 0.52 饱和。该轮结果已停止并隔离；正在切换到数据一致的 482,387-group 主图重建 overlay。
 
 ## 进行中
 
-- 固定当前 hybrid 主图、bitset ELS 和 route，在 25%/50%/75% workload 初筛 T2=4k/10k/25k/50k。
+- 核验 30,723-label Amazon x1 主图的 fingerprint 和构建输入，在该主图上重建 single/T2 overlays。
 
 ## 完成历史
 
@@ -33,10 +33,11 @@
 - 完成 T2=4k/25k/50k 构建与验证；upper block 数分别为 45/8/4，总 special edges 分别为 63,580,487/58,990,803/56,574,549。
 - 完成 ELS/主图交叉审计：当前 hybrid 主图上 L=20k 的 `cpu_min_super_sets`/`cpu_bruteforce_els` Recall 为 0.398/0.436；旧 Trie_block 主图上为 0.724/0.800。历史高 Recall 来自主图/分组版本差异，不是旧 ELS 更好。
 - 增加中层/上层覆盖、展开、边扫描和激活机制统计；轻量性能路径不执行额外计数循环 — 证据：`ab4a94a`，smoke CSV 97 列、1000 行可解析。
+- 发现 hybrid 主图与六档 query/GT 数据版本错配：query `{1}` 在原始 Amazon labels 匹配 582,582 点，在 hybrid index labels 仅匹配 290,684 点；此前约 0.52 Recall 饱和不能作为论文质量结论。
 
 ## 下一步
 
-等待 `runs/t2_query_screen` 的干净初筛完成，运行结构验证和等 Recall 汇总；据结果选择最终 T2，并用低选择率验证上层按需禁用策略。
+以 `/home/graphdb/FilterVectorResult/Amazon/index/Trie_block/index_files` 为一致性主图重建 single/T2 overlays，再重跑阈值初筛。
 
 ## 阻塞与问题
 
@@ -47,6 +48,7 @@
 - 旧系统 `ps -o pid=,etime=,stat=,cmd=` 输出异常曾造成 PID 10039 已退出的误判；已停止两个 runner，并给 runner 增加 output-root 独占锁。受资源竞争影响的结果位于 `runs/quarantine/20260905T2119_contention/`，禁止进入汇总。
 - plain UNG 使用随机搜索路径，3 repeats 的 Recall 最大 spread 为 0.0029；所有等 Recall 结论需保留质量余量或在最终候选上增加 repeats，不能按 1e-4 差异排序。
 - 两次旧 T2 初筛分别因运行中重编译、instrumentation 条件误放而隔离在 `runs/quarantine/20260905T2218_binary_rebuild/` 和 `runs/quarantine/20260905T2225_instrumentation_bug/`；禁止用于结论。
+- `runs/quarantine/20260905T_current_label_mismatch/` 使用了错误的 21,834-label hybrid 主图；仅可作机制诊断，禁止用于 Recall/QPS 主张。
 
 ## 验证
 

@@ -92,6 +92,8 @@ namespace ANNS
       // level 2 is the upper (T2) overlay.
       size_t special_query_middle_block_count = 0;
       size_t special_query_upper_block_count = 0;
+      size_t special_query_upper_covered_points = 0;
+      bool special_query_upper_enabled = true;
       size_t special_block_seed_points = 0;
       size_t special_block_seed_points_retained = 0;
       size_t special_block_seed_points_preexpanded = 0;

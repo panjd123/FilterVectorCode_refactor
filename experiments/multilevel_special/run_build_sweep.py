@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import hashlib
 import json
 import os
 import shlex
@@ -39,6 +40,61 @@ def parse_meta(path: Path) -> dict[str, str]:
     return result
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def validate_reordered_labels(base_labels: Path, index_dir: Path) -> dict[str, str]:
+    """Prove that index labels equal base labels under new-to-old IDs.
+
+    UNG stores points in group-contiguous order, so byte-identical label files
+    are sufficient but not necessary. The persisted new_to_old_vec_ids mapping
+    defines the semantic comparison required for an independently built
+    overlay to use the source graph safely.
+    """
+    index_labels = index_dir / "labels.txt"
+    mapping = index_dir / "new_to_old_vec_ids"
+    if not index_labels.is_file() or not mapping.is_file():
+        raise FileNotFoundError(
+            f"source index is missing label provenance files: {index_labels}, {mapping}"
+        )
+    base_hash = sha256_file(base_labels)
+    index_hash = sha256_file(index_labels)
+    if index_hash == base_hash:
+        return {"base_labels_sha256": base_hash,
+                "index_labels_sha256": index_hash,
+                "label_alignment": "identity"}
+
+    with base_labels.open() as stream:
+        base_rows = [line.strip() for line in stream]
+    with index_labels.open() as stream:
+        index_rows = [line.strip() for line in stream]
+    with mapping.open() as stream:
+        mapping_rows = [int(line.strip()) for line in stream if line.strip()]
+    if len(index_rows) != len(base_rows) or len(mapping_rows) != len(base_rows):
+        raise ValueError(
+            "source index label/mapping row count does not match the requested x1 base labels: "
+            f"base={len(base_rows)}, index={len(index_rows)}, mapping={len(mapping_rows)}"
+        )
+    seen = bytearray(len(base_rows))
+    for new_id, old_id in enumerate(mapping_rows):
+        if old_id < 0 or old_id >= len(base_rows) or seen[old_id]:
+            raise ValueError(f"invalid new-to-old permutation at new id {new_id}: {old_id}")
+        seen[old_id] = 1
+        if index_rows[new_id] != base_rows[old_id]:
+            raise ValueError(
+                "source index labels do not match x1 base labels under new-to-old mapping: "
+                f"new_id={new_id}, old_id={old_id}"
+            )
+    return {"base_labels_sha256": base_hash,
+            "index_labels_sha256": index_hash,
+            "label_alignment": "new_to_old_permutation"}
+
+
 def acquire_lock(output_root: Path):
     lock_path = output_root / ".builder.lock"
     lock_file = lock_path.open("a+")
@@ -64,7 +120,7 @@ def clean_build_env(base: dict[str, str], config: dict[str, Any], upper: int) ->
     return env
 
 
-def validate_source(config: dict[str, Any]) -> None:
+def validate_source(config: dict[str, Any]) -> dict[str, str]:
     required = [Path(config["build_app"]), Path(config["main_index"]) / "meta",
                 Path(config["base_bin_file"]), Path(config["base_label_file"])]
     missing = [str(path) for path in required if not path.is_file()]
@@ -77,6 +133,13 @@ def validate_source(config: dict[str, Any]) -> None:
     num_points, dimension = struct.unpack("<II", header)
     if num_points != int(config["expected_num_points"]) or dimension <= 0:
         raise ValueError(f"base data is not the required Amazon x1 input: {num_points}x{dimension}")
+    base_labels = Path(config["base_label_file"])
+    provenance = validate_reordered_labels(base_labels, Path(config["main_index"]))
+    base_hash = provenance["base_labels_sha256"]
+    expected_hash = config.get("expected_base_labels_sha256")
+    if expected_hash and base_hash != expected_hash:
+        raise ValueError(f"base-label hash mismatch: {base_hash} != {expected_hash}")
+    return provenance
 
 
 def validate_case(config: dict[str, Any], case: dict[str, Any], case_root: Path) -> dict[str, str]:
@@ -161,7 +224,7 @@ def main() -> int:
     output_root = Path(config["output_root"])
     output_root.mkdir(parents=True, exist_ok=True)
     lock = acquire_lock(output_root)
-    validate_source(config)
+    source_provenance = validate_source(config)
     manifest = output_root / "manifest.json"
     selected = set(args.case)
 
@@ -180,6 +243,7 @@ def main() -> int:
                     "name": case["name"], "upper_min_points": upper,
                     "status": "complete", "case_root": str(final_root),
                     "reused_existing": True, "metadata": meta,
+                    "source_provenance": source_provenance,
                 })
                 continue
         except (FileNotFoundError, ValueError):
@@ -203,7 +267,8 @@ def main() -> int:
         record = {"name": case["name"], "upper_min_points": upper,
                   "status": "dry_run" if args.dry_run else "running",
                   "staging_root": str(staging),
-                  "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+                  "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                  "source_provenance": source_provenance}
         update_manifest(manifest, record)
         print(f"[BUILD] {case['name']} T1={config['min_points']} T2={upper}", flush=True)
         print(shlex.join(cmd), flush=True)

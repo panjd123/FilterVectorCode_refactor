@@ -6,7 +6,7 @@
 
 - 主指标：相同端到端 Recall 下的 batch time / QPS。
 - 次指标：固定 L 下 Recall、距离计算量、构建时间、索引大小和加载时间。
-- ELS 控制：核心图结构 A/B 固定使用 `cpu_bruteforce_els`，且允许计时前 warmup/reuse；这样差异来自 graph overlay，而不是入口组算法。
+- ELS 控制：核心图结构 A/B 固定使用 `cpu_bruteforce_els`，且允许计时前 warmup/reuse；这样差异来自 graph overlay，而不是入口组算法。主图内嵌 labels、query labels 和 GT 必须来自同一 Amazon x1 版本。
 - 数据：Amazon 原始 100% x1，K=10，100 search threads，每个选择率 workload 使用相同 query 和精确 GT。
 - 初筛：每点 3 repeats、宽 L 网格；只对 Pareto 前沿和精细 Recall 匹配点做 5+ repeats。
 - 冷启动：同时保存 all-repeat mean 与排除 repeat 0 的 warm mean；主性能结论优先 warm mean，all-repeat 用于完整系统视角。
@@ -41,7 +41,7 @@
 | ID | 类型 | 状态 | 描述 | 当前证据 | 下一步 |
 |---|---|---|---|---|---|
 | M1 | measurement | RESOLVED | 六档选择率统一结果已完成 | 18 case x 20 L x 3 repeats；验证器通过 | 保留初筛表，最终候选增加 repeats |
-| M2 | tuning | ACTIVE | 上层 T2=10k 未证明全局最优 | 四档 T2 已构建；查询仅完整扫描过 10k | 在 25%/50%/75% 初筛 4k/10k/25k/50k |
+| M2 | tuning | ACTIVE | 上层 T2=10k 未证明全局最优 | hybrid 语义上的四档旧构建不能用于目标数据结论 | 在匹配 Amazon x1 的主图上重建并初筛 |
 | M3 | baseline | ACTIVE | 其他系统方法尚未统一数据与 Recall 口径 | 历史结果路径混杂 Amazon/Amazon_hybrid | 校验 index fingerprint 和 GT 后运行 |
 | M4 | correctness | RESOLVED | 多 level 候选重复占槽 | `368227e` 后 Recall 恢复 | 保留回归测试 |
 | M5 | compatibility | RESOLVED | loader 不接受 multilevel format | 格式白名单和 round-trip test | 保留回归测试 |
@@ -51,9 +51,10 @@
 | M9 | orchestration | RESOLVED | 旧系统异常的 `ps -o` 输出造成旧 driver 已退出的误判，两个 runner 曾短暂并发 | 进程树确认 PID 10039 在跑 sel_75、新 tmux 在跑 sel_50；已同时停止，并隔离受影响产物 | runner 增加 output-root 独占锁；只用重新单独运行的 sel_50/sel_75 |
 | M10 | measurement | PARTIAL | plain UNG Recall 跨 repeat 有随机波动 | 最大 spread 0.0029；single/multi 在该矩阵中为 0 | 等 Recall 保留质量 margin；最终点增加 repeats 并报告范围 |
 | M11 | algorithm | ACTIVE | 10k 上层对低选择率常有额外开销、对高选择率显著有利 | 相对 single：0.5%--10% 多数 speedup <1；50%/75% 多点为 1.06--3.19x | 扫 T2，并考虑按完整上层覆盖/选择率门控启用 |
-| M12 | baseline | RESOLVED | 历史 UNG 50% Recall 显著高于当前矩阵，疑似 ELS 语义退化 | 交叉实验表明同一旧主图上 bitset ELS Recall 反而更高；旧结果使用 482,387-group/30,723-label 主图，当前使用 510,639-group/21,834-label hybrid 主图 | 历史结果只作系统级旁证，禁止混入 overlay 消融 |
+| M12 | measurement | REGRESSED | 历史 UNG 50% Recall 显著高于当前矩阵 | provenance 审计发现 query/GT 属于 30,723-label Amazon x1，而当前 overlay 主图仅 21,834 labels；query `{1}` 匹配点为 582,582 vs 290,684 | 废弃该 overlay 的 Recall 结论，在 30,723-label 主图重建 |
 | M13 | measurement | RESOLVED | T2 初筛曾受到运行中重编译和错误 instrumentation 条件影响 | 两轮结果已分别隔离至 `runs/quarantine/20260905T2218_binary_rebuild/` 与 `runs/quarantine/20260905T2225_instrumentation_bug/`；最终修正后二进制为 `ab4a94a` | 只接受重新运行的 `runs/t2_query_screen` |
 | M14 | mechanism | PARTIAL | 需要证明上层不是只增加静态数据而未参与查询 | 10k、50% detail smoke：每查询平均覆盖 5.089 个上层 block、展开 52.207 个上层节点、扫描 2,834.590 条上层边、发生 46.101 次上层激活 | 最终候选另做不计入性能主表的 detail run，并报告分位数 |
+| M15 | provenance | ACTIVE | 所有核心 overlay 必须绑定主图 labels hash | 错配 sweep 已隔离；目标主图有 482,387 groups/30,723 labels，query/GT 也由该 x1 labels 生成 | build runner 增加 source labels hash，并重建四档 |
 
 ## 当前假设
 
@@ -63,4 +64,4 @@
 
 ## 下一最小实验及判据
 
-等待基于最终 `ab4a94a` 二进制的 `runs/t2_query_screen` 完成；先做结构验证和相同 Recall 汇总，再按结果选一个或两个 T2，在低选择率验证是否需要运行时门控上层。
+先在 30,723-label Amazon x1 主图上重建 single T1=1k 和 T2=4k/10k/25k/50k，并把 source labels hash 写入 manifest；只有数据语义一致后才重跑查询阈值 sweep。

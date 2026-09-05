@@ -84,6 +84,57 @@ class SelectionSweepTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "metadata mismatch"):
                 run_build_sweep.validate_case(config, case, root)
 
+    def test_source_validation_rejects_label_version_mismatch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index = root / "index"
+            index.mkdir()
+            (index / "meta").write_text("num_points=2\n")
+            (index / "labels.txt").write_text("1\n2\n")
+            (index / "new_to_old_vec_ids").write_text("0\n1\n")
+            base_bin = root / "base.bin"
+            base_bin.write_bytes((2).to_bytes(4, "little") +
+                                 (3).to_bytes(4, "little"))
+            base_labels = root / "base_labels.txt"
+            base_labels.write_text("1\n3\n")
+            build_app = root / "builder"
+            build_app.write_text("placeholder")
+            config = {
+                "build_app": str(build_app),
+                "main_index": str(index),
+                "base_bin_file": str(base_bin),
+                "base_label_file": str(base_labels),
+                "expected_num_points": 2,
+            }
+            with self.assertRaisesRegex(ValueError, "source index labels do not match"):
+                run_build_sweep.validate_source(config)
+
+    def test_source_validation_accepts_reordered_labels(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index = root / "index"
+            index.mkdir()
+            (index / "meta").write_text("num_points=3\n")
+            (index / "labels.txt").write_text("3\n1\n2\n")
+            (index / "new_to_old_vec_ids").write_text("2\n0\n1\n")
+            base_bin = root / "base.bin"
+            base_bin.write_bytes((3).to_bytes(4, "little") +
+                                 (2).to_bytes(4, "little"))
+            base_labels = root / "base_labels.txt"
+            base_labels.write_text("1\n2\n3\n")
+            build_app = root / "builder"
+            build_app.write_text("placeholder")
+            config = {
+                "build_app": str(build_app),
+                "main_index": str(index),
+                "base_bin_file": str(base_bin),
+                "base_label_file": str(base_labels),
+                "expected_num_points": 3,
+            }
+            provenance = run_build_sweep.validate_source(config)
+            self.assertEqual(provenance["label_alignment"],
+                             "new_to_old_permutation")
+
     def test_equal_recall_uses_fastest_observed_feasible_point(self):
         rows = [
             {"workload": "w", "method": "single", "recall": 0.91, "batch_ms_warm": 10.0},

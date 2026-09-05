@@ -64,6 +64,36 @@ int main()
    expect(ANNS::special_block_successor_activation_level(2, middle_block) == 2,
           "activation must be monotone when traversing a lower-layer edge");
 
+   std::vector<ANNS::SpecialBlock> gate_blocks(3);
+   gate_blocks[0].block_id = 1;
+   gate_blocks[0].level = 0;
+   gate_blocks[0].point_count = 1000;
+   gate_blocks[1].block_id = 2;
+   gate_blocks[1].level = 1;
+   gate_blocks[1].point_count = 6000;
+   gate_blocks[2].block_id = 3;
+   gate_blocks[2].level = 1;
+   gate_blocks[2].point_count = 5000;
+   std::vector<uint8_t> gated_coverage{0, 1, 1, 1};
+   const auto gate_enabled = ANNS::special_block_apply_level_gate(
+       gated_coverage, gate_blocks, 2, 10000);
+   expect(gate_enabled.upper_enabled && gate_enabled.upper_covered_blocks == 2 &&
+              gate_enabled.upper_covered_points == 11000 &&
+              gated_coverage == std::vector<uint8_t>({0, 1, 1, 1}),
+          "an upper layer above the covered-point threshold must remain enabled");
+   gated_coverage = {0, 1, 1, 0};
+   const auto gate_below_threshold = ANNS::special_block_apply_level_gate(
+       gated_coverage, gate_blocks, 2, 10000);
+   expect(!gate_below_threshold.upper_enabled &&
+              gated_coverage == std::vector<uint8_t>({0, 1, 0, 0}),
+          "an upper layer below the covered-point threshold must be suppressed");
+   gated_coverage = {0, 1, 1, 1};
+   const auto gate_max_level = ANNS::special_block_apply_level_gate(
+       gated_coverage, gate_blocks, 1, 0);
+   expect(!gate_max_level.upper_enabled &&
+              gated_coverage == std::vector<uint8_t>({0, 1, 0, 0}),
+          "max activation level one must provide a strict same-index upper ablation");
+
    std::vector<ANNS::SpecialBlock> activation_blocks(4);
    activation_blocks[0].block_id = 1;
    activation_blocks[0].child_block_ids = {2, 3};
