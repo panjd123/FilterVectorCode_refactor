@@ -68,7 +68,8 @@ def pareto_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def equal_recall_rows(rows: list[dict[str, Any]], baseline: str, targets: list[float]) -> list[dict[str, Any]]:
+def equal_recall_rows(rows: list[dict[str, Any]], baseline: str, targets: list[float],
+                      recall_field: str = "recall") -> list[dict[str, Any]]:
     output = []
     workloads = sorted({row["workload"] for row in rows})
     methods = sorted({row["method"] for row in rows})
@@ -77,7 +78,8 @@ def equal_recall_rows(rows: list[dict[str, Any]], baseline: str, targets: list[f
         for target in targets:
             selected: dict[str, dict[str, Any]] = {}
             for method in methods:
-                feasible = [row for row in candidates if row["method"] == method and row["recall"] >= target]
+                feasible = [row for row in candidates
+                            if row["method"] == method and row[recall_field] >= target]
                 if feasible:
                     selected[method] = min(feasible, key=lambda row: row["batch_ms_warm"])
             base = selected.get(baseline)
@@ -93,7 +95,8 @@ def equal_recall_rows(rows: list[dict[str, Any]], baseline: str, targets: list[f
 
 
 def baseline_l_targets(rows: list[dict[str, Any]], baseline: str,
-                       target_lsearch: list[int]) -> dict[str, list[float]]:
+                       target_lsearch: list[int],
+                       recall_field: str = "recall") -> dict[str, list[float]]:
     """Use measured baseline recalls as workload-specific quality targets.
 
     A fixed target such as 0.95 is not reachable for every selectivity.  The
@@ -108,19 +111,21 @@ def baseline_l_targets(rows: list[dict[str, Any]], baseline: str,
         for lsearch in target_lsearch:
             matches = [row for row in candidates if row["lsearch"] == lsearch]
             if matches:
-                selected.append(float(matches[0]["recall"]))
+                selected.append(float(matches[0][recall_field]))
         # Recall can saturate, so avoid duplicated targets after rounding noise.
         targets[workload] = sorted(set(selected))
     return targets
 
 
 def equal_recall_rows_by_workload(
-    rows: list[dict[str, Any]], baseline: str, targets: dict[str, list[float]]
+    rows: list[dict[str, Any]], baseline: str, targets: dict[str, list[float]],
+    recall_field: str = "recall",
 ) -> list[dict[str, Any]]:
     output = []
     for workload, workload_targets in targets.items():
         subset = [row for row in rows if row["workload"] == workload]
-        output.extend(equal_recall_rows(subset, baseline, workload_targets))
+        output.extend(equal_recall_rows(
+            subset, baseline, workload_targets, recall_field=recall_field))
     return output
 
 
@@ -198,6 +203,11 @@ def main() -> int:
     else:
         equal = equal_recall_rows(rows, args.baseline, args.targets)
     write_csv(root / "equal_recall.csv", equal)
+    conservative_targets = baseline_l_targets(
+        rows, args.baseline, args.target_lsearch, recall_field="recall_min")
+    conservative_equal = equal_recall_rows_by_workload(
+        rows, args.baseline, conservative_targets, recall_field="recall_min")
+    write_csv(root / "equal_recall_conservative.csv", conservative_equal)
     maximum = max_recall_rows(rows)
     write_csv(root / "max_recall.csv", maximum)
     write_markdown(root / "results.md", equal, args.baseline, maximum)

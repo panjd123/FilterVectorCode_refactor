@@ -193,6 +193,23 @@ class SelectionSweepTest(unittest.TestCase):
         self.assertEqual(targets["low"], [0.8, 0.9])
         self.assertEqual(targets["high"], [0.4, 0.5])
 
+    def test_conservative_equal_recall_uses_minimum_repeat_recall(self):
+        rows = [
+            {"workload": "w", "method": "single", "lsearch": 500,
+             "recall": 0.91, "recall_min": 0.90, "batch_ms_warm": 10.0},
+            {"workload": "w", "method": "multi", "lsearch": 400,
+             "recall": 0.92, "recall_min": 0.89, "batch_ms_warm": 6.0},
+            {"workload": "w", "method": "multi", "lsearch": 500,
+             "recall": 0.93, "recall_min": 0.91, "batch_ms_warm": 8.0},
+        ]
+        targets = summarize_selection_sweep.baseline_l_targets(
+            rows, "single", [500], recall_field="recall_min")
+        result = summarize_selection_sweep.equal_recall_rows_by_workload(
+            rows, "single", targets, recall_field="recall_min")
+        selected = {row["method"]: row for row in result}
+        self.assertEqual(selected["multi"]["batch_ms_warm"], 8.0)
+        self.assertAlmostEqual(selected["multi"]["speedup_vs_baseline"], 1.25)
+
 
 if __name__ == "__main__":
     unittest.main()
