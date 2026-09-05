@@ -512,7 +512,7 @@ namespace ANNS
                special_block_parent[child_block_id] = block_id;
          }
       }
-      for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
+      for (IdxType block_id = 1; detail_stats && block_id < query_free_block.size(); ++block_id)
       {
          if (query_free_block[block_id] == 0)
             continue;
@@ -525,6 +525,15 @@ namespace ANNS
       }
       stats.special_free_block_count = static_cast<size_t>(
           std::count(query_free_block.begin(), query_free_block.end(), uint8_t{1}));
+      for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
+      {
+         if (query_free_block[block_id] == 0)
+            continue;
+         if (_special_blocks[block_id - 1].level == 0)
+            stats.special_query_middle_block_count++;
+         else
+            stats.special_query_upper_block_count++;
+      }
       size_t lazy_seed_depth = 0;
       if (const char *value = std::getenv("UNG_SPECIAL_TRIE_LAZY_SEED_DEPTH"))
          lazy_seed_depth = static_cast<size_t>(std::strtoull(value, nullptr, 10));
@@ -974,7 +983,13 @@ namespace ANNS
             {
                stats.special_free_candidates_inserted++;
                if (next_level > from_level)
+               {
                   stats.special_free_upgrades++;
+                  if (from_level == 0)
+                     stats.special_middle_activations++;
+                  if (from_level < 2 && next_level >= 2)
+                     stats.special_upper_activations++;
+               }
             }
          }
          else
@@ -1037,6 +1052,10 @@ namespace ANNS
                {
                   stats.special_preexpand_edges_scanned++;
                   stats.special_edges_scanned++;
+                  if (edge_level >= 2)
+                     stats.special_upper_edges_scanned++;
+                  else
+                     stats.special_middle_edges_scanned++;
                   if (heavy)
                      stats.special_heavy_edges_scanned++;
                   if (edge.kind == SpecialEdgeKind::InterBlock)
@@ -1084,10 +1103,23 @@ namespace ANNS
                {
                   searched_blocks[block_id] = 1;
                   stats.special_blocks_searched++;
+                  if (detail_stats)
+                  {
+                     if (_special_blocks[block_id - 1].level == 0)
+                        stats.special_middle_blocks_searched++;
+                     else
+                        stats.special_upper_blocks_searched++;
+                  }
                }
             }
             if (detail_stats)
+            {
                stats.special_free_nodes_expanded++;
+               if (seed.activation_level >= 2)
+                  stats.special_upper_nodes_expanded++;
+               else
+                  stats.special_middle_nodes_expanded++;
+            }
             size_t preexpand_inter_edges_seen = 0;
             preexpand_edges(special_edges_for_point(seed.id), false,
                             preexpand_inter_edges_seen, seed.activation_level);
@@ -1134,6 +1166,13 @@ namespace ANNS
             {
                searched_blocks[block_id] = 1;
                stats.special_blocks_searched++;
+               if (detail_stats)
+               {
+                  if (_special_blocks[block_id - 1].level == 0)
+                     stats.special_middle_blocks_searched++;
+                  else
+                     stats.special_upper_blocks_searched++;
+               }
             }
          }
 
@@ -1157,7 +1196,13 @@ namespace ANNS
          if (detail_stats)
          {
             if (cur.free())
+            {
                stats.special_free_nodes_expanded++;
+               if (cur.activation_level >= 2)
+                  stats.special_upper_nodes_expanded++;
+               else
+                  stats.special_middle_nodes_expanded++;
+            }
             else
                stats.special_regular_nodes_expanded++;
          }
@@ -1287,6 +1332,10 @@ namespace ANNS
                         if (detail_stats)
                         {
                            stats.special_edges_scanned++;
+                           if (edge_activation_level >= 2)
+                              stats.special_upper_edges_scanned++;
+                           else
+                              stats.special_middle_edges_scanned++;
                            if (heavy)
                               stats.special_heavy_edges_scanned++;
                            if (edge.kind == SpecialEdgeKind::InterBlock)

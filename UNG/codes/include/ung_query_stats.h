@@ -88,6 +88,10 @@ namespace ANNS
       size_t special_group_entry_points_policy_skipped = 0;
       size_t special_free_block_count = 0;
       size_t special_free_block_frontier_count = 0;
+      // Multi-level diagnostics: level 1 is the middle (T1) overlay and
+      // level 2 is the upper (T2) overlay.
+      size_t special_query_middle_block_count = 0;
+      size_t special_query_upper_block_count = 0;
       size_t special_block_seed_points = 0;
       size_t special_block_seed_points_retained = 0;
       size_t special_block_seed_points_preexpanded = 0;
@@ -95,14 +99,20 @@ namespace ANNS
       size_t special_preexpand_edges_accepted = 0;
       size_t special_entry_blocks = 0;
       size_t special_retained_entry_blocks = 0;
+      size_t special_middle_blocks_searched = 0;
+      size_t special_upper_blocks_searched = 0;
       size_t special_regular_nodes_expanded = 0;
       size_t special_free_nodes_expanded = 0;
+      size_t special_middle_nodes_expanded = 0;
+      size_t special_upper_nodes_expanded = 0;
       size_t special_free_node_cap_skipped = 0;
       size_t special_free_edges_cap_skipped = 0;
       size_t special_blocks_searched = 0;
       size_t special_regular_candidates_inserted = 0;
       size_t special_free_candidates_inserted = 0;
       size_t special_free_upgrades = 0;
+      size_t special_middle_activations = 0;
+      size_t special_upper_activations = 0;
       size_t special_regular_edges_scanned = 0;
       bool special_trie_regular_search_enabled = false;
       size_t special_trie_regular_edges_scanned = 0;
@@ -113,6 +123,8 @@ namespace ANNS
       size_t special_edges_scanned = 0;
       size_t special_intra_edges_scanned = 0;
       size_t special_inter_edges_scanned = 0;
+      size_t special_middle_edges_scanned = 0;
+      size_t special_upper_edges_scanned = 0;
       size_t special_inter_edges_coverage_rejected = 0;
       // Number of inter-block edges skipped by the optional per-free-node
       // inter-edge scan cap.  Intra edges have a separate existing cap.
