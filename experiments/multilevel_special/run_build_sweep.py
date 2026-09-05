@@ -19,7 +19,7 @@ import struct
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 REQUIRED_INDEX_FILES = (
@@ -112,11 +112,12 @@ def acquire_lock(output_root: Path):
     return lock_file
 
 
-def clean_build_env(base: dict[str, str], config: dict[str, Any], upper: int) -> dict[str, str]:
+def clean_build_env(base: dict[str, str], config: dict[str, Any], upper: Optional[int]) -> dict[str, str]:
     env = {key: value for key, value in base.items() if not key.startswith("UNG_")}
     env.update({str(key): str(value) for key, value in config.get("env", {}).items()})
     env["UNG_SPECIAL_BLOCK_MIN_POINTS"] = str(int(config["min_points"]))
-    env["UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS"] = str(upper)
+    if upper is not None:
+        env["UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS"] = str(upper)
     return env
 
 
@@ -152,23 +153,29 @@ def validate_case(config: dict[str, Any], case: dict[str, Any], case_root: Path)
     if not timing.is_file() or timing.stat().st_size == 0:
         raise ValueError(f"missing build timing: {timing}")
     meta = parse_meta(block_dir / "meta")
+    upper_value = case.get("upper_min_points")
+    upper = int(upper_value) if upper_value is not None else None
     expected = {
-        "index_format": "special_block_trie_multilevel_v1",
+        "index_format": "special_block_trie_multilevel_v1" if upper is not None
+                        else "special_block_trie_v2",
         "source_input": "ung_index",
         "source_ung_fingerprint": str(config["expected_source_fingerprint"]),
         "num_points": str(int(config["expected_num_points"])),
         "num_groups": str(int(config["expected_num_groups"])),
         "special_block_min_points": str(int(config["min_points"])),
-        "special_block_upper_min_points": str(int(case["upper_min_points"])),
         "special_block_max_degree": str(int(config["max_degree"])),
         "special_block_num_cross_edges": str(int(config["num_cross_edges"])),
     }
+    if upper is not None:
+        expected["special_block_upper_min_points"] = str(upper)
     mismatches = {key: (meta.get(key), value) for key, value in expected.items()
                   if meta.get(key) != value}
     if mismatches:
         raise ValueError(f"metadata mismatch for {case['name']}: {mismatches}")
-    if int(meta.get("special_block_upper_count", "0")) <= 0:
+    if upper is not None and int(meta.get("special_block_upper_count", "0")) <= 0:
         raise ValueError(f"case {case['name']} produced no upper blocks")
+    if upper is None and int(meta.get("special_block_upper_count", "0")) != 0:
+        raise ValueError(f"single-level case {case['name']} unexpectedly produced upper blocks")
     return meta
 
 
@@ -197,7 +204,9 @@ def update_manifest(path: Path, record: dict[str, Any]) -> None:
         state = json.loads(path.read_text())
     runs = [item for item in state.get("runs", []) if item.get("name") != record["name"]]
     runs.append(record)
-    state["runs"] = sorted(runs, key=lambda item: int(item["upper_min_points"]))
+    state["runs"] = sorted(
+        runs, key=lambda item: int(item["upper_min_points"])
+        if item.get("upper_min_points") is not None else -1)
     state["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(state, indent=2) + "\n")
@@ -231,8 +240,9 @@ def main() -> int:
     for case in config["cases"]:
         if selected and case["name"] not in selected:
             continue
-        upper = int(case["upper_min_points"])
-        if upper <= int(config["min_points"]):
+        upper_value = case.get("upper_min_points")
+        upper = int(upper_value) if upper_value is not None else None
+        if upper is not None and upper <= int(config["min_points"]):
             raise ValueError(f"upper threshold must exceed T1: {upper}")
         final_root = Path(case.get("existing_path", output_root / case["name"]))
         try:
@@ -270,7 +280,8 @@ def main() -> int:
                   "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                   "source_provenance": source_provenance}
         update_manifest(manifest, record)
-        print(f"[BUILD] {case['name']} T1={config['min_points']} T2={upper}", flush=True)
+        level_text = f"T2={upper}" if upper is not None else "single-level"
+        print(f"[BUILD] {case['name']} T1={config['min_points']} {level_text}", flush=True)
         print(shlex.join(cmd), flush=True)
         if args.dry_run:
             continue
