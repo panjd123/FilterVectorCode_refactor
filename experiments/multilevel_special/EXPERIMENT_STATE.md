@@ -41,7 +41,7 @@
 | ID | 类型 | 状态 | 描述 | 当前证据 | 下一步 |
 |---|---|---|---|---|---|
 | M1 | measurement | RESOLVED | 六档选择率统一结果已完成 | 18 case x 20 L x 3 repeats；验证器通过 | 保留初筛表，最终候选增加 repeats |
-| M2 | tuning | ACTIVE | 上层 T2=10k 未证明全局最优 | hybrid 语义上的四档旧构建不能用于目标数据结论 | 在匹配 Amazon x1 的主图上重建并初筛 |
+| M2 | tuning | ACTIVE | 上层 T2=10k 未证明全局最优 | 正确 Amazon x1 主图的 T2=4k/10k/25k/50k 已完成，upper blocks 为 46/22/8/5 | 在统一 ELS/route 下运行查询初筛 |
 | M3 | baseline | ACTIVE | 其他系统方法尚未统一数据与 Recall 口径 | 历史结果路径混杂 Amazon/Amazon_hybrid | 校验 index fingerprint 和 GT 后运行 |
 | M4 | correctness | RESOLVED | 多 level 候选重复占槽 | `368227e` 后 Recall 恢复 | 保留回归测试 |
 | M5 | compatibility | RESOLVED | loader 不接受 multilevel format | 格式白名单和 round-trip test | 保留回归测试 |
@@ -52,9 +52,9 @@
 | M10 | measurement | PARTIAL | plain UNG Recall 跨 repeat 有随机波动 | 最大 spread 0.0029；single/multi 在该矩阵中为 0 | 等 Recall 保留质量 margin；最终点增加 repeats 并报告范围 |
 | M11 | algorithm | ACTIVE | 10k 上层对低选择率常有额外开销、对高选择率显著有利 | 相对 single：0.5%--10% 多数 speedup <1；50%/75% 多点为 1.06--3.19x | 扫 T2，并考虑按完整上层覆盖/选择率门控启用 |
 | M12 | measurement | REGRESSED | 历史 UNG 50% Recall 显著高于当前矩阵 | provenance 审计发现 query/GT 属于 30,723-label Amazon x1，而当前 overlay 主图仅 21,834 labels；query `{1}` 匹配点为 582,582 vs 290,684 | 废弃该 overlay 的 Recall 结论，在 30,723-label 主图重建 |
-| M13 | measurement | RESOLVED | T2 初筛曾受到运行中重编译和错误 instrumentation 条件影响 | 两轮结果已分别隔离至 `runs/quarantine/20260905T2218_binary_rebuild/` 与 `runs/quarantine/20260905T2225_instrumentation_bug/`；最终修正后二进制为 `ab4a94a` | 只接受重新运行的 `runs/t2_query_screen` |
+| M13 | measurement | RESOLVED | T2 初筛曾受到运行中重编译和错误 instrumentation 条件影响 | 两轮结果已隔离；新 runner 把搜索程序复制为 content-addressed 只读快照并记录 SHA-256 | 只接受 `runs/t2_query_screen_amazon_x1` 且 hash 固定的结果 |
 | M14 | mechanism | PARTIAL | 需要证明上层不是只增加静态数据而未参与查询 | 10k、50% detail smoke：每查询平均覆盖 5.089 个上层 block、展开 52.207 个上层节点、扫描 2,834.590 条上层边、发生 46.101 次上层激活 | 最终候选另做不计入性能主表的 detail run，并报告分位数 |
-| M15 | provenance | ACTIVE | 所有核心 overlay 必须绑定主图 labels hash | 错配 sweep 已隔离；目标主图有 482,387 groups/30,723 labels，query/GT 也由该 x1 labels 生成 | build runner 增加 source labels hash，并重建四档 |
+| M15 | provenance | RESOLVED | 所有核心 overlay 必须绑定主图 labels hash | 四档均通过 `new_to_old` 标签重排验证，绑定 602,453 points、482,387 groups 和 fingerprint `91d78580ae29f468` | 查询 runner 持续校验 hash/fingerprint |
 
 ## 当前假设
 
@@ -64,4 +64,4 @@
 
 ## 下一最小实验及判据
 
-先在 30,723-label Amazon x1 主图上重建 single T1=1k 和 T2=4k/10k/25k/50k，并把 source labels hash 写入 manifest；只有数据语义一致后才重跑查询阈值 sweep。
+固定 Amazon x1 主图、query/GT、`cpu_bruteforce_els`、100 threads 和搜索二进制快照，仅替换 single/T2 overlay，运行 25%/50%/75% 初筛。若 T2 在相同 Recall 下优于 single，再增加 repeats；若仅同 L 更快或 Recall 不同，则不能主张加速。
