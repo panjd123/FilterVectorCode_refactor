@@ -46,6 +46,7 @@
 | M4 | correctness | RESOLVED | 多 level 候选重复占槽 | `368227e` 后 Recall 恢复 | 保留回归测试 |
 | M5 | compatibility | RESOLVED | loader 不接受 multilevel format | 格式白名单和 round-trip test | 保留回归测试 |
 | M6 | interpretation | RESOLVED | 同 L 慢是否否定多层 | 同 L Recall 更高；等 Recall 已有 1.124x--1.331x | 后续只按等 Recall主张 |
+| M7 | measurement | ACTIVE | plain UNG 的 CPU ELS warmup 曾被错误绑定到 Special Block 开关 | sel_0p5 首次 L50 为 7.29 s，后续约 14 ms；代码条件要求 `UNG_SPECIAL_BLOCK_SEARCH` | 移除错误条件并重跑旧 smoke |
 
 ## 当前假设
 

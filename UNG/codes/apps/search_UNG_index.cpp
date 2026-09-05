@@ -559,7 +559,6 @@ int main(int argc, char **argv)
       }
    }
    else if (entry_group_provider == ANNS::EntryGroupProviderImpl::CpuBruteForceEls &&
-            ANNS::ung_env_flag_enabled("UNG_SPECIAL_BLOCK_SEARCH") &&
             !ANNS::ung_env_flag_enabled("UNG_DISABLE_ELS_REUSE") &&
             !ANNS::ung_env_flag_enabled("UNG_DISABLE_CPU_ELS_WARMUP"))
    {

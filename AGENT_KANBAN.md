@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 建立六档实际选择率的统一 benchmark runner、结果汇总和等 Recall 对齐工具。
+- 修复 plain UNG 未预热 CPU bitset ELS 的 benchmark 口径错误，并重跑真实 smoke。
 
 ## 完成历史
 
@@ -24,14 +24,16 @@
 - 修复新格式 loader 白名单和同一 point 多 level 重复占槽导致的 Recall 崩溃 — 证据：`368227e`。
 - Amazon advantage workload 端到端 A/B：Recall 约 0.902 时 1.124x；Recall 约 0.934 时 1.331x — 证据：`WORKTREE_HANDOFF.md` 和 `runs/query_current_repeat5/`。
 - 六档 workload 数据审计：实际平均选择率 0.499%、0.903%、9.907%、24.915%、49.971%、74.994%，每档 1000 queries，均已有精确 GT。
+- 已新增断点续跑 runner、manifest、warm/cold 分离、Pareto 与等 Recall 汇总器；单元测试 3/3 通过 — 证据：`bfdd685`。
 
 ## 下一步
 
-完成 runner 和汇总器单测，然后构建 T2 候选索引并启动六档选择率初筛矩阵。
+提交 CPU ELS 统一预热修复并重跑 sel_0p5 smoke；确认首个 L 不再包含 lazy initialization 后启动六档矩阵。
 
 ## 阻塞与问题
 
 - 原始 checkout 有大量未提交/未跟踪文件；禁止直接 merge 或覆盖。
+- 新发现 benchmark 口径 bug：plain UNG 的 CPU ELS warmup 被错误要求同时开启 Special Block；修复正在验证，旧 sel_0p5 smoke 不作为正式结果。
 - 远端磁盘使用率 94%，尚余约 835 GB；实验产物必须限制在必要矩阵，不复制主向量数据。
 - `sunyahuia600-sunyahui` 未在本机配置；使用 `ssh -l sunyahui sunyahuia6000`。
 
