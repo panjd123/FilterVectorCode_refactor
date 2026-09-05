@@ -341,7 +341,26 @@ const char *to_string(UngSpecialBlockPartition v)
    return "unknown";
 }
 
+void validate_special_block_thresholds(uint32_t min_points,
+                                       uint32_t upper_min_points)
+{
+   if (min_points == 0 || min_points > (1u << 30))
+      throw std::invalid_argument(
+          "special_block_min_points must be in [1, 1073741824]");
+   if (upper_min_points > 0 && upper_min_points <= min_points)
+      throw std::invalid_argument(
+          "special_block_upper_min_points must exceed special_block_min_points");
+}
+
 UngBuildConfig UngBuildConfig::from_env(uint32_t build_threads)
+{
+   const uint32_t special_block_min_points =
+       static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_MIN_POINTS", 100, 1, 1 << 30));
+   return from_env(build_threads, special_block_min_points);
+}
+
+UngBuildConfig UngBuildConfig::from_env(
+    uint32_t build_threads, uint32_t special_block_min_points)
 {
    UngBuildConfig cfg;
    cfg.profile = profile_from_env();
@@ -379,14 +398,11 @@ UngBuildConfig UngBuildConfig::from_env(uint32_t build_threads)
    cfg.tagore_m = static_cast<uint32_t>(env_int("UNG_TAGORE_M", 64, 1, 1024));
    cfg.special_blocks_enabled = env_bool("UNG_SPECIAL_BLOCKS", false);
    cfg.special_block_partition = special_block_partition_from_env();
-   cfg.special_block_min_points =
-       static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_MIN_POINTS", 100, 1, 1 << 30));
+   cfg.special_block_min_points = special_block_min_points;
    cfg.special_block_upper_min_points = static_cast<uint32_t>(
        env_int("UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS", 0, 0, 1 << 30));
-   if (cfg.special_block_upper_min_points > 0 &&
-       cfg.special_block_upper_min_points <= cfg.special_block_min_points)
-      throw std::invalid_argument(
-          "UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS must exceed UNG_SPECIAL_BLOCK_MIN_POINTS");
+   validate_special_block_thresholds(
+       cfg.special_block_min_points, cfg.special_block_upper_min_points);
    cfg.special_block_max_degree =
        static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_MAX_DEGREE", 0, 0, 1 << 20));
    cfg.special_block_num_cross_edges =

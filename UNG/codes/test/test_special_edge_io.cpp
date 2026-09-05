@@ -1,4 +1,5 @@
 #include "ung_special_edge_io.h"
+#include "uni_nav_graph.h"
 
 #include <cstdlib>
 #include <filesystem>
@@ -171,6 +172,36 @@ int main()
               loaded_blocks[0].level == 1 && loaded_blocks[0].parent_block_id == 2 &&
               loaded_blocks[1].entry_point_id == 12,
           "special block metadata fields must round-trip");
+
+   const auto explicit_index = root / "explicit_index";
+   std::filesystem::create_directories(explicit_index);
+   {
+      std::ofstream out(explicit_index / "meta");
+      out << "num_points=0\n"
+          << "num_groups=0\n"
+          << "special_blocks_enabled=1\n"
+          << "special_block_partition=trie\n";
+   }
+   const auto explicit_load_throws = [&]() {
+      try
+      {
+         ANNS::UniNavGraph index;
+         index.load_special_block_index(explicit_index.string());
+      }
+      catch (const std::runtime_error &)
+      {
+         return true;
+      }
+      return false;
+   };
+   expect(explicit_load_throws(),
+          "explicit sidecar load must reject missing binary metadata");
+   {
+      std::ofstream out(explicit_index / "special_blocks.bin", std::ios::binary);
+      out << "corrupt";
+   }
+   expect(explicit_load_throws(),
+          "explicit sidecar load must reject corrupt binary metadata");
 
    std::filesystem::remove_all(root);
    std::cout << "special edge binary I/O checks passed\n";

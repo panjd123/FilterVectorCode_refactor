@@ -114,9 +114,16 @@ struct UngBuildConfig
    uint64_t special_block_tree_seed = 1;
 
    static UngBuildConfig from_env(uint32_t build_threads);
+   // The independent block-index builder supplies T1 on the CLI.  Apply that
+   // override before reading and validating the optional T2 environment value.
+   static UngBuildConfig from_env(uint32_t build_threads,
+                                  uint32_t special_block_min_points);
    bool is_original_cpu_pipeline() const { return profile == UngBuildProfile::OriginalCpu; }
    void print(std::ostream &os) const;
 };
+
+void validate_special_block_thresholds(uint32_t min_points,
+                                       uint32_t upper_min_points);
 
 const char *to_string(UngBuildProfile v);
 const char *to_string(UngGroupGraphImpl v);

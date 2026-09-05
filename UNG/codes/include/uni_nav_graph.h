@@ -395,7 +395,7 @@ namespace ANNS
                                      const std::string &data_type,
                                      const std::shared_ptr<DistanceHandler> &distance_handler,
                                      uint32_t num_threads,
-                                     IdxType min_points,
+                                     const UngBuildConfig &build_config,
                                      IdxType max_degree,
                                      IdxType num_cross_edges,
                                      IdxType Lbuild,
@@ -405,7 +405,9 @@ namespace ANNS
       void build_special_edge_overlay();
       void build_special_trie_regular_edge_overlay();
       void save_special_blocks(const std::string &prefix);
-      void load_special_blocks(const std::string &prefix, const std::map<std::string, std::string> &meta_data);
+      void load_special_blocks(const std::string &prefix,
+                               const std::map<std::string, std::string> &meta_data,
+                               bool require_binary_sidecars = false);
       void refresh_special_block_memory_stats();
       SpecialEdgeView special_edges_for_point(IdxType point_id) const;
       SpecialEdgeView special_heavy_edges_for_point(IdxType point_id) const;

@@ -88,7 +88,8 @@ int main(int argc, char **argv)
       options.data_type = data_type;
       options.distance_function = dist_fn;
       options.num_threads = num_threads;
-      options.min_points = min_points;
+      options.build_config = ANNS::UngBuildConfig::from_env(
+          num_threads, static_cast<uint32_t>(min_points));
       options.max_degree = max_degree;
       options.num_cross_edges = num_cross_edges;
       options.Lbuild = Lbuild;

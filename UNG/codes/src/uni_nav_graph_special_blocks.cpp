@@ -1914,7 +1914,7 @@ void UniNavGraph::build_special_block_index(
     const std::string &data_type,
     const std::shared_ptr<DistanceHandler> &distance_handler,
     uint32_t num_threads,
-    IdxType min_points,
+    const UngBuildConfig &build_config,
     IdxType max_degree,
     IdxType num_cross_edges,
     IdxType Lbuild,
@@ -1936,10 +1936,9 @@ void UniNavGraph::build_special_block_index(
    _alpha = alpha;
    _num_threads = std::max<uint32_t>(1, num_threads);
    _distance_handler = distance_handler;
-   _build_config = UngBuildConfig::from_env(_num_threads);
+   _build_config = build_config;
    _build_config.special_blocks_enabled = true;
    _build_config.special_block_partition = UngSpecialBlockPartition::Trie;
-   _build_config.special_block_min_points = min_points;
    _build_config.special_block_max_degree = max_degree;
    _build_config.special_block_num_cross_edges = num_cross_edges;
    _build_config.special_block_data_mode = "x1";
@@ -2073,7 +2072,8 @@ void UniNavGraph::build_special_block_index(
    meta["num_groups"] = std::to_string(_num_groups);
    meta["special_blocks_enabled"] = "1";
    meta["special_block_partition"] = "trie";
-   meta["special_block_min_points"] = std::to_string(min_points);
+   meta["special_block_min_points"] =
+       std::to_string(_build_config.special_block_min_points);
    meta["special_block_upper_min_points"] =
        std::to_string(_special_block_summary.upper_threshold);
    meta["special_block_max_degree"] = std::to_string(max_degree);
@@ -2183,7 +2183,7 @@ void UniNavGraph::load_special_block_index(const std::string &block_index_path_p
                                     _num_points, _num_groups,
                                     _group_id_to_label_set, _group_id_to_range))
       throw std::runtime_error("special block index was built from a different UNG group layout");
-   load_special_blocks(prefix, block_meta);
+   load_special_blocks(prefix, block_meta, true);
    refresh_special_block_memory_stats();
    _special_block_summary.disk_bytes = special_block_disk_bytes(prefix);
    _special_block_summary.load_total_ms = std::chrono::duration<double, std::milli>(
@@ -3410,7 +3410,8 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
 }
 
 void UniNavGraph::load_special_blocks(const std::string &prefix,
-                                      const std::map<std::string, std::string> &meta_data)
+                                      const std::map<std::string, std::string> &meta_data,
+                                      bool require_binary_sidecars)
 {
    _special_blocks.clear();
    _special_block_trie_index.clear();
@@ -3425,6 +3426,9 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
    auto meta_it = meta_data.find("special_blocks_enabled");
    if (meta_it == meta_data.end() || meta_it->second != "1")
    {
+      if (require_binary_sidecars)
+         throw std::runtime_error(
+             "explicit special block index metadata does not enable special blocks");
       rebuild_special_block_indexes();
       return;
    }
@@ -3442,6 +3446,12 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
        prefix + "special_blocks.bin", _special_blocks, binary_metadata_error);
    if (!loaded_binary_metadata)
    {
+      if (require_binary_sidecars)
+         throw std::runtime_error(
+             "cannot load required special block metadata sidecar: " +
+             (binary_metadata_error.empty()
+                  ? std::string("file is missing: ") + prefix + "special_blocks.bin"
+                  : binary_metadata_error));
       std::ifstream in(prefix + "special_blocks.csv");
       if (!in)
       {
@@ -3620,6 +3630,10 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
       }
       else
       {
+         if (require_binary_sidecars)
+            throw std::runtime_error(
+                "required special Trie regular edge sidecar is missing: " +
+                regular_edge_path);
          std::cerr << "[special_trie_regular] sidecar missing; rebuild the index before using the special_block_trie provider."
                    << std::endl;
       }
@@ -3702,6 +3716,10 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
                          _special_edges_csr,
                          _special_edges_by_point,
                          light_binary_edges_loaded);
+   if (require_binary_sidecars && !loaded_light_from_binary)
+      throw std::runtime_error(
+          "required special-edge binary sidecar is missing or invalid: " +
+          prefix + "special_edges.bin");
    std::ifstream edge_in(prefix + "special_edges.csv");
    if (!loaded_light_from_binary && edge_in)
    {

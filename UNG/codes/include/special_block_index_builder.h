@@ -2,6 +2,7 @@
 #define ANNS_SPECIAL_BLOCK_INDEX_BUILDER_H
 
 #include "config.h"
+#include "ung_build_config.h"
 
 #include <cstdint>
 #include <string>
@@ -19,7 +20,9 @@ struct SpecialBlockIndexBuildOptions
    std::string data_type;
    std::string distance_function;
    uint32_t num_threads = 1;
-   IdxType min_points = 100;
+   // Own T1/T2 together so all callers validate the final threshold pair
+   // before the lower-level graph builder consumes it.
+   UngBuildConfig build_config;
    IdxType max_degree = 64;
    IdxType num_cross_edges = 6;
    IdxType Lbuild = 100;

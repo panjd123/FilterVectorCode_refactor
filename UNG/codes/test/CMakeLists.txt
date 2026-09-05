@@ -51,6 +51,10 @@ add_executable(test_special_edge_io test_special_edge_io.cpp)
 target_link_libraries(test_special_edge_io PRIVATE -Wl,--whole-archive ${PROJECT_NAME} Vamana -Wl,--no-whole-archive Boost::program_options Boost::filesystem OpenMP::OpenMP_CXX ${ROARING_LIB} onnxruntime faiss)
 add_test(NAME special_edge_io COMMAND test_special_edge_io)
 
+add_executable(test_ung_build_config test_ung_build_config.cpp)
+target_link_libraries(test_ung_build_config PRIVATE -Wl,--whole-archive ${PROJECT_NAME} Vamana -Wl,--no-whole-archive Boost::program_options Boost::filesystem OpenMP::OpenMP_CXX ${ROARING_LIB} onnxruntime faiss)
+add_test(NAME ung_build_config COMMAND test_ung_build_config)
+
 add_executable(test_special_block_trie test_special_block_trie.cpp)
 target_link_libraries(test_special_block_trie PRIVATE -Wl,--whole-archive ${PROJECT_NAME} Vamana -Wl,--no-whole-archive Boost::program_options Boost::filesystem OpenMP::OpenMP_CXX ${ROARING_LIB} onnxruntime faiss)
 add_test(NAME special_block_trie COMMAND test_special_block_trie)

@@ -10,6 +10,9 @@ namespace ANNS
 
 void SpecialBlockIndexBuilder::build(const SpecialBlockIndexBuildOptions &options) const
 {
+   validate_special_block_thresholds(
+       options.build_config.special_block_min_points,
+       options.build_config.special_block_upper_min_points);
    std::shared_ptr<DistanceHandler> distance_handler =
        get_distance_handler(options.data_type, options.distance_function);
    UniNavGraph implementation;
@@ -22,7 +25,7 @@ void SpecialBlockIndexBuilder::build(const SpecialBlockIndexBuildOptions &option
        options.data_type,
        distance_handler,
        options.num_threads,
-       options.min_points,
+       options.build_config,
        options.max_degree,
        options.num_cross_edges,
        options.Lbuild,
