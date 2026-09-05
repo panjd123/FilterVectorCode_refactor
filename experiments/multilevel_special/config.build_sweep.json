@@ -1,0 +1,54 @@
+{
+  "build_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/build_special_block_index",
+  "main_index": "/home/graphdb/FilterVectorResult/Amazon_hybrid/index/Trie_block_hybrid/index_files",
+  "base_bin_file": "/home/graphdb/FilterVectorData/Amazon/Amazon_base.bin",
+  "base_label_file": "/home/graphdb/FilterVectorData/Amazon/Amazon_base_labels.txt",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/multilevel_builds",
+  "expected_num_points": 602453,
+  "expected_num_groups": 510639,
+  "expected_source_fingerprint": "ec0a798c535d0348",
+  "num_threads": 100,
+  "min_points": 1000,
+  "max_degree": 64,
+  "num_cross_edges": 4,
+  "Lbuild": 100,
+  "alpha": 1.2,
+  "env": {
+    "UNG_SPECIAL_BLOCKS": "1",
+    "UNG_SPECIAL_BLOCK_PARTITION": "trie",
+    "UNG_SPECIAL_INTRA_ROUTE": "1",
+    "UNG_SPECIAL_INTRA_SMALL_NX": "2048",
+    "UNG_SPECIAL_INTRA_LARGE_NX": "8192",
+    "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+    "UNG_SPECIAL_INTRA_MID_SAMPLE_CANDIDATES": "256",
+    "UNG_SPECIAL_INTRA_SAMPLE_MODE": "vamana_prune",
+    "UNG_SPECIAL_INTRA_SAMPLE_CANDIDATES": "256",
+    "UNG_SPECIAL_INTRA_SAMPLE_MIN_N": "257",
+    "UNG_TAGORE_K": "128",
+    "UNG_TAGORE_ITER": "4",
+    "UNG_TAGORE_M": "64",
+    "UNG_SPECIAL_INTER_FORCE_GRAPH_PAIR_WORK": "10000",
+    "UNG_SPECIAL_INTER_SEARCH_EF": "32",
+    "UNG_SPECIAL_INTER_ROUTE_PROFILE": "1",
+    "UNG_SPECIAL_EDGE_BINARY_ONLY": "1"
+  },
+  "cases": [
+    {
+      "name": "t2_4000",
+      "upper_min_points": 4000
+    },
+    {
+      "name": "t2_10000",
+      "upper_min_points": 10000,
+      "existing_path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/formal_1k_10k_hybrid"
+    },
+    {
+      "name": "t2_25000",
+      "upper_min_points": 25000
+    },
+    {
+      "name": "t2_50000",
+      "upper_min_points": 50000
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 import run_selection_sweep
+import run_build_sweep
 import summarize_selection_sweep
 
 
@@ -41,6 +42,47 @@ class SelectionSweepTest(unittest.TestCase):
                 first.close()
             second = run_selection_sweep.acquire_run_lock(root)
             second.close()
+
+    def test_build_env_is_explicit_and_drops_inherited_ung_settings(self):
+        env = run_build_sweep.clean_build_env(
+            {"PATH": "/bin", "UNG_SPECIAL_BLOCK_GPU_INTER": "1"},
+            {"min_points": 1000, "env": {"UNG_SPECIAL_INTRA_ROUTE": "1"}},
+            25000,
+        )
+        self.assertEqual(env["PATH"], "/bin")
+        self.assertNotIn("UNG_SPECIAL_BLOCK_GPU_INTER", env)
+        self.assertEqual(env["UNG_SPECIAL_BLOCK_MIN_POINTS"], "1000")
+        self.assertEqual(env["UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS"], "25000")
+
+    def test_build_case_validation_checks_threshold_and_fingerprint(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            block = root / "block_index"
+            results = root / "results"
+            block.mkdir()
+            results.mkdir()
+            for name in run_build_sweep.REQUIRED_INDEX_FILES:
+                (block / name).write_bytes(b"x")
+            (block / "meta").write_text(
+                "index_format=special_block_trie_multilevel_v1\n"
+                "source_input=ung_index\n"
+                "source_ung_fingerprint=abc\n"
+                "num_points=10\nnum_groups=8\n"
+                "special_block_min_points=1000\n"
+                "special_block_upper_min_points=10000\n"
+                "special_block_max_degree=64\n"
+                "special_block_num_cross_edges=4\n"
+                "special_block_upper_count=2\n"
+            )
+            (results / "build_time.csv").write_text("Metric,Value\ntotal_time,1\n")
+            config = {"expected_source_fingerprint": "abc", "expected_num_points": 10,
+                      "expected_num_groups": 8, "min_points": 1000,
+                      "max_degree": 64, "num_cross_edges": 4}
+            case = {"name": "t2_10000", "upper_min_points": 10000}
+            self.assertEqual(run_build_sweep.validate_case(config, case, root)["special_block_upper_count"], "2")
+            case["upper_min_points"] = 25000
+            with self.assertRaisesRegex(ValueError, "metadata mismatch"):
+                run_build_sweep.validate_case(config, case, root)
 
     def test_equal_recall_uses_fastest_observed_feasible_point(self):
         rows = [
