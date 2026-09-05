@@ -95,6 +95,17 @@ class SelectionSweepTest(unittest.TestCase):
         self.assertEqual(selected["multi"]["batch_ms_warm"], 7.0)
         self.assertAlmostEqual(selected["multi"]["speedup_vs_baseline"], 10.0 / 7.0)
 
+    def test_baseline_l_targets_are_workload_specific(self):
+        rows = [
+            {"workload": "low", "method": "single", "lsearch": 500, "recall": 0.8},
+            {"workload": "low", "method": "single", "lsearch": 1000, "recall": 0.9},
+            {"workload": "high", "method": "single", "lsearch": 500, "recall": 0.4},
+            {"workload": "high", "method": "single", "lsearch": 1000, "recall": 0.5},
+        ]
+        targets = summarize_selection_sweep.baseline_l_targets(rows, "single", [500, 1000])
+        self.assertEqual(targets["low"], [0.8, 0.9])
+        self.assertEqual(targets["high"], [0.4, 0.5])
+
 
 if __name__ == "__main__":
     unittest.main()

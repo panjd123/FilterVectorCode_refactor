@@ -92,6 +92,49 @@ def equal_recall_rows(rows: list[dict[str, Any]], baseline: str, targets: list[f
     return output
 
 
+def baseline_l_targets(rows: list[dict[str, Any]], baseline: str,
+                       target_lsearch: list[int]) -> dict[str, list[float]]:
+    """Use measured baseline recalls as workload-specific quality targets.
+
+    A fixed target such as 0.95 is not reachable for every selectivity.  The
+    baseline's recall at representative L values gives comparable low/mid/high
+    operating points without interpolation or extrapolation.
+    """
+    targets: dict[str, list[float]] = {}
+    for workload in sorted({row["workload"] for row in rows}):
+        candidates = [row for row in rows
+                      if row["workload"] == workload and row["method"] == baseline]
+        selected = []
+        for lsearch in target_lsearch:
+            matches = [row for row in candidates if row["lsearch"] == lsearch]
+            if matches:
+                selected.append(float(matches[0]["recall"]))
+        # Recall can saturate, so avoid duplicated targets after rounding noise.
+        targets[workload] = sorted(set(selected))
+    return targets
+
+
+def equal_recall_rows_by_workload(
+    rows: list[dict[str, Any]], baseline: str, targets: dict[str, list[float]]
+) -> list[dict[str, Any]]:
+    output = []
+    for workload, workload_targets in targets.items():
+        subset = [row for row in rows if row["workload"] == workload]
+        output.extend(equal_recall_rows(subset, baseline, workload_targets))
+    return output
+
+
+def max_recall_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result = []
+    keys = sorted({(row["workload"], row["method"]) for row in rows})
+    for workload, method in keys:
+        candidates = [row for row in rows
+                      if row["workload"] == workload and row["method"] == method]
+        if candidates:
+            result.append(max(candidates, key=lambda row: (row["recall"], -row["batch_ms_warm"])))
+    return result
+
+
 def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
@@ -103,7 +146,8 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
-def write_markdown(path: Path, equal_rows: list[dict[str, Any]], baseline: str) -> None:
+def write_markdown(path: Path, equal_rows: list[dict[str, Any]], baseline: str,
+                   maximum_rows: list[dict[str, Any]]) -> None:
     lines = ["# 多层 Special Block 选择率实验", "",
              "主表使用 warm repeats 的离散实测点；每种方法选择达到目标 Recall 的最快配置，不做插值。", ""]
     for workload in sorted({row["workload"] for row in equal_rows}):
@@ -122,6 +166,16 @@ def write_markdown(path: Path, equal_rows: list[dict[str, Any]], baseline: str) 
                 f"{row['lsearch']} | {row['batch_ms_warm']:.3f} | {speedup_text} |"
             )
         lines.append("")
+    lines.extend(["## 扫描范围内最大 Recall", "",
+                  "此表用于识别共同可达质量上限，不代表最大 L 是性能最优点。", "",
+                  "| workload | 方法 | 最大 Recall | L | warm batch ms |",
+                  "|---|---|---:|---:|---:|"])
+    for row in maximum_rows:
+        lines.append(
+            f"| {row['workload']} | {row['method']} | {row['recall']:.6f} | "
+            f"{row['lsearch']} | {row['batch_ms_warm']:.3f} |"
+        )
+    lines.append("")
     path.write_text("\n".join(lines) + "\n")
 
 
@@ -129,16 +183,24 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
     parser.add_argument("--baseline", default="single_1k")
-    parser.add_argument("--targets", nargs="*", type=float, default=[0.8, 0.9, 0.95, 0.98, 0.99])
+    parser.add_argument("--targets", nargs="*", type=float)
+    parser.add_argument("--target-lsearch", nargs="*", type=int,
+                        default=[500, 1000, 2000, 5000, 10000, 20000])
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
     root = Path(config["output_root"]) / "summary"
     rows = read_rows(config)
     write_csv(root / "all_points.csv", rows)
     write_csv(root / "pareto_points.csv", pareto_rows(rows))
-    equal = equal_recall_rows(rows, args.baseline, args.targets)
+    if args.targets is None:
+        targets = baseline_l_targets(rows, args.baseline, args.target_lsearch)
+        equal = equal_recall_rows_by_workload(rows, args.baseline, targets)
+    else:
+        equal = equal_recall_rows(rows, args.baseline, args.targets)
     write_csv(root / "equal_recall.csv", equal)
-    write_markdown(root / "results.md", equal, args.baseline)
+    maximum = max_recall_rows(rows)
+    write_csv(root / "max_recall.csv", maximum)
+    write_markdown(root / "results.md", equal, args.baseline, maximum)
     print(f"wrote {len(rows)} points to {root}")
     return 0
 
