@@ -134,6 +134,8 @@ int main()
    const auto block_metadata = root / "special_blocks.bin";
    std::vector<ANNS::SpecialBlock> blocks(2);
    blocks[0].block_id = 1;
+   blocks[0].level = 1;
+   blocks[0].parent_block_id = 2;
    blocks[0].root_group_id = 7;
    blocks[0].entry_point_id = 11;
    blocks[0].point_count = 20;
@@ -160,6 +162,7 @@ int main()
               loaded_blocks[0].common_labels == blocks[0].common_labels &&
               loaded_blocks[0].member_group_ids == blocks[0].member_group_ids &&
               loaded_blocks[0].child_block_ids == blocks[0].child_block_ids &&
+              loaded_blocks[0].level == 1 && loaded_blocks[0].parent_block_id == 2 &&
               loaded_blocks[1].entry_point_id == 12,
           "special block metadata fields must round-trip");
 

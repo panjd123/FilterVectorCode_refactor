@@ -72,9 +72,9 @@ void SpecialCandidateQueue::initialize(std::vector<SpecialSearchCandidate> candi
 
 SpecialCandidateInsertResult SpecialCandidateQueue::insert(IdxType id,
                                                             float distance,
-                                                            bool free)
+                                                            uint8_t activation_level)
 {
-   const SpecialSearchCandidate candidate{id, distance, free};
+   const SpecialSearchCandidate candidate{id, distance, activation_level};
    last_shifted_candidates_ = 0;
    if (capacity_ == 0)
       return SpecialCandidateInsertResult::BoundRejected;

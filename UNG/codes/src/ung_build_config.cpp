@@ -381,6 +381,12 @@ UngBuildConfig UngBuildConfig::from_env(uint32_t build_threads)
    cfg.special_block_partition = special_block_partition_from_env();
    cfg.special_block_min_points =
        static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_MIN_POINTS", 100, 1, 1 << 30));
+   cfg.special_block_upper_min_points = static_cast<uint32_t>(
+       env_int("UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS", 0, 0, 1 << 30));
+   if (cfg.special_block_upper_min_points > 0 &&
+       cfg.special_block_upper_min_points <= cfg.special_block_min_points)
+      throw std::invalid_argument(
+          "UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS must exceed UNG_SPECIAL_BLOCK_MIN_POINTS");
    cfg.special_block_max_degree =
        static_cast<uint32_t>(env_int("UNG_SPECIAL_BLOCK_MAX_DEGREE", 0, 0, 1 << 20));
    cfg.special_block_num_cross_edges =
@@ -414,6 +420,8 @@ void UngBuildConfig::print(std::ostream &os) const
       << "[UNG config] special_blocks_enabled=" << (special_blocks_enabled ? 1 : 0) << '\n'
       << "[UNG config] special_block_partition=" << to_string(special_block_partition) << '\n'
       << "[UNG config] special_block_min_points=" << special_block_min_points << '\n'
+      << "[UNG config] special_block_upper_min_points="
+      << special_block_upper_min_points << '\n'
       << "[UNG config] special_block_data_mode=" << special_block_data_mode << '\n'
       << "[UNG config] special_block_skip_trivial=" << (special_block_skip_trivial ? 1 : 0) << '\n'
       << "[UNG config] special_block_tree_mode=" << special_block_tree_mode << '\n'

@@ -18,6 +18,14 @@ struct SpecialBlock
    static constexpr IdxType kInvalidEntryPoint = std::numeric_limits<IdxType>::max();
 
    IdxType block_id = 0;
+   // Zero is the historical/middle Special Block layer. Higher values are
+   // progressively coarser overlays. Keeping the old layer at zero makes
+   // legacy indexes and the group-id ELS provider backward compatible.
+   uint8_t level = 0;
+   // Optional containing block in the next coarser layer. This relation is
+   // diagnostic/navigation metadata; child_block_ids remains the direct
+   // parent->child relation inside one layer.
+   IdxType parent_block_id = 0;
    IdxType root_group_id = 0;
    // Global point id of the entry used by the block-local graph.
    IdxType entry_point_id = kInvalidEntryPoint;
@@ -84,7 +92,9 @@ struct SpecialEdge
 struct SpecialBlockBuildSummary
 {
    IdxType threshold = 0;
+   IdxType upper_threshold = 0;
    IdxType num_blocks = 0;
+   IdxType upper_blocks = 0;
    IdxType trivial_blocks = 0;
    IdxType member_groups = 0;
    IdxType member_points = 0;

@@ -30,6 +30,25 @@ inline bool special_block_successor_is_free(bool current_is_free,
    return current_is_free || target_block_is_covered;
 }
 
+inline uint8_t special_block_activation_level(const SpecialBlock &block)
+{
+   return static_cast<uint8_t>(block.level + 1);
+}
+
+inline bool special_block_edge_is_allowed(uint8_t current_level,
+                                          const SpecialBlock &owner,
+                                          bool query_covers_owner)
+{
+   return query_covers_owner &&
+          special_block_activation_level(owner) <= current_level + 1;
+}
+
+inline uint8_t special_block_successor_activation_level(
+    uint8_t current_level, const SpecialBlock &owner)
+{
+   return std::max(current_level, special_block_activation_level(owner));
+}
+
 inline std::vector<uint8_t> special_block_lazy_seed_mask(
     const std::vector<uint8_t> &free_frontier,
     const std::vector<SpecialBlock> &blocks,

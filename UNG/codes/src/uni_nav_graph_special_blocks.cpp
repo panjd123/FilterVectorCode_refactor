@@ -92,8 +92,9 @@ uint64_t special_block_disk_bytes(const std::string &prefix)
    return total;
 }
 
-constexpr char kSpecialBlockMetadataMagic[8] = {'S', 'B', 'L', 'K', '0', '0', '2', '\0'};
-constexpr uint32_t kSpecialBlockMetadataVersion = 2;
+constexpr char kSpecialBlockMetadataMagicV2[8] = {'S', 'B', 'L', 'K', '0', '0', '2', '\0'};
+constexpr char kSpecialBlockMetadataMagicV3[8] = {'S', 'B', 'L', 'K', '0', '0', '3', '\0'};
+constexpr uint32_t kSpecialBlockMetadataVersion = 3;
 
 void write_special_block_metadata_binary_impl(const std::string &path,
                                               const std::vector<SpecialBlock> &blocks)
@@ -103,7 +104,7 @@ void write_special_block_metadata_binary_impl(const std::string &path,
    if (!out)
       throw std::runtime_error("cannot open special block metadata output: " + temporary_path);
    const uint64_t count = blocks.size();
-   out.write(kSpecialBlockMetadataMagic, sizeof(kSpecialBlockMetadataMagic));
+   out.write(kSpecialBlockMetadataMagicV3, sizeof(kSpecialBlockMetadataMagicV3));
    out.write(reinterpret_cast<const char *>(&kSpecialBlockMetadataVersion), sizeof(uint32_t));
    const uint32_t reserved = 0;
    out.write(reinterpret_cast<const char *>(&reserved), sizeof(reserved));
@@ -112,6 +113,8 @@ void write_special_block_metadata_binary_impl(const std::string &path,
    {
       const uint32_t fixed[] = {
           static_cast<uint32_t>(block.block_id),
+          static_cast<uint32_t>(block.level),
+          static_cast<uint32_t>(block.parent_block_id),
           static_cast<uint32_t>(block.root_group_id),
           static_cast<uint32_t>(block.entry_point_id),
           static_cast<uint32_t>(block.point_count),
@@ -160,9 +163,13 @@ bool read_special_block_metadata_binary_impl(const std::string &path,
    in.read(reinterpret_cast<char *>(&version), sizeof(version));
    in.read(reinterpret_cast<char *>(&reserved), sizeof(reserved));
    in.read(reinterpret_cast<char *>(&count), sizeof(count));
-   if (!in || !std::equal(std::begin(magic), std::end(magic),
-                          std::begin(kSpecialBlockMetadataMagic)) ||
-       version != kSpecialBlockMetadataVersion || count > UINT32_MAX)
+   const bool version2 = version == 2 &&
+                         std::equal(std::begin(magic), std::end(magic),
+                                    std::begin(kSpecialBlockMetadataMagicV2));
+   const bool version3 = version == 3 &&
+                         std::equal(std::begin(magic), std::end(magic),
+                                    std::begin(kSpecialBlockMetadataMagicV3));
+   if (!in || (!version2 && !version3) || count > UINT32_MAX)
    {
       error = "invalid special block metadata header";
       return false;
@@ -171,8 +178,9 @@ bool read_special_block_metadata_binary_impl(const std::string &path,
    blocks.reserve(static_cast<size_t>(count));
    for (uint64_t index = 0; index < count; ++index)
    {
-      uint32_t fixed[9];
-      in.read(reinterpret_cast<char *>(fixed), sizeof(fixed));
+      uint32_t fixed[11] = {};
+      const size_t fixed_count = version3 ? 11 : 9;
+      in.read(reinterpret_cast<char *>(fixed), fixed_count * sizeof(uint32_t));
       if (!in || fixed[0] != index + 1)
       {
          error = "invalid special block metadata record";
@@ -180,10 +188,16 @@ bool read_special_block_metadata_binary_impl(const std::string &path,
       }
       SpecialBlock block;
       block.block_id = fixed[0];
-      block.root_group_id = fixed[1];
-      block.entry_point_id = fixed[2];
-      block.point_count = fixed[3];
-      block.subtree_point_count = fixed[4];
+      const size_t offset = version3 ? 2 : 0;
+      if (version3)
+      {
+         block.level = static_cast<uint8_t>(fixed[1]);
+         block.parent_block_id = fixed[2];
+      }
+      block.root_group_id = fixed[1 + offset];
+      block.entry_point_id = fixed[2 + offset];
+      block.point_count = fixed[3 + offset];
+      block.subtree_point_count = fixed[4 + offset];
       const auto read_values = [&](uint32_t value_count, auto &values) {
          values.resize(value_count);
          for (uint32_t i = 0; i < value_count; ++i)
@@ -193,10 +207,10 @@ bool read_special_block_metadata_binary_impl(const std::string &path,
             values[i] = static_cast<typename std::decay_t<decltype(values)>::value_type>(encoded);
          }
       };
-      read_values(fixed[5], block.root_labels);
-      read_values(fixed[6], block.common_labels);
-      read_values(fixed[7], block.member_group_ids);
-      read_values(fixed[8], block.child_block_ids);
+      read_values(fixed[5 + offset], block.root_labels);
+      read_values(fixed[6 + offset], block.common_labels);
+      read_values(fixed[7 + offset], block.member_group_ids);
+      read_values(fixed[8 + offset], block.child_block_ids);
       if (!in)
       {
          error = "truncated special block metadata payload";
@@ -1226,7 +1240,8 @@ std::vector<LabelType> parse_label_list(const std::string &text)
 void collect_special_block_members(const SpecialBlockTrieIndex &trie,
                                    SpecialBlockTrieIndex::NodeId root,
                                    SpecialBlock &block,
-                                   const std::vector<IdxType> &node_group_points)
+                                   const std::vector<IdxType> &node_group_points,
+                                   const std::vector<IdxType> &node_to_block)
 {
    std::vector<SpecialBlockTrieIndex::NodeId> stack{root};
    while (!stack.empty())
@@ -1234,9 +1249,9 @@ void collect_special_block_members(const SpecialBlockTrieIndex &trie,
       const SpecialBlockTrieIndex::NodeId cur = stack.back();
       stack.pop_back();
       const SpecialBlockTrieNode &node = trie.node(cur);
-      if (cur != root && node.block_id != 0)
+      if (cur != root && cur < node_to_block.size() && node_to_block[cur] != 0)
       {
-         block.child_block_ids.push_back(node.block_id);
+         block.child_block_ids.push_back(node_to_block[cur]);
          continue;
       }
       if (node.terminal_group_id != 0)
@@ -1575,7 +1590,8 @@ bool UniNavGraph::query_covers_special_block(const std::vector<LabelType> &query
 {
    std::vector<LabelType> sorted_query = query_labels;
    std::vector<LabelType> sorted_coverage =
-       env_flag("UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE")
+       (_special_block_summary.upper_blocks > 0 ||
+        env_flag("UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE"))
            ? block.root_labels
            : block.common_labels;
    std::sort(sorted_query.begin(), sorted_query.end());
@@ -1632,11 +1648,14 @@ void UniNavGraph::populate_special_query_stats(const std::vector<LabelType> &que
 void UniNavGraph::rebuild_special_block_indexes()
 {
    _group_id_to_special_block.assign(_num_groups + 1, 0);
+   _group_id_to_upper_special_block.assign(_num_groups + 1, 0);
    _group_is_special_block_root.assign(_num_groups + 1, 0);
    _group_is_trivial_special_block_root.assign(_num_groups + 1, 0);
    _point_to_special_block.assign(_num_points, 0);
+   _point_to_upper_special_block.assign(_num_points, 0);
    _point_is_special_block_root.assign(_num_points, 0);
    _special_block_summary.num_blocks = static_cast<IdxType>(_special_blocks.size());
+   _special_block_summary.upper_blocks = 0;
    _special_block_summary.trivial_blocks = 0;
    _special_block_summary.member_groups = 0;
    _special_block_summary.member_points = 0;
@@ -1644,12 +1663,15 @@ void UniNavGraph::rebuild_special_block_indexes()
 
    for (const SpecialBlock &block : _special_blocks)
    {
+      if (block.level > 0)
+         _special_block_summary.upper_blocks += 1;
       _special_block_summary.member_groups += static_cast<IdxType>(block.member_group_ids.size());
       _special_block_summary.member_points += block.point_count;
       _special_block_summary.child_block_edges += static_cast<IdxType>(block.child_block_ids.size());
       if (block.is_trivial())
          _special_block_summary.trivial_blocks += 1;
-      if (block.root_group_id > 0 && block.root_group_id < _group_is_special_block_root.size())
+      if (block.level == 0 && block.root_group_id > 0 &&
+          block.root_group_id < _group_is_special_block_root.size())
       {
          _group_is_special_block_root[block.root_group_id] = 1;
          if (block.is_trivial())
@@ -1662,10 +1684,16 @@ void UniNavGraph::rebuild_special_block_indexes()
       {
          if (group_id >= _group_id_to_special_block.size())
             continue;
-         _group_id_to_special_block[group_id] = block.block_id;
+         std::vector<IdxType> &group_map = block.level == 0
+                                               ? _group_id_to_special_block
+                                               : _group_id_to_upper_special_block;
+         std::vector<IdxType> &point_map = block.level == 0
+                                               ? _point_to_special_block
+                                               : _point_to_upper_special_block;
+         group_map[group_id] = block.block_id;
          const auto &range = _group_id_to_range[group_id];
-         for (IdxType point_id = range.first; point_id < range.second && point_id < _point_to_special_block.size(); ++point_id)
-            _point_to_special_block[point_id] = block.block_id;
+         for (IdxType point_id = range.first; point_id < range.second && point_id < point_map.size(); ++point_id)
+            point_map[point_id] = block.block_id;
       }
    }
 }
@@ -1675,14 +1703,18 @@ void UniNavGraph::build_special_blocks()
    _special_blocks.clear();
    _special_block_trie_index.clear();
    _group_id_to_special_block.assign(_num_groups + 1, 0);
+   _group_id_to_upper_special_block.assign(_num_groups + 1, 0);
    _group_is_special_block_root.assign(_num_groups + 1, 0);
    _group_is_trivial_special_block_root.assign(_num_groups + 1, 0);
    _point_to_special_block.assign(_num_points, 0);
+   _point_to_upper_special_block.assign(_num_points, 0);
    _point_is_special_block_root.assign(_num_points, 0);
    _special_edges_by_point.clear();
    _special_heavy_edges_by_point.clear();
    _special_block_summary = {};
    _special_block_summary.threshold = static_cast<IdxType>(_build_config.special_block_min_points);
+   _special_block_summary.upper_threshold =
+       static_cast<IdxType>(_build_config.special_block_upper_min_points);
 
    if (!_build_config.special_blocks_enabled)
       return;
@@ -1690,6 +1722,9 @@ void UniNavGraph::build_special_blocks()
    const auto start = std::chrono::high_resolution_clock::now();
    if (_build_config.special_block_partition == UngSpecialBlockPartition::Lng)
    {
+      if (_build_config.special_block_upper_min_points > 0)
+         throw std::runtime_error(
+             "multi-level Special Blocks currently require trie partitioning");
       if (!_label_nav_graph)
          throw std::runtime_error("LNG special block partition requires the label navigation graph to be built first.");
       std::vector<IdxType> group_points(_num_groups + 1, 0);
@@ -1750,7 +1785,6 @@ void UniNavGraph::build_special_blocks()
 
    std::vector<IdxType> node_group_points(_special_block_trie_index.node_count(), 0);
    std::vector<IdxType> subtree_points(_special_block_trie_index.node_count(), 0);
-   std::vector<IdxType> uncovered_points(_special_block_trie_index.node_count(), 0);
    for (SpecialBlockTrieIndex::NodeId node_id = 1;
         node_id < _special_block_trie_index.node_count(); ++node_id)
    {
@@ -1761,39 +1795,80 @@ void UniNavGraph::build_special_blocks()
       node_group_points[node_id] = range.second - range.first;
    }
 
+   // Subtree cardinality is shared by all layers. Each layer has an
+   // independent uncovered counter, so adding a coarse layer does not alter
+   // the historical 1k partition or its block ids.
    for (size_t reverse_idx = _special_block_trie_index.node_count(); reverse_idx > 0; --reverse_idx)
    {
       const auto idx = static_cast<SpecialBlockTrieIndex::NodeId>(reverse_idx - 1);
       const SpecialBlockTrieNode &node = _special_block_trie_index.node(idx);
-      IdxType node_subtree_points = node_group_points[idx];
-      IdxType node_uncovered_points = node_group_points[idx];
+      IdxType total = node_group_points[idx];
       for (size_t child_offset = 0; child_offset < node.child_count; ++child_offset)
+         total += subtree_points[_special_block_trie_index.child_node_id(idx, child_offset)];
+      subtree_points[idx] = total;
+   }
+
+   auto append_layer = [&](IdxType threshold, uint8_t level) {
+      std::vector<IdxType> uncovered_points(_special_block_trie_index.node_count(), 0);
+      std::vector<IdxType> node_to_block(_special_block_trie_index.node_count(), 0);
+      for (size_t reverse_idx = _special_block_trie_index.node_count(); reverse_idx > 0; --reverse_idx)
       {
-         const auto child = _special_block_trie_index.child_node_id(idx, child_offset);
-         node_subtree_points += subtree_points[child];
-         node_uncovered_points += uncovered_points[child];
-      }
-      subtree_points[idx] = node_subtree_points;
-      uncovered_points[idx] = node_uncovered_points;
-      if (idx == 0)
-         continue;
-      if (node_uncovered_points > static_cast<IdxType>(_build_config.special_block_min_points))
-      {
+         const auto idx = static_cast<SpecialBlockTrieIndex::NodeId>(reverse_idx - 1);
+         const SpecialBlockTrieNode &node = _special_block_trie_index.node(idx);
+         IdxType uncovered = node_group_points[idx];
+         for (size_t child_offset = 0; child_offset < node.child_count; ++child_offset)
+            uncovered += uncovered_points[
+                _special_block_trie_index.child_node_id(idx, child_offset)];
+         uncovered_points[idx] = uncovered;
+         if (idx == 0 || uncovered <= threshold)
+            continue;
+
          SpecialBlock block;
          block.block_id = static_cast<IdxType>(_special_blocks.size() + 1);
-         block.subtree_point_count = node_subtree_points;
+         block.level = level;
+         block.subtree_point_count = subtree_points[idx];
          block.root_labels = _special_block_trie_index.labels_for_node(idx);
          collect_special_block_members(_special_block_trie_index, idx, block,
-                                       node_group_points);
+                                       node_group_points, node_to_block);
          if (block.member_group_ids.empty())
             continue;
          block.root_group_id = block.member_group_ids.front();
          block.common_labels = compute_direct_member_common_labels(
              block.member_group_ids, _group_id_to_label_set);
          _special_blocks.push_back(std::move(block));
-         _special_block_trie_index.set_block_id(
-             idx, static_cast<IdxType>(_special_blocks.size()));
+         node_to_block[idx] = static_cast<IdxType>(_special_blocks.size());
+         if (level == 0)
+            _special_block_trie_index.set_block_id(idx, node_to_block[idx]);
          uncovered_points[idx] = 0;
+      }
+      return node_to_block;
+   };
+
+   const std::vector<IdxType> middle_node_to_block = append_layer(
+       static_cast<IdxType>(_build_config.special_block_min_points), 0);
+   if (_build_config.special_block_upper_min_points > 0)
+   {
+      const std::vector<IdxType> upper_node_to_block = append_layer(
+          static_cast<IdxType>(_build_config.special_block_upper_min_points), 1);
+      // Link each middle block to its nearest containing upper-layer block.
+      for (const IdxType middle_block_id : middle_node_to_block)
+      {
+         if (middle_block_id == 0 || middle_block_id > _special_blocks.size())
+            continue;
+         SpecialBlock &middle = _special_blocks[middle_block_id - 1];
+         auto node_id = _special_block_trie_index.find_exact_node(middle.root_labels);
+         while (node_id != SpecialBlockTrieIndex::kInvalidNodeId)
+         {
+            if (node_id < upper_node_to_block.size() &&
+                upper_node_to_block[node_id] != 0)
+            {
+               middle.parent_block_id = upper_node_to_block[node_id];
+               break;
+            }
+            if (node_id == 0)
+               break;
+            node_id = _special_block_trie_index.node(node_id).parent_id;
+         }
       }
    }
 
@@ -1804,11 +1879,13 @@ void UniNavGraph::build_special_blocks()
                          .count();
    _special_block_summary.metadata_ms = ms;
    std::cout << "[special_blocks] enabled=1 partition=trie threshold=" << _special_block_summary.threshold
+             << " upper_threshold=" << _special_block_summary.upper_threshold
              << " trie_nodes=" << _special_block_summary.trie_node_count
              << " trie_children=" << _special_block_summary.trie_child_count
              << " trie_bytes=" << _special_block_summary.trie_serialized_bytes
              << " trie_build_ms=" << _special_block_summary.trie_build_ms
              << " blocks=" << _special_block_summary.num_blocks
+             << " upper_blocks=" << _special_block_summary.upper_blocks
              << " trivial_blocks=" << _special_block_summary.trivial_blocks
              << " member_groups=" << _special_block_summary.member_groups
              << " member_points=" << _special_block_summary.member_points
@@ -1984,7 +2061,9 @@ void UniNavGraph::build_special_block_index(
                                                    .count();
 
    std::map<std::string, std::string> meta;
-   meta["index_format"] = "special_block_trie_v2";
+   meta["index_format"] = _special_block_summary.upper_blocks > 0
+                                ? "special_block_trie_multilevel_v1"
+                                : "special_block_trie_v2";
    meta["edge_storage_format"] = "csr_v2";
    meta["source_ung_index"] = reused_ung_source ? ung_prefix : "dataset_fallback";
    meta["source_input"] = reused_ung_source ? "ung_index" : "dataset_fallback";
@@ -1995,9 +2074,12 @@ void UniNavGraph::build_special_block_index(
    meta["special_blocks_enabled"] = "1";
    meta["special_block_partition"] = "trie";
    meta["special_block_min_points"] = std::to_string(min_points);
+   meta["special_block_upper_min_points"] =
+       std::to_string(_special_block_summary.upper_threshold);
    meta["special_block_max_degree"] = std::to_string(max_degree);
    meta["special_block_num_cross_edges"] = std::to_string(num_cross_edges);
    meta["special_block_count"] = std::to_string(_special_block_summary.num_blocks);
+   meta["special_block_upper_count"] = std::to_string(_special_block_summary.upper_blocks);
    meta["special_block_trivial_count"] = std::to_string(_special_block_summary.trivial_blocks);
    meta["special_block_member_groups"] = std::to_string(_special_block_summary.member_groups);
    meta["special_block_member_points"] = std::to_string(_special_block_summary.member_points);
@@ -3130,10 +3212,12 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
    if (write_metadata_csv)
    {
       std::ofstream out(prefix + "special_blocks.csv");
-      out << "block_id,root_group_id,root_labels,point_count,subtree_point_count,is_trivial,member_group_count,child_block_count,entry_point_id,common_labels\n";
+      out << "block_id,level,parent_block_id,root_group_id,root_labels,point_count,subtree_point_count,is_trivial,member_group_count,child_block_count,entry_point_id,common_labels\n";
       for (const SpecialBlock &block : _special_blocks)
       {
          out << block.block_id << ','
+             << static_cast<unsigned>(block.level) << ','
+             << block.parent_block_id << ','
              << block.root_group_id << ','
              << join_labels_for_special_path(block.root_labels) << ','
              << block.point_count << ','
@@ -3349,6 +3433,10 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
    auto threshold_it = meta_data.find("special_block_min_points");
    if (threshold_it != meta_data.end())
       _special_block_summary.threshold = static_cast<IdxType>(std::stoul(threshold_it->second));
+   auto upper_threshold_it = meta_data.find("special_block_upper_min_points");
+   if (upper_threshold_it != meta_data.end())
+      _special_block_summary.upper_threshold =
+          static_cast<IdxType>(std::stoul(upper_threshold_it->second));
 
    std::string binary_metadata_error;
    const bool loaded_binary_metadata = load_special_block_metadata_binary(
@@ -3375,14 +3463,21 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
             continue;
          SpecialBlock block;
          block.block_id = static_cast<IdxType>(std::stoul(cols[0]));
-         block.root_group_id = static_cast<IdxType>(std::stoul(cols[1]));
-         block.root_labels = parse_label_list(cols[2]);
-         block.point_count = static_cast<IdxType>(std::stoul(cols[3]));
-         block.subtree_point_count = static_cast<IdxType>(std::stoul(cols[4]));
-         if (cols.size() >= 9)
-            block.entry_point_id = static_cast<IdxType>(std::stoull(cols[8]));
-         if (cols.size() >= 10)
-            block.common_labels = parse_label_list(cols[9]);
+         const bool multilevel_csv = cols.size() >= 12;
+         const size_t offset = multilevel_csv ? 2 : 0;
+         if (multilevel_csv)
+         {
+            block.level = static_cast<uint8_t>(std::stoul(cols[1]));
+            block.parent_block_id = static_cast<IdxType>(std::stoul(cols[2]));
+         }
+         block.root_group_id = static_cast<IdxType>(std::stoul(cols[1 + offset]));
+         block.root_labels = parse_label_list(cols[2 + offset]);
+         block.point_count = static_cast<IdxType>(std::stoul(cols[3 + offset]));
+         block.subtree_point_count = static_cast<IdxType>(std::stoul(cols[4 + offset]));
+         if (cols.size() >= 9 + offset)
+            block.entry_point_id = static_cast<IdxType>(std::stoull(cols[8 + offset]));
+         if (cols.size() >= 10 + offset)
+            block.common_labels = parse_label_list(cols[9 + offset]);
          if (block.block_id > _special_blocks.size() + 1)
             _special_blocks.resize(block.block_id - 1);
          if (block.block_id == 0)

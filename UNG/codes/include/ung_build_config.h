@@ -103,6 +103,9 @@ struct UngBuildConfig
    bool special_blocks_enabled = false;
    UngSpecialBlockPartition special_block_partition = UngSpecialBlockPartition::Trie;
    uint32_t special_block_min_points = 100;
+   // Zero disables the coarser overlay and preserves the historical
+   // single-layer behavior. When enabled this must exceed min_points.
+   uint32_t special_block_upper_min_points = 0;
    uint32_t special_block_max_degree = 0; // 0 means use build max_degree.
    uint32_t special_block_num_cross_edges = 0; // 0 means use build num_cross_edges.
    std::string special_block_data_mode;

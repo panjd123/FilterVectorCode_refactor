@@ -143,6 +143,7 @@ bool UniNavGraph::execute_special_batch_gpu_candidate_search(std::shared_ptr<ISt
             std::vector<LabelType> sorted_query = query_labels;
             std::sort(sorted_query.begin(), sorted_query.end());
             const bool root_label_coverage =
+                _special_block_summary.upper_blocks > 0 ||
                 ung_env_flag_enabled("UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE");
             for (size_t block_idx = 0; block_idx < _special_blocks.size(); ++block_idx)
             {
@@ -197,6 +198,16 @@ bool UniNavGraph::execute_special_batch_gpu_candidate_search(std::shared_ptr<ISt
                   continue;
                for (const SpecialEdge edge : special_edges_for_point(point_id))
                {
+                  if (edge.special_block_id == 0 ||
+                      edge.special_block_id > _special_blocks.size() ||
+                      edge.special_block_id >= query_covers_block.size() ||
+                      query_covers_block[edge.special_block_id] == 0)
+                     continue;
+                  // A covered entry group activates the middle layer. One
+                  // batched expansion may therefore enter, but not skip past,
+                  // the immediately coarser layer.
+                  if (_special_blocks[edge.special_block_id - 1].level > 1)
+                     continue;
                   add_candidate(edge.target_point_id);
                   if (flat_candidate_ids.size() - state.candidate_begin >= candidate_limit)
                      break;

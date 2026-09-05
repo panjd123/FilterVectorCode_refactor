@@ -14,7 +14,11 @@ struct SpecialSearchCandidate
 {
    IdxType id = 0;
    float distance = 0.0f;
-   bool free = false;
+   // 0: ordinary graph, 1: historical/middle Special Block graph,
+   // 2+: progressively coarser Special Block overlays.
+   uint8_t activation_level = 0;
+
+   bool free() const { return activation_level != 0; }
 };
 
 inline bool special_candidate_less(const SpecialSearchCandidate &a,
@@ -24,7 +28,7 @@ inline bool special_candidate_less(const SpecialSearchCandidate &a,
       return a.distance < b.distance;
    if (a.id != b.id)
       return a.id < b.id;
-   return static_cast<int>(a.free) < static_cast<int>(b.free);
+   return a.activation_level < b.activation_level;
 }
 
 enum class SpecialCandidateInsertResult
@@ -38,7 +42,8 @@ class SpecialCandidateQueue
 public:
    void reset(size_t capacity, size_t top_k, bool use_heap = true);
    void initialize(std::vector<SpecialSearchCandidate> candidates);
-   SpecialCandidateInsertResult insert(IdxType id, float distance, bool free);
+   SpecialCandidateInsertResult insert(IdxType id, float distance,
+                                       uint8_t activation_level);
 
    bool has_unexpanded();
    bool pop_closest_unexpanded(SpecialSearchCandidate &candidate);

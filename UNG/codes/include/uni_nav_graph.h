@@ -373,9 +373,11 @@ namespace ANNS
       std::vector<SpecialBlock> _special_blocks;
       SpecialBlockTrieIndex _special_block_trie_index;
       std::vector<IdxType> _group_id_to_special_block;
+      std::vector<IdxType> _group_id_to_upper_special_block;
       std::vector<uint8_t> _group_is_special_block_root;
       std::vector<uint8_t> _group_is_trivial_special_block_root;
       std::vector<IdxType> _point_to_special_block;
+      std::vector<IdxType> _point_to_upper_special_block;
       std::vector<uint8_t> _point_is_special_block_root;
       std::vector<std::vector<SpecialEdge>> _special_edges_by_point;
       std::vector<std::vector<SpecialEdge>> _special_heavy_edges_by_point;

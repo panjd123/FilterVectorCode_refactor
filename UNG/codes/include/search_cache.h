@@ -16,6 +16,7 @@ namespace ANNS
       VisitedSet visited_set;
       VisitedSet special_visited_regular;
       VisitedSet special_visited_free;
+      VisitedSet special_visited_upper;
       SpecialCandidateQueue special_candidate_queue;
       std::vector<Candidate> expanded_list;
       std::vector<float> occlude_factor;
@@ -35,6 +36,7 @@ namespace ANNS
          visited_set.init(visited_set_size);
          special_visited_regular.init(visited_set_size);
          special_visited_free.init(visited_set_size);
+         special_visited_upper.init(visited_set_size);
       }
    };
 

@@ -47,6 +47,23 @@ int main()
    expect(!ANNS::special_block_successor_is_free(false, false),
           "regular search must stay regular before reaching a covered block");
 
+   ANNS::SpecialBlock middle_block;
+   middle_block.level = 0;
+   ANNS::SpecialBlock upper_block;
+   upper_block.level = 1;
+   expect(ANNS::special_block_edge_is_allowed(0, middle_block, true),
+          "ordinary search may enter a covered middle block");
+   expect(!ANNS::special_block_edge_is_allowed(0, upper_block, true),
+          "ordinary search must not bypass the middle layer");
+   expect(ANNS::special_block_edge_is_allowed(1, upper_block, true),
+          "middle search may enter a covered upper block");
+   expect(!ANNS::special_block_edge_is_allowed(1, upper_block, false),
+          "query coverage remains mandatory at every layer");
+   expect(ANNS::special_block_successor_activation_level(1, upper_block) == 2,
+          "upper edges must promote middle candidates to level two");
+   expect(ANNS::special_block_successor_activation_level(2, middle_block) == 2,
+          "activation must be monotone when traversing a lower-layer edge");
+
    std::vector<ANNS::SpecialBlock> activation_blocks(4);
    activation_blocks[0].block_id = 1;
    activation_blocks[0].child_block_ids = {2, 3};

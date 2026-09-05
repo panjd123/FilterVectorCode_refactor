@@ -49,10 +49,11 @@ int main()
    queue.initialize({{10, 4.0f, false}, {7, 4.0f, true},
                      {8, 4.0f, true}, {8, 4.0f, false}});
    retained = queue.sorted_results();
-   expect(retained[0].id == 7 && retained[0].free &&
-              retained[1].id == 8 && !retained[1].free &&
-              retained[2].id == 8 && retained[2].free && retained[3].id == 10,
-          "equal distances must use id then free tie ordering");
+   expect(retained[0].id == 7 && retained[0].activation_level == 1 &&
+              retained[1].id == 8 && retained[1].activation_level == 0 &&
+              retained[2].id == 8 && retained[2].activation_level == 1 && retained[3].id == 10,
+          "equal distances must use id then activation-level tie ordering");
+
    float first = 0.0f;
    float second = 0.0f;
    expect(queue.peek_two_unexpanded(first, second) && first == 4.0f && second == 4.0f,
@@ -62,6 +63,14 @@ int main()
    expect(queue.pop_closest_unexpanded(current) && current.id == 10,
           "preexpanded IDs must be skipped without leaving the retained result set");
    expect(!queue.has_unexpanded(), "all marked candidates must remain expanded");
+
+   queue.reset(4, 2);
+   queue.initialize({{4, 1.0f, 2}, {4, 1.0f, 1}, {4, 1.0f, 0}});
+   retained = queue.sorted_results();
+   expect(retained[0].activation_level == 0 &&
+              retained[1].activation_level == 1 &&
+              retained[2].activation_level == 2,
+          "candidate queue must preserve distinct progressive activation states");
 
    queue.reset(0, 0);
    expect(queue.insert(1, 1.0f, false) ==
