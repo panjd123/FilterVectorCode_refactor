@@ -44,3 +44,23 @@ ACORN 的运行方式：
 - `datasets[].query_task`
 
 也可以在单个 dataset 配置里覆盖 `build`、`search` 或显式文件路径，例如 `base_fvecs`、`base_bin_file`、`query_fvecs`、`query_bin_file`、`groundtruth_file`、`index_path_prefix`、`result_path_prefix`。
+
+## Amazon 原始 x1 官方实现对照
+
+论文级多层实验使用独立的官方 ACORN clone，不复用仓库内 legacy ACORN route：
+
+```bash
+git clone https://github.com/stanford-futuredata/ACORN.git thirdparty/acorn-official
+cd thirdparty/acorn-official
+git checkout c259f11c
+git apply ../../experiments/acorn_baseline/patches/0001-add-correct-amazon-x1-acorn-benchmark-adapter.patch
+```
+
+该 patch 增加 Amazon x1 adapter，并修复 `hybrid_search_from_candidates()` 初始 candidate 未检查 `filter_map`、可能返回过滤条件外点的问题。此修复不改变已测 Recall，但正式结果的 `filter_violations` 从非零降为 0。不要用未应用 patch 的官方 checkout 复现主表。
+
+构建 `amazon_x1_acorn` 后，使用：
+
+- `run_official_x1_gamma_sweep.sh`：gamma=2/4/8 的 3 workloads x 3 efSearch 调参；
+- `run_official_x1_selected.sh`：ACORN-1 三个选中点的 1 warmup + 5 measured repeats。
+
+完整聚合结果位于 `experiments/multilevel_special/results_summary/source/acorn_robust.csv`；主表选点位于 `experiments/multilevel_special/results_summary/paper_results.csv`。

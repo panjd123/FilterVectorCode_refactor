@@ -1,0 +1,486 @@
+diff --git a/demos/CMakeLists.txt b/demos/CMakeLists.txt
+index 6b4141d..74e6070 100644
+--- a/demos/CMakeLists.txt
++++ b/demos/CMakeLists.txt
+@@ -108 +108,7 @@ add_executable(test_acorn EXCLUDE_FROM_ALL test_acorn.cpp)
+ target_link_libraries(test_acorn PRIVATE faiss)
++
++# Adapter for the Amazon 100% x1 containment benchmark. Label lookup and
++# filter-map materialization remain visible benchmark stages.
++find_package(OpenMP REQUIRED)
++add_executable(amazon_x1_acorn EXCLUDE_FROM_ALL amazon_x1_acorn.cpp)
++target_link_libraries(amazon_x1_acorn PRIVATE faiss OpenMP::OpenMP_CXX)
+diff --git a/demos/amazon_x1_acorn.cpp b/demos/amazon_x1_acorn.cpp
+new file mode 100644
+index 0000000..3e5eddb
+--- /dev/null
++++ b/demos/amazon_x1_acorn.cpp
+@@ -0,0 +1,457 @@
++#include <faiss/IndexACORN.h>
++#include <faiss/index_io.h>
++
++#include <omp.h>
++
++#include <algorithm>
++#include <chrono>
++#include <cstdint>
++#include <fstream>
++#include <iomanip>
++#include <iostream>
++#include <limits>
++#include <map>
++#include <memory>
++#include <numeric>
++#include <queue>
++#include <sstream>
++#include <stdexcept>
++#include <string>
++#include <unordered_map>
++#include <utility>
++#include <vector>
++
++namespace {
++
++using Clock = std::chrono::steady_clock;
++
++double elapsed_ms(Clock::time_point begin) {
++    return std::chrono::duration<double, std::milli>(Clock::now() - begin).count();
++}
++
++struct Options {
++    std::map<std::string, std::string> values;
++
++    explicit Options(int argc, char** argv) {
++        for (int i = 1; i < argc; ++i) {
++            const std::string key(argv[i]);
++            if (key.size() < 3 || key.substr(0, 2) != "--" || i + 1 >= argc) {
++                throw std::runtime_error("expected --key value arguments");
++            }
++            values[key.substr(2)] = argv[++i];
++        }
++    }
++
++    std::string require(const std::string& key) const {
++        const auto it = values.find(key);
++        if (it == values.end()) {
++            throw std::runtime_error("missing required option --" + key);
++        }
++        return it->second;
++    }
++
++    bool has(const std::string& key) const {
++        return values.find(key) != values.end();
++    }
++
++    size_t get_size(const std::string& key, size_t fallback) const {
++        const auto it = values.find(key);
++        return it == values.end() ? fallback : static_cast<size_t>(std::stoull(it->second));
++    }
++
++    int get_int(const std::string& key, int fallback) const {
++        const auto it = values.find(key);
++        return it == values.end() ? fallback : std::stoi(it->second);
++    }
++};
++
++struct FloatMatrix {
++    size_t rows = 0;
++    size_t dim = 0;
++    std::vector<float> values;
++};
++
++template <typename T>
++void read_exact(std::ifstream& stream, T* output, size_t count, const std::string& context) {
++    stream.read(reinterpret_cast<char*>(output), static_cast<std::streamsize>(count * sizeof(T)));
++    if (!stream) {
++        throw std::runtime_error("short read while reading " + context);
++    }
++}
++
++FloatMatrix load_project_bin(const std::string& path, size_t max_rows) {
++    std::ifstream stream(path.c_str(), std::ios::binary);
++    if (!stream) {
++        throw std::runtime_error("cannot open vector file: " + path);
++    }
++    uint32_t stored_rows = 0;
++    uint32_t dim = 0;
++    read_exact(stream, &stored_rows, 1, path + " row header");
++    read_exact(stream, &dim, 1, path + " dimension header");
++    const size_t rows = max_rows == 0 ? stored_rows : std::min<size_t>(stored_rows, max_rows);
++    FloatMatrix matrix;
++    matrix.rows = rows;
++    matrix.dim = dim;
++    matrix.values.resize(rows * dim);
++    read_exact(stream, matrix.values.data(), matrix.values.size(), path + " payload");
++    return matrix;
++}
++
++std::vector<int> parse_label_row(const std::string& line) {
++    std::vector<int> labels;
++    std::stringstream stream(line);
++    std::string token;
++    while (std::getline(stream, token, ',')) {
++        if (!token.empty()) {
++            labels.push_back(std::stoi(token));
++        }
++    }
++    std::sort(labels.begin(), labels.end());
++    labels.erase(std::unique(labels.begin(), labels.end()), labels.end());
++    return labels;
++}
++
++std::vector<std::vector<int> > load_label_rows(const std::string& path, size_t max_rows) {
++    std::ifstream stream(path.c_str());
++    if (!stream) {
++        throw std::runtime_error("cannot open label file: " + path);
++    }
++    std::vector<std::vector<int> > rows;
++    std::string line;
++    while ((max_rows == 0 || rows.size() < max_rows) && std::getline(stream, line)) {
++        rows.push_back(parse_label_row(line));
++    }
++    if (max_rows != 0 && rows.size() != max_rows) {
++        throw std::runtime_error("label file has fewer rows than requested: " + path);
++    }
++    return rows;
++}
++
++using PostingIndex = std::unordered_map<int, std::vector<uint32_t> >;
++
++PostingIndex build_posting_index(const std::vector<std::vector<int> >& rows) {
++    PostingIndex index;
++    for (size_t row = 0; row < rows.size(); ++row) {
++        for (size_t col = 0; col < rows[row].size(); ++col) {
++            index[rows[row][col]].push_back(static_cast<uint32_t>(row));
++        }
++    }
++    return index;
++}
++
++std::vector<uint32_t> intersect_postings(
++        const PostingIndex& index,
++        size_t num_base,
++        const std::vector<int>& query) {
++    if (query.empty()) {
++        std::vector<uint32_t> all(num_base);
++        std::iota(all.begin(), all.end(), 0);
++        return all;
++    }
++    std::vector<const std::vector<uint32_t>*> lists;
++    lists.reserve(query.size());
++    for (size_t i = 0; i < query.size(); ++i) {
++        const auto it = index.find(query[i]);
++        if (it == index.end()) {
++            return std::vector<uint32_t>();
++        }
++        lists.push_back(&it->second);
++    }
++    std::sort(lists.begin(), lists.end(), [](const std::vector<uint32_t>* lhs,
++                                             const std::vector<uint32_t>* rhs) {
++        return lhs->size() < rhs->size();
++    });
++    std::vector<uint32_t> result(*lists[0]);
++    for (size_t i = 1; i < lists.size() && !result.empty(); ++i) {
++        std::vector<uint32_t> next;
++        next.reserve(std::min(result.size(), lists[i]->size()));
++        std::set_intersection(result.begin(), result.end(), lists[i]->begin(), lists[i]->end(),
++                              std::back_inserter(next));
++        result.swap(next);
++    }
++    return result;
++}
++
++float l2_distance(const float* lhs, const float* rhs, size_t dim) {
++    float distance = 0.0f;
++    for (size_t i = 0; i < dim; ++i) {
++        const float delta = lhs[i] - rhs[i];
++        distance += delta * delta;
++    }
++    return distance;
++}
++
++std::vector<faiss::idx_t> exact_groundtruth(
++        const FloatMatrix& base,
++        const FloatMatrix& queries,
++        const std::vector<std::vector<uint32_t> >& qualified,
++        size_t k) {
++    std::vector<faiss::idx_t> gt(queries.rows * k, -1);
++#pragma omp parallel for schedule(dynamic)
++    for (long query_id = 0; query_id < static_cast<long>(queries.rows); ++query_id) {
++        using Candidate = std::pair<float, uint32_t>;
++        std::priority_queue<Candidate> nearest;
++        const float* query = queries.values.data() + static_cast<size_t>(query_id) * queries.dim;
++        const std::vector<uint32_t>& ids = qualified[static_cast<size_t>(query_id)];
++        for (size_t j = 0; j < ids.size(); ++j) {
++            const uint32_t id = ids[j];
++            const float distance = l2_distance(query, base.values.data() + static_cast<size_t>(id) * base.dim, base.dim);
++            if (nearest.size() < k) {
++                nearest.push(Candidate(distance, id));
++            } else if (distance < nearest.top().first) {
++                nearest.pop();
++                nearest.push(Candidate(distance, id));
++            }
++        }
++        std::vector<faiss::idx_t> ordered(nearest.size());
++        for (size_t pos = nearest.size(); pos > 0; --pos) {
++            ordered[pos - 1] = nearest.top().second;
++            nearest.pop();
++        }
++        for (size_t pos = 0; pos < ordered.size(); ++pos) {
++            gt[static_cast<size_t>(query_id) * k + pos] = ordered[pos];
++        }
++    }
++    return gt;
++}
++
++std::vector<faiss::idx_t> load_project_groundtruth(
++        const std::string& path, size_t num_queries, size_t k) {
++    std::ifstream stream(path.c_str(), std::ios::binary);
++    if (!stream) {
++        throw std::runtime_error("cannot open groundtruth file: " + path);
++    }
++    stream.seekg(0, std::ios::end);
++    const std::streamoff bytes = stream.tellg();
++    stream.seekg(0, std::ios::beg);
++    const size_t pair_bytes = sizeof(uint32_t) + sizeof(float);
++    if (bytes < 0 || static_cast<size_t>(bytes) % (k * pair_bytes) != 0) {
++        throw std::runtime_error("invalid interleaved ID/distance groundtruth size: " + path);
++    }
++    const size_t stored_queries = static_cast<size_t>(bytes) / (k * pair_bytes);
++    if (stored_queries < num_queries) {
++        throw std::runtime_error("groundtruth has fewer queries than requested: " + path);
++    }
++    std::vector<faiss::idx_t> groundtruth(num_queries * k, -1);
++    for (size_t row = 0; row < num_queries; ++row) {
++        for (size_t col = 0; col < k; ++col) {
++            uint32_t id = 0;
++            float distance = 0.0f;
++            read_exact(stream, &id, 1, path + " id");
++            read_exact(stream, &distance, 1, path + " distance");
++            (void)distance;
++            groundtruth[row * k + col] =
++                    id == std::numeric_limits<uint32_t>::max() ? -1 : static_cast<faiss::idx_t>(id);
++        }
++    }
++    return groundtruth;
++}
++
++double recall_at_k(const std::vector<faiss::idx_t>& results,
++                   const std::vector<faiss::idx_t>& groundtruth,
++                   size_t num_queries,
++                   size_t k) {
++    double sum = 0.0;
++    for (size_t query = 0; query < num_queries; ++query) {
++        size_t expected_count = 0;
++        size_t hits = 0;
++        for (size_t expected = 0; expected < k; ++expected) {
++            const faiss::idx_t target = groundtruth[query * k + expected];
++            if (target < 0) {
++                continue;
++            }
++            ++expected_count;
++            for (size_t actual = 0; actual < k; ++actual) {
++                if (results[query * k + actual] == target) {
++                    ++hits;
++                    break;
++                }
++            }
++        }
++        if (expected_count != 0) {
++            sum += static_cast<double>(hits) / expected_count;
++        }
++    }
++    return sum / num_queries;
++}
++
++void build_index(const Options& options) {
++    const size_t max_base = options.get_size("max-base", 0);
++    const int threads = options.get_int("threads", omp_get_max_threads());
++    const int m = options.get_int("M", 32);
++    const int gamma = options.get_int("gamma", 4);
++    const int m_beta = options.get_int("M-beta", 64);
++    omp_set_num_threads(threads);
++
++    const Clock::time_point load_begin = Clock::now();
++    FloatMatrix base = load_project_bin(options.require("base-bin"), max_base);
++    const double load_ms = elapsed_ms(load_begin);
++    std::vector<int> metadata(base.rows, 0);
++    faiss::IndexACORNFlat index(static_cast<int>(base.dim), m, gamma, metadata, m_beta, faiss::METRIC_L2);
++    index.acorn.efConstruction = options.get_int("ef-construction", m * gamma);
++
++    const Clock::time_point build_begin = Clock::now();
++    index.add(static_cast<faiss::idx_t>(base.rows), base.values.data());
++    const double build_ms = elapsed_ms(build_begin);
++    const Clock::time_point save_begin = Clock::now();
++    faiss::write_index(&index, options.require("index").c_str());
++    const double save_ms = elapsed_ms(save_begin);
++
++    std::cout << std::fixed << std::setprecision(3)
++              << "mode=build rows=" << base.rows << " dim=" << base.dim
++              << " M=" << m << " gamma=" << gamma << " M_beta=" << m_beta
++              << " efConstruction=" << index.acorn.efConstruction
++              << " threads=" << threads << " load_ms=" << load_ms
++              << " build_ms=" << build_ms << " save_ms=" << save_ms << std::endl;
++}
++
++struct SearchMeasurement {
++    double lookup_ms = 0.0;
++    double materialize_ms = 0.0;
++    double search_ms = 0.0;
++    double recall = 0.0;
++    size_t violations = 0;
++};
++
++SearchMeasurement search_once(
++        faiss::IndexACORN& index,
++        const FloatMatrix& queries,
++        const PostingIndex& postings,
++        const std::vector<std::vector<int> >& query_labels,
++        const std::vector<faiss::idx_t>& groundtruth,
++        size_t k,
++        size_t batch_size) {
++    SearchMeasurement measurement;
++    std::vector<faiss::idx_t> all_results(queries.rows * k, -1);
++    std::vector<float> all_distances(queries.rows * k, std::numeric_limits<float>::infinity());
++    for (size_t begin = 0; begin < queries.rows; begin += batch_size) {
++        const size_t count = std::min(batch_size, queries.rows - begin);
++        std::vector<std::vector<uint32_t> > qualified(count);
++        Clock::time_point stage = Clock::now();
++#pragma omp parallel for schedule(dynamic)
++        for (long local = 0; local < static_cast<long>(count); ++local) {
++            qualified[static_cast<size_t>(local)] = intersect_postings(
++                    postings, static_cast<size_t>(index.ntotal), query_labels[begin + static_cast<size_t>(local)]);
++        }
++        measurement.lookup_ms += elapsed_ms(stage);
++
++        stage = Clock::now();
++        std::vector<char> filter_map(count * static_cast<size_t>(index.ntotal), 0);
++#pragma omp parallel for schedule(static)
++        for (long local = 0; local < static_cast<long>(count); ++local) {
++            char* row = filter_map.data() + static_cast<size_t>(local) * static_cast<size_t>(index.ntotal);
++            const std::vector<uint32_t>& ids = qualified[static_cast<size_t>(local)];
++            for (size_t j = 0; j < ids.size(); ++j) {
++                row[ids[j]] = 1;
++            }
++        }
++        measurement.materialize_ms += elapsed_ms(stage);
++
++        stage = Clock::now();
++        index.search(static_cast<faiss::idx_t>(count),
++                     queries.values.data() + begin * queries.dim,
++                     static_cast<faiss::idx_t>(k),
++                     all_distances.data() + begin * k,
++                     all_results.data() + begin * k,
++                     filter_map.data());
++        measurement.search_ms += elapsed_ms(stage);
++
++        for (size_t local = 0; local < count; ++local) {
++            const char* row = filter_map.data() + local * static_cast<size_t>(index.ntotal);
++            for (size_t rank = 0; rank < k; ++rank) {
++                const faiss::idx_t result = all_results[(begin + local) * k + rank];
++                if (result >= 0 && !row[result]) {
++                    ++measurement.violations;
++                }
++            }
++        }
++    }
++    measurement.recall = recall_at_k(all_results, groundtruth, queries.rows, k);
++    return measurement;
++}
++
++void search_index(const Options& options) {
++    const int threads = options.get_int("threads", omp_get_max_threads());
++    const size_t max_queries = options.get_size("max-queries", 0);
++    const size_t k = options.get_size("k", 10);
++    const size_t batch_size = options.get_size("batch-size", 100);
++    const int warmups = options.get_int("warmups", 1);
++    const int repeats = options.get_int("repeats", 5);
++    omp_set_num_threads(threads);
++
++    faiss::Index* raw = faiss::read_index(options.require("index").c_str());
++    std::unique_ptr<faiss::Index> holder(raw);
++    faiss::IndexACORN* index = dynamic_cast<faiss::IndexACORN*>(raw);
++    if (index == nullptr) {
++        throw std::runtime_error("index is not an IndexACORN");
++    }
++    index->acorn.efSearch = options.get_int("ef-search", 128);
++
++    const Clock::time_point input_begin = Clock::now();
++    FloatMatrix queries = load_project_bin(options.require("query-bin"), max_queries);
++    if (queries.dim != static_cast<size_t>(index->d)) {
++        throw std::runtime_error("query/index dimension mismatch");
++    }
++    std::vector<std::vector<int> > base_labels = load_label_rows(
++            options.require("base-labels"), static_cast<size_t>(index->ntotal));
++    std::vector<std::vector<int> > query_labels = load_label_rows(
++            options.require("query-labels"), queries.rows);
++    PostingIndex postings = build_posting_index(base_labels);
++    const double input_ms = elapsed_ms(input_begin);
++
++    std::vector<faiss::idx_t> groundtruth;
++    if (options.has("groundtruth")) {
++        groundtruth = load_project_groundtruth(options.require("groundtruth"), queries.rows, k);
++    } else {
++        // Prefix smoke tests cannot use the full-dataset ground truth. Compute
++        // their exact answer over the indexed prefix instead.
++        std::vector<std::vector<uint32_t> > qualified(queries.rows);
++        for (size_t i = 0; i < queries.rows; ++i) {
++            qualified[i] = intersect_postings(
++                    postings, static_cast<size_t>(index->ntotal), query_labels[i]);
++        }
++        FloatMatrix base = load_project_bin(
++                options.require("base-bin"), static_cast<size_t>(index->ntotal));
++        groundtruth = exact_groundtruth(base, queries, qualified, k);
++    }
++
++    std::cout << "repeat,warmup,queries,base,ef_search,threads,lookup_ms,materialize_ms,search_ms,total_ms,recall,filter_violations\n";
++    for (int repeat = -warmups; repeat < repeats; ++repeat) {
++        const SearchMeasurement measurement = search_once(
++                *index, queries, postings, query_labels, groundtruth, k, batch_size);
++        std::cout << repeat << ',' << (repeat < 0 ? 1 : 0) << ',' << queries.rows << ','
++                  << index->ntotal << ',' << index->acorn.efSearch << ',' << threads << ','
++                  << std::fixed << std::setprecision(3) << measurement.lookup_ms << ','
++                  << measurement.materialize_ms << ',' << measurement.search_ms << ','
++                  << (measurement.lookup_ms + measurement.materialize_ms + measurement.search_ms) << ','
++                  << std::setprecision(6) << measurement.recall << ',' << measurement.violations << std::endl;
++    }
++    std::cerr << std::fixed << std::setprecision(3) << "input_and_postings_ms=" << input_ms << std::endl;
++}
++
++void usage(const char* program) {
++    std::cerr << "usage:\n"
++              << "  " << program << " --mode build --base-bin PATH --index PATH [--max-base N] [--M 32 --gamma 4 --M-beta 64 --ef-construction 128 --threads 60]\n"
++              << "  " << program << " --mode search --index PATH --base-bin PATH --base-labels PATH --query-bin PATH --query-labels PATH [--groundtruth PATH] [--max-queries 16 --ef-search 128 --threads 100 --batch-size 100 --warmups 1 --repeats 5]\n";
++}
++
++}  // namespace
++
++int main(int argc, char** argv) {
++    try {
++        const Options options(argc, argv);
++        const std::string mode = options.require("mode");
++        if (mode == "build") {
++            build_index(options);
++        } else if (mode == "search") {
++            search_index(options);
++        } else {
++            throw std::runtime_error("unsupported mode: " + mode);
++        }
++        return 0;
++    } catch (const std::exception& error) {
++        std::cerr << "error: " << error.what() << std::endl;
++        usage(argv[0]);
++        return 2;
++    }
++}
+diff --git a/faiss/impl/ACORN.cpp b/faiss/impl/ACORN.cpp
+index e2c3da5..cef372e 100644
+--- a/faiss/impl/ACORN.cpp
++++ b/faiss/impl/ACORN.cpp
+@@ -1225,3 +1225,5 @@ int hybrid_search_from_candidates(
+         FAISS_ASSERT(v1 >= 0);
+-        if (!sel || sel->is_member(v1)) {
++        // Upper-level navigation may traverse an unqualified entry point, but
++        // the result heap must contain only predicate-matching vectors.
++        if (filter_map[v1] && (!sel || sel->is_member(v1))) {
+             if (nres < k) {
