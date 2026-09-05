@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-05 22:08 +0800`
+最后更新：`2026-09-05 22:26 +0800`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`5f32fea`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
+检查点：`2ffcf3d`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 核验 30,723-label Amazon x1 主图的 fingerprint 和构建输入，在该主图上重建 single/T2 overlays。
+- 完成并验证 30,723-label Amazon x1 主图上的 T2=25k/50k overlay；4k/10k 已完成。
 
 ## 完成历史
 
@@ -34,10 +34,12 @@
 - 完成 ELS/主图交叉审计：当前 hybrid 主图上 L=20k 的 `cpu_min_super_sets`/`cpu_bruteforce_els` Recall 为 0.398/0.436；旧 Trie_block 主图上为 0.724/0.800。历史高 Recall 来自主图/分组版本差异，不是旧 ELS 更好。
 - 增加中层/上层覆盖、展开、边扫描和激活机制统计；轻量性能路径不执行额外计数循环 — 证据：`ab4a94a`，smoke CSV 97 列、1000 行可解析。
 - 发现 hybrid 主图与六档 query/GT 数据版本错配：query `{1}` 在原始 Amazon labels 匹配 582,582 点，在 hybrid index labels 仅匹配 290,684 点；此前约 0.52 Recall 饱和不能作为论文质量结论。
+- Amazon x1 正确主图上的 T2=4k/10k overlay 已通过标签重排语义与 fingerprint 校验；构建分别为 94.43 s/89.05 s，upper blocks 为 46/22。
+- 查询 sweep 新增输入 provenance 校验和 content-addressed 只读搜索二进制快照，防止运行中重编译污染整轮结果；11 项 Python 单测通过 — 证据：`2ffcf3d`。
 
 ## 下一步
 
-以 `/home/graphdb/FilterVectorResult/Amazon/index/Trie_block/index_files` 为一致性主图重建 single/T2 overlays，再重跑阈值初筛。
+等待当前 T2=25k/50k 构建完成，验证四档 metadata 后，用不可变搜索二进制启动 Amazon x1 查询阈值初筛。
 
 ## 阻塞与问题
 
@@ -56,6 +58,7 @@
 - `cmake --build build_ung_rel -j16 --target build_special_block_index search_UNG_index` — `通过`。
 - `git diff --check` — `通过`。
 - `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：18/18 case，L 网格和 3 repeats 完整。
+- `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py` — `通过`：11/11，含查询 provenance 与不可变二进制快照。
 
 ## 仅在需要时阅读的细节
 
@@ -66,7 +69,7 @@
 
 1. 先读本看板，再读当前进行中的实验状态文档。
 2. 运行 `git status --short`，不要暂存 `runs/`。
-3. 检查 `tmux` 会话 `t2_query_screen`、`runs/t2_query_screen/manifest.json` 和 `driver.log`。
+3. 检查 `tmux` 会话 `t2_build_amazon_x1`、`runs/multilevel_builds_amazon_x1/manifest.json` 和 `driver.log`。
 4. 从“下一步”继续；新实测结果必须先写实验账本，再更新结论。
 
 ## 清理提示
