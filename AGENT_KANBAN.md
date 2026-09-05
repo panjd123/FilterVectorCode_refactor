@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-05 22:26 +0800`
+最后更新：`2026-09-05 22:31 +0800`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`2ffcf3d`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
+检查点：`a1cd432`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 完成并验证 30,723-label Amazon x1 主图上的 T2=25k/50k overlay；4k/10k 已完成。
+- 在固定 Amazon x1 主图、query/GT、CPU brute-force ELS、100 threads 和搜索二进制快照下运行 single/T2 的 25%/50%/75% 查询初筛。
 
 ## 完成历史
 
@@ -35,11 +35,12 @@
 - 增加中层/上层覆盖、展开、边扫描和激活机制统计；轻量性能路径不执行额外计数循环 — 证据：`ab4a94a`，smoke CSV 97 列、1000 行可解析。
 - 发现 hybrid 主图与六档 query/GT 数据版本错配：query `{1}` 在原始 Amazon labels 匹配 582,582 点，在 hybrid index labels 仅匹配 290,684 点；此前约 0.52 Recall 饱和不能作为论文质量结论。
 - Amazon x1 正确主图上的 T2=4k/10k overlay 已通过标签重排语义与 fingerprint 校验；构建分别为 94.43 s/89.05 s，upper blocks 为 46/22。
+- T2=25k/50k 也已完成并通过相同校验；构建分别为 92.02 s/94.40 s，upper blocks 为 8/5；四档复用验证全部通过。
 - 查询 sweep 新增输入 provenance 校验和 content-addressed 只读搜索二进制快照，防止运行中重编译污染整轮结果；11 项 Python 单测通过 — 证据：`2ffcf3d`。
 
 ## 下一步
 
-等待当前 T2=25k/50k 构建完成，验证四档 metadata 后，用不可变搜索二进制启动 Amazon x1 查询阈值初筛。
+监控 `t2_query_amazon_x1`，完成后验证 15/15 case、固定 binary hash 和三次 repeats，再生成同 Recall 初筛表。
 
 ## 阻塞与问题
 
@@ -69,7 +70,7 @@
 
 1. 先读本看板，再读当前进行中的实验状态文档。
 2. 运行 `git status --short`，不要暂存 `runs/`。
-3. 检查 `tmux` 会话 `t2_build_amazon_x1`、`runs/multilevel_builds_amazon_x1/manifest.json` 和 `driver.log`。
+3. 检查 `tmux` 会话 `t2_query_amazon_x1`、`runs/t2_query_screen_amazon_x1/manifest.json` 和 `driver.log`。
 4. 从“下一步”继续；新实测结果必须先写实验账本，再更新结论。
 
 ## 清理提示
