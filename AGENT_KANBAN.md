@@ -1,6 +1,6 @@
 # Agent 看板
 
-最后更新：`2026-09-05 21:32 +0800`
+最后更新：`2026-09-05 22:08 +0800`
 分支：`codex/multilevel-special-block-20260905`
 检查点：`9dbf33b`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
@@ -11,11 +11,11 @@
 ## 当前状态
 
 - 总体：`进行中`
-- 摘要：两层 1k/10k 构建、持久化和普通->中层->上层查询已实现。六档选择率核心矩阵 18/18 完成并通过结构审计：10k 上层主要在 50%--75% 高选择率和 25% 最高质量区改善 Pareto，0.5%--10% 多数点不如单层；正在扫描上层阈值。
+- 摘要：两层 1k/10k 构建、持久化和普通->中层->上层查询已实现。六档选择率核心矩阵 18/18 完成并通过结构审计：10k 上层主要在 50%--75% 高选择率和 25% 最高质量区改善 Pareto。T2=4k/25k/50k 已完成构建；正在做统一查询初筛。
 
 ## 进行中
 
-- 用完全相同的构建参数生成 T2=4k/25k/50k 上层 overlay，并验证 fingerprint、metadata 和产物完整性。
+- 固定当前 hybrid 主图、bitset ELS 和 route，在 25%/50%/75% workload 初筛 T2=4k/10k/25k/50k。
 
 ## 完成历史
 
@@ -30,10 +30,12 @@
 - 单实例重测及全部 multi case 已完成：18 case、每 case 20 个 L、每 L 3 repeats；结构审计通过。plain Recall 跨 repeat 最大 spread 0.0029，single/multi 为 0。
 - 汇总改为 workload 自适应质量目标：使用 baseline 在代表性 L 的实测 Recall，不插值、不外推；同时输出扫描内最大 Recall。
 - 新增可恢复的 T2 build runner，显式清理继承的 `UNG_*`、锁定输出目录、使用 staging 原子发布并验证 Amazon x1/fingerprint/metadata；T2=10k 现有产物验证通过。
+- 完成 T2=4k/25k/50k 构建与验证；upper block 数分别为 45/8/4，总 special edges 分别为 63,580,487/58,990,803/56,574,549。
+- 完成 ELS/主图交叉审计：当前 hybrid 主图上 L=20k 的 `cpu_min_super_sets`/`cpu_bruteforce_els` Recall 为 0.398/0.436；旧 Trie_block 主图上为 0.724/0.800。历史高 Recall 来自主图/分组版本差异，不是旧 ELS 更好。
 
 ## 下一步
 
-在 detached `tmux` 中构建 T2=4k/25k/50k；随后按高选择率优先做查询初筛，并为低选择率设计上层按需禁用策略。
+完成 T2 高选择率查询初筛，选出阈值候选；随后按低选择率验证上层按需禁用策略。
 
 ## 阻塞与问题
 

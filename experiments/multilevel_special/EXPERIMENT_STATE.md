@@ -32,7 +32,7 @@
 2. `single_1k`：中层 T1=1000。
 3. `multi_1k_T2`：中层固定 T1=1000，上层阈值扫描。
 
-候选上层阈值：4000、10000、25000、50000。10k 已构建，其余待构建。根据初筛结果决定是否需要细化到 6k/8k/16k。
+候选上层阈值：4000、10000、25000、50000。四档均已按同一参数构建并通过 fingerprint、metadata 与必要文件检查。根据查询初筛结果决定是否需要细化到 6k/8k/16k。
 
 系统级 baseline 在核心消融稳定后增加：至少包括现有普通 UNG/CPU ELS；若已有索引与当前数据/GT 可验证一致，再加入 NaviX、FaVOR 或现有 upstream route。不同 ELS、不同主图的方法必须单列，不能当作纯多层结构消融。
 
@@ -41,7 +41,7 @@
 | ID | 类型 | 状态 | 描述 | 当前证据 | 下一步 |
 |---|---|---|---|---|---|
 | M1 | measurement | RESOLVED | 六档选择率统一结果已完成 | 18 case x 20 L x 3 repeats；验证器通过 | 保留初筛表，最终候选增加 repeats |
-| M2 | tuning | ACTIVE | 上层 T2=10k 未证明全局最优 | 仅构建/查询过 10k | 扫描 4k/25k/50k |
+| M2 | tuning | ACTIVE | 上层 T2=10k 未证明全局最优 | 四档 T2 已构建；查询仅完整扫描过 10k | 在 25%/50%/75% 初筛 4k/10k/25k/50k |
 | M3 | baseline | ACTIVE | 其他系统方法尚未统一数据与 Recall 口径 | 历史结果路径混杂 Amazon/Amazon_hybrid | 校验 index fingerprint 和 GT 后运行 |
 | M4 | correctness | RESOLVED | 多 level 候选重复占槽 | `368227e` 后 Recall 恢复 | 保留回归测试 |
 | M5 | compatibility | RESOLVED | loader 不接受 multilevel format | 格式白名单和 round-trip test | 保留回归测试 |
@@ -51,6 +51,7 @@
 | M9 | orchestration | RESOLVED | 旧系统异常的 `ps -o` 输出造成旧 driver 已退出的误判，两个 runner 曾短暂并发 | 进程树确认 PID 10039 在跑 sel_75、新 tmux 在跑 sel_50；已同时停止，并隔离受影响产物 | runner 增加 output-root 独占锁；只用重新单独运行的 sel_50/sel_75 |
 | M10 | measurement | PARTIAL | plain UNG Recall 跨 repeat 有随机波动 | 最大 spread 0.0029；single/multi 在该矩阵中为 0 | 等 Recall 保留质量 margin；最终点增加 repeats 并报告范围 |
 | M11 | algorithm | ACTIVE | 10k 上层对低选择率常有额外开销、对高选择率显著有利 | 相对 single：0.5%--10% 多数 speedup <1；50%/75% 多点为 1.06--3.19x | 扫 T2，并考虑按完整上层覆盖/选择率门控启用 |
+| M12 | baseline | RESOLVED | 历史 UNG 50% Recall 显著高于当前矩阵，疑似 ELS 语义退化 | 交叉实验表明同一旧主图上 bitset ELS Recall 反而更高；旧结果使用 482,387-group/30,723-label 主图，当前使用 510,639-group/21,834-label hybrid 主图 | 历史结果只作系统级旁证，禁止混入 overlay 消融 |
 
 ## 当前假设
 
@@ -60,4 +61,4 @@
 
 ## 下一最小实验及判据
 
-多层已在 50% 和 75% 选择率进入 Pareto，并在 25% 高质量端有收益。下一步构建 T2=4k/25k/50k；先在 25%/50%/75% 上筛选，随后用低选择率验证是否需要运行时门控上层。
+多层已在 50% 和 75% 选择率进入 Pareto，并在 25% 高质量端有收益。下一步在 25%/50%/75% 上统一初筛 T2=4k/10k/25k/50k，随后用低选择率验证是否需要运行时门控上层。
