@@ -19,6 +19,10 @@ def main() -> int:
     expected_l = {int(value) for value in config["lsearch_values"]}
     expected_repeats = int(config["num_repeats"])
     problems: list[str] = []
+    expected_case_keys = {
+        (method["name"], workload["name"])
+        for method in config["methods"] for workload in config["workloads"]
+    }
 
     for method in config["methods"]:
         for workload in config["workloads"]:
@@ -78,10 +82,26 @@ def main() -> int:
         problems.append("missing manifest")
     else:
         manifest = json.loads(manifest_path.read_text())
-        expected_cases = len(config["methods"]) * len(config["workloads"])
+        expected_cases = len(expected_case_keys)
         runs = manifest.get("runs", [])
-        if len(runs) != expected_cases or any(row.get("status") != "complete" for row in runs):
+        current = {
+            (row.get("method"), row.get("workload")): row for row in runs
+            if (row.get("method"), row.get("workload")) in expected_case_keys
+        }
+        if len(current) != expected_cases or any(
+                row.get("status") != "complete" for row in current.values()):
             problems.append(f"manifest incomplete: {len(runs)}/{expected_cases}")
+        binary_hashes = {row.get("search_binary_sha256") for row in current.values()}
+        if len(binary_hashes) != 1 or None in binary_hashes:
+            problems.append(f"search binary hash mismatch: {sorted(str(x) for x in binary_hashes)}")
+        for key, row in current.items():
+            provenance = row.get("provenance", {})
+            if provenance.get("base_labels_sha256") != config.get("expected_base_labels_sha256"):
+                problems.append(f"{key}: base labels hash mismatch")
+            if provenance.get("main_index_labels_sha256") != config.get("expected_main_index_labels_sha256"):
+                problems.append(f"{key}: main-index labels hash mismatch")
+            if provenance.get("expected_source_fingerprint") != config.get("expected_source_fingerprint"):
+                problems.append(f"{key}: source fingerprint mismatch")
 
     if problems:
         print("VALIDATION FAILED")

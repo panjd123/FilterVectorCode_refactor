@@ -20,6 +20,11 @@
   ],
   "methods": [
     {
+      "name": "plain",
+      "special_block_search": false,
+      "entry_group_provider": "cpu_bruteforce_els"
+    },
+    {
       "name": "single_1k",
       "special_block_search": true,
       "block_index": "/home/graphdb/FilterVectorResult/Amazon/index/Trie_block/block_index_files",
