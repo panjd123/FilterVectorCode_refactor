@@ -34,6 +34,8 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                     warm = [float(item["Time_ms"]) for item in detail if int(item["Repeat"]) > 0]
                     all_times = [float(item["Time_ms"]) for item in detail]
                     all_recall = [float(item["Avg_Recall"]) for item in detail]
+                    warm_mean = (statistics.mean(warm) if warm
+                                 else float(source["Average_Time_ms"]))
                     rows.append({
                         "workload": workload_name,
                         "query_dir": workload["query_dir"],
@@ -42,7 +44,10 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                         "lsearch": lsearch,
                         "recall": float(source["Average_Recall"]),
                         "batch_ms_all": float(source["Average_Time_ms"]),
-                        "batch_ms_warm": statistics.mean(warm) if warm else float(source["Average_Time_ms"]),
+                        "batch_ms_warm": warm_mean,
+                        "batch_ms_warm_median": statistics.median(warm) if warm else warm_mean,
+                        "batch_ms_warm_cv": (statistics.stdev(warm) / warm_mean
+                                             if len(warm) > 1 and warm_mean > 0 else 0.0),
                         "batch_ms_min": min(all_times) if all_times else float(source["Average_Time_ms"]),
                         "batch_ms_max": max(all_times) if all_times else float(source["Average_Time_ms"]),
                         "recall_min": min(all_recall) if all_recall else float(source["Average_Recall"]),
