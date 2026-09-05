@@ -1,6 +1,6 @@
 # Agent 看板
 
-最后更新：`2026-09-05 21:20 +0800`
+最后更新：`2026-09-05 21:32 +0800`
 分支：`codex/multilevel-special-block-20260905`
 检查点：`9dbf33b`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
@@ -11,11 +11,11 @@
 ## 当前状态
 
 - 总体：`进行中`
-- 摘要：两层 1k/10k 构建、持久化和普通->中层->上层查询已实现。单一 advantage workload 上，多层以约 47%--53% 的 L 达到单层同 Recall，整批查询加速 1.124x--1.331x；仍缺六档选择率、阈值调优和外部方法对照。
+- 摘要：两层 1k/10k 构建、持久化和普通->中层->上层查询已实现。六档选择率核心矩阵 18/18 完成并通过结构审计：10k 上层主要在 50%--75% 高选择率和 25% 最高质量区改善 Pareto，0.5%--10% 多数点不如单层；正在扫描上层阈值。
 
 ## 进行中
 
-- 从 `single_1k/sel_50` 断点恢复 plain/single/multi 六档选择率、L=50--20000 的核心初筛矩阵。
+- 用完全相同的构建参数生成 T2=4k/25k/50k 上层 overlay，并验证 fingerprint、metadata 和产物完整性。
 
 ## 完成历史
 
@@ -27,10 +27,13 @@
 - 已新增断点续跑 runner、manifest、warm/cold 分离、Pareto 与等 Recall 汇总器；单元测试 3/3 通过 — 证据：`bfdd685`。
 - 修复 plain UNG 的 CPU ELS warmup 条件并通过真实 sel_0p5 smoke；旧 7.29 s 首点已判为无效 — 证据：`e0c8c63`。
 - 核心 sweep 已完成 plain 六档及 single 前四档；`single_1k/sel_25` 的 CSV 完整。后续检查发现旧 driver 实际仍存活，曾与新 tmux runner 短暂并发；受影响的 single sel_50/sel_75 已隔离并将重测。
+- 单实例重测及全部 multi case 已完成：18 case、每 case 20 个 L、每 L 3 repeats；结构审计通过。plain Recall 跨 repeat 最大 spread 0.0029，single/multi 为 0。
+- 汇总改为 workload 自适应质量目标：使用 baseline 在代表性 L 的实测 Recall，不插值、不外推；同时输出扫描内最大 Recall。
+- 新增可恢复的 T2 build runner，显式清理继承的 `UNG_*`、锁定输出目录、使用 staging 原子发布并验证 Amazon x1/fingerprint/metadata；T2=10k 现有产物验证通过。
 
 ## 下一步
 
-用 detached `tmux` 从 CSV 完整性断点续跑剩余 8 case；完成后生成 Pareto/等 Recall 表，据此决定 T2 参数扫描范围。
+在 detached `tmux` 中构建 T2=4k/25k/50k；随后按高选择率优先做查询初筛，并为低选择率设计上层按需禁用策略。
 
 ## 阻塞与问题
 
@@ -39,12 +42,14 @@
 - 远端磁盘使用率 94%，尚余约 835 GB；实验产物必须限制在必要矩阵，不复制主向量数据。
 - `sunyahuia600-sunyahui` 未在本机配置；使用 `ssh -l sunyahui sunyahuia6000`。
 - 旧系统 `ps -o pid=,etime=,stat=,cmd=` 输出异常曾造成 PID 10039 已退出的误判；已停止两个 runner，并给 runner 增加 output-root 独占锁。受资源竞争影响的结果位于 `runs/quarantine/20260905T2119_contention/`，禁止进入汇总。
+- plain UNG 使用随机搜索路径，3 repeats 的 Recall 最大 spread 为 0.0029；所有等 Recall 结论需保留质量余量或在最终候选上增加 repeats，不能按 1e-4 差异排序。
 
 ## 验证
 
 - `ctest -R 'special_block_trie|special_block_free_state|special_candidate_queue|special_edge_io'` — `通过`：4/4。
 - `cmake --build build_ung_rel -j16 --target build_special_block_index search_UNG_index` — `通过`。
 - `git diff --check` — `通过`。
+- `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：18/18 case，L 网格和 3 repeats 完整。
 
 ## 仅在需要时阅读的细节
 

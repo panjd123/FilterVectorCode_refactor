@@ -40,7 +40,7 @@
 
 | ID | 类型 | 状态 | 描述 | 当前证据 | 下一步 |
 |---|---|---|---|---|---|
-| M1 | measurement | ACTIVE | 尚无六档选择率统一结果 | 仅有 selected_recall_advantage | 跑核心矩阵 |
+| M1 | measurement | RESOLVED | 六档选择率统一结果已完成 | 18 case x 20 L x 3 repeats；验证器通过 | 保留初筛表，最终候选增加 repeats |
 | M2 | tuning | ACTIVE | 上层 T2=10k 未证明全局最优 | 仅构建/查询过 10k | 扫描 4k/25k/50k |
 | M3 | baseline | ACTIVE | 其他系统方法尚未统一数据与 Recall 口径 | 历史结果路径混杂 Amazon/Amazon_hybrid | 校验 index fingerprint 和 GT 后运行 |
 | M4 | correctness | RESOLVED | 多 level 候选重复占槽 | `368227e` 后 Recall 恢复 | 保留回归测试 |
@@ -49,13 +49,15 @@
 | M7 | measurement | RESOLVED | plain UNG 的 CPU ELS warmup 曾被错误绑定到 Special Block 开关 | 修复后 CPU ELS 在计时前预热 156 ms；首个 L50 从 7.29 s 降到 264 ms，warm repeats 13.6--14.5 ms | 主表继续用 warm mean，并保留 all-repeat |
 | M8 | measurement | ACTIVE | 搜索线程池/工作区仍使每进程第一个 L 的 repeat 0 偏高 | 修复 ELS warmup 后，sel_0p5 L50 cold 264 ms、warm 约 14 ms | 初筛按 warm mean，最终复测增加独立 warmup 或丢弃 repeat 0 |
 | M9 | orchestration | RESOLVED | 旧系统异常的 `ps -o` 输出造成旧 driver 已退出的误判，两个 runner 曾短暂并发 | 进程树确认 PID 10039 在跑 sel_75、新 tmux 在跑 sel_50；已同时停止，并隔离受影响产物 | runner 增加 output-root 独占锁；只用重新单独运行的 sel_50/sel_75 |
+| M10 | measurement | PARTIAL | plain UNG Recall 跨 repeat 有随机波动 | 最大 spread 0.0029；single/multi 在该矩阵中为 0 | 等 Recall 保留质量 margin；最终点增加 repeats 并报告范围 |
+| M11 | algorithm | ACTIVE | 10k 上层对低选择率常有额外开销、对高选择率显著有利 | 相对 single：0.5%--10% 多数 speedup <1；50%/75% 多点为 1.06--3.19x | 扫 T2，并考虑按完整上层覆盖/选择率门控启用 |
 
 ## 当前假设
 
 - H1（中高置信）：多层收益主要来自以更小 L 达到相同 Recall，而非降低单次 expansion 成本。
-- H2（待验证）：中高选择率更容易完整覆盖上层 block，因此多层收益更明显；极低选择率可能无法激活上层，收益较小或为负。
+- H2（已支持）：中高选择率更容易完整覆盖上层 block，因此多层收益更明显；极低选择率收益小或为负。六档 sweep 与该趋势一致，但仍需 activation counters 直接验证机制。
 - H3（待验证）：T2 太小会引入过多边和扫描开销，T2 太大则 block 太少、导航收益不足，存在 workload-dependent 中间最优值。
 
 ## 下一最小实验及判据
 
-先用 plain、single_1k、multi_1k_10k 在六档选择率上扫描 L=50--20000 的同一离散网格。若多层在至少两个选择率区间存在更优的 Recall-time Pareto 点，再扩展 T2 参数；若完全没有 Pareto 收益，先用 detailed stats 判断是覆盖率不足还是边扫描开销过高。
+多层已在 50% 和 75% 选择率进入 Pareto，并在 25% 高质量端有收益。下一步构建 T2=4k/25k/50k；先在 25%/50%/75% 上筛选，随后用低选择率验证是否需要运行时门控上层。
