@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-05 22:08 +0800`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`9dbf33b`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
+检查点：`ab4a94a`（push：`未推送；origin 指向用户的脏工作树，不直接 push`）
 
 ## 目标
 
@@ -11,7 +11,7 @@
 ## 当前状态
 
 - 总体：`进行中`
-- 摘要：两层 1k/10k 构建、持久化和普通->中层->上层查询已实现。六档选择率核心矩阵 18/18 完成并通过结构审计：10k 上层主要在 50%--75% 高选择率和 25% 最高质量区改善 Pareto。T2=4k/25k/50k 已完成构建；正在做统一查询初筛。
+- 摘要：两层 1k/10k 构建、持久化和普通->中层->上层查询已实现。T2=4k/10k/25k/50k 均已构建；基于最终修正二进制的干净查询初筛正在单实例运行。
 
 ## 进行中
 
@@ -32,10 +32,11 @@
 - 新增可恢复的 T2 build runner，显式清理继承的 `UNG_*`、锁定输出目录、使用 staging 原子发布并验证 Amazon x1/fingerprint/metadata；T2=10k 现有产物验证通过。
 - 完成 T2=4k/25k/50k 构建与验证；upper block 数分别为 45/8/4，总 special edges 分别为 63,580,487/58,990,803/56,574,549。
 - 完成 ELS/主图交叉审计：当前 hybrid 主图上 L=20k 的 `cpu_min_super_sets`/`cpu_bruteforce_els` Recall 为 0.398/0.436；旧 Trie_block 主图上为 0.724/0.800。历史高 Recall 来自主图/分组版本差异，不是旧 ELS 更好。
+- 增加中层/上层覆盖、展开、边扫描和激活机制统计；轻量性能路径不执行额外计数循环 — 证据：`ab4a94a`，smoke CSV 97 列、1000 行可解析。
 
 ## 下一步
 
-完成 T2 高选择率查询初筛，选出阈值候选；随后按低选择率验证上层按需禁用策略。
+等待 `runs/t2_query_screen` 的干净初筛完成，运行结构验证和等 Recall 汇总；据结果选择最终 T2，并用低选择率验证上层按需禁用策略。
 
 ## 阻塞与问题
 
@@ -45,6 +46,7 @@
 - `sunyahuia600-sunyahui` 未在本机配置；使用 `ssh -l sunyahui sunyahuia6000`。
 - 旧系统 `ps -o pid=,etime=,stat=,cmd=` 输出异常曾造成 PID 10039 已退出的误判；已停止两个 runner，并给 runner 增加 output-root 独占锁。受资源竞争影响的结果位于 `runs/quarantine/20260905T2119_contention/`，禁止进入汇总。
 - plain UNG 使用随机搜索路径，3 repeats 的 Recall 最大 spread 为 0.0029；所有等 Recall 结论需保留质量余量或在最终候选上增加 repeats，不能按 1e-4 差异排序。
+- 两次旧 T2 初筛分别因运行中重编译、instrumentation 条件误放而隔离在 `runs/quarantine/20260905T2218_binary_rebuild/` 和 `runs/quarantine/20260905T2225_instrumentation_bug/`；禁止用于结论。
 
 ## 验证
 
@@ -62,7 +64,7 @@
 
 1. 先读本看板，再读当前进行中的实验状态文档。
 2. 运行 `git status --short`，不要暂存 `runs/`。
-3. 检查后台 job PID/日志和 `runs/multilevel_selection/manifest.json`。
+3. 检查 `tmux` 会话 `t2_query_screen`、`runs/t2_query_screen/manifest.json` 和 `driver.log`。
 4. 从“下一步”继续；新实测结果必须先写实验账本，再更新结论。
 
 ## 清理提示

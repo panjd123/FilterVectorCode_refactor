@@ -32,7 +32,7 @@
 2. `single_1k`：中层 T1=1000。
 3. `multi_1k_T2`：中层固定 T1=1000，上层阈值扫描。
 
-候选上层阈值：4000、10000、25000、50000。四档均已按同一参数构建并通过 fingerprint、metadata 与必要文件检查。根据查询初筛结果决定是否需要细化到 6k/8k/16k。
+候选上层阈值：4000、10000、25000、50000。四档均已按相同参数构建并通过 fingerprint、metadata 与必要文件检查。根据查询初筛结果决定是否需要细化到 6k/8k/16k。
 
 系统级 baseline 在核心消融稳定后增加：至少包括现有普通 UNG/CPU ELS；若已有索引与当前数据/GT 可验证一致，再加入 NaviX、FaVOR 或现有 upstream route。不同 ELS、不同主图的方法必须单列，不能当作纯多层结构消融。
 
@@ -52,13 +52,15 @@
 | M10 | measurement | PARTIAL | plain UNG Recall 跨 repeat 有随机波动 | 最大 spread 0.0029；single/multi 在该矩阵中为 0 | 等 Recall 保留质量 margin；最终点增加 repeats 并报告范围 |
 | M11 | algorithm | ACTIVE | 10k 上层对低选择率常有额外开销、对高选择率显著有利 | 相对 single：0.5%--10% 多数 speedup <1；50%/75% 多点为 1.06--3.19x | 扫 T2，并考虑按完整上层覆盖/选择率门控启用 |
 | M12 | baseline | RESOLVED | 历史 UNG 50% Recall 显著高于当前矩阵，疑似 ELS 语义退化 | 交叉实验表明同一旧主图上 bitset ELS Recall 反而更高；旧结果使用 482,387-group/30,723-label 主图，当前使用 510,639-group/21,834-label hybrid 主图 | 历史结果只作系统级旁证，禁止混入 overlay 消融 |
+| M13 | measurement | RESOLVED | T2 初筛曾受到运行中重编译和错误 instrumentation 条件影响 | 两轮结果已分别隔离至 `runs/quarantine/20260905T2218_binary_rebuild/` 与 `runs/quarantine/20260905T2225_instrumentation_bug/`；最终修正后二进制为 `ab4a94a` | 只接受重新运行的 `runs/t2_query_screen` |
+| M14 | mechanism | PARTIAL | 需要证明上层不是只增加静态数据而未参与查询 | 10k、50% detail smoke：每查询平均覆盖 5.089 个上层 block、展开 52.207 个上层节点、扫描 2,834.590 条上层边、发生 46.101 次上层激活 | 最终候选另做不计入性能主表的 detail run，并报告分位数 |
 
 ## 当前假设
 
 - H1（中高置信）：多层收益主要来自以更小 L 达到相同 Recall，而非降低单次 expansion 成本。
-- H2（已支持）：中高选择率更容易完整覆盖上层 block，因此多层收益更明显；极低选择率收益小或为负。六档 sweep 与该趋势一致，但仍需 activation counters 直接验证机制。
+- H2（中高置信）：中高选择率更容易完整覆盖上层 block，因此多层收益更明显；极低选择率收益小或为负。六档 sweep 与 10k/50% activation counters 均支持该解释，仍需最终候选的多选择率分位数验证。
 - H3（待验证）：T2 太小会引入过多边和扫描开销，T2 太大则 block 太少、导航收益不足，存在 workload-dependent 中间最优值。
 
 ## 下一最小实验及判据
 
-多层已在 50% 和 75% 选择率进入 Pareto，并在 25% 高质量端有收益。下一步在 25%/50%/75% 上统一初筛 T2=4k/10k/25k/50k，随后用低选择率验证是否需要运行时门控上层。
+等待基于最终 `ab4a94a` 二进制的 `runs/t2_query_screen` 完成；先做结构验证和相同 Recall 汇总，再按结果选一个或两个 T2，在低选择率验证是否需要运行时门控上层。
