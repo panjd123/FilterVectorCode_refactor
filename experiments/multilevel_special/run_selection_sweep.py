@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import fcntl
 import json
 import os
 import shlex
@@ -18,6 +19,31 @@ import subprocess
 import time
 from pathlib import Path
 from typing import Any
+
+
+def acquire_run_lock(output_root: Path):
+    """Hold an exclusive lock for one sweep output tree.
+
+    Two runners writing the same case can overwrite CSVs and, more subtly,
+    contend for all search threads while still producing plausible-looking
+    timings.  Keep the returned file object alive for the process lifetime.
+    """
+    lock_path = output_root / ".runner.lock"
+    lock_file = lock_path.open("a+")
+    try:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        lock_file.seek(0)
+        owner = lock_file.read().strip() or "unknown"
+        lock_file.close()
+        raise RuntimeError(
+            f"another selection sweep holds {lock_path} (pid={owner})"
+        ) from error
+    lock_file.seek(0)
+    lock_file.truncate()
+    lock_file.write(str(os.getpid()) + "\n")
+    lock_file.flush()
+    return lock_file
 
 
 def read_bin_shape(path: Path) -> tuple[int, int]:
@@ -167,6 +193,9 @@ def main() -> int:
     config = json.loads(args.config.read_text())
     output_root = Path(config["output_root"])
     output_root.mkdir(parents=True, exist_ok=True)
+    # Retain this handle until main returns; closing it releases the advisory
+    # lock even after an exception or normal process exit.
+    run_lock = acquire_run_lock(output_root)
     manifest_path = output_root / "manifest.json"
     selected_methods = set(args.method)
     selected_workloads = set(args.workload)
@@ -223,6 +252,7 @@ def main() -> int:
                 raise RuntimeError(f"search failed for {method['name']}/{workload['name']}; see {run_dir / 'search.log'}")
             if not result_is_complete(run_dir, values):
                 raise RuntimeError(f"incomplete summary for {method['name']}/{workload['name']}")
+    run_lock.close()
     return 0
 
 

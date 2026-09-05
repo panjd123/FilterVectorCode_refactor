@@ -48,7 +48,7 @@
 | M6 | interpretation | RESOLVED | 同 L 慢是否否定多层 | 同 L Recall 更高；等 Recall 已有 1.124x--1.331x | 后续只按等 Recall主张 |
 | M7 | measurement | RESOLVED | plain UNG 的 CPU ELS warmup 曾被错误绑定到 Special Block 开关 | 修复后 CPU ELS 在计时前预热 156 ms；首个 L50 从 7.29 s 降到 264 ms，warm repeats 13.6--14.5 ms | 主表继续用 warm mean，并保留 all-repeat |
 | M8 | measurement | ACTIVE | 搜索线程池/工作区仍使每进程第一个 L 的 repeat 0 偏高 | 修复 ELS warmup 后，sel_0p5 L50 cold 264 ms、warm 约 14 ms | 初筛按 warm mean，最终复测增加独立 warmup 或丢弃 repeat 0 |
-| M9 | orchestration | PARTIAL | 首次后台 driver 在完成 10 case 后退出，manifest 留下下一 case 为 running | 前 10 case 均有完整 CSV 且 returncode=0；`single_1k/sel_50` 尚无完整输出，driver 无 Python/C++ 错误日志 | 改用远端 detached tmux，依靠 CSV 完整性从断点恢复 |
+| M9 | orchestration | RESOLVED | 旧系统异常的 `ps -o` 输出造成旧 driver 已退出的误判，两个 runner 曾短暂并发 | 进程树确认 PID 10039 在跑 sel_75、新 tmux 在跑 sel_50；已同时停止，并隔离受影响产物 | runner 增加 output-root 独占锁；只用重新单独运行的 sel_50/sel_75 |
 
 ## 当前假设
 

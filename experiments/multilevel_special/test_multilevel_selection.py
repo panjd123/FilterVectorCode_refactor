@@ -30,6 +30,18 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertTrue(run_selection_sweep.result_is_complete(root, [100, 200]))
             self.assertFalse(run_selection_sweep.result_is_complete(root, [100, 200, 300]))
 
+    def test_run_lock_rejects_a_second_runner_for_same_output(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            first = run_selection_sweep.acquire_run_lock(root)
+            try:
+                with self.assertRaisesRegex(RuntimeError, "another selection sweep"):
+                    run_selection_sweep.acquire_run_lock(root)
+            finally:
+                first.close()
+            second = run_selection_sweep.acquire_run_lock(root)
+            second.close()
+
     def test_equal_recall_uses_fastest_observed_feasible_point(self):
         rows = [
             {"workload": "w", "method": "single", "recall": 0.91, "batch_ms_warm": 10.0},
