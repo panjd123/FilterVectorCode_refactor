@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-代码与实验 runner 检查点：`ca8fd41`；当前文档提交以 `git rev-parse HEAD` 为准（origin 指向用户的脏工作树，不直接 push）
+检查点：`6c69cfd`（push：`受阻`；origin 指向用户的脏工作树，不直接 push）
 
 ## 目标
 
@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`实现与正式实验完成，文档收尾`
-- 摘要：两层实现、Amazon x1 内部正式矩阵和 NaviX/FAVOR/Curator/官方 ACORN 对照均已完成。共同 Recall 门槛下，多层相对单层为 1.222x/1.530x/2.345x；单层最高质量附近为 1.222x/4.925x/6.290x。外部比较保留 FAVOR 三档更快等负结果。
+- 总体：`完成审计中；低选择率正式实验待补`
+- 摘要：两层实现以及 25%/50%/75% Amazon x1 正式矩阵已完成。审计发现 0.5%/0.9%/9.9% 结果来自已废弃的 21,834-label hybrid 主图，不能与当前 30,723-label x1 结论混用；因此“各种选择率”尚未由正式证据覆盖。
 
 ## 进行中
 
-- 同步论文级多层报告、大方法文档、实验账本和 handoff；完成隔离分支 clean/diff/test/merge-back readiness 检查。
+- 在正确的 30,723-label Amazon x1 主图上补跑 0.5%/0.9%/9.9% 的 plain、single 和四档 T2，多次重复并按同 Recall 汇总。
 
 ## 完成历史
 
@@ -55,7 +55,7 @@
 
 ## 下一步
 
-完成本轮文档提交和 merge-back readiness 检查。后续性能研究可让 GPU batch scratch 携带 activation level，恢复多层 batch path；任何优化仍必须重新跑相同 filtered-search Recall gate。
+完成低选择率内部矩阵后，判断各外部 runner 是否可直接复用相同 query/GT；补齐可公平运行的 FAVOR/NaviX/Curator/ACORN 数据，再重生成六档主表并进行第二轮审阅。
 
 ## 阻塞与问题
 
@@ -67,6 +67,7 @@
 - plain UNG 使用随机搜索路径，3 repeats 的 Recall 最大 spread 为 0.0029；所有等 Recall 结论需保留质量余量或在最终候选上增加 repeats，不能按 1e-4 差异排序。
 - 两次旧 T2 初筛分别因运行中重编译、instrumentation 条件误放而隔离在 `runs/quarantine/20260905T2218_binary_rebuild/` 和 `runs/quarantine/20260905T2225_instrumentation_bug/`；禁止用于结论。
 - `runs/quarantine/20260905T_current_label_mismatch/` 使用了错误的 21,834-label hybrid 主图；仅可作机制诊断，禁止用于 Recall/QPS 主张。
+- 旧 `runs/multilevel_selection/` 六档矩阵同样绑定 21,834-label hybrid 主图；其中 0.5%/0.9%/9.9% 只能作为历史诊断，正式报告必须使用本轮正确 x1 重测。
 - Curator 的小 `search_ef` 反而更慢在 raw-repeat median 与反向预算 profile 中仍存在；已定位到 `prepare_filter` 并发阶段，但尚未通过 barrier/precompute 实验证明具体争用机制。
 - ACORN gamma=1/2/4/8/12 均已扫描；不同 gamma 的 Recall 非单调，主表只能表述当前实测 Pareto，不能泛化为方法理论上限。
 
