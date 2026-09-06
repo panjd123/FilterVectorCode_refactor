@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`104986c`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`3fa0616`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -45,7 +45,7 @@
 - sidecar loader 已补强逐 edge owner/direct-child 校验和 legacy staged load，并修复 upper inter edge 的 light/heavy 分流层级；真实 fresh bundle 的 62,938,887 条 special edges 全量通过，50%/L=550 查询为 Recall=.8575、10,000 个结果、0 过滤违规。
 - converter/runtime fallback 已统一严格 CSV parser；upper inter per-target-block cap 使用 upper ownership；损坏 requested heavy binary 可用合法 CSV 回退、无 fallback 时 fail closed。测试还修复固定临时目录残留导致的不可重入问题，并明确空图/空 block bundle 是合法退化输入。最新 binary `550f04c4...204c` 再次全量加载 62,938,887 条边，50%/L=550 为 Recall=.8575、10,000 个结果、0 过滤违规；单次耗时不进入性能表。
 - 第三轮结构审计从 root-label path 重推导 nearest same-layer parent 与 nearest upper ancestor；真实 tuned metadata 为 103 个 middle、8 个 upper、108 条同层 child edge，全部一致。随机树反例证明独立 partition 不保证严格 refinement，故保留双 ownership 且不施加错误的全成员同 upper-owner 约束；cross-partition membership activation 已提取为共享 helper 并单测。最终 binary `b62d6e5...da2e` 全量加载 62,938,887 条边，50%/L550 Recall=.8575、10,000 个结果、0 违规。
-- upper activation reachability 校验要求每个 upper block 至少包含一个由其子树内部 middle block 拥有的非空 direct member；真实构造夹具、零 ownership 与仅 ancestor ownership 两类不可达负例均已覆盖，代码检查点 `104986c`。最终 binary `a54518b8...7cd98` 全量加载 62,938,887 条边；50%/L550 Recall=.8575、10,000 个结果、0 违规。详细统计显示 512/1000 query 搜索 upper block、57,897 次 upper activation。
+- upper activation reachability 校验要求每个 upper block 至少包含一个由其子树内部 middle block 拥有的非空 direct member；真实构造夹具、零 ownership 与仅 ancestor ownership 两类不可达负例均已覆盖。公开 graph validator 也已改为自包含基础格式校验，代码检查点 `3fa0616`。最终 binary `3947f438...11ba3` 全量加载 62,938,887 条边；50%/L550 Recall=.8575、10,000 个结果、0 违规。详细统计显示 512/1000 query 搜索 upper block、57,897 次 upper activation。
 
 ## 下一步
 
@@ -83,7 +83,7 @@
 
 1. 先读本看板。
 2. 运行 `git status --short`，不要暂存 `runs/` 或 `thirdparty/` nested clones。
-3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` 和当前 reachability code checkpoint `104986c`；后者不改主性能数值。
+3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` 和当前 validator checkpoint `3fa0616`；后者不改主性能数值。
 4. 任何新数值必须先进入 source CSV 并由生成器输出。
 
 ## 清理提示

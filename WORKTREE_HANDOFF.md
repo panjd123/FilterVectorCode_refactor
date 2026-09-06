@@ -9,7 +9,7 @@
 - 原始 checkout：`/home/graphdb/FilterVectorCode_refactor`，分支 `shopai8/special-block-e2e-opt`，创建隔离目录时 HEAD `dda63bd`。
 - 隔离 checkout：`/home/sunyahui/worktrees/FilterVectorCode_multilevel_special`。
 - 实现分支：`codex/multilevel-special-block-20260905`。
-- 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`104986c`，增加严格的 upper activation reachability 校验。
+- 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`3fa0616`，增加严格 upper activation reachability 和自包含 validator 边界。
 - 前一审计 HEAD：`77e98eb`；多层 `favor_blocks` 已 fail closed，正常查询使用 `free_state`。
 - 服务器 Git 1.8.3.1 不支持 native worktree，因此使用 `git clone --shared`；branch/index 独立、对象库共享。
 - 原始 checkout 有大量用户改动。不得在那里 reset/checkout/merge；应先由用户形成 clean checkpoint，再 cherry-pick 本分支意图提交。
@@ -57,7 +57,7 @@ sidecar loader 进一步加入逐 edge 的 owner/direct-child 语义校验，将
 
 最后一轮结构审计进一步要求：同层 child 必须指向最近的同层 Trie block 祖先，middle `parent_block_id` 必须指向根路径上最近的 upper block。真实 tuned metadata 为 103 个 middle、8 个 upper、108 条同层 child edge，全部通过重推导。随机树反例同时证明独立 T1/T2 partition 不保证 upper 是 middle 的严格粗化，因此没有错误地要求 middle 全体成员共享 upper owner；cross-partition membership activation 已成为可单测共享 helper。最终 binary `b62d6e5...da2e` 全量加载 62,938,887 条边，并在 50%/L550 上保持 Recall=.8575、10,000 个结果、0 违规；单次 2.096 s load/1.518 s query 只作正确性证据。
 
-最新 reachability 校验还要求每个 upper block 至少有一个由其子树内部 middle block 拥有的 direct member，保证查询覆盖 upper 时存在合法 `1 -> 2` 激活位置；仅由更大 middle 祖先相交不够，这不要求两个 partition 严格嵌套。focused C++ tests 7/7 通过。最终 binary `a54518b8...7cd98` 全量加载同一 62,938,887-edge sidecar，50%/L550 Recall=.8575、10,000 个结果、0 违规。紧邻版本关闭 light stats 的机制审计显示 533/1000 query 使用 special graph、512/1000 搜索 upper block、57,897 次 upper activation；诊断耗时不进入主性能表。
+最新 reachability 校验还要求每个 upper block 至少有一个由其子树内部 middle block 拥有的 direct member，保证查询覆盖 upper 时存在合法 `1 -> 2` 激活位置；仅由更大 middle 祖先相交不够，这不要求两个 partition 严格嵌套。公开 graph-aware validator 现在自包含基础 metadata 校验。focused C++ tests 7/7 通过。最终 binary `3947f438...11ba3` 全量加载同一 62,938,887-edge sidecar，50%/L550 Recall=.8575、10,000 个结果、0 违规。紧邻版本关闭 light stats 的机制审计显示 533/1000 query 使用 special graph、512/1000 搜索 upper block、57,897 次 upper activation；诊断耗时不进入主性能表。
 三次 build 早于 immutable builder snapshot 功能，旧 manifest 未原生携带 builder hash；compact CSV 将审计记录的 hash 明确标为 `historical_audit_record`。当前 builder 文件 mtime 早于三次 manifest 且 hash 一致，但这仍不是逐份 manifest 的密码学绑定。新运行会记录 `manifest_snapshot`。
 CPU Vamana large-block 对照为 1131.863 s，GPU 路径按完整 builder wall 快 19.89x；该对照图本身不同，只用于说明确定性 CPU 回退的工程代价。
 
