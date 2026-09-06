@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`3827ff6c9031684726d879926b3c86b16fddd471`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；最终源码与证据检查点：`cb72797af5af615ca196d3618903417a54b0da2b`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`验证中`
-- 摘要：固定 two-level 构建/逐级查询、正式实验与论文交付已完成；最终 source-layout gate、fresh build、two-level/legacy load-query 和完整回归均已通过，正在固化最终 checkpoint 与 merge-back 风险清单。
+- 总体：`完成`
+- 摘要：固定 two-level 构建/逐级查询、正式实验与论文交付均已完成；最终 source-layout gate、fresh build、two-level/legacy load-query、manifest 闭包和完整回归均已通过。隔离分支可独立审阅，但原始 checkout 有重叠脏改动，只能人工整合。
 
 ## 进行中
 
-- 更新最终 checkpoint 与 merge-back 数字后，运行最后一次 clean-tree/manifest 检查。
+- 无；等待人工审阅或在保存原始 checkout 后执行三方整合。
 
 ## 完成历史
 
@@ -56,11 +56,11 @@
 - 最终六档 audit、边界单测和报告闭包已提交为 `fbac94bae94ced0551bf2627c376991c8bfdf665`。
 - 最终 source-layout gate 覆盖 sentinel、label path 规范/唯一性、全局 range 分区、point ownership、每层最近-root direct ownership、common labels 与 subtree point count；系统性损坏负例、完整 CTest 14/14、Python 32/32 均通过。
 - 构建阶段只做一次完整 source/partition preflight，intra 后只检查 entry-point delta；最终 builder `c305f487...e0b295b` fresh 构建 T1=2k/T2=25k 成功：runner wall 59.038 s、metadata/partition 2.659 s、111 blocks/8 upper、62,941,289 edges。最终 search `052e4cc3...88be2a` 在 fresh two-level 的 50%/L550 为 Recall=.8587，在旧 single-level 的 50%/L1800 为 Recall=.8523；各 10,000 results、0 violations。单次 timing 仅作 correctness/provenance audit。
-- merge-back 审计：原始 checkout HEAD 仍为共同基线 `dda63bd`，隔离分支领先 70 commits；原始 checkout 有 150 项脏改动。任务分支现有 409 个改动路径，其中 128 个与原始脏路径重叠：101 个当前结果相同（含双方都删除的一个路径）、27 个内容不同。分支可独立审阅，但必须先保存原始改动并人工整合 27 个分叉路径，禁止直接自动 merge/cherry-pick；清单见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_MERGE_BACK_CN.md`。
+- merge-back 审计：原始 checkout HEAD 仍为共同基线 `dda63bd`，隔离分支领先 70+ commits；原始 checkout 有 150 项脏改动。任务分支现有 410 个改动路径，其中 128 个与原始脏路径重叠：101 个当前结果相同（含双方都删除的一个路径）、27 个内容不同、0 个未解释单边路径。分支可独立审阅，但必须先保存原始改动并人工整合 27 个分叉路径，禁止直接自动 merge/cherry-pick；清单见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_MERGE_BACK_CN.md`。
 
 ## 下一步
 
-提交更新后的 checkpoint/handoff，确认 tracked tree clean；等待达到用户要求的 18 小时后关闭 goal。
+由人工审阅隔离分支；若要回并，先保存原始 checkout 的 150 项改动，再按 merge-back 清单整合 27 个分叉路径。
 
 ## 阻塞与问题
 
@@ -77,8 +77,9 @@
 - 真实 `T1=2k,T2=25k` sidecar + 50%/L550 — `通过`：62,938,887 edges，Recall=.8575，10,000 results，0 violations；detail stats 记录 57,897 upper activations。
 - `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：全部正式内部 sweep。
 - `python3 -m unittest -v experiments.multilevel_special.test_multilevel_selection` — `通过`：14/14；新增 builder binary immutable snapshot 回归。
-- `python3 -m unittest -v test_generate_paper_results.py` — `通过`：15/15；包含统一 binary、CSV/manifest 网格/repeats、build source、upper-off 消融、current-source 24 点回归、三次 rebuild 鲁棒性、过滤合法性审计和 LF-only CSV 输出检查。
-- `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py test_generate_paper_results.py` — `通过`：31/31；生成 60 行主结果、209 个内部点、7 行构建结果。
+- `python3 -m unittest -v test_generate_paper_results.py` — `通过`：18/18；包含统一 binary、CSV/manifest 网格/repeats、build source、upper-off 消融、current-source 24 点回归、三次 rebuild 鲁棒性、过滤合法性、source-layout audit 和 LF-only CSV 输出检查。
+- `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py test_generate_paper_results.py` — `通过`：32/32；生成 60 行主结果、209 个内部点、7 行构建结果。
+- `source_manifest.csv` 与 `artifact_manifest.csv` 逐文件 SHA-256 核验 — `通过`。
 - source-layout 最终回归 — `通过`：完整 CTest 14/14；Python 32/32；fresh two-level 与旧 single-level 各 10,000 个结果、0 filter violations。
 - `validate_selection_sweep.py config.amazon_x1_paired_formal_sel{25,50,75}.json` — `通过`：3/3，每个方法 7 repeats、Recall 无漂移。
 - Curator 低选择率产物 — `通过`：3 workloads x 12 budgets x 5 measured。
@@ -96,7 +97,7 @@
 
 1. 先读本看板。
 2. 运行 `git status --short`，不要暂存 `runs/` 或 `thirdparty/` nested clones。
-3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` 和当前 validator checkpoint `394facda1f912a6710d189f44a34f66d53a4190d`；后者不改主性能数值。
+3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` 和最终源码/证据检查点 `cb72797af5af615ca196d3618903417a54b0da2b`；后者不改冻结主性能数值。
 4. 任何新数值必须先进入 source CSV 并由生成器输出。
 
 ## 清理提示

@@ -4,9 +4,9 @@
 
 ## 当前边界
 
-- 隔离分支：`codex/multilevel-special-block-20260905`，HEAD `03f9fbdb0...`。
+- 隔离分支：`codex/multilevel-special-block-20260905`；最终源码与证据检查点 `cb72797af5af615ca196d3618903417a54b0da2b`，状态文档提交见分支 HEAD。
 - 原始 checkout：`/home/graphdb/FilterVectorCode_refactor`，HEAD 与共同基线均为 `dda63bd7663b06dce0ce3a977b81268df09b2d01`。
-- 隔离分支领先共同基线 70 个提交，改动 409 个路径。
+- 隔离分支领先共同基线 70+ 个提交，改动 410 个路径。
 - 原始 checkout 有 150 条 status 记录；其中 128 个路径也被隔离分支修改。
 - 128 个重叠路径中，101 个当前结果相同（含双方都删除的 `experiments/search_comparison/config_amazon.json`），27 个内容不同。没有“只存在一侧”的未解释路径。
 
