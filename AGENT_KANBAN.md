@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前已提交 edge-owner 检查点：`9fd75cc`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前已提交 sidecar 检查点：`93b4058b5f15baf6aa8442ec58ca4b6f0a3ae284`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -11,11 +11,11 @@
 ## 当前状态
 
 - 总体：`验证中`
-- 摘要：固定 two-level 构建/逐级查询、正式实验与论文交付已完成；当前完成第二轮 sidecar 边界审计，严格统一 CSV parser、修复 upper-edge per-target 限流 owner 解析并使损坏 requested heavy sidecar fail closed。
+- 摘要：固定 two-level 构建/逐级查询、正式实验与论文交付已完成；第三轮审计已补足最近同层/上层祖先校验，并明确独立 T1/T2 partition 不保证严格 refinement，真实 sidecar 与端到端正确性复测通过。
 
 ## 进行中
 
-- 同步第二轮 sidecar 审计文档与 manifest，形成独立 checkpoint；核心算法和论文主性能数值不变。
+- 同步第三轮结构审计文档与 manifest，形成独立 checkpoint；核心算法和冻结论文主性能数值不变。
 
 ## 完成历史
 
@@ -44,10 +44,11 @@
 - 六档 filtered-result 合法性数据与说明已提交为 `d06d0fd`。
 - sidecar loader 已补强逐 edge owner/direct-child 校验和 legacy staged load，并修复 upper inter edge 的 light/heavy 分流层级；真实 fresh bundle 的 62,938,887 条 special edges 全量通过，50%/L=550 查询为 Recall=.8575、10,000 个结果、0 过滤违规。
 - converter/runtime fallback 已统一严格 CSV parser；upper inter per-target-block cap 使用 upper ownership；损坏 requested heavy binary 可用合法 CSV 回退、无 fallback 时 fail closed。测试还修复固定临时目录残留导致的不可重入问题，并明确空图/空 block bundle 是合法退化输入。最新 binary `550f04c4...204c` 再次全量加载 62,938,887 条边，50%/L=550 为 Recall=.8575、10,000 个结果、0 过滤违规；单次耗时不进入性能表。
+- 第三轮结构审计从 root-label path 重推导 nearest same-layer parent 与 nearest upper ancestor；真实 tuned metadata 为 103 个 middle、8 个 upper、108 条同层 child edge，全部一致。随机树反例证明独立 partition 不保证严格 refinement，故保留双 ownership 且不施加错误的全成员同 upper-owner 约束。最新 binary `c9b6743...acf` 全量加载 62,938,887 条边，50%/L550 Recall=.8575、10,000 个结果、0 违规。
 
 ## 下一步
 
-重跑最终结果闭包校验、提交第二轮 sidecar 防御性修复，并继续非破坏性审计至目标时长。
+提交第三轮 nearest-parent 防御性修复并继续非破坏性审计至目标时长。
 
 ## 阻塞与问题
 

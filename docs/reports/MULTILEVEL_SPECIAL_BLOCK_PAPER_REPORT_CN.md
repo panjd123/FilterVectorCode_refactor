@@ -33,6 +33,8 @@
 - 一个 group/point 可以同时属于一个中层 block 和一个上层 block，因此维护两套 ownership；
 - 普通图、中层 special graph、上层 special graph 同时存在；上层不会替换中层。
 
+这里的“两次独立”还有一个容易误解的边界：`T2>T1` 不构成“上层一定是中层的严格粗化”的一般性定理。某个中层 block 的直接成员理论上可以跨过一个位于其内部的 upper block 边界；因此实现维护两套逐点 ownership，并按候选点当前所在层判断是否升级，不能只保存一张 middle-to-upper 映射来替代它们。`parent_block_id` 仅记录一个 middle block 根路径的最近 upper 祖先，`child_block_ids` 则记录同一层中的最近 block 祖先关系。Amazon 当前 tuned 索引恰好呈完全嵌套形态，但论文方法与正确性不能依赖这个数据特例。
+
 Special Block 被视为一种特殊 group，因此其图构建复用既有 group 图路径：小候选域走 exact top-K，较大候选域走 sampled Vamana 或 GPU 路径，跨 block 边走与普通跨组边相同的启发式 dispatch。正式 T1/T2 索引的实际日志显示：`n<=2048` 的 block 使用 CPU exact top-K，`2048<n<8192` 使用 CPU sampled-Vamana，`n>=8192` 使用 `jasper_style`/FastGrnnd CUDA；本批 block 间 pair 均走 CPU graph search。因此下文不能误称为 GPU/GPU 构建结果。
 
 ### 2.2 逐层查询授权
@@ -50,6 +52,8 @@ level 2: 可走普通边、中层边和上层边
 ```
 
 状态只能上升，且一条 transition 最多提升一级，所以普通候选不能越过中层直接使用上层边。同一点若通过更高层路径再次到达，候选队列原位升级其 level 并允许重新展开，但不会重复占用 `Lsearch` 或 top-K 槽。主扩展与 pre-expand 共用同一个 edge-transition helper，避免两条执行路径语义漂移。
+
+持久化加载器会 fail closed 地重建并核对两类结构不变量：同层 child 必须指向最近的同层 Trie block 祖先；middle 的 `parent_block_id` 必须指向其根路径上最近的 upper block（若不存在则为 0）。它不强制每个 middle block 的全部成员共享同一个 upper owner，因为独立 partition 在一般树形上并不保证该性质。真实 `T1=2k,T2=25k` Amazon 索引包含 103 个 middle block、8 个 upper block、108 条同层直接父子边；所有关系均通过从 root-label path 重新推导的全量审计。
 
 这套结构的预期收益不是“相同 L 下每次展开更便宜”。special edge 会增加可扫描邻居，相同 L 下甚至可能更慢。真正目标是让 Recall-L 曲线左移，以更小 L 达到相同 Recall。
 

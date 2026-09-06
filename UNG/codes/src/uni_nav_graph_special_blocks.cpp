@@ -17,6 +17,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <sstream>
@@ -241,6 +242,34 @@ bool validate_special_block_graph_semantics_impl(
       return false;
    }
 
+   // Reconstruct the persisted same-layer parent relation once. The block
+   // builder always records the nearest block ancestor in each independently
+   // partitioned Trie layer. Merely checking that a child is some descendant
+   // is insufficient: a corrupted sidecar could skip an intermediate block,
+   // changing which inter-block edges are available while still looking like
+   // an acyclic forest.
+   std::vector<IdxType> same_layer_parent(blocks.size() + 1, 0);
+   std::map<std::vector<LabelType>, IdxType> block_by_root[2];
+   for (const SpecialBlock &block : blocks)
+   {
+      if (!block_by_root[block.level]
+               .emplace(block.root_labels, block.block_id)
+               .second)
+      {
+         error = "two same-layer blocks cannot have the same Trie root";
+         return false;
+      }
+      for (IdxType child_id : block.child_block_ids)
+      {
+         if (child_id == 0 || child_id > blocks.size())
+         {
+            error = "special block contains an out-of-range child id";
+            return false;
+         }
+         same_layer_parent[child_id] = block.block_id;
+      }
+   }
+
    for (const SpecialBlock &block : blocks)
    {
       uint64_t actual_point_count = 0;
@@ -287,14 +316,33 @@ bool validate_special_block_graph_semantics_impl(
             return false;
          }
       }
-      if (block.level == 0 && block.parent_block_id != 0)
-      {
-         const SpecialBlock &upper = blocks[block.parent_block_id - 1];
-         if (!is_label_path_prefix(upper.root_labels, block.root_labels, false))
+
+      const auto nearest_prefix_block = [&](uint8_t level, bool include_self) {
+         std::vector<LabelType> prefix = block.root_labels;
+         if (!include_self && !prefix.empty())
+            prefix.pop_back();
+         while (!prefix.empty())
          {
-            error = "upper block does not contain its middle-layer member block";
-            return false;
+            const auto found = block_by_root[level].find(prefix);
+            if (found != block_by_root[level].end())
+               return found->second;
+            prefix.pop_back();
          }
+         return IdxType{0};
+      };
+      const IdxType nearest_same_layer_parent =
+          nearest_prefix_block(block.level, false);
+      const IdxType nearest_upper_parent =
+          block.level == 0 ? nearest_prefix_block(1, true) : IdxType{0};
+      if (same_layer_parent[block.block_id] != nearest_same_layer_parent)
+      {
+         error = "same-layer child relation must reference the nearest Trie block ancestor";
+         return false;
+      }
+      if (block.level == 0 && block.parent_block_id != nearest_upper_parent)
+      {
+         error = "middle block parent must reference its nearest upper Trie block ancestor";
+         return false;
       }
    }
    error.clear();

@@ -339,10 +339,10 @@ int main()
    semantic_blocks[2].level = 1;
    semantic_blocks[2].root_group_id = 3;
    semantic_blocks[2].entry_point_id = 5;
-   semantic_blocks[2].point_count = 3;
+   semantic_blocks[2].point_count = 8;
    semantic_blocks[2].subtree_point_count = 8;
    semantic_blocks[2].root_labels = {1};
-   semantic_blocks[2].member_group_ids = {3, 4};
+   semantic_blocks[2].member_group_ids = {1, 2, 3, 4};
 
    auto expect_graph_semantics = [&](const std::vector<ANNS::SpecialBlock> &candidate,
                                      bool expected,
@@ -363,6 +363,38 @@ int main()
    }
    expect_graph_semantics(semantic_blocks, true,
                           "valid nested block metadata must match its source graph");
+   auto missing_direct_child = semantic_blocks;
+   missing_direct_child[0].child_block_ids.clear();
+   expect_graph_semantics(missing_direct_child, false,
+                          "same-layer topology must not omit its nearest block ancestor");
+
+   auto nested_upper = semantic_blocks;
+   ANNS::SpecialBlock upper_child;
+   upper_child.block_id = 4;
+   upper_child.level = 1;
+   upper_child.root_group_id = 1;
+   upper_child.entry_point_id = 0;
+   upper_child.point_count = 5;
+   upper_child.subtree_point_count = 5;
+   upper_child.root_labels = {1, 2};
+   upper_child.member_group_ids = {1, 2};
+   nested_upper[2].child_block_ids = {4};
+   nested_upper[2].member_group_ids = {3, 4};
+   nested_upper[2].point_count = 3;
+   nested_upper[0].parent_block_id = 4;
+   nested_upper[1].parent_block_id = 4;
+   nested_upper.push_back(upper_child);
+   expect_graph_semantics(nested_upper, true,
+                          "middle blocks may link to their nearest nested upper ancestor");
+   auto skipped_upper_parent = nested_upper;
+   skipped_upper_parent[0].parent_block_id = 3;
+   expect_graph_semantics(skipped_upper_parent, false,
+                          "middle parent must not skip a nearer upper block ancestor");
+   auto crossing_partition = nested_upper;
+   crossing_partition[3].member_group_ids = {1};
+   crossing_partition[3].point_count = 2;
+   expect_graph_semantics(crossing_partition, true,
+                          "independent thresholds may split a middle block across upper ownership");
    auto unrelated_child = semantic_blocks;
    unrelated_child[1].root_labels = {1, 4};
    expect_graph_semantics(unrelated_child, false,
