@@ -71,6 +71,22 @@ class SelectionSweepTest(unittest.TestCase):
         self.assertEqual({row["method"] for row in selected
                           if row["layer_count"] == 1}, {"t1_2"})
 
+    def test_boundary_audit_respects_two_level_legal_slices(self):
+        points = []
+        for t1, t2 in ((500, 4000), (500, 10000),
+                       (2000, 4000), (2000, 10000)):
+            points.append({"layer_count": 2, "method": f"m_{t1}_{t2}",
+                           "t1": t1, "t2": t2})
+        oracle = [{"layer_count": 2, "method": "m_2000_4000",
+                   "workload": "w", "t1": 2000, "t2": 4000}]
+        audit = select_layer_tuning.audit_structure_boundaries(points, oracle, [])
+        self.assertEqual(
+            {(row["axis"], row["direction"], row["measured_axis_values"])
+             for row in audit},
+            {("t1", "upper", "500;2000"),
+             ("t2", "lower", "4000;10000")},
+        )
+
     def test_formal_grid_brackets_coarse_recall_crossing(self):
         rows = [
             {"lsearch": 100, "recall_min": .80},

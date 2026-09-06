@@ -110,6 +110,66 @@ def select_shared(points: list[dict], thresholds: dict[str, float]) -> tuple[lis
     return summaries, winners
 
 
+def audit_structure_boundaries(points: list[dict], oracle: list[dict],
+                               shared: list[dict]) -> list[dict]:
+    """Report selected structures that touch a measured grid boundary.
+
+    For two-level structures, an axis is compared only against configurations
+    with the other axis fixed.  This respects the declared ``T2 > T1`` legal
+    region: for example, the smallest legal T2 at T1=4000 is a real local
+    boundary even if a smaller T2 exists for another T1.
+    """
+    structures = {
+        (row["layer_count"], row["method"], row["t1"], row["t2"])
+        for row in points
+    }
+
+    def axis_values(layer: int, t1: int | None, t2: int | None,
+                    axis: str) -> list[int]:
+        if layer == 1 and axis == "t1":
+            return sorted({int(item_t1) for item_layer, _, item_t1, _ in structures
+                           if item_layer == 1 and item_t1 is not None})
+        if layer == 2 and axis == "t1":
+            return sorted({int(item_t1) for item_layer, _, item_t1, item_t2 in structures
+                           if item_layer == 2 and item_t2 == t2 and item_t1 is not None})
+        if layer == 2 and axis == "t2":
+            return sorted({int(item_t2) for item_layer, _, item_t1, item_t2 in structures
+                           if item_layer == 2 and item_t1 == t1 and item_t2 is not None})
+        return []
+
+    output = []
+    selected = [("per_workload_oracle", row.get("workload"), row)
+                for row in oracle]
+    selected.extend(("shared_thresholds", "all", row) for row in shared)
+    for scope, workload, row in selected:
+        layer = int(row["layer_count"])
+        if layer == 0:
+            continue
+        for axis in ("t1", "t2"):
+            value = row.get(axis)
+            if value is None:
+                continue
+            values = axis_values(layer, row.get("t1"), row.get("t2"), axis)
+            directions = []
+            if values and value == values[0]:
+                directions.append("lower")
+            if values and value == values[-1]:
+                directions.append("upper")
+            for direction in directions:
+                output.append({
+                    "selection_scope": scope,
+                    "workload": workload,
+                    "layer_count": layer,
+                    "method": row["method"],
+                    "t1": row.get("t1"),
+                    "t2": row.get("t2"),
+                    "axis": axis,
+                    "direction": direction,
+                    "measured_axis_values": ";".join(map(str, values)),
+                })
+    return output
+
+
 def write_csv(path: Path, rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
@@ -132,10 +192,13 @@ def main() -> int:
     thresholds = {key: float(value) for key, value in config["recall_thresholds"].items()}
     oracle = select_oracle(points, thresholds)
     shared, selected = select_shared(points, thresholds)
+    boundaries = audit_structure_boundaries(points, oracle, shared)
     write_csv(root / "layer_oracle.csv", oracle)
     write_csv(root / "shared_configurations.csv", shared)
     write_csv(root / "shared_selected_points.csv", selected)
-    print(f"selected {len(oracle)} oracle rows and {len(shared)} shared configurations")
+    write_csv(root / "selected_boundary_audit.csv", boundaries)
+    print(f"selected {len(oracle)} oracle rows and {len(shared)} shared configurations; "
+          f"{len(boundaries)} selected-axis boundary hits")
     return 0
 
 
