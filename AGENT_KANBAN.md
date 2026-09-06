@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`fbac94bae94ced0551bf2627c376991c8bfdf665`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`3827ff6c9031684726d879926b3c86b16fddd471`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 复核文档/manifest/分支范围，固化最终 checkpoint，并重新量化原始脏 checkout 的 merge-back 风险。
+- 更新最终 checkpoint 与 merge-back 数字后，运行最后一次 clean-tree/manifest 检查。
 
 ## 完成历史
 
@@ -56,11 +56,11 @@
 - 最终六档 audit、边界单测和报告闭包已提交为 `fbac94bae94ced0551bf2627c376991c8bfdf665`。
 - 最终 source-layout gate 覆盖 sentinel、label path 规范/唯一性、全局 range 分区、point ownership、每层最近-root direct ownership、common labels 与 subtree point count；系统性损坏负例、完整 CTest 14/14、Python 32/32 均通过。
 - 当前 builder `10de4d7e...55f290f` fresh 构建 T1=2k/T2=25k 成功：runner wall 62.352 s、metadata 2.420 s、111 blocks/8 upper、62,941,374 edges；当前 search `60220cbc...a82e18` 在 fresh two-level 的 50%/L550 为 Recall=.8565，在旧 single-level 的 50%/L1800 为 Recall=.8523；各 10,000 results、0 violations。单次 timing 仅作 correctness/provenance audit。
-- merge-back 审计：原始 checkout HEAD 仍为共同基线 `dda63bd`，隔离分支领先 67 commits；原始 checkout 有 150 项脏改动。128 个路径与任务分支重叠，其中 100 个内容相同、27 个不同、1 个只存在一侧。分支可独立审阅，但必须先保存原始改动并人工整合 27+1 个分叉路径，禁止直接自动 merge/cherry-pick。
+- merge-back 审计：原始 checkout HEAD 仍为共同基线 `dda63bd`，隔离分支领先 70 commits；原始 checkout 有 150 项脏改动。任务分支现有 409 个改动路径，其中 128 个与原始脏路径重叠：100 个内容相同、27 个不同、1 个只存在一侧。分支可独立审阅，但必须先保存原始改动并人工整合 27+1 个分叉路径，禁止直接自动 merge/cherry-pick。
 
 ## 下一步
 
-提交 source-layout validator、compact evidence 与文档；随后重新核对原始 checkout 的脏路径重叠并形成最终 handoff。
+提交更新后的 checkpoint/handoff，确认 tracked tree clean；等待达到用户要求的 18 小时后关闭 goal。
 
 ## 阻塞与问题
 

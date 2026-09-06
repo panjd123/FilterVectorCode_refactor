@@ -9,7 +9,7 @@
 - 原始 checkout：`/home/graphdb/FilterVectorCode_refactor`，分支 `shopai8/special-block-e2e-opt`，创建隔离目录时 HEAD `dda63bd`。
 - 隔离 checkout：`/home/sunyahui/worktrees/FilterVectorCode_multilevel_special`。
 - 实现分支：`codex/multilevel-special-block-20260905`。
-- 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`3fa0616`，增加严格 upper activation reachability 和自包含 validator 边界。
+- 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`3827ff6c9031684726d879926b3c86b16fddd471`，增加完整 source-layout/partition reconstruction gate。
 - 前一审计 HEAD：`77e98eb`；多层 `favor_blocks` 已 fail closed，正常查询使用 `free_state`。
 - 服务器 Git 1.8.3.1 不支持 native worktree，因此使用 `git clone --shared`；branch/index 独立、对象库共享。
 - 原始 checkout 有大量用户改动。不得在那里 reset/checkout/merge；应先由用户形成 clean checkpoint，再 cherry-pick 本分支意图提交。
@@ -69,7 +69,7 @@ CPU Vamana large-block 对照为 1131.863 s，GPU 路径按完整 builder wall �
 
 原始 checkout 仍含大量用户改动，故本分支只声明 merge-ready，不自动修改原始 checkout。建议先保存原始工作树，再 cherry-pick 本分支从 `1f0c1e6` 到当前 HEAD 的任务提交；若只审阅最终增量，先从 `7a2bf46` 开始阅读。
 
-最新 merge-back 审计中，原始 checkout 仍停在共同基线 `dda63bd7663b06dce0ce3a977b81268df09b2d01`，隔离分支在其上有 67 个任务提交；原始 checkout 有 150 项未提交改动。任务分支的 407 个改动路径中有 128 个与原始脏路径重叠，其中 100 个文件内容已相同、27 个内容不同、1 个只存在一侧。提交历史没有新的 upstream commit 需要 rebase，但未提交工作树存在实质重叠，所以不能把“同一 merge-base”误写成“可无冲突自动合并”。应先备份/提交原始改动，再针对审计列出的 27+1 个分叉路径做三方整合并重跑本文件中的验证。
+最新 merge-back 审计中，原始 checkout 仍停在共同基线 `dda63bd7663b06dce0ce3a977b81268df09b2d01`，隔离分支在其上有 70 个任务提交；原始 checkout 有 150 项未提交改动。任务分支的 409 个改动路径中有 128 个与原始脏路径重叠，其中 100 个文件内容已相同、27 个内容不同、1 个只存在一侧。提交历史没有新的 upstream commit 需要 rebase，但未提交工作树存在实质重叠，所以不能把“同一 merge-base”误写成“可无冲突自动合并”。应先备份/提交原始改动，再针对审计列出的 27+1 个分叉路径做三方整合并重跑本文件中的验证。
 
 ## 恢复入口
 
