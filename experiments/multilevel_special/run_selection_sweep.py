@@ -159,6 +159,11 @@ def output_dir(config: dict[str, Any], method: dict[str, Any], workload: dict[st
     return Path(config["output_root"]) / method["name"] / workload["name"]
 
 
+def method_enabled_for_workload(method: dict[str, Any], workload: dict[str, Any]) -> bool:
+    enabled = method.get("enabled_workloads")
+    return enabled is None or workload["name"] in enabled
+
+
 def lsearch_values_for(config: dict[str, Any], method: dict[str, Any],
                        workload: dict[str, Any]) -> list[int]:
     """Resolve an explicit L grid, allowing workload-specific tuning.
@@ -328,6 +333,8 @@ def main() -> int:
         if selected_methods and method["name"] not in selected_methods:
             continue
         for workload in config["workloads"]:
+            if not method_enabled_for_workload(method, workload):
+                continue
             if selected_workloads and workload["name"] not in selected_workloads:
                 continue
             run_dir = output_dir(config, method, workload)

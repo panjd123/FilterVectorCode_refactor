@@ -28,10 +28,13 @@ def main() -> int:
     expected_case_keys = {
         (method["name"], workload["name"])
         for method in config["methods"] for workload in config["workloads"]
+        if run_selection_sweep.method_enabled_for_workload(method, workload)
     }
 
     for method in config["methods"]:
         for workload in config["workloads"]:
+            if not run_selection_sweep.method_enabled_for_workload(method, workload):
+                continue
             expected_l = expected_lsearch_values(config, method, workload)
             name = f"{method['name']}/{workload['name']}"
             run_dir = root / method["name"] / workload["name"]

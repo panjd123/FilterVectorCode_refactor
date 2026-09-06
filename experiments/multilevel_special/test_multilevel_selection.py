@@ -8,22 +8,36 @@ from pathlib import Path
 import run_selection_sweep
 import run_build_sweep
 import generate_layer_tuning_config
+import generate_layer_tuning_formal
 import select_layer_tuning
 import summarize_selection_sweep
 import validate_selection_sweep
 
 
 class SelectionSweepTest(unittest.TestCase):
+    def test_method_can_limit_formal_rerun_to_selected_workloads(self):
+        method = {"enabled_workloads": ["a", "c"]}
+        self.assertTrue(run_selection_sweep.method_enabled_for_workload(
+            method, {"name": "a"}))
+        self.assertFalse(run_selection_sweep.method_enabled_for_workload(
+            method, {"name": "b"}))
+        self.assertTrue(run_selection_sweep.method_enabled_for_workload(
+            {}, {"name": "b"}))
+
     def test_layer_tuning_grid_covers_independent_legal_structures(self):
         config = generate_layer_tuning_config.make_config(Path("/repo"))
         methods = config["methods"]
         self.assertEqual(sum(item["layer_count"] == 0 for item in methods), 1)
         self.assertEqual(
             {item["t1"] for item in methods if item["layer_count"] == 1},
-            set(generate_layer_tuning_config.T1_VALUES),
+            set(generate_layer_tuning_config.LAYER1_T1_VALUES),
         )
         two_level = [item for item in methods if item["layer_count"] == 2]
         self.assertEqual(len(two_level), 18)
+        self.assertEqual(
+            {item["t1"] for item in two_level},
+            set(generate_layer_tuning_config.LAYER2_T1_VALUES),
+        )
         self.assertTrue(all(item["t2"] > item["t1"] for item in two_level))
         self.assertTrue(all(
             set(item["lsearch_values_by_workload"]) ==
@@ -34,6 +48,10 @@ class SelectionSweepTest(unittest.TestCase):
             item["env"].get("UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE") == "1"
             for item in methods if item["layer_count"] > 0
         ))
+        self.assertNotIn(
+            "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE",
+            next(item for item in methods if item["layer_count"] == 0)["env"],
+        )
 
     def test_shared_tuning_requires_one_structure_to_cover_all_workloads(self):
         def row(method, layer, workload, latency, recall, t1=None):
@@ -52,6 +70,18 @@ class SelectionSweepTest(unittest.TestCase):
         self.assertEqual(chosen["method"], "t1_2")
         self.assertEqual({row["method"] for row in selected
                           if row["layer_count"] == 1}, {"t1_2"})
+
+    def test_formal_grid_brackets_coarse_recall_crossing(self):
+        rows = [
+            {"lsearch": 100, "recall_min": .80},
+            {"lsearch": 500, "recall_min": .89},
+            {"lsearch": 1000, "recall_min": .91},
+            {"lsearch": 2000, "recall_min": .93},
+        ]
+        self.assertEqual(
+            generate_layer_tuning_formal.dense_crossing_grid(rows, .90),
+            [500, 625, 750, 875, 1000],
+        )
 
     def test_validator_uses_method_specific_lsearch_grid(self):
         config = {"lsearch_values": [100]}

@@ -1,6 +1,6 @@
 # Agent 看板
 
-最后更新：`2026-09-06`
+最后更新：`2026-09-06 17:12 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；阶段计时与公平调优协议检查点：`4bd1fd50b7a046ba4f7f02817a320ddc3710bfb7`（origin 指向用户脏工作树，不直接 push）
 
@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 23 个统一-builder 结构索引已全部完成；执行 24 种结构 x 6 档 workload 的 coarse-to-fine 查询调优（851 个离散 L 点），赢家落在阈值边界时继续扩展或加密。
+- 修正 root-label coverage 后的 coarse 查询 sweep 正由唯一后台进程 PID 62122 执行；最近确认 `53/144 complete, 1 running, 90 dry_run`。等待其完成期间不并发构建，避免 CPU/GPU/内存资源竞争污染计时。
 
 ## 完成历史
 
@@ -62,10 +62,12 @@
 - 阶段计时、runner、测试与公平调优协议已提交为 `4bd1fd50b7a046ba4f7f02817a320ddc3710bfb7`；`runs/` 与 nested third-party clone 未暂存。
 - 统一结构网格完成 `23/23`：5 个单层、18 个合法两层，全部使用 builder `c305f487...e0b295b`；累计 wall 1660.278 s，索引声明磁盘总量 15.033 GiB。
 - 查询粗筛配置已 dry-run 覆盖 `24 methods x 6 workloads = 144 cases`、851 个 L 点；支持 workload-specific L 网格，严格检查每个 L/repeat 的 stage closure、0 层 authorization=0 和 ELS reuse disabled。
+- 旧单层结果曾缺少显式 root-label coverage，已隔离且不参与统计；修正后的所有 Special case 统一使用 `UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE=1`。plain 结果不受该开关影响并按 provenance 复用。
+- 单层已完成结构的中间证据显示除 `sel_005` 外，5 档 workload 的当前赢家落在 T1=8000 扫描上界；已准备 T1=16000/32000 构建扩展，待 coarse sweep 完成后补建与补测，当前不得宣称单层阈值最优。
 
 ## 下一步
 
-运行六档 coarse-to-fine 查询 sweep；按 Recall crossing 和边界规则决定局部复测/扩展，再分别报告每 workload oracle 与每层一套共享阈值的部署最优。
+等待 PID 62122 完成修正后的 coarse sweep；严格验证后检查两层 T1/T2 边界，随后构建并补测单层 T1=16000/32000（若两层赢家触边则同步扩展），最后生成 7-repeat crossing 正式复测。
 
 ## 阻塞与问题
 
@@ -76,6 +78,7 @@
 - 多层查询发现 upper blocks 时禁用语义不完整的 GPU batch path，当前正确性优先，仍有性能优化空间。
 - 旧正式 CSV 主要支持总查询时间和 Recall；新的 breakdown 已验证互斥闭合，但正式六档调优尚未使用新协议重跑。
 - 旧报告中固定 T1=1k 的单层与调优 T1=2k,T2=25k 两层不是公平的最终层数比较；该结论降级，等待各层独立 tuning 后替换。
+- `sunyahuia600-sunyahui` 当前并非有效 SSH alias；使用 `ssh -l sunyahui sunyahuia6000-jump`。网络失败时仍只串行短重试三次。
 
 ## 验证
 

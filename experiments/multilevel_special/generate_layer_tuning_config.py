@@ -8,7 +8,11 @@ import json
 from pathlib import Path
 
 
-T1_VALUES = (500, 1000, 2000, 4000, 8000)
+# The one-level sweep reached its original upper boundary for five of six
+# workloads, so extend only that axis.  The two-level grid remains unchanged
+# until its own boundary audit justifies a separate extension.
+LAYER1_T1_VALUES = (500, 1000, 2000, 4000, 8000, 16000, 32000)
+LAYER2_T1_VALUES = (500, 1000, 2000, 4000, 8000)
 T2_VALUES = (4000, 10000, 25000, 50000)
 
 WORKLOADS = (
@@ -65,11 +69,6 @@ def method(name: str, layer_count: int, l_grid: dict[str, list[int]],
         "env": {
             "UNG_DISABLE_ELS_REUSE": "1",
             "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-            # The paper definition authorizes a block exactly when the query
-            # contains its root-label prefix.  Multilevel search enables this
-            # automatically, but declare it for every Special method so the
-            # one-level control uses identical semantics.
-            "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
         },
         "lsearch_values_by_workload": l_grid,
     }
@@ -79,6 +78,11 @@ def method(name: str, layer_count: int, l_grid: dict[str, list[int]],
         result["t2"] = t2
     if build_root is not None:
         result["block_index"] = str(build_root / name / "block_index")
+        # The paper definition authorizes a block exactly when the query
+        # contains its root-label prefix.  Multilevel search enables this
+        # automatically, but declare it for every Special method so the
+        # one-level control uses identical semantics.
+        result["env"]["UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE"] = "1"
     return result
 
 
@@ -86,11 +90,11 @@ def make_config(repo: Path) -> dict:
     build_root = repo / "runs/layer_tuning_build_amazon_x1"
     methods = [method("layer0_plain", 0, LAYER0_L)]
     methods.extend(method(f"layer1_t1_{t1}", 1, LAYER1_L, build_root, t1=t1)
-                   for t1 in T1_VALUES)
+                   for t1 in LAYER1_T1_VALUES)
     methods.extend(
         method(f"layer2_t1_{t1}_t2_{t2}", 2, LAYER2_L, build_root,
                t1=t1, t2=t2)
-        for t1 in T1_VALUES for t2 in T2_VALUES if t2 > t1
+        for t1 in LAYER2_T1_VALUES for t2 in T2_VALUES if t2 > t1
     )
     return {
         "search_app": str(repo / "build_ung_rel/apps/search_UNG_index"),

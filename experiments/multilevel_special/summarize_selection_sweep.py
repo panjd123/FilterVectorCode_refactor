@@ -10,6 +10,8 @@ import statistics
 from pathlib import Path
 from typing import Any
 
+import run_selection_sweep
+
 
 def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
@@ -17,6 +19,8 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
     workload_by_name = {item["name"]: item for item in config["workloads"]}
     for method in config["methods"]:
         for workload_name, workload in workload_by_name.items():
+            if not run_selection_sweep.method_enabled_for_workload(method, workload):
+                continue
             run_dir = root / method["name"] / workload_name
             summary_path = run_dir / "search_time_summary.csv"
             detail_path = run_dir / "search_time_details.csv"
