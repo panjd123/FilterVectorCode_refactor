@@ -250,7 +250,7 @@ bool validate_special_block_graph_semantics_impl(
    // an acyclic forest.
    std::vector<IdxType> same_layer_parent(blocks.size() + 1, 0);
    std::map<std::vector<LabelType>, IdxType> block_by_root[2];
-   std::vector<uint8_t> group_has_middle_owner(num_groups + 1, 0);
+   std::vector<IdxType> group_middle_owner(num_groups + 1, 0);
    for (const SpecialBlock &block : blocks)
    {
       if (!block_by_root[block.level]
@@ -265,7 +265,7 @@ bool validate_special_block_graph_semantics_impl(
          for (IdxType group_id : block.member_group_ids)
          {
             if (group_id <= num_groups)
-               group_has_middle_owner[group_id] = 1;
+               group_middle_owner[group_id] = block.block_id;
          }
       }
       for (IdxType child_id : block.child_block_ids)
@@ -353,15 +353,26 @@ bool validate_special_block_graph_semantics_impl(
          error = "middle block parent must reference its nearest upper Trie block ancestor";
          return false;
       }
+      // A query covering this upper root may activate level 2 only through a
+      // middle block rooted at or below the upper root. Mere ownership
+      // overlap is insufficient: a larger middle ancestor can own a direct
+      // upper member even though the query does not cover that ancestor.
       if (block.level == 1 &&
           std::none_of(block.member_group_ids.begin(),
                        block.member_group_ids.end(),
                        [&](IdxType group_id) {
-                          return group_id <= num_groups &&
-                                 group_has_middle_owner[group_id] != 0;
+                          if (group_id > num_groups)
+                             return false;
+                          const IdxType middle_id = group_middle_owner[group_id];
+                          return middle_id > 0 && middle_id <= blocks.size() &&
+                                 group_ranges[group_id].second >
+                                     group_ranges[group_id].first &&
+                                 is_label_path_prefix(
+                                     block.root_labels,
+                                     blocks[middle_id - 1].root_labels, false);
                        }))
       {
-         error = "upper block has no middle-owned direct member activation point";
+         error = "upper block has no reachable middle-owned direct member activation point";
          return false;
       }
    }

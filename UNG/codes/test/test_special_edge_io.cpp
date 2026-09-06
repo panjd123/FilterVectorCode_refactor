@@ -411,6 +411,25 @@ int main()
    unreachable_upper[2].point_count = 3;
    expect_graph_semantics(unreachable_upper, false,
                           "every upper block needs a middle-owned direct member activation point");
+   std::vector<ANNS::SpecialBlock> ancestor_only_activation(2);
+   ancestor_only_activation[0].block_id = 1;
+   ancestor_only_activation[0].level = 0;
+   ancestor_only_activation[0].root_group_id = 1;
+   ancestor_only_activation[0].entry_point_id = 0;
+   ancestor_only_activation[0].point_count = 2;
+   ancestor_only_activation[0].subtree_point_count = 5;
+   ancestor_only_activation[0].root_labels = {1};
+   ancestor_only_activation[0].member_group_ids = {1};
+   ancestor_only_activation[1].block_id = 2;
+   ancestor_only_activation[1].level = 1;
+   ancestor_only_activation[1].root_group_id = 1;
+   ancestor_only_activation[1].entry_point_id = 0;
+   ancestor_only_activation[1].point_count = 2;
+   ancestor_only_activation[1].subtree_point_count = 5;
+   ancestor_only_activation[1].root_labels = {1, 2};
+   ancestor_only_activation[1].member_group_ids = {1};
+   expect_graph_semantics(ancestor_only_activation, false,
+                          "an upper block cannot rely on a larger middle ancestor for activation");
    auto unrelated_child = semantic_blocks;
    unrelated_child[1].root_labels = {1, 4};
    expect_graph_semantics(unrelated_child, false,
