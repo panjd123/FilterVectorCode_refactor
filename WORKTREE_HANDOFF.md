@@ -9,7 +9,7 @@
 - 原始 checkout：`/home/graphdb/FilterVectorCode_refactor`，分支 `shopai8/special-block-e2e-opt`，创建隔离目录时 HEAD `dda63bd`。
 - 隔离 checkout：`/home/sunyahui/worktrees/FilterVectorCode_multilevel_special`。
 - 实现分支：`codex/multilevel-special-block-20260905`。
-- 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`5793e04`，增加 upper activation reachability 校验。
+- 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`104986c`，增加严格的 upper activation reachability 校验。
 - 前一审计 HEAD：`77e98eb`；多层 `favor_blocks` 已 fail closed，正常查询使用 `free_state`。
 - 服务器 Git 1.8.3.1 不支持 native worktree，因此使用 `git clone --shared`；branch/index 独立、对象库共享。
 - 原始 checkout 有大量用户改动。不得在那里 reset/checkout/merge；应先由用户形成 clean checkpoint，再 cherry-pick 本分支意图提交。
