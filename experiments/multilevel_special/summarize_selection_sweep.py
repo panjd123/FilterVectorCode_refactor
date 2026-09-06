@@ -49,6 +49,18 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                     def stage_median(field: str) -> float | str:
                         values = [float(item[field]) for item in warm_stage]
                         return statistics.median(values) if values else ""
+                    ordered_warm = sorted(
+                        (item for item in detail if int(item["Repeat"]) > 0),
+                        key=lambda item: float(item["Time_ms"]))
+                    middle_repeats: set[int] = set()
+                    if ordered_warm:
+                        middle_repeats.add(int(ordered_warm[(len(ordered_warm) - 1) // 2]["Repeat"]))
+                        middle_repeats.add(int(ordered_warm[len(ordered_warm) // 2]["Repeat"]))
+                    aligned_stage = [item for item in warm_stage
+                                     if int(item["Repeat"]) in middle_repeats]
+                    def aligned_stage_mean(field: str) -> float | str:
+                        values = [float(item[field]) for item in aligned_stage]
+                        return statistics.mean(values) if values else ""
                     warm_mean = (statistics.mean(warm) if warm
                                  else float(source["Average_Time_ms"]))
                     rows.append({
@@ -76,6 +88,13 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                         "block_authorization_ms_warm_median": stage_median("AverageBlockAuthorization_ms"),
                         "graph_ms_warm_median": stage_median("AverageGraphSearch_ms"),
                         "residual_ms_warm_median": stage_median("AverageResidual_ms"),
+                        "query_total_ms_at_batch_median": aligned_stage_mean("AverageQueryTotal_ms"),
+                        "els_ms_at_batch_median": aligned_stage_mean("AverageELS_ms"),
+                        "entry_ms_at_batch_median": aligned_stage_mean("AverageEntryPointSetup_ms"),
+                        "block_authorization_ms_at_batch_median": aligned_stage_mean("AverageBlockAuthorization_ms"),
+                        "graph_ms_at_batch_median": aligned_stage_mean("AverageGraphSearch_ms"),
+                        "residual_ms_at_batch_median": aligned_stage_mean("AverageResidual_ms"),
+                        "stage_closure_ms_at_batch_median": aligned_stage_mean("ClosureError_ms"),
                         "closure_error_ms_max_abs": (
                             max((abs(float(item["ClosureError_ms"])) for item in warm_stage),
                                 default="")

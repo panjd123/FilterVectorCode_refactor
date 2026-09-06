@@ -15,11 +15,11 @@ from pathlib import Path
 
 
 STAGES = (
-    ("els_ms_warm_median", "ELS"),
-    ("entry_ms_warm_median", "Entry"),
-    ("block_authorization_ms_warm_median", "Auth"),
-    ("graph_ms_warm_median", "Graph"),
-    ("residual_ms_warm_median", "Residual"),
+    ("els_ms_at_batch_median", "ELS"),
+    ("entry_ms_at_batch_median", "Entry"),
+    ("block_authorization_ms_at_batch_median", "Auth"),
+    ("graph_ms_at_batch_median", "Graph"),
+    ("residual_ms_at_batch_median", "Residual"),
 )
 
 
@@ -59,7 +59,7 @@ def write_table_csv(path: Path, rows: list[dict[str, str]], query_count: int) ->
               "target_recall", "layer_count", "method", "t1", "t2",
               "lsearch", "recall", "recall_min",
               "batch_ms_warm_median", "qps", "speedup_vs_layer0",
-              "query_total_ms_warm_median",
+              "query_total_ms_at_batch_median", "stage_closure_ms_at_batch_median",
               *(field for field, _ in STAGES)]
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as stream:
@@ -132,7 +132,7 @@ def render_report(config: dict, shared_summary: list[dict[str, str]],
     lines = [
         "# 0/1/2 层 Special Block 公平调优结果", "",
         "所有性能点均为离散实测；以每个 repeat 的最低 Recall 达到预声明门槛为可行条件，不插值。",
-        "端到端列是 1000-query、100-thread batch 的 warm-repeat 中位墙钟；阶段列是 warm-repeat 中位的平均单查询工作时间。阶段五项彼此互斥并闭合到单查询总时间，但由于查询并行，不能与 batch 墙钟直接相加或换算。",
+        "端到端列是 1000-query、100-thread batch 的 warm-repeat 中位墙钟；阶段列取定义该 batch 中位数的同一组 warm repeat，再报告其平均单查询工作时间。阶段五项彼此互斥并闭合到单查询总时间，但由于查询并行，不能与 batch 墙钟直接相加或换算。",
         "", "## 跨六档共享阈值：部署主结论", "",
         "| workload | 选择率 | 层数 | 共享结构 | L | Recall min / mean | batch ms | QPS | vs 0层 | ELS ms/q | Entry ms/q | Auth ms/q | Graph ms/q | Residual ms/q |",
         "|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",

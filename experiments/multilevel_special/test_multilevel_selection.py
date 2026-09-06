@@ -162,10 +162,11 @@ class SelectionSweepTest(unittest.TestCase):
             "layer_count": "0", "method": "plain", "t1": "",
             "t2": "", "lsearch": "100", "recall": "0.91",
             "recall_min": "0.90", "batch_ms_warm_median": "20",
-            "speedup_vs_layer0": "1", "query_total_ms_warm_median": "1",
-            "els_ms_warm_median": "0.1", "entry_ms_warm_median": "0.2",
-            "block_authorization_ms_warm_median": "0",
-            "graph_ms_warm_median": "0.6", "residual_ms_warm_median": "0.1",
+            "speedup_vs_layer0": "1", "query_total_ms_at_batch_median": "1",
+            "stage_closure_ms_at_batch_median": "0",
+            "els_ms_at_batch_median": "0.1", "entry_ms_at_batch_median": "0.2",
+            "block_authorization_ms_at_batch_median": "0",
+            "graph_ms_at_batch_median": "0.6", "residual_ms_at_batch_median": "0.1",
         }
         report = generate_layer_tuning_report.render_report(
             {"expected_num_queries": 1000},
@@ -311,6 +312,11 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertAlmostEqual(rows[0]["els_ms_warm_median"], 0.3)
             self.assertAlmostEqual(rows[0]["graph_ms_warm_median"], 1.2)
             self.assertAlmostEqual(rows[0]["closure_error_ms_max_abs"], 0.0)
+            self.assertAlmostEqual(rows[0]["query_total_ms_at_batch_median"], 2.1)
+            self.assertAlmostEqual(rows[0]["els_ms_at_batch_median"], 0.3)
+            self.assertAlmostEqual(
+                sum(rows[0][field] for field, _ in generate_layer_tuning_report.STAGES),
+                rows[0]["query_total_ms_at_batch_median"])
 
     def test_search_binary_snapshot_is_content_addressed_and_read_only(self):
         with tempfile.TemporaryDirectory() as temp:
