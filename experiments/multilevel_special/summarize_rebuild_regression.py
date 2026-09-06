@@ -20,7 +20,8 @@ QUERY_LABELS = ("rebuilt_bundle", "rebuilt_bundle_repeat2", "rebuilt_bundle_repe
 L_VALUES = (500, 550, 600, 650, 700)
 QUALITY_THRESHOLD = 0.85
 BUILD_FIELDS = (
-    "rebuild", "builder_sha256", "build_time_ms", "frozen_build_time_ms",
+    "rebuild", "builder_sha256", "builder_sha256_source",
+    "build_time_ms", "frozen_build_time_ms",
     "fresh_over_frozen", "special_blocks_sha256", "special_trie_sha256",
     "regular_edges_sha256", "special_edges_sha256", "special_edge_count",
     "intra_edge_count", "inter_edge_count", "loaded_memory_allocated_bytes",
@@ -91,13 +92,16 @@ def summarize(
         if (meta.get("special_block_count"), meta.get("special_block_upper_count")) != ("111", "8"):
             raise RuntimeError(f"unexpected block topology in rebuild {index}")
         builder_hash = record.get("source_provenance", {}).get("build_binary_sha256")
+        builder_hash_source = "manifest_snapshot"
         if not builder_hash:
             # The three historical fresh runs predate builder snapshotting; bind
             # them to the hash recorded alongside this audited experiment.
             builder_hash = "6ff471a86b94387a52a5ae4c0cf6a228fdf57ff52ba5fc7d7e77467aced50692"
+            builder_hash_source = "historical_audit_record"
         build_ms = float(meta["build_time(ms)"])
         build_rows.append({
             "rebuild": index, "builder_sha256": builder_hash,
+            "builder_sha256_source": builder_hash_source,
             "build_time_ms": f"{build_ms:.6f}",
             "frozen_build_time_ms": f"{frozen_build_ms:.6f}",
             "fresh_over_frozen": f"{build_ms / frozen_build_ms:.6f}",

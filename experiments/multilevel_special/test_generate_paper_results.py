@@ -152,6 +152,10 @@ class PaperResultsTest(unittest.TestCase):
         )
         self.assertEqual(len(builds), 3)
         self.assertEqual(len({row["builder_sha256"] for row in builds}), 1)
+        self.assertEqual(
+            {row["builder_sha256_source"] for row in builds},
+            {"historical_audit_record"},
+        )
         for field in ("special_blocks_sha256", "special_trie_sha256", "regular_edges_sha256"):
             self.assertEqual(len({row[field] for row in builds}), 1, field)
         self.assertEqual({row["inter_edge_count"] for row in builds}, {"14965020"})

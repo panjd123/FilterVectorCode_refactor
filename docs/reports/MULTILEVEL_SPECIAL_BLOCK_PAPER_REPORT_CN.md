@@ -180,6 +180,8 @@ T1 越小并不越好：T1=500 产生更多中层 blocks 和边管理开销，25
 
 当前源码对 tuned 配置又做了三次完整 fresh build：60.250 / 56.285 / 56.916 s，中位数 56.916 s，相对冻结记录 58.760 s 为 0.969x（即快约 3.1%），没有构建性能回归。三次均产生 111 个中层块和 8 个上层块；partition/trie/regular overlay 逐字节一致，inter edge 数固定为 14,965,020。GPU large-block intra 的原子并行更新不是 bitwise deterministic，intra edge 数在 47,973,867--47,978,904 间变化（跨度 0.0105%）；因此论文质量复现应使用端到端 Recall 和跨重建稳健点，而不能要求 approximate edge sidecar 字节完全相同。
 
+这三次运行早于 builder immutable-snapshot 功能，旧 manifest 未原生携带 builder hash；compact CSV 将审计会话记录的 `6ff471a8...50692` 标为 `builder_sha256_source=historical_audit_record`。后续 fresh run 会在 manifest 内记录 `manifest_snapshot`。另需注意，日志的 `gpu_intra_enabled=0` 是旧全局开关状态；本配置实际启用了 `intra_route=1`，其中 24 个大 block 走 `jasper_style` FastGrnnd CUDA。
+
 为判断是否值得用确定性换取字节级复现，还做了 CPU Vamana large-block 对照：总 builder wall 为 1131.863 s，其中 intra 为 1059.060 s；GPU FastGrnnd 三次中位 total/intra 分别为 56.916/10.453 s。按完整 builder wall，GPU 路径快 **19.89x**；按被替换的 intra stage，约快 **101.32x**。因此默认回退 CPU 不可取；论文与部署更合理的策略是保留 GPU approximate build，并为质量门槛设置跨重建余量。CPU 与 GPU 会构造不同的近似图，该对照只度量构建代价，不能声称图质量完全等价。
 
 作为量级参照，base UNG 历史 metadata 为 index build 211.819 s、含 additional edges 为 215.406 s。该时间与独立 overlay builder 边界不同，不能直接相加后声称严格的 from-scratch speedup。外部完整索引构建记录：FAVOR 76.174 s，Curator 102.207 s，NaviX 1316.957 s；ACORN gamma=1/2/4/8/12 分别约 17.268/53.413/80.696/135.577/212.311 s core。跨系统索引语义和计时边界不同，因此只报告量级，不计算构建加速比。

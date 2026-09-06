@@ -102,6 +102,10 @@ python3 experiments/multilevel_special/summarize_rebuild_regression.py
 
 三次 builder wall 为 60.250 / 56.285 / 56.916 s。block metadata、trie 与 regular-edge sidecar 的 hash 一致；近似 GPU intra graph 使用并行原子更新，因此 `special_edges.bin` 不要求 bitwise identical。正确验收是 topology/provenance validator 加端到端 Recall，而不是 edge 文件 hash 相同。
 
+这三次历史 fresh build 发生在 runner 增加 immutable builder snapshot 之前，所以旧 manifest 本身没有 `build_binary_sha256`。`current_source_rebuilds.csv` 中的 hash 来自同一审计会话记录，并以 `builder_sha256_source=historical_audit_record` 明确标记，不能误写成逐份旧 manifest 原生签名。现在重新运行 builder 时会得到 `builder_sha256_source=manifest_snapshot`，其 provenance 更强。
+
+构建日志中的 `gpu_intra_enabled=0` 只对应旧的全局 `UNG_SPECIAL_BLOCK_GPU_INTRA` 路径；本实验使用新的 size-routed intra path。判断实际后端应同时查看 `intra_route=1`、`intra_large_backend=jasper_style` 和 `gpu_intra_blocks=24`：3 个小 block 走 exact top-K，84 个中等 block 走 sampled Vamana，24 个大 block 走 FastGrnnd CUDA。不能仅凭旧开关字段断言本次没有使用 GPU。
+
 CPU Vamana large-block 对照总耗时 1131.863 s，约为 GPU tuned 构建中位数的 19.89 倍；intra stage 1059.060 s，约为 GPU 中位 intra 的 101.32 倍。它只说明退回 CPU 的构建代价，不能作为同图质量的速度比较。
 
 ## 6. 内部六档查询复测
