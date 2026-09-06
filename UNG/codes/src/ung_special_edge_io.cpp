@@ -115,6 +115,45 @@ bool parse_uint_field(const char *&cursor, const char *end, uint32_t &value)
 
 } // namespace
 
+bool parse_special_edge_csv_record(const std::string &raw_line,
+                                   SpecialEdgeBinaryRecord &record,
+                                   std::string &error)
+{
+   std::string line = raw_line;
+   if (!line.empty() && line.back() == '\r')
+      line.pop_back();
+   if (line.empty())
+   {
+      error = "CSV edge row is empty";
+      return false;
+   }
+
+   const char *cursor = line.data();
+   const char *end = cursor + line.size();
+   SpecialEdgeBinaryRecord parsed_record;
+   if (!parse_uint_field(cursor, end, parsed_record.source) ||
+       !parse_uint_field(cursor, end, parsed_record.target) ||
+       !parse_uint_field(cursor, end, parsed_record.block))
+   {
+      error = "CSV edge row must contain three unsigned integer fields";
+      return false;
+   }
+   const std::string kind(cursor, end);
+   if (kind == "inter")
+      parsed_record.kind = 1;
+   else if (kind == "intra")
+      parsed_record.kind = 0;
+   else
+   {
+      error = "CSV edge kind must be intra or inter";
+      return false;
+   }
+
+   record = parsed_record;
+   error.clear();
+   return true;
+}
+
 SpecialEdgeBinaryValidation validate_special_edge_binary_file(const std::string &path)
 {
    SpecialEdgeBinaryValidation validation;
@@ -419,31 +458,14 @@ bool convert_special_edge_csv_to_binary(const std::string &csv_path,
    while (std::getline(in, line))
    {
       ++line_number;
-      if (!line.empty() && line.back() == '\r')
-         line.pop_back();
       if (line.empty())
          continue;
 
-      const char *cursor = line.data();
-      const char *end = cursor + line.size();
       SpecialEdgeBinaryRecord record;
-      if (!parse_uint_field(cursor, end, record.source) ||
-          !parse_uint_field(cursor, end, record.target) ||
-          !parse_uint_field(cursor, end, record.block))
+      std::string parse_error;
+      if (!parse_special_edge_csv_record(line, record, parse_error))
       {
-         error = "invalid numeric CSV field at line " + std::to_string(line_number);
-         out.close();
-         std::remove(temporary_path.c_str());
-         return false;
-      }
-      const std::string kind(cursor, end);
-      if (kind == "inter")
-         record.kind = 1;
-      else if (kind == "intra")
-         record.kind = 0;
-      else
-      {
-         error = "invalid edge kind at line " + std::to_string(line_number);
+         error = parse_error + " at line " + std::to_string(line_number);
          out.close();
          std::remove(temporary_path.c_str());
          return false;

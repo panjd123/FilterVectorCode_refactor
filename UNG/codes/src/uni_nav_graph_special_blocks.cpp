@@ -223,6 +223,17 @@ bool validate_special_block_graph_semantics_impl(
     const std::vector<IdxType> &point_to_group,
     std::string &error)
 {
+   // An empty source graph has no one-based group sentinel to validate. It is
+   // still a well-formed degenerate input when it contains no points, groups,
+   // blocks, or point ownership. Keeping this case explicit also lets bundle
+   // preflight exercise the same production loader without synthetic graph
+   // state.
+   if (num_points == 0 && num_groups == 0 && blocks.empty() &&
+       point_to_group.empty())
+   {
+      error.clear();
+      return true;
+   }
    if (group_labels.size() <= num_groups || group_ranges.size() <= num_groups ||
        point_to_group.size() != num_points)
    {
@@ -3587,8 +3598,8 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
          for (const SpecialEdge &edge : _special_edges_by_point[source])
          {
             bool write_heavy = false;
-            if (save_heavy_pair_work_threshold > 0 && edge.kind == SpecialEdgeKind::InterBlock &&
-                edge.target_point_id < _point_to_special_block.size())
+            if (save_heavy_pair_work_threshold > 0 &&
+                edge.kind == SpecialEdgeKind::InterBlock)
             {
                const IdxType child_id = special_edge_target_owner(
                    edge, _special_blocks, _point_to_special_block,
@@ -3617,8 +3628,8 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
       if (write_binary_sidecar)
       {
          const auto is_heavy = [&](IdxType, const SpecialEdge &edge) {
-            if (save_heavy_pair_work_threshold == 0 || edge.kind != SpecialEdgeKind::InterBlock ||
-                edge.target_point_id >= _point_to_special_block.size())
+            if (save_heavy_pair_work_threshold == 0 ||
+                edge.kind != SpecialEdgeKind::InterBlock)
                return false;
             const IdxType child_id = special_edge_target_owner(
                 edge, _special_blocks, _point_to_special_block,
@@ -4031,20 +4042,25 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
       _special_edges_by_point.assign(_num_points, {});
       std::string line;
       std::getline(edge_in, line);
+      size_t line_number = 1;
       while (std::getline(edge_in, line))
       {
-         const auto cols = split_csv_line(line);
-         if (cols.size() < 4)
+         ++line_number;
+         if (line.empty())
             continue;
-         const IdxType source = static_cast<IdxType>(std::stoul(cols[0]));
+         SpecialEdgeBinaryRecord record;
+         std::string parse_error;
+         if (!parse_special_edge_csv_record(line, record, parse_error))
+            throw std::runtime_error(
+                "invalid special-edge CSV at line " +
+                std::to_string(line_number) + ": " + parse_error);
+         const IdxType source = static_cast<IdxType>(record.source);
          if (source >= _special_edges_by_point.size())
             throw std::runtime_error("special-edge CSV source is out of range");
          SpecialEdge edge;
-         edge.target_point_id = static_cast<IdxType>(std::stoul(cols[1]));
-         edge.special_block_id = static_cast<IdxType>(std::stoul(cols[2]));
-         if (cols[3] != "intra" && cols[3] != "inter")
-            throw std::runtime_error("special-edge CSV kind is invalid");
-         edge.kind = cols[3] == "inter" ? SpecialEdgeKind::InterBlock : SpecialEdgeKind::IntraBlock;
+         edge.target_point_id = static_cast<IdxType>(record.target);
+         edge.special_block_id = static_cast<IdxType>(record.block);
+         edge.kind = record.kind != 0 ? SpecialEdgeKind::InterBlock : SpecialEdgeKind::IntraBlock;
          std::string semantic_error;
          if (!validate_special_edge_semantics(
                  source, edge, _special_blocks,
@@ -4053,8 +4069,7 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
             throw std::runtime_error(
                 "invalid special-edge CSV semantics: " + semantic_error);
          bool use_heavy_sidecar = false;
-         if (heavy_pair_work_threshold > 0 && edge.kind == SpecialEdgeKind::InterBlock &&
-             edge.target_point_id < _point_to_special_block.size())
+         if (heavy_pair_work_threshold > 0 && edge.kind == SpecialEdgeKind::InterBlock)
          {
             const IdxType child_id = special_edge_target_owner(
                 edge, _special_blocks, _point_to_special_block,
@@ -4071,6 +4086,8 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
          }
          if (use_heavy_sidecar)
          {
+            if (_special_heavy_edges_by_point.empty())
+               _special_heavy_edges_by_point.assign(_num_points, {});
             _special_heavy_edges_by_point[source].push_back(edge);
             heavy_edges_loaded += 1;
          }
@@ -4085,34 +4102,39 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
             _special_block_summary.intra_special_edges += 1;
       }
    }
+   bool loaded_heavy_from_binary = false;
    if (load_persisted_heavy_edges && heavy_binary_edges_exist)
-   {
-      load_binary_edges(prefix + "special_heavy_edges.bin",
-                        _special_heavy_edges_csr,
-                        _special_heavy_edges_by_point,
-                        heavy_edges_loaded);
-   }
+      loaded_heavy_from_binary = load_binary_edges(
+          prefix + "special_heavy_edges.bin", _special_heavy_edges_csr,
+          _special_heavy_edges_by_point, heavy_edges_loaded);
    std::ifstream heavy_edge_in(prefix + "special_heavy_edges.csv");
-   if (load_persisted_heavy_edges && heavy_edges_loaded == 0 && heavy_edge_in)
+   const bool heavy_csv_edges_exist = static_cast<bool>(heavy_edge_in);
+   if (load_persisted_heavy_edges && !loaded_heavy_from_binary &&
+       heavy_csv_edges_exist)
    {
       if (_special_heavy_edges_by_point.empty())
          _special_heavy_edges_by_point.assign(_num_points, {});
       std::string line;
       std::getline(heavy_edge_in, line);
+      size_t line_number = 1;
       while (std::getline(heavy_edge_in, line))
       {
-         const auto cols = split_csv_line(line);
-         if (cols.size() < 4)
+         ++line_number;
+         if (line.empty())
             continue;
-         const IdxType source = static_cast<IdxType>(std::stoul(cols[0]));
+         SpecialEdgeBinaryRecord record;
+         std::string parse_error;
+         if (!parse_special_edge_csv_record(line, record, parse_error))
+            throw std::runtime_error(
+                "invalid heavy special-edge CSV at line " +
+                std::to_string(line_number) + ": " + parse_error);
+         const IdxType source = static_cast<IdxType>(record.source);
          if (source >= _special_heavy_edges_by_point.size())
             throw std::runtime_error("heavy special-edge CSV source is out of range");
          SpecialEdge edge;
-         edge.target_point_id = static_cast<IdxType>(std::stoul(cols[1]));
-         edge.special_block_id = static_cast<IdxType>(std::stoul(cols[2]));
-         if (cols[3] != "intra" && cols[3] != "inter")
-            throw std::runtime_error("heavy special-edge CSV kind is invalid");
-         edge.kind = cols[3] == "inter" ? SpecialEdgeKind::InterBlock : SpecialEdgeKind::IntraBlock;
+         edge.target_point_id = static_cast<IdxType>(record.target);
+         edge.special_block_id = static_cast<IdxType>(record.block);
+         edge.kind = record.kind != 0 ? SpecialEdgeKind::InterBlock : SpecialEdgeKind::IntraBlock;
          std::string semantic_error;
          if (!validate_special_edge_semantics(
                  source, edge, _special_blocks,
@@ -4129,6 +4151,11 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
          heavy_edges_loaded += 1;
       }
    }
+   if (load_persisted_heavy_edges && heavy_binary_edges_exist &&
+       !loaded_heavy_from_binary && !heavy_csv_edges_exist)
+      throw std::runtime_error(
+          "requested heavy special-edge binary is invalid and no CSV fallback exists: " +
+          prefix + "special_heavy_edges.bin");
    std::cout << "[special_blocks] loaded blocks=" << _special_block_summary.num_blocks
              << " trivial_blocks=" << _special_block_summary.trivial_blocks
              << " trie_nodes=" << _special_block_summary.trie_node_count

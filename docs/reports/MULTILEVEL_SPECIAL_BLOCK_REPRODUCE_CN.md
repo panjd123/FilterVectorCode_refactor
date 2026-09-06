@@ -47,7 +47,7 @@ while IFS=, read -r path expected; do
 done
 ```
 
-预期结果：14 项结果生成/provenance 测试通过；生成 60 行 selected results、209 个内部 canonical measured points、447 个外部 canonical measured points 和 7 行构建记录；artifact manifest 无 hash mismatch。这里验证的是提交中的证据闭包，不是重新计时。
+预期结果：15 项结果生成/provenance 测试通过；生成 60 行 selected results、209 个内部 canonical measured points、447 个外部 canonical measured points 和 7 行构建记录；artifact manifest 无 hash mismatch。这里验证的是提交中的证据闭包，不是重新计时。
 
 ## 4. 构建与代码回归
 
@@ -77,11 +77,12 @@ loader 不只检查 CSR offset、ID 范围和 metadata topology，还对每条�
 
 - intra edge：source 与 target 都必须是声明 owner 在相应层的 direct member；
 - inter edge：source 必须属于声明 parent，target 必须属于其同层 direct child；
-- source/target/owner 越界、owner=0、未知 kind 或跨层/非直接 child 目标均拒绝；legacy binary 先读入 staging，整份验证成功后才发布，避免半加载状态；light/heavy sidecar 分流按 edge owner 的 level 选择中层或上层 ownership，不能固定使用中层 map。
+- source/target/owner 越界、owner=0、未知 kind 或跨层/非直接 child 目标均拒绝；legacy binary 先读入 staging，整份验证成功后才发布，避免半加载状态；light/heavy sidecar 分流和查询阶段 per-target-block 限流都按 edge owner 的 level 选择中层或上层 ownership，不能固定使用中层 map。
+- legacy CSV conversion 与运行时 fallback 共用同一个严格 parser：字段必须恰为 `source,target,block,kind`，kind 只能是 `intra`/`inter`；少字段、未知 kind 和尾随列都会拒绝。显式独立 bundle 仍强制使用 binary light sidecar，light CSV 仅为旧内嵌索引兼容路径。requested heavy binary 若损坏，只能回退到合法 heavy CSV；二者均不可用时 fail closed。
 
-`test_special_edge_io` 包含合法 intra/inter、middle/upper target owner 解析与上述非法情形的正负测试。真实数据审计还用当前 binary 完整加载 fresh `T1=2k,T2=25k` sidecar 的 62,938,887 条 special edges，并在 50% workload、L=550 上得到 Recall=.8575、10,000 个返回点、0 个 filter violation。审计 binary SHA-256 为 `01a2ab66e0f6d2c5fc33389e77ba6f9be738effe0fa5353930114baf4eb6a5b4`。
+`test_special_edge_io` 包含合法 intra/inter、middle/upper target owner 解析、converter/runtime CSV 一致性、损坏 heavy binary 的合法 fallback 与无 fallback fail-closed，以及上述非法情形的正负测试；固定临时目录在每次测试前清空，失败后的重跑不会继承旧 sidecar。真实数据审计还用当前 binary 完整加载 fresh `T1=2k,T2=25k` sidecar 的 62,938,887 条 special edges，并在 50% workload、L=550 上得到 Recall=.8575、10,000 个返回点、0 个 filter violation。最新审计 binary SHA-256 为 `550f04c488366273a8509cf42e6be5161d0ea311dace7634f817fa7649d2204c`。
 
-最终 binary 的本次 sidecar 冷加载为 2.057 s；此前相邻审计为 1.91--1.93 s。这是一次性 load，不在 query batch timer 内；由于冷页缓存和系统负载不同，不能把它与旧运行相减并声称为 edge 校验的精确 overhead。
+最新 binary 的本次 sidecar 冷加载为 1.893 s，查询 batch 为 0.973 s；此前相邻正确性审计的 load/query 分别在 1.88--2.06 s / 1.00--2.27 s 间波动。这是单次、负载敏感的正确性运行：load 不在 query batch timer 内，query 也没有正式 repeats，因此两者都不更新冻结性能表，更不能用相邻运行之差声称 validator 或 parser 的精确 overhead。
 
 ### 4.2 过滤结果合法性审计
 

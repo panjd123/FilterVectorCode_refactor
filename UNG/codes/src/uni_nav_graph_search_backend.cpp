@@ -1338,10 +1338,9 @@ namespace ANNS
                         if (edge.kind == SpecialEdgeKind::InterBlock &&
                             !inter_edges_seen_by_target_block.empty())
                         {
-                           const IdxType target_block =
-                               edge.target_point_id < _point_to_special_block.size()
-                                   ? _point_to_special_block[edge.target_point_id]
-                                   : 0;
+                           const IdxType target_block = special_edge_target_owner(
+                               edge, _special_blocks, _point_to_special_block,
+                               _point_to_upper_special_block);
                            if (target_block > 0 &&
                                target_block < inter_edges_seen_by_target_block.size())
                            {

@@ -80,6 +80,12 @@ struct SpecialEdgeCsr
 
 using SpecialEdgeRecordConsumer = std::function<void(const SpecialEdgeBinaryRecord &)>;
 
+// Parse one non-empty legacy CSV data row. The parser is deliberately shared
+// by conversion and runtime fallback loading so both paths reject malformed
+// rows instead of silently accepting different subsets of an edge file.
+bool parse_special_edge_csv_record(const std::string &line,
+                                   SpecialEdgeBinaryRecord &record,
+                                   std::string &error);
 SpecialEdgeBinaryValidation validate_special_edge_binary_file(const std::string &path);
 bool for_each_special_edge_binary_record(const std::string &path,
                                          const SpecialEdgeRecordConsumer &consumer,

@@ -29,6 +29,9 @@ int main()
           "loader format policy must accept legacy and multilevel indexes only");
 
    const auto root = std::filesystem::temp_directory_path() / "ung_special_edge_io_test";
+   // A prior assertion failure exits before the normal cleanup below. Start
+   // from an empty fixture so reruns cannot inherit stale sidecar files.
+   std::filesystem::remove_all(root);
    std::filesystem::create_directories(root);
    const auto csv = root / "edges.csv";
    const auto bin = root / "edges.bin";
@@ -62,6 +65,36 @@ int main()
           "intra record fields must round-trip");
    expect(records[1].source == 4 && records[1].target == 5 && records[1].block == 6 && records[1].kind == 1,
           "inter record fields must round-trip");
+
+   ANNS::SpecialEdgeBinaryRecord parsed_csv_record;
+   expect(ANNS::parse_special_edge_csv_record(
+              "10,11,12,inter\r", parsed_csv_record, error) &&
+              parsed_csv_record.source == 10 && parsed_csv_record.target == 11 &&
+              parsed_csv_record.block == 12 && parsed_csv_record.kind == 1,
+          "shared CSV parser must accept one exact CRLF record");
+   expect(!ANNS::parse_special_edge_csv_record(
+              "10,11,inter", parsed_csv_record, error),
+          "shared CSV parser must reject a missing numeric field");
+   expect(!ANNS::parse_special_edge_csv_record(
+              "10,11,12,unknown", parsed_csv_record, error),
+          "shared CSV parser must reject an unknown edge kind");
+   expect(!ANNS::parse_special_edge_csv_record(
+              "10,11,12,inter,extra", parsed_csv_record, error),
+          "shared CSV parser must reject trailing columns");
+
+   const auto malformed_csv = root / "malformed_edges.csv";
+   const auto malformed_bin = root / "malformed_edges.bin";
+   {
+      std::ofstream out(malformed_csv);
+      out << "source_point_id,target_point_id,special_block_id,edge_kind\n";
+      out << "10,11,12,inter,extra\n";
+   }
+   converted = 0;
+   expect(!ANNS::convert_special_edge_csv_to_binary(
+              malformed_csv.string(), malformed_bin.string(), converted, error),
+          "converter must use the strict shared CSV parser");
+   expect(!std::filesystem::exists(malformed_bin),
+          "failed CSV conversion must not publish a partial binary");
 
    const auto truncated = root / "truncated.bin";
    {
@@ -253,7 +286,7 @@ int main()
    expect(ANNS::special_edge_target_owner(
               {2, 3, ANNS::SpecialEdgeKind::InterBlock}, edge_blocks,
               point_middle_owner, point_upper_owner) == 3,
-          "upper inter target owner must use upper ownership");
+          "upper inter target owner and per-target cap key must use upper ownership");
    expect_edge_semantics(2, {3, 1, ANNS::SpecialEdgeKind::IntraBlock}, false,
                          "intra edge source must belong to its declared owner");
    expect_edge_semantics(0, {2, 1, ANNS::SpecialEdgeKind::IntraBlock}, false,
@@ -322,6 +355,12 @@ int main()
           validation_error);
       expect(valid == expected && (valid || !validation_error.empty()), message);
    };
+   {
+      std::string validation_error;
+      expect(ANNS::validate_special_block_graph_semantics(
+                 {}, 0, 0, {}, {}, {}, validation_error),
+             "empty graph and empty block metadata must be a valid degenerate bundle");
+   }
    expect_graph_semantics(semantic_blocks, true,
                           "valid nested block metadata must match its source graph");
    auto unrelated_child = semantic_blocks;
@@ -420,6 +459,99 @@ int main()
    load_error = explicit_load_error();
    expect(load_error.find("special_edges.bin") != std::string::npos,
           "explicit bundle must report a missing special-edge sidecar before parsing");
+
+   // A requested optional heavy sidecar must fail closed when the binary is
+   // present but corrupt and there is no CSV fallback.  Use a valid empty
+   // graph bundle so this reaches the production heavy-edge loader rather
+   // than failing earlier metadata checks.
+   const auto corrupt_heavy_index = root / "corrupt_heavy_index";
+   std::filesystem::create_directories(corrupt_heavy_index);
+   {
+      std::ofstream out(corrupt_heavy_index / "meta");
+      out << "index_format=special_block_trie_multilevel_v1\n"
+          << "source_ung_fingerprint=a31e272015f12c43\n"
+          << "num_points=0\n"
+          << "num_groups=0\n"
+          << "special_blocks_enabled=1\n"
+          << "special_block_partition=none\n";
+   }
+   ANNS::save_special_block_metadata_binary(
+       (corrupt_heavy_index / "special_blocks.bin").string(), {});
+   uint64_t empty_edge_count = 0;
+   expect(ANNS::write_special_edge_csr_file(
+              (corrupt_heavy_index / "special_edges.bin").string(), {},
+              [](ANNS::IdxType, const ANNS::SpecialEdge &) { return true; },
+              empty_edge_count, error),
+          "empty special-edge CSR fixture must be writable");
+   {
+      std::ofstream out(corrupt_heavy_index / "special_heavy_edges.bin",
+                        std::ios::binary);
+      out << "corrupt";
+   }
+   const char *old_heavy_search = std::getenv("UNG_SPECIAL_HEAVY_EDGE_SEARCH");
+   const std::string old_heavy_search_value =
+       old_heavy_search == nullptr ? std::string() : std::string(old_heavy_search);
+   setenv("UNG_SPECIAL_HEAVY_EDGE_SEARCH", "1", 1);
+   {
+      std::ofstream out(corrupt_heavy_index / "special_heavy_edges.csv");
+      out << "source_point_id,target_point_id,special_block_id,edge_kind\n"
+          << "0,0,0,inter,extra\n";
+   }
+   std::string malformed_heavy_error;
+   try
+   {
+      ANNS::UniNavGraph index;
+      index.load_special_block_index(corrupt_heavy_index.string());
+   }
+   catch (const std::runtime_error &ex)
+   {
+      malformed_heavy_error = ex.what();
+   }
+   expect(malformed_heavy_error.find("invalid heavy special-edge CSV") !=
+              std::string::npos,
+          "runtime heavy CSV fallback must use the strict shared parser");
+   {
+      std::ofstream out(corrupt_heavy_index / "special_heavy_edges.csv");
+      out << "source_point_id,target_point_id,special_block_id,edge_kind\n";
+   }
+   bool valid_heavy_csv_loaded = true;
+   try
+   {
+      ANNS::UniNavGraph index;
+      index.load_special_block_index(corrupt_heavy_index.string());
+   }
+   catch (const std::runtime_error &)
+   {
+      valid_heavy_csv_loaded = false;
+   }
+   expect(valid_heavy_csv_loaded,
+          "a valid heavy CSV must remain a usable fallback after reaching EOF");
+   std::filesystem::remove(corrupt_heavy_index / "special_heavy_edges.csv");
+
+   std::string corrupt_heavy_error;
+   try
+   {
+      ANNS::UniNavGraph index;
+      index.load_special_block_index(corrupt_heavy_index.string());
+   }
+   catch (const std::runtime_error &ex)
+   {
+      corrupt_heavy_error = ex.what();
+   }
+   if (old_heavy_search == nullptr)
+      unsetenv("UNG_SPECIAL_HEAVY_EDGE_SEARCH");
+   else
+      setenv("UNG_SPECIAL_HEAVY_EDGE_SEARCH",
+             old_heavy_search_value.c_str(), 1);
+   if (corrupt_heavy_error.find("heavy special-edge binary is invalid") ==
+       std::string::npos)
+      std::cerr << "unexpected corrupt-heavy load outcome: "
+                << (corrupt_heavy_error.empty() ? "<no exception>"
+                                                : corrupt_heavy_error)
+                << '\n';
+   expect(corrupt_heavy_error.find("heavy special-edge binary is invalid") !=
+              std::string::npos,
+          "requested corrupt heavy binary without CSV fallback must fail closed");
 
    std::filesystem::remove_all(root);
    std::cout << "special edge binary I/O checks passed\n";
