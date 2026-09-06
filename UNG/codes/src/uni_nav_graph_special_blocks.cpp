@@ -1792,6 +1792,11 @@ bool validate_special_block_graph_semantics(
     const std::vector<IdxType> &point_to_group,
     std::string &error)
 {
+   // This is a public validation boundary. Do not rely on callers having run
+   // the graph-independent gate first: the implementation indexes small
+   // fixed arrays by block level and assumes dense, in-range block ids.
+   if (!validate_special_block_metadata_impl(blocks, error))
+      return false;
    return validate_special_block_graph_semantics_impl(
        blocks, num_points, num_groups, group_labels, group_ranges,
        point_to_group, error);

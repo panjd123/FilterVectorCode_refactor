@@ -363,6 +363,16 @@ int main()
    }
    expect_graph_semantics(semantic_blocks, true,
                           "valid nested block metadata must match its source graph");
+   {
+      auto invalid_level = semantic_blocks;
+      invalid_level[0].level = 2;
+      std::string validation_error;
+      expect(!ANNS::validate_special_block_graph_semantics(
+                 invalid_level, 8, 4, group_labels, group_ranges,
+                 point_to_group, validation_error) &&
+                 !validation_error.empty(),
+             "the public graph validator must reject invalid standalone metadata safely");
+   }
    auto missing_direct_child = semantic_blocks;
    missing_direct_child[0].child_block_ids.clear();
    expect_graph_semantics(missing_direct_child, false,
