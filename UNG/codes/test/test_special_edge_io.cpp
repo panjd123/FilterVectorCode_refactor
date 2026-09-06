@@ -378,12 +378,23 @@ int main()
    upper_child.subtree_point_count = 5;
    upper_child.root_labels = {1, 2};
    upper_child.member_group_ids = {1, 2};
+   ANNS::SpecialBlock outer_middle;
+   outer_middle.block_id = 5;
+   outer_middle.level = 0;
+   outer_middle.parent_block_id = 3;
+   outer_middle.root_group_id = 3;
+   outer_middle.entry_point_id = 5;
+   outer_middle.point_count = 1;
+   outer_middle.subtree_point_count = 1;
+   outer_middle.root_labels = {1, 4};
+   outer_middle.member_group_ids = {3};
    nested_upper[2].child_block_ids = {4};
    nested_upper[2].member_group_ids = {3, 4};
    nested_upper[2].point_count = 3;
    nested_upper[0].parent_block_id = 4;
    nested_upper[1].parent_block_id = 4;
    nested_upper.push_back(upper_child);
+   nested_upper.push_back(outer_middle);
    expect_graph_semantics(nested_upper, true,
                           "middle blocks may link to their nearest nested upper ancestor");
    auto skipped_upper_parent = nested_upper;
@@ -395,6 +406,11 @@ int main()
    crossing_partition[3].point_count = 2;
    expect_graph_semantics(crossing_partition, true,
                           "independent thresholds may split a middle block across upper ownership");
+   auto unreachable_upper = semantic_blocks;
+   unreachable_upper[2].member_group_ids = {3, 4};
+   unreachable_upper[2].point_count = 3;
+   expect_graph_semantics(unreachable_upper, false,
+                          "every upper block needs a middle-owned direct member activation point");
    auto unrelated_child = semantic_blocks;
    unrelated_child[1].root_labels = {1, 4};
    expect_graph_semantics(unrelated_child, false,

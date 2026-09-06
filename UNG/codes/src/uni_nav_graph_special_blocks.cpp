@@ -250,6 +250,7 @@ bool validate_special_block_graph_semantics_impl(
    // an acyclic forest.
    std::vector<IdxType> same_layer_parent(blocks.size() + 1, 0);
    std::map<std::vector<LabelType>, IdxType> block_by_root[2];
+   std::vector<uint8_t> group_has_middle_owner(num_groups + 1, 0);
    for (const SpecialBlock &block : blocks)
    {
       if (!block_by_root[block.level]
@@ -258,6 +259,14 @@ bool validate_special_block_graph_semantics_impl(
       {
          error = "two same-layer blocks cannot have the same Trie root";
          return false;
+      }
+      if (block.level == 0)
+      {
+         for (IdxType group_id : block.member_group_ids)
+         {
+            if (group_id <= num_groups)
+               group_has_middle_owner[group_id] = 1;
+         }
       }
       for (IdxType child_id : block.child_block_ids)
       {
@@ -342,6 +351,17 @@ bool validate_special_block_graph_semantics_impl(
       if (block.level == 0 && block.parent_block_id != nearest_upper_parent)
       {
          error = "middle block parent must reference its nearest upper Trie block ancestor";
+         return false;
+      }
+      if (block.level == 1 &&
+          std::none_of(block.member_group_ids.begin(),
+                       block.member_group_ids.end(),
+                       [&](IdxType group_id) {
+                          return group_id <= num_groups &&
+                                 group_has_middle_owner[group_id] != 0;
+                       }))
+      {
+         error = "upper block has no middle-owned direct member activation point";
          return false;
       }
    }
