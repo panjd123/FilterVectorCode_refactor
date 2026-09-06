@@ -65,6 +65,11 @@ def method(name: str, layer_count: int, l_grid: dict[str, list[int]],
         "env": {
             "UNG_DISABLE_ELS_REUSE": "1",
             "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+            # The paper definition authorizes a block exactly when the query
+            # contains its root-label prefix.  Multilevel search enables this
+            # automatically, but declare it for every Special method so the
+            # one-level control uses identical semantics.
+            "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
         },
         "lsearch_values_by_workload": l_grid,
     }

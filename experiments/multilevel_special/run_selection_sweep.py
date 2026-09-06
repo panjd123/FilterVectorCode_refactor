@@ -336,6 +336,27 @@ def main() -> int:
             provenance = validate_provenance(config, method)
             require_stage_breakdown = bool(config.get("require_stage_breakdown", False))
             if result_is_complete(run_dir, values, require_stage_breakdown) and not args.force:
+                effective_env = clean_method_env(os.environ, method)
+                update_manifest(manifest_path, {
+                    "method": method["name"],
+                    "workload": workload["name"],
+                    "query_dir": workload["query_dir"],
+                    "mean_selectivity": workload.get("mean_selectivity"),
+                    "num_queries": num_queries,
+                    "lsearch_values": values,
+                    "num_repeats": config["num_repeats"],
+                    "layer_count": int(method.get("layer_count", 0)),
+                    "t1": method.get("t1"),
+                    "t2": method.get("t2"),
+                    "status": "complete",
+                    "reused_existing": True,
+                    "run_dir": str(run_dir),
+                    "provenance": provenance,
+                    "source_search_app": str(source_search_app),
+                    "search_binary_sha256": search_binary_sha256,
+                    "els_reuse_disabled": effective_env.get("UNG_DISABLE_ELS_REUSE") == "1",
+                    "require_stage_breakdown": require_stage_breakdown,
+                })
                 print(f"[SKIP] {method['name']}/{workload['name']} complete", flush=True)
                 continue
             run_dir.mkdir(parents=True, exist_ok=True)

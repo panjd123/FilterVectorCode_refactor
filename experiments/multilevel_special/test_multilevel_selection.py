@@ -30,6 +30,10 @@ class SelectionSweepTest(unittest.TestCase):
             {workload["name"] for workload in config["workloads"]}
             for item in methods
         ))
+        self.assertTrue(all(
+            item["env"].get("UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE") == "1"
+            for item in methods if item["layer_count"] > 0
+        ))
 
     def test_shared_tuning_requires_one_structure_to_cover_all_workloads(self):
         def row(method, layer, workload, latency, recall, t1=None):
@@ -203,6 +207,19 @@ class SelectionSweepTest(unittest.TestCase):
                 first.close()
             second = run_selection_sweep.acquire_run_lock(root)
             second.close()
+
+    def test_manifest_update_replaces_dry_run_with_completed_reuse(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "manifest.json"
+            common = {"method": "plain", "workload": "w"}
+            run_selection_sweep.update_manifest(
+                path, {**common, "status": "dry_run"})
+            run_selection_sweep.update_manifest(
+                path, {**common, "status": "complete", "reused_existing": True})
+            runs = json.loads(path.read_text())["runs"]
+            self.assertEqual(len(runs), 1)
+            self.assertEqual(runs[0]["status"], "complete")
+            self.assertTrue(runs[0]["reused_existing"])
 
     def test_build_env_is_explicit_and_drops_inherited_ung_settings(self):
         env = run_build_sweep.clean_build_env(

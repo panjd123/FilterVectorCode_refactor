@@ -64,7 +64,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -116,7 +117,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -177,7 +179,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -238,7 +241,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -299,7 +303,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -360,7 +365,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -421,7 +427,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -484,7 +491,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -547,7 +555,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -610,7 +619,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -673,7 +683,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -736,7 +747,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -799,7 +811,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -862,7 +875,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -925,7 +939,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -988,7 +1003,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -1051,7 +1067,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -1114,7 +1131,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -1177,7 +1195,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -1240,7 +1259,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -1303,7 +1323,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -1366,7 +1387,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -1429,7 +1451,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
@@ -1492,7 +1515,8 @@
       "entry_group_provider": "cpu_bruteforce_els",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
       },
       "lsearch_values_by_workload": {
         "sel_005": [
