@@ -40,7 +40,7 @@
 - 当前源码 tuned 配置完成三次独立 fresh build：builder wall 中位数 56.916 s；block/trie/regular edge bitwise stable，GPU approximate special edges 非 bitwise deterministic。50% 跨重建稳健点为 L=550，三次 Recall .8540--.8582。
 - CPU Vamana large-block 对照总 builder wall 1131.863 s；GPU tuned 构建中位 56.916 s，完整构建快 19.89x，故不以 CPU 回退换取字节级确定性。
 - 最终 provenance 审计把三次旧 fresh build 的 builder hash 来源显式写入 CSV：旧 manifest 没有原生 hash，故标为 `historical_audit_record`；后续 fresh run 才是 `manifest_snapshot`。同时说明日志 `gpu_intra_enabled=0` 是旧全局开关，实际 routed path 有 24 个大 block 使用 FastGrnnd CUDA。主性能表未变化；提交 `dba4696`。
-- 新增默认关闭、计时外的 filtered-result validator 与独立单元测试；真实 49.971% workload、L=550 共检查 10,000 个结果，违规为 0，Recall=.8575。审计只作正确性证据，不进入性能表。
+- 新增默认关闭、计时外的 filtered-result validator 与独立单元测试；六档真实 workload 共 60,000 个结果槽、59,991 个实际返回点、9 个 missing 槽，所有返回点违规为 0，六档 Recall 均达标。审计只作正确性证据，不进入性能表。
 
 ## 下一步
 

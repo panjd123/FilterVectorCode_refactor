@@ -80,7 +80,7 @@ git diff --check
 export UNG_VALIDATE_FILTER_RESULTS=1
 ```
 
-正确性运行和性能运行必须分开：审计逻辑虽位于 batch timer 外，但会额外读取标签、生成文件，不应把这种单次诊断运行的冷启动时间写入性能主表。已审计点为 49.971%、L=550、T1=2k/T2=25k、1000 queries、K=10、100 threads；`CheckedResults=10000`、`FilterViolations=0`、Recall=.8575。审计 binary SHA-256 为 `378e71d77f93c891f67660d33cce36213290dbadee312ee3cac769d6fb3f0313`，compact 证据见 `results_summary/filter_validation_audit.csv`。
+正确性运行和性能运行必须分开：审计逻辑虽位于 batch timer 外，但会额外读取标签、生成文件，不应把这种单次诊断运行的冷启动时间写入性能主表。已在同一个 fresh-built T1=2k/T2=25k bundle 上覆盖全部六档 workload，L 分别为 1500/3000/10000/10000/550/1000；每档 1000 queries、K=10、100 threads。60,000 个结果槽中实际返回 59,991 个点，9 个 missing 槽全部来自 24.915% 档；所有实际返回点的 `FilterViolations=0`，六档 Recall 分别为 .9101/.9165/.9009/.9023/.8575/.8732，均达到预声明门槛。missing 表示未填满 K，不等于非法结果。审计 binary SHA-256 为 `378e71d77f93c891f67660d33cce36213290dbadee312ee3cac769d6fb3f0313`，逐档 compact 证据见 `results_summary/filter_validation_audit.csv`。
 
 ## 5. 从当前源码重新构建 Special Block
 

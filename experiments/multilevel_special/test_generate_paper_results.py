@@ -192,15 +192,21 @@ class PaperResultsTest(unittest.TestCase):
         rows = generator.read(
             SCRIPT_DIR / "results_summary/filter_validation_audit.csv"
         )
-        self.assertEqual(len(rows), 1)
-        row = rows[0]
-        self.assertEqual(row["workload"], "query_minlen1_avgsel50pct")
-        self.assertEqual(row["timing_role"], "correctness_audit_only")
-        self.assertEqual(int(row["num_queries"]), 1000)
-        self.assertEqual(int(row["K"]), 10)
-        self.assertEqual(int(row["checked_results"]), 10000)
-        self.assertEqual(int(row["filter_violations"]), 0)
-        self.assertGreaterEqual(float(row["recall"]), 0.85)
+        self.assertEqual(len(rows), 6)
+        self.assertEqual({row["workload"] for row in rows}, set(generator.WORKLOADS))
+        self.assertEqual({row["timing_role"] for row in rows},
+                         {"correctness_audit_only"})
+        self.assertEqual({row["search_binary_sha256"] for row in rows},
+                         {"378e71d77f93c891f67660d33cce36213290dbadee312ee3cac769d6fb3f0313"})
+        self.assertTrue(all(int(row["num_queries"]) == 1000 for row in rows))
+        self.assertTrue(all(int(row["K"]) == 10 for row in rows))
+        self.assertEqual(sum(int(row["result_slots"]) for row in rows), 60000)
+        self.assertEqual(sum(int(row["checked_results"]) for row in rows), 59991)
+        self.assertEqual(sum(int(row["missing_results"]) for row in rows), 9)
+        self.assertEqual(sum(int(row["filter_violations"]) for row in rows), 0)
+        for row in rows:
+            self.assertGreaterEqual(float(row["recall"]),
+                                    generator.WORKLOADS[row["workload"]][2])
 
 
 if __name__ == "__main__":
