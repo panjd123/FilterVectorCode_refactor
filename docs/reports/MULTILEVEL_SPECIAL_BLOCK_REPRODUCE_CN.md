@@ -27,6 +27,8 @@
 
 当前源码重新编译出的 binary hash 可以不同；这表示“新鲜复测”，不能把其结果追加到上述历史 binary 的正式 manifest。内部 runner 会在每个 output root 中创建只读、内容寻址的 binary snapshot，并把 hash 写入 manifest。
 
+本次已验证的当前源码 binary SHA-256 为 `88d7dba189478cd11402a8433076d220c7ad68ca9f9a6366118f78430752f37f`。六档 24 点 fresh regression 的 compact 输出被单独保存为 `results_summary/current_source_regression.csv`，不参与 `paper_results.csv` 的 operating-point 选择。
+
 ## 3. 只审计论文结果闭包
 
 这是最快且不依赖 raw runs 的路径。
@@ -45,7 +47,7 @@ while IFS=, read -r path expected; do
 done
 ```
 
-预期结果：12 项结果生成/provenance 测试通过；生成 60 行 selected results、209 个内部 canonical measured points、447 个外部 canonical measured points 和 7 行构建记录；artifact manifest 无 hash mismatch。这里验证的是提交中的证据闭包，不是重新计时。
+预期结果：13 项结果生成/provenance 测试通过；生成 60 行 selected results、209 个内部 canonical measured points、447 个外部 canonical measured points 和 7 行构建记录；artifact manifest 无 hash mismatch。这里验证的是提交中的证据闭包，不是重新计时。
 
 ## 4. 构建与代码回归
 
@@ -66,7 +68,7 @@ cd ../..
 git diff --check
 ```
 
-最终 checkpoint 上的预期结果为 C++ focused tests 5/5、Python tests 25/25。
+最终 checkpoint 上的预期结果为 C++ focused tests 5/5、Python tests 26/26。
 
 ## 5. 从当前源码重新构建 Special Block
 
@@ -130,6 +132,23 @@ done
 4. 保留 Amazon x1 hashes、K=10、100 threads、1000 queries 和原 L-grid。
 
 不得把新 binary 的 aggregate 覆盖到 `results_summary/source/`，除非对六档正式矩阵全部重跑、更新所有 manifest，并重新做同 Recall 选择。
+
+仓库已提供当前源码六档配置和聚合审计入口：
+
+```bash
+cd /home/sunyahui/worktrees/FilterVectorCode_multilevel_special
+
+# 每个配置只跑冻结主表中四个内部 operating points；sel_0p5 使用 21 repeats，
+# 其余五档使用 7 repeats。output_root 必须是新的 raw 目录。
+for s in 0p5_repeat21 1 10 25 50 75; do
+  python3 experiments/multilevel_special/run_selection_sweep.py \
+    experiments/multilevel_special/config.amazon_x1_current_source_main_sel${s}.json
+done
+
+python3 experiments/multilevel_special/audit_current_source_regression.py
+```
+
+审计器 fail closed 地检查 24/24 点、budget、repeat 数和单一 binary hash，并输出每点 Recall delta、median、min/max 与 CV。当前结果为：Special Recall 最大漂移 0；fresh/frozen timing ratio 中位数 1.0195，范围 0.9781--1.2188。0.499% 的 20 个 warm samples 仍存在明显调度长尾，尤其 single-level CV=0.680，故短延迟档不能作为严格的 timing reproduction gate。
 
 ## 7. 外部系统位置对照
 

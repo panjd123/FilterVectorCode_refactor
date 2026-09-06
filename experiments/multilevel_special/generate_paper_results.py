@@ -457,14 +457,19 @@ def write_artifact_manifest() -> None:
         runbook = HERE / "MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md"
     paths = [
         Path(__file__).resolve(),
+        HERE / "audit_current_source_regression.py",
         HERE / "test_generate_paper_results.py",
         *(HERE / f"config.amazon_x1_paired_formal_sel{suffix}.json" for suffix in (25, 50, 75)),
+        *(HERE / f"config.amazon_x1_current_source_main_sel{suffix}.json"
+          for suffix in (1, 10, 25, 50, 75)),
+        HERE / "config.amazon_x1_current_source_main_sel0p5_repeat21.json",
         OUTPUT_DIR / "source_manifest.csv",
         OUTPUT_DIR / "paper_results.csv",
         OUTPUT_DIR / "paper_results.md",
         OUTPUT_DIR / "build_results.csv",
         OUTPUT_DIR / "internal_canonical_measured_points.csv",
         OUTPUT_DIR / "external_canonical_measured_points.csv",
+        OUTPUT_DIR / "current_source_regression.csv",
         report,
         overview,
         runbook,

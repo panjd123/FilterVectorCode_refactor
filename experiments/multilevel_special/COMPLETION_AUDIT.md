@@ -15,7 +15,7 @@
 | 各种选择率 | 覆盖现有六档真实 workload：0.499%、0.903%、9.907%、24.915%、49.971%、74.994% | `paper_results.csv` 与 workload 表 | 完成 |
 | 外部方法比较 | FAVOR、NaviX、Curator、ACORN 使用相同 Amazon x1 query/GT、K=10、1000 queries、100 threads，并明确 timing 边界 | 各 baseline runner、447 个外部 canonical 点和 ACORN correctness patch | 完成；仅作离散 Pareto 系统位置对照 |
 | 完整数据表和分析 | 可提交完整 sweep、主表、构建表、负结果、适用边界；数字可由脚本重算 | `generate_paper_results.py`、`paper_results.csv`、多层报告 | 完成 |
-| 可复现性 | 记录 commit、命令、配置、数据 checksum、repeats、raw/aggregate 路径 | configs、18 份内部 manifest、source SHA-256 manifest、`MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md` | 完成；raw `runs/` 按政策不提交 |
+| 可复现性 | 记录 commit、命令、配置、数据 checksum、repeats、raw/aggregate 路径 | configs、18 份内部 manifest、source SHA-256 manifest、当前源码 24 点 regression、`MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md` | 完成；fresh Special Recall 最大漂移 0；raw `runs/` 按政策不提交 |
 | 审阅就绪 | 两轮结构审阅、一轮有限上下文交付审阅，阻塞问题处理或明确降级 | 第二轮结构审阅 clean；有限上下文交付审阅通过；实现与结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` | 完成 |
 
 ## 当前不能使用的证据
@@ -27,4 +27,4 @@
 
 ## 当前剩余收尾
 
-没有待补的论文主表实验或代码阻断项。原始 checkout 是用户脏工作树，因此未自动 merge/push；后续只需由用户先保存其现有改动，再选择 cherry-pick 或 merge 本隔离分支。
+没有待补的论文主表实验或代码阻断项。当前源码另以不同 binary 完成 24 点回归，结果保持与冻结论文 evidence 分离。原始 checkout 是用户脏工作树，因此未自动 merge/push；后续只需由用户先保存其现有改动，再选择 cherry-pick 或 merge 本隔离分支。

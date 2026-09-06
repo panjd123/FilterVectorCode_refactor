@@ -14,6 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import generate_paper_results as generator
+import audit_current_source_regression as current_source_audit
 import summarize_selection_sweep as selection_summary
 
 
@@ -124,6 +125,25 @@ class PaperResultsTest(unittest.TestCase):
             self.assertNotIn(b"\r\n", output.read_bytes())
             selection_summary.write_csv(output, rows)
             self.assertNotIn(b"\r\n", output.read_bytes())
+
+    def test_current_source_regression_is_complete_and_recall_stable(self) -> None:
+        rows = generator.read(
+            SCRIPT_DIR / "results_summary" / "current_source_regression.csv"
+        )
+        self.assertEqual(len(rows), 24)
+        self.assertEqual(
+            Counter(row["workload"] for row in rows),
+            Counter({workload: 4 for workload in generator.WORKLOADS}),
+        )
+        self.assertEqual(
+            {row["fresh_binary_sha256"] for row in rows},
+            {"88d7dba189478cd11402a8433076d220c7ad68ca9f9a6366118f78430752f37f"},
+        )
+        special = [row for row in rows if row["method"] != "Plain UNG"]
+        self.assertTrue(all(float(row["recall_delta"]) == 0.0 for row in special))
+        low = [row for row in rows if row["workload"] == "sel_0p5"]
+        self.assertTrue(all(int(row["measured_repeats"]) == 20 for row in low))
+        self.assertEqual(set(current_source_audit.FRESH_CONFIGS), {"0p5", "1", "10", "25", "50", "75"})
 
 
 if __name__ == "__main__":

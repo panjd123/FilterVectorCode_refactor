@@ -45,7 +45,9 @@
 
 ## 当前未决事项
 
-没有实现或论文主表阻断项。第二轮结构审阅为 clean follow-up；有限上下文交付审阅确认交付内容可理解。最终回归通过生产/测试目标构建、focused C++ 5/5、Python 25/25、结果重建和 `git diff --check`。旧 loaded-byte 实测值来自计数修复前，约低估 4.1 MiB，报告已显式降级，不能当精确峰值。
+没有实现或论文主表阻断项。第二轮结构审阅为 clean follow-up；有限上下文交付审阅确认交付内容可理解。最终回归通过生产/测试目标构建、focused C++ 5/5、Python 26/26、结果重建和 `git diff --check`。旧 loaded-byte 实测值来自计数修复前，约低估 4.1 MiB，报告已显式降级，不能当精确峰值。
+
+当前源码 binary `88d7dba1...f37f` 另完成六档 24 点版本漂移审计；它与冻结论文 binary 不同，因此只进入 `results_summary/current_source_regression.csv`，不改写主表。18 个 Special 点 Recall 最大漂移为 0；24 点耗时比中位数 1.0195、范围 0.9781--1.2188。0.499% 采用 21 repeats 后仍有调度长尾，不能用单次或严格 timing gate 判断回归。
 
 `runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 是未跟踪实验/第三方产物，不得提交。compact aggregate、runner、patch、报告和 manifest 应提交。
 
