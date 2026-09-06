@@ -8,12 +8,26 @@ import json
 from pathlib import Path
 
 
-# The one-level sweep reached its original upper boundary for five of six
-# workloads, so extend only that axis.  The two-level grid remains unchanged
-# until its own boundary audit justifies a separate extension.
+# The first complete coarse sweep selected T1=8000 at the upper boundary for
+# both the shared one-level and shared two-level configurations.  Some
+# per-workload two-level optima also selected T2=50000 (upper boundary), while
+# two workloads selected the smallest legal T2 above T1=8000.  Keep the
+# original Cartesian grid intact and add focused guard points for those three
+# exposed boundaries instead of paying for an unrelated full Cartesian
+# expansion.
 LAYER1_T1_VALUES = (500, 1000, 2000, 4000, 8000, 16000, 32000)
 LAYER2_T1_VALUES = (500, 1000, 2000, 4000, 8000)
 T2_VALUES = (4000, 10000, 25000, 50000)
+LAYER2_GUARD_PAIRS = (
+    (2000, 100000),
+    (8000, 9000),
+    (8000, 100000),
+    (16000, 25000),
+    (16000, 50000),
+    (16000, 100000),
+    (32000, 50000),
+    (32000, 100000),
+)
 
 WORKLOADS = (
     {"name": "sel_005", "query_dir": "query_minlen5_avgsel05pct",
@@ -91,10 +105,14 @@ def make_config(repo: Path) -> dict:
     methods = [method("layer0_plain", 0, LAYER0_L)]
     methods.extend(method(f"layer1_t1_{t1}", 1, LAYER1_L, build_root, t1=t1)
                    for t1 in LAYER1_T1_VALUES)
+    original_pairs = {
+        (t1, t2) for t1 in LAYER2_T1_VALUES for t2 in T2_VALUES if t2 > t1
+    }
+    layer2_pairs = sorted(original_pairs | set(LAYER2_GUARD_PAIRS))
     methods.extend(
         method(f"layer2_t1_{t1}_t2_{t2}", 2, LAYER2_L, build_root,
                t1=t1, t2=t2)
-        for t1 in LAYER2_T1_VALUES for t2 in T2_VALUES if t2 > t1
+        for t1, t2 in layer2_pairs
     )
     return {
         "search_app": str(repo / "build_ung_rel/apps/search_UNG_index"),

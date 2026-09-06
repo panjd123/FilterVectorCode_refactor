@@ -36,6 +36,14 @@
   },
   "cases": [
     {"name": "layer1_t1_16000", "min_points": 16000},
-    {"name": "layer1_t1_32000", "min_points": 32000}
+    {"name": "layer1_t1_32000", "min_points": 32000},
+    {"name": "layer2_t1_2000_t2_100000", "min_points": 2000, "upper_min_points": 100000},
+    {"name": "layer2_t1_8000_t2_9000", "min_points": 8000, "upper_min_points": 9000},
+    {"name": "layer2_t1_8000_t2_100000", "min_points": 8000, "upper_min_points": 100000},
+    {"name": "layer2_t1_16000_t2_25000", "min_points": 16000, "upper_min_points": 25000},
+    {"name": "layer2_t1_16000_t2_50000", "min_points": 16000, "upper_min_points": 50000},
+    {"name": "layer2_t1_16000_t2_100000", "min_points": 16000, "upper_min_points": 100000},
+    {"name": "layer2_t1_32000_t2_50000", "min_points": 32000, "upper_min_points": 50000},
+    {"name": "layer2_t1_32000_t2_100000", "min_points": 32000, "upper_min_points": 100000}
   ]
 }

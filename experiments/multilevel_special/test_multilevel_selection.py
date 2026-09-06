@@ -45,10 +45,18 @@ class SelectionSweepTest(unittest.TestCase):
             set(generate_layer_tuning_config.LAYER1_T1_VALUES),
         )
         two_level = [item for item in methods if item["layer_count"] == 2]
-        self.assertEqual(len(two_level), 18)
+        original_pairs = {
+            (t1, t2)
+            for t1 in generate_layer_tuning_config.LAYER2_T1_VALUES
+            for t2 in generate_layer_tuning_config.T2_VALUES
+            if t2 > t1
+        }
+        expected_pairs = original_pairs | set(
+            generate_layer_tuning_config.LAYER2_GUARD_PAIRS)
+        self.assertEqual(len(two_level), len(expected_pairs))
         self.assertEqual(
-            {item["t1"] for item in two_level},
-            set(generate_layer_tuning_config.LAYER2_T1_VALUES),
+            {(item["t1"], item["t2"]) for item in two_level},
+            expected_pairs,
         )
         self.assertTrue(all(item["t2"] > item["t1"] for item in two_level))
         self.assertTrue(all(
