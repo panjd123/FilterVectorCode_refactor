@@ -77,6 +77,7 @@ INTERNAL_SOURCE_SPECS = (
     *((HIGH_PAIRED[workload], HIGH_PAIRED_MANIFEST[workload]) for workload in HIGH_PAIRED),
 )
 BUILD_SOURCE = SOURCE / "build_results_source.csv"
+BUILD_PREFLIGHT_AUDIT_SOURCE = SOURCE / "build_preflight_audit.csv"
 
 RESULT_FIELDS = [
     "comparison", "workload", "mean_selectivity", "recall_threshold",
@@ -419,6 +420,7 @@ def write_source_manifest() -> None:
         SOURCE / "curator_robust.csv",
         SOURCE / "acorn_robust.csv",
         BUILD_SOURCE,
+        BUILD_PREFLIGHT_AUDIT_SOURCE,
         *HIGH_INTERNAL.values(),
         *HIGH_PLAIN.values(),
         *HIGH_T1.values(),

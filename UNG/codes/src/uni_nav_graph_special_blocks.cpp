@@ -222,6 +222,7 @@ bool validate_special_block_graph_semantics_impl(
     const std::vector<std::vector<LabelType>> &group_labels,
     const std::vector<std::pair<IdxType, IdxType>> &group_ranges,
     const std::vector<IdxType> &point_to_group,
+    bool require_entry_points,
     std::string &error)
 {
    // An empty source graph has no one-based group sentinel to validate. It is
@@ -307,10 +308,11 @@ bool validate_special_block_graph_semantics_impl(
          error = "special block point_count does not match its direct member ranges";
          return false;
       }
-      if (block.entry_point_id == SpecialBlock::kInvalidEntryPoint ||
-          block.entry_point_id >= num_points ||
-          std::find(block.member_group_ids.begin(), block.member_group_ids.end(),
-                    point_to_group[block.entry_point_id]) == block.member_group_ids.end())
+      if (require_entry_points &&
+          (block.entry_point_id == SpecialBlock::kInvalidEntryPoint ||
+           block.entry_point_id >= num_points ||
+           std::find(block.member_group_ids.begin(), block.member_group_ids.end(),
+                     point_to_group[block.entry_point_id]) == block.member_group_ids.end()))
       {
          error = "special block entry point is not in a direct member group";
          return false;
@@ -1799,7 +1801,26 @@ bool validate_special_block_graph_semantics(
       return false;
    return validate_special_block_graph_semantics_impl(
        blocks, num_points, num_groups, group_labels, group_ranges,
-       point_to_group, error);
+       point_to_group, true, error);
+}
+
+bool validate_special_block_partition_semantics(
+    const std::vector<SpecialBlock> &blocks,
+    IdxType num_points,
+    IdxType num_groups,
+    const std::vector<std::vector<LabelType>> &group_labels,
+    const std::vector<std::pair<IdxType, IdxType>> &group_ranges,
+    const std::vector<IdxType> &point_to_group,
+    std::string &error)
+{
+   // Partition construction precedes local graph construction, which is the
+   // stage that selects each block's entry point.  All other source-graph
+   // semantics are already fixed and should fail before expensive edge work.
+   if (!validate_special_block_metadata_impl(blocks, error))
+      return false;
+   return validate_special_block_graph_semantics_impl(
+       blocks, num_points, num_groups, group_labels, group_ranges,
+       point_to_group, false, error);
 }
 
 void UniNavGraph::refresh_special_block_memory_stats()
@@ -2379,7 +2400,26 @@ void UniNavGraph::build_special_block_index(
    }
 
    build_special_blocks();
+   // Reject malformed partition/topology/ownership before spending most of
+   // the build on graph construction. Entry points are deliberately excluded:
+   // each one is selected later while its block-local intra graph is built.
+   std::string graph_semantics_error;
+   if (!validate_special_block_partition_semantics(
+           _special_blocks, _num_points, _num_groups, _group_id_to_label_set,
+           _group_id_to_range, _new_vec_id_to_group_id, graph_semantics_error))
+      throw std::runtime_error(
+          "constructed special block partition is invalid: " +
+          graph_semantics_error);
    build_special_edge_overlay();
+   // Intra construction has now selected every block-local entry point. Run
+   // the complete gate before constructing the regular overlay or publishing
+   // any sidecar; the loader repeats it for untrusted persisted metadata.
+   if (!validate_special_block_graph_semantics(
+           _special_blocks, _num_points, _num_groups, _group_id_to_label_set,
+           _group_id_to_range, _new_vec_id_to_group_id, graph_semantics_error))
+      throw std::runtime_error(
+          "constructed special block graph is invalid: " +
+          graph_semantics_error);
    build_special_trie_regular_edge_overlay();
    refresh_special_block_memory_stats();
    _special_block_summary.build_memory_logical_bytes =

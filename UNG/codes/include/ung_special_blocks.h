@@ -243,9 +243,22 @@ bool load_special_block_metadata_binary(
 bool validate_special_block_metadata(
     const std::vector<SpecialBlock> &blocks,
     std::string &error);
+// Validate source-graph relationships that are already defined immediately
+// after partitioning.  The local intra graphs have not been built at this
+// point, so entry_point_id is intentionally outside this preflight contract.
+bool validate_special_block_partition_semantics(
+    const std::vector<SpecialBlock> &blocks,
+    IdxType num_points,
+    IdxType num_groups,
+    const std::vector<std::vector<LabelType>> &group_labels,
+    const std::vector<std::pair<IdxType, IdxType>> &group_ranges,
+    const std::vector<IdxType> &point_to_group,
+    std::string &error);
 // Validate invariants that can only be checked after the sidecar is attached
 // to its source UNG graph.  Metadata I/O deliberately stays graph-independent;
 // the full loader calls this second gate before rebuilding ownership indexes.
+// Unlike partition preflight, this also requires a valid block-local graph
+// entry point for every block.
 bool validate_special_block_graph_semantics(
     const std::vector<SpecialBlock> &blocks,
     IdxType num_points,

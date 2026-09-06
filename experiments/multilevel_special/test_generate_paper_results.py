@@ -118,6 +118,30 @@ class PaperResultsTest(unittest.TestCase):
             {row["path"] for row in manifest_rows},
         )
 
+    def test_build_preflight_audit_is_manifested_and_correct(self) -> None:
+        rows = generator.read(generator.BUILD_PREFLIGHT_AUDIT_SOURCE)
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row["dataset_mode"], "x1")
+        self.assertEqual((row["T1"], row["T2"]), ("2000", "25000"))
+        self.assertEqual(row["builder_sha256_source"], "manifest_snapshot")
+        self.assertEqual(
+            row["builder_sha256"],
+            "5599e3b1bc2f1a6e0a9fabfaaa847c9de4ab145f6ccd1e38c3b6aba98fd04011",
+        )
+        self.assertEqual(row["search_binary_sha256"],
+                         "d766b1df98fa0561171aa3a1d9915fa7aeab2f6ac9904a47e9dcb316a613de41")
+        self.assertGreaterEqual(float(row["recall"]), 0.85)
+        self.assertEqual((row["checked_results"], row["filter_violations"]),
+                         ("10000", "0"))
+        manifest_rows = generator.read(
+            SCRIPT_DIR / "results_summary" / "source_manifest.csv"
+        )
+        self.assertIn(
+            "results_summary/source/build_preflight_audit.csv",
+            {manifest_row["path"] for manifest_row in manifest_rows},
+        )
+
     def test_csv_writers_use_repository_lf_line_endings(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "rows.csv"

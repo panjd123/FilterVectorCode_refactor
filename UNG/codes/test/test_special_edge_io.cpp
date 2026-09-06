@@ -456,6 +456,20 @@ int main()
    external_entry[0].entry_point_id = 5;
    expect_graph_semantics(external_entry, false,
                           "entry point must belong to a direct member group");
+   {
+      auto partition_without_entries = semantic_blocks;
+      for (auto &block : partition_without_entries)
+         block.entry_point_id = ANNS::SpecialBlock::kInvalidEntryPoint;
+      std::string validation_error;
+      expect(ANNS::validate_special_block_partition_semantics(
+                 partition_without_entries, 8, 4, group_labels, group_ranges,
+                 point_to_group, validation_error),
+             "partition preflight must not require intra-graph entry points");
+      expect(!ANNS::validate_special_block_graph_semantics(
+                 partition_without_entries, 8, 4, group_labels, group_ranges,
+                 point_to_group, validation_error),
+             "the complete graph gate must require intra-graph entry points");
+   }
    auto wrong_point_count = semantic_blocks;
    wrong_point_count[0].point_count = 3;
    expect_graph_semantics(wrong_point_count, false,
