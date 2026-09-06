@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前源码回归收尾基于 `1906381f26c3f728bf8d428169f9fe992ca95da2`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；最终审计提交：`dba469626c94d52ec612ffdb55c6b2b60d116d40`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -39,6 +39,7 @@
 - 当前源码 fresh regression 完成六档 24/24 点：Special Recall 最大漂移 0，timing ratio 中位数 1.0195、范围 0.9781--1.2188；0.499% 使用 21 repeats 并显式保留长尾/CV。
 - 当前源码 tuned 配置完成三次独立 fresh build：builder wall 中位数 56.916 s；block/trie/regular edge bitwise stable，GPU approximate special edges 非 bitwise deterministic。50% 跨重建稳健点为 L=550，三次 Recall .8540--.8582。
 - CPU Vamana large-block 对照总 builder wall 1131.863 s；GPU tuned 构建中位 56.916 s，完整构建快 19.89x，故不以 CPU 回退换取字节级确定性。
+- 最终 provenance 审计把三次旧 fresh build 的 builder hash 来源显式写入 CSV：旧 manifest 没有原生 hash，故标为 `historical_audit_record`；后续 fresh run 才是 `manifest_snapshot`。同时说明日志 `gpu_intra_enabled=0` 是旧全局开关，实际 routed path 有 24 个大 block 使用 FastGrnnd CUDA。主性能表未变化；提交 `dba4696`。
 
 ## 下一步
 
@@ -74,7 +75,7 @@
 
 1. 先读本看板。
 2. 运行 `git status --short`，不要暂存 `runs/` 或 `thirdparty/` nested clones。
-3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58`；其后的提交只更新交付状态。
+3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` 和最终审计 HEAD `dba469626c94d52ec612ffdb55c6b2b60d116d40`；后者不改主性能数值。
 4. 任何新数值必须先进入 source CSV 并由生成器输出。
 
 ## 清理提示
