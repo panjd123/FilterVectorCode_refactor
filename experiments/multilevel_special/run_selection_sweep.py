@@ -95,6 +95,23 @@ def validate_provenance(config: dict[str, Any], method: dict[str, Any]) -> dict[
                     f"block/main {key} mismatch for {method['name']}: "
                     f"{block_meta.get(key)} != {main_meta.get(key)}"
                 )
+        layer_count = int(method.get("layer_count", 0))
+        expected_t1 = method.get("t1")
+        actual_t1 = int(block_meta.get("special_block_min_points", "-1"))
+        if expected_t1 is None or actual_t1 != int(expected_t1):
+            raise ValueError(
+                f"block T1 mismatch for {method['name']}: {actual_t1} != {expected_t1}")
+        actual_t2 = int(block_meta.get("special_block_upper_min_points", "0"))
+        upper_count = int(block_meta.get("special_block_upper_count", "0"))
+        if layer_count == 1 and (actual_t2 != 0 or upper_count != 0):
+            raise ValueError(
+                f"one-level method {method['name']} points to a multilevel block index")
+        if layer_count == 2:
+            expected_t2 = method.get("t2")
+            if expected_t2 is None or actual_t2 != int(expected_t2) or upper_count <= 0:
+                raise ValueError(
+                    f"two-level block mismatch for {method['name']}: "
+                    f"T2={actual_t2}, upper_count={upper_count}, expected T2={expected_t2}")
     return {
         "base_labels_sha256": base_hash,
         "main_index_labels_sha256": main_labels_hash,
@@ -314,6 +331,10 @@ def validate_case(config: dict[str, Any], method: dict[str, Any], workload: dict
     num_queries, dimension = read_bin_shape(query_bin)
     if dimension <= 0 or num_queries <= 0:
         raise ValueError(f"invalid query shape {num_queries}x{dimension}: {query_bin}")
+    expected_num_queries = config.get("expected_num_queries")
+    if expected_num_queries is not None and num_queries != int(expected_num_queries):
+        raise ValueError(
+            f"query count mismatch: {num_queries} != {expected_num_queries} for {query_bin}")
     with query_labels.open() as stream:
         label_rows = sum(1 for line in stream if line.strip())
     if label_rows != num_queries:

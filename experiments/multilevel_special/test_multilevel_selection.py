@@ -361,6 +361,29 @@ class SelectionSweepTest(unittest.TestCase):
                 run_selection_sweep.validate_provenance(
                     config, {"name": "multi", "block_index": str(block)})
 
+    def test_query_provenance_rejects_wrong_block_thresholds(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            main = root / "main"
+            block = root / "block"
+            data = root / "data"
+            main.mkdir()
+            block.mkdir()
+            data.mkdir()
+            (main / "meta").write_text("num_points=2\nnum_groups=3\n")
+            (main / "labels.txt").write_text("1\n2\n")
+            (data / "Amazon_base_labels.txt").write_text("1\n2\n")
+            (block / "meta").write_text(
+                "source_ung_fingerprint=abc\nnum_points=2\nnum_groups=3\n"
+                "special_block_min_points=1000\nspecial_block_upper_min_points=0\n"
+                "special_block_upper_count=0\n")
+            config = {"main_index": str(main), "data_root": str(data),
+                      "expected_source_fingerprint": "abc"}
+            method = {"name": "single", "block_index": str(block),
+                      "layer_count": 1, "t1": 2000}
+            with self.assertRaisesRegex(ValueError, "T1 mismatch"):
+                run_selection_sweep.validate_provenance(config, method)
+
     def test_run_lock_rejects_a_second_runner_for_same_output(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
