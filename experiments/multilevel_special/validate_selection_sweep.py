@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import shlex
 import statistics
 from pathlib import Path
 
@@ -15,6 +16,24 @@ import run_selection_sweep
 def expected_lsearch_values(config: dict, method: dict, workload: dict) -> set[int]:
     """Return the exact L grid used by the runner for one method."""
     return set(run_selection_sweep.lsearch_values_for(config, method, workload))
+
+
+def command_options(path: Path) -> dict[str, list[str]]:
+    tokens = shlex.split(path.read_text())
+    options: dict[str, list[str]] = {}
+    index = 1  # executable
+    while index < len(tokens):
+        token = tokens[index]
+        if not token.startswith("--"):
+            index += 1
+            continue
+        values = []
+        index += 1
+        while index < len(tokens) and not tokens[index].startswith("--"):
+            values.append(tokens[index])
+            index += 1
+        options[token] = values
+    return options
 
 
 def main() -> int:
@@ -43,6 +62,31 @@ def main() -> int:
             if not summary_path.is_file() or not detail_path.is_file():
                 problems.append(f"{name}: missing summary or details")
                 continue
+            command_path = run_dir / "command.txt"
+            environment_path = run_dir / "environment.json"
+            if not command_path.is_file() or not environment_path.is_file():
+                problems.append(f"{name}: missing executed command or environment")
+                continue
+            options = command_options(command_path)
+            expected_options = {
+                "--num_threads": [str(int(config["num_threads"]))],
+                "--K": [str(int(config["K"]))],
+                "--num_repeats": [str(expected_repeats)],
+                "--entry_group_provider": [method["entry_group_provider"]],
+                "--Lsearch": [str(value) for value in
+                              run_selection_sweep.lsearch_values_for(
+                                  config, method, workload)],
+            }
+            for option, expected in expected_options.items():
+                if options.get(option) != expected:
+                    problems.append(
+                        f"{name}: executed {option}={options.get(option)} != {expected}")
+            environment = json.loads(environment_path.read_text())
+            if environment.get("UNG_DISABLE_ELS_REUSE") != "1":
+                problems.append(f"{name}: executed with ELS query-result reuse enabled")
+            if int(method.get("layer_count", 0)) > 0 and \
+                    environment.get("UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE") != "1":
+                problems.append(f"{name}: Special search did not use root-label coverage")
             with summary_path.open(newline="") as stream:
                 summary = list(csv.DictReader(stream))
             with detail_path.open(newline="") as stream:

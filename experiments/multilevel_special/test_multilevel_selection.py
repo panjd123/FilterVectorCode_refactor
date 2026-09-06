@@ -16,6 +16,15 @@ import validate_selection_sweep
 
 
 class SelectionSweepTest(unittest.TestCase):
+    def test_validator_parses_executed_command_options(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "command.txt"
+            path.write_text("/tmp/search --num_threads 100 --Lsearch 10 20 --K 10\n")
+            self.assertEqual(validate_selection_sweep.command_options(path), {
+                "--num_threads": ["100"], "--Lsearch": ["10", "20"],
+                "--K": ["10"],
+            })
+
     def test_method_can_limit_formal_rerun_to_selected_workloads(self):
         method = {"enabled_workloads": ["a", "c"]}
         self.assertTrue(run_selection_sweep.method_enabled_for_workload(
