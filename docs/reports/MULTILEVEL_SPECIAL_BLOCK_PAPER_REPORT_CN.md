@@ -144,6 +144,22 @@ Block 覆盖率、入口数、边数、局部 top-K overlap 只用于解释机�
 
 T1 越小并不越好：T1=500 产生更多中层 blocks 和边管理开销，25% 档甚至在 L=30k 仍未达到 .90。T1=500 来自同 binary 的独立正式运行；T1=1000/2000 数字来自最新 paired formal，因此只把后两者的比值作为稳定的同轮加速结论。
 
+### 5.3 跨独立建图的质量鲁棒性
+
+冻结主表固定一份 immutable sidecar，适合比较方法，但不能回答“重新构建近似图后 operating point 是否仍过线”。为此，当前源码用同一 builder binary 独立构建三次 `T1=2k,T2=25k`，再用同一 search binary 查询。block partition、trie 和 regular overlay 的 SHA-256 三次完全一致；`special_edges.bin` 不一致。差异来自 large-block GPU FastGrnnd 的并行近似 intra graph，并沿 child graph search 传到 inter edge 目标；它不是输入、block 定义或持久化错误。
+
+冻结主表的六档 tuned operating points 在前两份 fresh bundle 上共 12 个结果，只有第二份 bundle 的 49.971% `L=500` 未达到门槛（R=.8495）；其余 11 个均达标。对该敏感档追加三份 bundle、`L=500/550/600/650/700`、每点 20 个 warm repeats：
+
+| Lsearch | rebuild 1 Recall / median | rebuild 2 Recall / median | rebuild 3 Recall / median | 三次均达 R>=.85 |
+|---:|---:|---:|---:|---:|
+| 500 | .8529 / 353.308 ms | .8495 / 356.679 ms | .8537 / 358.820 ms | 否 |
+| **550** | **.8575 / 372.561 ms** | **.8540 / 373.969 ms** | **.8582 / 379.648 ms** | **是** |
+| 600 | .8619 / 391.094 ms | .8585 / 390.760 ms | .8629 / 396.928 ms | 是 |
+| 650 | .8651 / 410.408 ms | .8623 / 411.116 ms | .8661 / 414.754 ms | 是 |
+| 700 | .8699 / 426.075 ms | .8662 / 429.209 ms | .8691 / 433.291 ms | 是 |
+
+因此，`L=500` 保留为冻结 sidecar 上的最快论文点；若部署要求跨重建仍稳健达标，推荐 `L=550`。后者三次 Recall 下界为 .8540，median latency 上界为 379.648 ms。这里的稳健性是经验性的三次独立构建结果，不是对所有 GPU 调度的形式化保证。
+
 ## 6. 构建成本
 
 `total builder wall` 是在已有 base UNG index 上运行完整独立 Special Block builder 的墙钟时间；`special edge stage` 只包含 special intra/inter edge 阶段。两者不能混称。
@@ -161,6 +177,10 @@ T1 越小并不越好：T1=500 产生更多中层 blocks 和边管理开销，25
 原始 T1=1k 的第二层使 builder wall 相对 single 增加 22.1%--29.5%。T1=2k 则减少中层 block 数，使构建时间比 T1=1k,T2=25k 低 36.1%，甚至低于单层 T1=1k；这是阈值调优和工作量变化的结果，不能解释成“多构建一层本身更便宜”。
 
 表中的 loaded bytes 来自修复 ownership-map 计数遗漏之前的运行日志，T1=1k/T2=25k 与 T1=2k/T2=25k 均约低估 4.1 MiB；sidecar 文件大小和构建墙钟不受影响。代码现已把 upper group/point ownership maps 纳入统计，但在不重建相同索引前，论文不应把旧 loaded-byte 数写成精确峰值。
+
+当前源码对 tuned 配置又做了三次完整 fresh build：60.250 / 56.285 / 56.916 s，中位数 56.916 s，相对冻结记录 58.760 s 为 0.969x（即快约 3.1%），没有构建性能回归。三次均产生 111 个中层块和 8 个上层块；partition/trie/regular overlay 逐字节一致，inter edge 数固定为 14,965,020。GPU large-block intra 的原子并行更新不是 bitwise deterministic，intra edge 数在 47,973,867--47,978,904 间变化（跨度 0.0105%）；因此论文质量复现应使用端到端 Recall 和跨重建稳健点，而不能要求 approximate edge sidecar 字节完全相同。
+
+为判断是否值得用确定性换取字节级复现，还做了 CPU Vamana large-block 对照：总 builder wall 为 1131.863 s，其中 intra 为 1059.060 s；GPU FastGrnnd 三次中位 total/intra 分别为 56.916/10.453 s。按完整 builder wall，GPU 路径快 **19.89x**；按被替换的 intra stage，约快 **101.32x**。因此默认回退 CPU 不可取；论文与部署更合理的策略是保留 GPU approximate build，并为质量门槛设置跨重建余量。CPU 与 GPU 会构造不同的近似图，该对照只度量构建代价，不能声称图质量完全等价。
 
 作为量级参照，base UNG 历史 metadata 为 index build 211.819 s、含 additional edges 为 215.406 s。该时间与独立 overlay builder 边界不同，不能直接相加后声称严格的 from-scratch speedup。外部完整索引构建记录：FAVOR 76.174 s，Curator 102.207 s，NaviX 1316.957 s；ACORN gamma=1/2/4/8/12 分别约 17.268/53.413/80.696/135.577/212.311 s core。跨系统索引语义和计时边界不同，因此只报告量级，不计算构建加速比。
 
@@ -215,11 +235,11 @@ T1 越小并不越好：T1=500 产生更多中层 blocks 和边管理开销，25
 - 隔离仓库：`/home/sunyahui/worktrees/FilterVectorCode_multilevel_special`；分支 `codex/multilevel-special-block-20260905`。服务器 Git 过旧不支持 native worktree，故使用 `git clone --shared`，原始脏仓库未被修改。
 - 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；查询二进制 SHA-256：`f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11`。
 - 输入 provenance：base labels SHA-256 `aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96`，main-index labels SHA-256 `ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56`，source fingerprint `91d78580ae29f468`；逐轮完整值与 binary hash 见 `experiments/multilevel_special/results_summary/source/*_manifest.json`。
-- focused C++ tests 5/5 通过；多层 Python tests 13/13 通过；结果生成/provenance tests 13/13 通过；所有正式 selection sweep validator 与六档 current-source validator 通过。
+- focused C++ tests 5/5 通过；多层 Python tests 14/14 通过；结果生成/provenance tests 14/14 通过；所有正式 selection sweep validator、六档 current-source validator 与 rebuild validator 通过。
 - `generate_paper_results.py` 从 compact source CSV 和每轮 manifest 重建 `paper_results.csv`、`paper_results.md`、`build_results.csv`、`internal_canonical_measured_points.csv` 与 `external_canonical_measured_points.csv`。每个内部 aggregate 的 method/workload/L 网格和 warm-repeat 数都必须与 manifest 完全一致；构建数据来自 `results_summary/source/build_results_source.csv`，不再硬编码在生成器中。Canonical aggregate 按 `(workload, method family, variant, budget)` 去重；相同点的 paired rerun 以更高优先级覆盖旧统计，因此它不是历史执行次数的逐行并集。raw `runs/` 和大型第三方索引不提交。
 - `results_summary/artifact_manifest.csv` 保护生成器、测试、关键配置、主报告与生成表组成的论文结果闭包；`AGENT_KANBAN.md` 和 `WORKTREE_HANDOFF.md` 是会随 checkpoint 更新的运维状态文档，故不纳入该闭包。
 - 从 compact evidence 审计、当前源码 fresh rerun 到历史 raw replay 的精确命令与边界见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md`。
 
-当前源码另用 binary `88d7dba189478cd11402a8433076d220c7ad68ca9f9a6366118f78430752f37f` 重跑了六档主表的 24 个内部 operating points。它是版本漂移回归，不替换冻结论文 binary 和主表：18 个 Special 点的 Recall 最大漂移为 0；24 点 fresh/frozen 耗时比中位数为 1.0195，范围为 0.9781--1.2188。0.499% 档采用 21 次运行（1 次 warm-up、20 次计时），仍可观察到短任务调度长尾，因此该档保留 min/max/CV，只作为回归审计，不设严格 timing gate。逐点结果见 `results_summary/current_source_regression.csv`。
+当前源码另用 binary `88d7dba189478cd11402a8433076d220c7ad68ca9f9a6366118f78430752f37f` 重跑了六档主表的 24 个内部 operating points。它是“新 search binary + 冻结 sidecar”的版本漂移回归，不替换冻结论文 binary 和主表：18 个 Special 点的 Recall 最大漂移为 0；24 点 fresh/frozen 耗时比中位数为 1.0195，范围为 0.9781--1.2188。0.499% 档采用 21 次运行（1 次 warm-up、20 次计时），仍可观察到短任务调度长尾，因此该档保留 min/max/CV，只作为回归审计，不设严格 timing gate。逐点结果见 `results_summary/current_source_regression.csv`。从头重建的独立结果另见 `current_source_rebuilds.csv`、`current_source_rebuild_query_regression.csv` 和 `current_source_rebuild_sel50_l_sweep.csv`，不得与前者混为一个确定性结论。
 
 最终展示时，建议把“第二层独立贡献”作为主要创新结果，把最终 tuned 配置作为系统最佳结果，再用六档表明确展示边界。

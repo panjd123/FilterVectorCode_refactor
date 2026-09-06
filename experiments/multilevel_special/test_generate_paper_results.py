@@ -15,6 +15,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import generate_paper_results as generator
 import audit_current_source_regression as current_source_audit
+import summarize_rebuild_regression as rebuild_audit
 import summarize_selection_sweep as selection_summary
 
 
@@ -144,6 +145,44 @@ class PaperResultsTest(unittest.TestCase):
         low = [row for row in rows if row["workload"] == "sel_0p5"]
         self.assertTrue(all(int(row["measured_repeats"]) == 20 for row in low))
         self.assertEqual(set(current_source_audit.FRESH_CONFIGS), {"0p5", "1", "10", "25", "50", "75"})
+
+    def test_rebuild_regression_preserves_structure_and_robust_quality(self) -> None:
+        builds = generator.read(
+            SCRIPT_DIR / "results_summary/current_source_rebuilds.csv"
+        )
+        self.assertEqual(len(builds), 3)
+        self.assertEqual(len({row["builder_sha256"] for row in builds}), 1)
+        for field in ("special_blocks_sha256", "special_trie_sha256", "regular_edges_sha256"):
+            self.assertEqual(len({row[field] for row in builds}), 1, field)
+        self.assertEqual({row["inter_edge_count"] for row in builds}, {"14965020"})
+        self.assertGreater(len({row["special_edges_sha256"] for row in builds}), 1)
+
+        main = generator.read(
+            SCRIPT_DIR / "results_summary/current_source_rebuild_query_regression.csv"
+        )
+        self.assertEqual(len(main), 12)
+        self.assertEqual(sum(row["passes_recall_threshold"] == "0" for row in main), 1)
+        failed = [row for row in main if row["passes_recall_threshold"] == "0"]
+        self.assertEqual((failed[0]["rebuild"], failed[0]["workload"], failed[0]["lsearch"]),
+                         ("2", "sel_50", "500"))
+
+        sweep = generator.read(
+            SCRIPT_DIR / "results_summary/current_source_rebuild_sel50_l_sweep.csv"
+        )
+        self.assertEqual(len(sweep), 3 * len(rebuild_audit.L_VALUES))
+        robust = [row for row in sweep if row["robust_selected"] == "1"]
+        self.assertEqual(len(robust), 3)
+        self.assertEqual({row["lsearch"] for row in robust}, {"550"})
+        self.assertTrue(all(float(row["recall"]) >= 0.85 for row in robust))
+
+        backends = generator.read(
+            SCRIPT_DIR / "results_summary/current_source_build_backend.csv"
+        )
+        self.assertEqual({row["large_intra_backend"] for row in backends},
+                         {"GPU FastGrnnd", "CPU Vamana"})
+        gpu = next(row for row in backends if row["large_intra_backend"] == "GPU FastGrnnd")
+        self.assertEqual(gpu["build_samples"], "3")
+        self.assertGreater(float(gpu["total_speedup_vs_cpu_vamana"]), 10.0)
 
 
 if __name__ == "__main__":

@@ -60,6 +60,19 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertNotEqual(next_digest, digest)
             self.assertNotEqual(next_snapshot, snapshot)
 
+    def test_build_binary_snapshot_is_content_addressed_and_read_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / "builder"
+            binary.write_bytes(b"version-one")
+            snapshot, digest = run_build_sweep.snapshot_build_app(binary, root / "out")
+            self.assertEqual(run_build_sweep.sha256_file(snapshot), digest)
+            self.assertEqual(snapshot.stat().st_mode & 0o222, 0)
+            binary.write_bytes(b"version-two")
+            second, second_digest = run_build_sweep.snapshot_build_app(binary, root / "out")
+            self.assertNotEqual(digest, second_digest)
+            self.assertNotEqual(snapshot, second)
+
     def test_query_provenance_rejects_wrong_block_fingerprint(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -184,6 +197,10 @@ class SelectionSweepTest(unittest.TestCase):
             provenance = run_build_sweep.validate_source(config)
             self.assertEqual(provenance["label_alignment"],
                              "new_to_old_permutation")
+            self.assertEqual(
+                provenance["build_binary_sha256"],
+                run_build_sweep.sha256_file(build_app),
+            )
 
     def test_equal_recall_uses_fastest_observed_feasible_point(self):
         rows = [

@@ -45,9 +45,12 @@
 
 ## 当前未决事项
 
-没有实现或论文主表阻断项。第二轮结构审阅为 clean follow-up；有限上下文交付审阅确认交付内容可理解。最终回归通过生产/测试目标构建、focused C++ 5/5、Python 26/26、结果重建和 `git diff --check`。旧 loaded-byte 实测值来自计数修复前，约低估 4.1 MiB，报告已显式降级，不能当精确峰值。
+没有实现或论文主表阻断项。第二轮结构审阅为 clean follow-up；有限上下文交付审阅确认交付内容可理解。最终回归通过生产/测试目标构建、focused C++ 5/5、Python 28/28、结果重建和 `git diff --check`。旧 loaded-byte 实测值来自计数修复前，约低估 4.1 MiB，报告已显式降级，不能当精确峰值。
 
 当前源码 binary `88d7dba1...f37f` 另完成六档 24 点版本漂移审计；它与冻结论文 binary 不同，因此只进入 `results_summary/current_source_regression.csv`，不改写主表。18 个 Special 点 Recall 最大漂移为 0；24 点耗时比中位数 1.0195、范围 0.9781--1.2188。0.499% 采用 21 repeats 后仍有调度长尾，不能用单次或严格 timing gate 判断回归。
+
+此外，当前 builder `6ff471a8...50692` 对 tuned 配置独立重建三次，wall time 为 60.250 / 56.285 / 56.916 s。结构 sidecar 稳定，但 GPU FastGrnnd approximate intra edges 因原子并行更新不保证 bitwise deterministic；50% 的冻结 L=500 在一份 bundle 上为 R=.8495，因此跨重建推荐 L=550（三次 R=.8540--.8582）。这组结果单列于 `current_source_rebuild*.csv`，不能与冻结主表混写。
+CPU Vamana large-block 对照为 1131.863 s，GPU 路径按完整 builder wall 快 19.89x；该对照图本身不同，只用于说明确定性 CPU 回退的工程代价。
 
 `runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 是未跟踪实验/第三方产物，不得提交。compact aggregate、runner、patch、报告和 manifest 应提交。
 

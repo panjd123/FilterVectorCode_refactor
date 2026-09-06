@@ -48,6 +48,25 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def snapshot_build_app(build_app: Path, output_root: Path) -> tuple[Path, str]:
+    """Pin one immutable builder executable for the whole build sweep."""
+    digest = sha256_file(build_app)
+    snapshot_dir = output_root / ".binary_snapshots"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    snapshot = snapshot_dir / f"build_special_block_index.{digest}"
+    if not snapshot.exists():
+        temporary = snapshot.with_suffix(".tmp")
+        shutil.copy2(build_app, temporary)
+        if sha256_file(temporary) != digest:
+            temporary.unlink(missing_ok=True)
+            raise RuntimeError("build binary changed while it was being snapshotted")
+        temporary.chmod(0o555)
+        temporary.replace(snapshot)
+    elif sha256_file(snapshot) != digest:
+        raise RuntimeError(f"corrupt build binary snapshot: {snapshot}")
+    return snapshot, digest
+
+
 def validate_reordered_labels(base_labels: Path, index_dir: Path) -> dict[str, str]:
     """Prove that index labels equal base labels under new-to-old IDs.
 
@@ -140,6 +159,7 @@ def validate_source(config: dict[str, Any]) -> dict[str, str]:
     expected_hash = config.get("expected_base_labels_sha256")
     if expected_hash and base_hash != expected_hash:
         raise ValueError(f"base-label hash mismatch: {base_hash} != {expected_hash}")
+    provenance["build_binary_sha256"] = sha256_file(Path(config["build_app"]))
     return provenance
 
 
@@ -179,9 +199,9 @@ def validate_case(config: dict[str, Any], case: dict[str, Any], case_root: Path)
     return meta
 
 
-def build_command(config: dict[str, Any], case_root: Path) -> list[str]:
+def build_command(config: dict[str, Any], case_root: Path, build_app: Optional[Path] = None) -> list[str]:
     return [
-        str(config["build_app"]),
+        str(build_app or config["build_app"]),
         "--ung_index_path_prefix", str(Path(config["main_index"])) + "/",
         "--base_bin_file", str(config["base_bin_file"]),
         "--base_label_file", str(config["base_label_file"]),
@@ -234,6 +254,8 @@ def main() -> int:
     output_root.mkdir(parents=True, exist_ok=True)
     lock = acquire_lock(output_root)
     source_provenance = validate_source(config)
+    build_app, build_binary_sha256 = snapshot_build_app(Path(config["build_app"]), output_root)
+    source_provenance["build_binary_sha256"] = build_binary_sha256
     manifest = output_root / "manifest.json"
     selected = set(args.case)
 
@@ -268,7 +290,7 @@ def main() -> int:
         if staging.exists():
             quarantine(staging, output_root, "stale_staging")
         staging.mkdir(parents=True)
-        cmd = build_command(config, staging)
+        cmd = build_command(config, staging, build_app)
         env = clean_build_env(os.environ, config, upper)
         (staging / "command.txt").write_text(shlex.join(cmd) + "\n")
         (staging / "environment.json").write_text(json.dumps(

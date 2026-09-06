@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 无。实现、论文结果闭包和当前源码 24 点版本漂移审计均已完成。
+- 无。实现、论文结果闭包、当前源码 24 点 search 回归与三次独立 rebuild 鲁棒性审计均已完成。
 
 ## 完成历史
 
@@ -33,10 +33,12 @@
 - 构建结果已迁入受 source manifest 哈希保护的 `build_results_source.csv`；生成器拒绝 CSV/manifest 网格或 repeat 不一致。
 - 统一高选择率 binary：current crossing 与 paired formal 均使用 `f078e174...287b11`；三档 paired validator 全部通过，upper-off/on 因果证据已进入完整测量池。
 - 第二轮结构审阅为 clean follow-up（无 High/Medium/Low）；有限上下文交付审阅确认唯一阻断是不可变 checkpoint。
-- 最终回归通过：生产/测试目标构建成功，focused C++ 5/5，Python 26/26，结果生成器重建 60 行主结果、209 个内部 canonical 点和 7 行构建结果，`git diff --check` 通过。
+- 最终回归通过：生产/测试目标构建成功，focused C++ 5/5，Python 28/28，结果生成器重建 60 行主结果、209 个内部 canonical 点和 7 行构建结果，`git diff --check` 通过。
 - 实现、配置、compact evidence 与报告已提交为 `7a2bf4635eac43d174100770838daf1b3a10fa58`；`runs/` 和 nested third-party clones 未提交。
 - 最终 limited-context 交付复审 verdict 为 `review-ready`，不可变 checkpoint/provenance 阻断闭环。
 - 当前源码 fresh regression 完成六档 24/24 点：Special Recall 最大漂移 0，timing ratio 中位数 1.0195、范围 0.9781--1.2188；0.499% 使用 21 repeats 并显式保留长尾/CV。
+- 当前源码 tuned 配置完成三次独立 fresh build：builder wall 中位数 56.916 s；block/trie/regular edge bitwise stable，GPU approximate special edges 非 bitwise deterministic。50% 跨重建稳健点为 L=550，三次 Recall .8540--.8582。
+- CPU Vamana large-block 对照总 builder wall 1131.863 s；GPU tuned 构建中位 56.916 s，完整构建快 19.89x，故不以 CPU 回退换取字节级确定性。
 
 ## 下一步
 
@@ -55,8 +57,8 @@
 - `ctest -R 'ung_build_config|special_block_trie|special_block_free_state|special_candidate_queue|special_edge_io'` — `通过`：5/5。
 - `cmake --build build_ung_rel -j16 --target build_special_block_index search_UNG_index` — `通过`。
 - `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：全部正式内部 sweep。
-- `python3 -m unittest -v experiments.multilevel_special.test_multilevel_selection` — `通过`：13/13。
-- `python3 -m unittest -v test_generate_paper_results.py` — `通过`：13/13；包含统一 binary、CSV/manifest 网格/repeats、build source、upper-off 消融、current-source 24 点回归和 LF-only CSV 输出检查。
+- `python3 -m unittest -v experiments.multilevel_special.test_multilevel_selection` — `通过`：14/14；新增 builder binary immutable snapshot 回归。
+- `python3 -m unittest -v test_generate_paper_results.py` — `通过`：14/14；包含统一 binary、CSV/manifest 网格/repeats、build source、upper-off 消融、current-source 24 点回归、三次 rebuild 鲁棒性和 LF-only CSV 输出检查。
 - `validate_selection_sweep.py config.amazon_x1_paired_formal_sel{25,50,75}.json` — `通过`：3/3，每个方法 7 repeats、Recall 无漂移。
 - Curator 低选择率产物 — `通过`：3 workloads x 12 budgets x 5 measured。
 - ACORN 低选择率产物 — `通过`：180 个 screen 点 + 3 个 formal 点，filter violations=0。

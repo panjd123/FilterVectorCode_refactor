@@ -47,7 +47,7 @@ while IFS=, read -r path expected; do
 done
 ```
 
-预期结果：13 项结果生成/provenance 测试通过；生成 60 行 selected results、209 个内部 canonical measured points、447 个外部 canonical measured points 和 7 行构建记录；artifact manifest 无 hash mismatch。这里验证的是提交中的证据闭包，不是重新计时。
+预期结果：14 项结果生成/provenance 测试通过；生成 60 行 selected results、209 个内部 canonical measured points、447 个外部 canonical measured points 和 7 行构建记录；artifact manifest 无 hash mismatch。这里验证的是提交中的证据闭包，不是重新计时。
 
 ## 4. 构建与代码回归
 
@@ -68,11 +68,11 @@ cd ../..
 git diff --check
 ```
 
-最终 checkpoint 上的预期结果为 C++ focused tests 5/5、Python tests 26/26。
+最终 checkpoint 上的预期结果为 C++ focused tests 5/5、Python tests 28/28。
 
 ## 5. 从当前源码重新构建 Special Block
 
-以下命令只接受 Amazon x1；runner 会校验 point/group 数、label hash 和主图 fingerprint，并对输出加锁、先写 staging、成功后原子发布。
+以下命令只接受 Amazon x1；runner 会校验 point/group 数、label hash 和主图 fingerprint，并对输出加锁、先写 staging、成功后原子发布。runner 还会把 builder 复制成只读、内容寻址的 snapshot，并把 SHA-256 写入 manifest；这样构建期间重新编译工作目录中的 binary 不会造成混合版本。
 
 ```bash
 cd /home/sunyahui/worktrees/FilterVectorCode_multilevel_special
@@ -93,6 +93,16 @@ python3 experiments/multilevel_special/run_build_sweep.py \
 ```
 
 不带 `--force` 时，已存在且通过 metadata/sidecar 校验的 case 会安全跳过。可先加 `--dry-run` 检查命令；不要对正式 output root 使用 `--force`，除非明确接受旧 case 被移入 quarantine。
+
+当前源码的 tuned 配置可用 `config.amazon_x1_current_source_build_t1_2000_t2_25000.json` 重建。每次独立重建必须改为新的 `output_root`；三次已审计构建的 compact 结果由下式生成：
+
+```bash
+python3 experiments/multilevel_special/summarize_rebuild_regression.py
+```
+
+三次 builder wall 为 60.250 / 56.285 / 56.916 s。block metadata、trie 与 regular-edge sidecar 的 hash 一致；近似 GPU intra graph 使用并行原子更新，因此 `special_edges.bin` 不要求 bitwise identical。正确验收是 topology/provenance validator 加端到端 Recall，而不是 edge 文件 hash 相同。
+
+CPU Vamana large-block 对照总耗时 1131.863 s，约为 GPU tuned 构建中位数的 19.89 倍；intra stage 1059.060 s，约为 GPU 中位 intra 的 101.32 倍。它只说明退回 CPU 的构建代价，不能作为同图质量的速度比较。
 
 ## 6. 内部六档查询复测
 
@@ -149,6 +159,8 @@ python3 experiments/multilevel_special/audit_current_source_regression.py
 ```
 
 审计器 fail closed 地检查 24/24 点、budget、repeat 数和单一 binary hash，并输出每点 Recall delta、median、min/max 与 CV。当前结果为：Special Recall 最大漂移 0；fresh/frozen timing ratio 中位数 1.0195，范围 0.9781--1.2188。0.499% 的 20 个 warm samples 仍存在明显调度长尾，尤其 single-level CV=0.680，故短延迟档不能作为严格的 timing reproduction gate。
+
+上段只隔离验证 search-code 漂移，因为它复用了冻结 sidecar。完整 rebuild-to-query 回归另读取三份 fresh bundle。原主表 tuned operating points 在前两份 bundle 上仅有 50% `L=500` 的一份构建低于 R=.85（R=.8495）；对三份 bundle 扫描 `L=500/550/600/650/700` 后，最小共同达标点为 `L=550`，Recall 范围 .8540--.8582，median latency 范围 372.561--379.648 ms。部署复现建议使用这个稳健点；冻结主表仍保留其特定 sidecar 上的 `L=500` 结果。
 
 ## 7. 外部系统位置对照
 
