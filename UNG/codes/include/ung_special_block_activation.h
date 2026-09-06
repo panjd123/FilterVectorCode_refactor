@@ -89,6 +89,14 @@ inline bool special_batch_gpu_search_is_allowed(bool requested,
    return requested && upper_block_count == 0;
 }
 
+// FAVOR's block-selection backend predates activation levels and indexes only
+// the middle ownership map. Running it over a multilevel sidecar would appear
+// successful while silently ignoring every upper block.
+inline bool special_favor_block_search_is_allowed(size_t upper_block_count)
+{
+   return upper_block_count == 0;
+}
+
 struct SpecialBlockLevelGateResult
 {
    size_t upper_covered_blocks = 0;

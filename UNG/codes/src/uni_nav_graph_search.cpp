@@ -166,6 +166,14 @@ namespace ANNS
             throw std::invalid_argument(
                 "special_block_trie entry provider does not support favor_blocks; use free_state");
       }
+      if (runtime.special_block_search && !_special_blocks.empty() &&
+          runtime.special_search_mode == SpecialSearchMode::FavorBlocks &&
+          !special_favor_block_search_is_allowed(
+              _special_block_summary.upper_blocks))
+      {
+         throw std::invalid_argument(
+             "favor_blocks does not support multilevel Special Block indexes; use free_state");
+      }
 
       auto num_queries = query_storage->get_num_points();
       _query_storage = query_storage;

@@ -102,6 +102,10 @@ int main()
           "multilevel indexes must use the activation-gated search path");
    expect(!ANNS::special_batch_gpu_search_is_allowed(false, 0),
           "an unset batch GPU option must remain disabled");
+   expect(ANNS::special_favor_block_search_is_allowed(0),
+          "FAVOR block mode remains available for legacy single-layer indexes");
+   expect(!ANNS::special_favor_block_search_is_allowed(1),
+          "FAVOR block mode must not silently ignore an upper layer");
 
    std::vector<ANNS::SpecialBlock> gate_blocks(3);
    gate_blocks[0].block_id = 1;
