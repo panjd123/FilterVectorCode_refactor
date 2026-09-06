@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-06 17:12 Asia/Shanghai`
+最后更新：`2026-09-06 18:02 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；阶段计时与公平调优协议检查点：`4bd1fd50b7a046ba4f7f02817a320ddc3710bfb7`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；formal provenance 检查点：`3057b1a5a930ab648303fe81992666bc4fb2a907`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 修正 root-label coverage 后的 coarse 查询 sweep 正由唯一后台进程 PID 62122 执行；最近确认 `53/144 complete, 1 running, 90 dry_run`。等待其完成期间不并发构建，避免 CPU/GPU/内存资源竞争污染计时。
+- 修正 root-label coverage 后的 coarse 查询 sweep 正由唯一后台进程 PID 62122 执行；最近确认 `86/144 complete, 1 running, 57 dry_run`，当前为 `layer2_t1_2000_t2_4000 / sel_10`。等待其完成期间不并发构建，避免 CPU/GPU/内存资源竞争污染计时。
 
 ## 完成历史
 
@@ -64,6 +64,7 @@
 - 查询粗筛配置已 dry-run 覆盖 `24 methods x 6 workloads = 144 cases`、851 个 L 点；支持 workload-specific L 网格，严格检查每个 L/repeat 的 stage closure、0 层 authorization=0 和 ELS reuse disabled。
 - 旧单层结果曾缺少显式 root-label coverage，已隔离且不参与统计；修正后的所有 Special case 统一使用 `UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE=1`。plain 结果不受该开关影响并按 provenance 复用。
 - 单层已完成结构的中间证据显示除 `sel_005` 外，5 档 workload 的当前赢家落在 T1=8000 扫描上界；已准备 T1=16000/32000 构建扩展，待 coarse sweep 完成后补建与补测，当前不得宣称单层阈值最优。
+- formal shortlist 生成器已使用独立输出目录，并记录选择规则、coarse config 与 `all_points.csv` 的 SHA-256 来源，防止旧 formal 产物或被修改的 coarse 结果静默混入；提交 `3057b1a`，本地及远端单测均为 32/32。
 
 ## 下一步
 
@@ -93,6 +94,7 @@
 - source-layout 最终回归 — `通过`：完整 CTest 14/14；Python 32/32；fresh two-level 与旧 single-level 各 10,000 个结果、0 filter violations。
 - `validate_selection_sweep.py config.amazon_x1_paired_formal_sel{25,50,75}.json` — `通过`：3/3，每个方法 7 repeats、Recall 无漂移。
 - `config.amazon_x1_layer_breakdown_smoke.json` — `通过`：三种层数 closure error 绝对值最大约 `3e-12 ms/query`，0 层 authorization=0；仅验证测量协议，不作为最优性能点。
+- `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py` — `通过`：32/32；包含 formal 输出隔离、选择策略与 coarse source SHA-256 provenance。
 - Curator 低选择率产物 — `通过`：3 workloads x 12 budgets x 5 measured。
 - ACORN 低选择率产物 — `通过`：180 个 screen 点 + 3 个 formal 点，filter violations=0。
 
