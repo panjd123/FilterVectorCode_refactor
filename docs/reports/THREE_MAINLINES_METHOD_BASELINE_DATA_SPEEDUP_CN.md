@@ -30,7 +30,7 @@
 | additional/output boundary | CPU exact materialized additional + lazy reserve | CPU Vamana additional / eager SearchQueue reserve | Amazon 1%x200 / 10%x40 boundary A/B | additional `831.7 ms`; output storage `15.8 ms` | additional `7.16x`; output storage `1909.9 -> 15.8 ms` | 这是 CPU-compatible graph 边界优化，不是 GPU-native flat/CSR search backend |
 | special block graph/query | special block + free-state search + GPU intra/inter tuned | corrected CPU exact-topK/Vamana intra + CPU inter | Amazon 100% x1 restored, T=100, cap10/iter4 | GPU/GPU overlay `7.87-7.88 s`, Index `27.8-28.6 s` | intra `~14.4x` vs corrected CPU; inter `~4x` vs CPU inter | cap10/iter4 仍是近似构建 knob；必须用 filtered-search recall 验证，不能直接宣称 full-quality 默认 |
 | special save/load | binary-only sidecar + skip reordered export + CPU-provider-only skip LNG text | CSV sidecar / full save | Amazon 100% x1 restored | save `19.10 s` | full save `40.18 -> 19.10 s` | `UNG_SKIP_LNG_TEXT_SETS=1` 只适用于 CPU entry-provider/UNG special search，GPU cover-frontier 仍需要 `_lng_descendants` |
-| multi-level special query | T1=1k 中层 + 可配置 T2 上层，候选按 0->1->2 逐级激活 | 同一 Amazon x1 主图上的 single-level T1=1k | Amazon 原始 100% x1；1000 queries；100 threads；K=10 | 共同 Recall 门槛下 batch median：`5335.6 / 439.9 / 1069.7 ms`（25%/50%/75%） | vs single：`1.222x / 1.530x / 2.345x`；最高质量附近 `1.222x / 4.925x / 6.290x` | 收益来自更小 L 达到同 Recall；25% 收益有限；当前不优于 FAVOR |
+| multi-level special query | T1=1k 中层 + 可配置 T2 上层，候选按 0->1->2 逐级激活 | 同一 Amazon x1 主图上的 single-level T1=1k | Amazon 原始 100% x1；1000 queries；100 threads；K=10 | 方法族共同 Recall 门槛下 batch median：`4520.3 / 408.7 / 855.0 ms`（25%/50%/75%） | vs single：`1.289x / 1.709x / 2.320x`；fixed-T2 paired 为 `1.289x / 1.709x / 2.229x` | 收益来自更小 L 达到同 Recall；25% 收益有限；当前不优于 FAVOR |
 
 ### 0.2 Special Block 当前 2x2 构建表
 
@@ -566,11 +566,11 @@ additional_work appended_edges=55224
 
 | 平均选择率 | 共同 Recall 门槛 | 单层 T1=1k | 最快多层实测点 | 加速比 |
 |---:|---:|---|---|---:|
-| 24.915% | >=0.90 | L20000, R=.9057, 6520.180 ms | T2=25k, L16000, R=.9062, 5335.580 ms | **1.222x** |
-| 49.971% | >=0.85 | L2000, R=.8640, 673.019 ms | T2=50k, L700, R=.8661, 439.856 ms | **1.530x** |
-| 74.994% | >=0.87 | L5000, R=.8865, 2508.740 ms | T2=25k, L1600, R=.8871, 1069.745 ms | **2.345x** |
+| 24.915% | >=0.90 | L18000, R=.9037, 5828.470 ms | T2=25k, L14000, R=.9012, 4520.320 ms | **1.289x** |
+| 49.971% | >=0.85 | L1800, R=.8523, 698.601 ms | T2=25k, L600, R=.8584, 408.749 ms | **1.709x** |
+| 74.994% | >=0.87 | L4000, R=.8703, 1983.815 ms | T2=50k, L1200, R=.8725, 854.962 ms | **2.320x** |
 
-在单层扫描的最高质量附近，多层加速分别为 `1.222x / 4.925x / 6.290x`。原因是第二层把达到同 Recall 所需的 L 显著降低；固定 L 下多层通常更慢且 Recall 更高，不能把固定 L 当性能结论。
+以上数字全部来自同一个 `f078e174...287b11` 搜索 binary；25%/50% 的最终点由同轮 paired formal 覆盖，75% 的 T2=50k 最佳点来自同 binary crossing。第二层把达到同 Recall 所需的 L 显著降低；固定 L 下 upper-on 通常更慢但 Recall 更高，不能把固定 L 当性能结论。
 
 多层 overlay build 为 `89.051--94.425 s`，单层为 `72.927 s`，即增加约 `22.1%--29.5%`；sidecar 增加约 `39.1%--48.3%`。这些都是已有 base UNG index 之上的 overlay 时间，不是完整 from-scratch index build。
 

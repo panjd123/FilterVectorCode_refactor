@@ -141,7 +141,7 @@ int main()
    const auto block_metadata = root / "special_blocks.bin";
    std::vector<ANNS::SpecialBlock> blocks(2);
    blocks[0].block_id = 1;
-   blocks[0].level = 1;
+   blocks[0].level = 0;
    blocks[0].parent_block_id = 2;
    blocks[0].root_group_id = 7;
    blocks[0].entry_point_id = 11;
@@ -150,8 +150,8 @@ int main()
    blocks[0].root_labels = {1, 3};
    blocks[0].common_labels = {1};
    blocks[0].member_group_ids = {7, 8, 9};
-   blocks[0].child_block_ids = {2};
    blocks[1].block_id = 2;
+   blocks[1].level = 1;
    blocks[1].root_group_id = 10;
    blocks[1].entry_point_id = 12;
    blocks[1].point_count = 5;
@@ -169,9 +169,137 @@ int main()
               loaded_blocks[0].common_labels == blocks[0].common_labels &&
               loaded_blocks[0].member_group_ids == blocks[0].member_group_ids &&
               loaded_blocks[0].child_block_ids == blocks[0].child_block_ids &&
-              loaded_blocks[0].level == 1 && loaded_blocks[0].parent_block_id == 2 &&
+              loaded_blocks[0].level == 0 && loaded_blocks[0].parent_block_id == 2 &&
               loaded_blocks[1].entry_point_id == 12,
           "special block metadata fields must round-trip");
+
+   auto expect_invalid_blocks = [&](std::vector<ANNS::SpecialBlock> invalid,
+                                    const char *message) {
+      std::string validation_error;
+      expect(!ANNS::validate_special_block_metadata(invalid, validation_error) &&
+                 !validation_error.empty(),
+             message);
+   };
+   auto invalid_level = blocks;
+   invalid_level[1].level = 2;
+   expect_invalid_blocks(std::move(invalid_level),
+                         "metadata must reject unsupported third block layer");
+   auto invalid_parent = blocks;
+   invalid_parent[0].parent_block_id = 1;
+   expect_invalid_blocks(std::move(invalid_parent),
+                         "middle parent must reference an upper block");
+   auto duplicate_owner = blocks;
+   duplicate_owner.push_back(blocks[0]);
+   duplicate_owner.back().block_id = 3;
+   duplicate_owner.back().parent_block_id = 2;
+   expect_invalid_blocks(std::move(duplicate_owner),
+                         "same-layer duplicate group ownership must be rejected");
+   auto cross_layer_child = blocks;
+   cross_layer_child[0].child_block_ids = {2};
+   expect_invalid_blocks(std::move(cross_layer_child),
+                         "child relation must stay within one block layer");
+
+   std::vector<ANNS::SpecialBlock> same_layer(3, blocks[0]);
+   for (size_t i = 0; i < same_layer.size(); ++i)
+   {
+      same_layer[i].block_id = static_cast<ANNS::IdxType>(i + 1);
+      same_layer[i].parent_block_id = 0;
+      same_layer[i].root_group_id = static_cast<ANNS::IdxType>(20 + i);
+      same_layer[i].member_group_ids = {same_layer[i].root_group_id};
+      same_layer[i].root_labels = {1, static_cast<ANNS::LabelType>(10 + i)};
+      same_layer[i].point_count = 1;
+      same_layer[i].subtree_point_count = 1;
+      same_layer[i].child_block_ids.clear();
+   }
+   auto multiple_parent = same_layer;
+   multiple_parent[0].child_block_ids = {3};
+   multiple_parent[1].child_block_ids = {3};
+   expect_invalid_blocks(std::move(multiple_parent),
+                         "same-layer child must have a unique parent");
+   auto cyclic_children = same_layer;
+   cyclic_children[0].child_block_ids = {2};
+   cyclic_children[1].child_block_ids = {3};
+   cyclic_children[2].child_block_ids = {1};
+   expect_invalid_blocks(std::move(cyclic_children),
+                         "same-layer child topology must be acyclic");
+
+   // The graph-aware validation gate checks semantic relationships which the
+   // standalone binary format cannot know.  This fixture models two nested
+   // middle blocks and one containing upper block over four contiguous groups.
+   std::vector<std::vector<ANNS::LabelType>> group_labels(5);
+   group_labels[1] = {1, 2};
+   group_labels[2] = {1, 2, 3};
+   group_labels[3] = {1, 4};
+   group_labels[4] = {1, 5};
+   std::vector<std::pair<ANNS::IdxType, ANNS::IdxType>> group_ranges(5);
+   group_ranges[1] = {0, 2};
+   group_ranges[2] = {2, 5};
+   group_ranges[3] = {5, 6};
+   group_ranges[4] = {6, 8};
+   const std::vector<ANNS::IdxType> point_to_group = {1, 1, 2, 2, 2, 3, 4, 4};
+
+   std::vector<ANNS::SpecialBlock> semantic_blocks(3);
+   semantic_blocks[0].block_id = 1;
+   semantic_blocks[0].level = 0;
+   semantic_blocks[0].parent_block_id = 3;
+   semantic_blocks[0].root_group_id = 1;
+   semantic_blocks[0].entry_point_id = 0;
+   semantic_blocks[0].point_count = 2;
+   semantic_blocks[0].subtree_point_count = 5;
+   semantic_blocks[0].root_labels = {1, 2};
+   semantic_blocks[0].member_group_ids = {1};
+   semantic_blocks[0].child_block_ids = {2};
+   semantic_blocks[1].block_id = 2;
+   semantic_blocks[1].level = 0;
+   semantic_blocks[1].parent_block_id = 3;
+   semantic_blocks[1].root_group_id = 2;
+   semantic_blocks[1].entry_point_id = 2;
+   semantic_blocks[1].point_count = 3;
+   semantic_blocks[1].subtree_point_count = 3;
+   semantic_blocks[1].root_labels = {1, 2, 3};
+   semantic_blocks[1].member_group_ids = {2};
+   semantic_blocks[2].block_id = 3;
+   semantic_blocks[2].level = 1;
+   semantic_blocks[2].root_group_id = 3;
+   semantic_blocks[2].entry_point_id = 5;
+   semantic_blocks[2].point_count = 3;
+   semantic_blocks[2].subtree_point_count = 8;
+   semantic_blocks[2].root_labels = {1};
+   semantic_blocks[2].member_group_ids = {3, 4};
+
+   auto expect_graph_semantics = [&](const std::vector<ANNS::SpecialBlock> &candidate,
+                                     bool expected,
+                                     const char *message) {
+      std::string validation_error;
+      expect(ANNS::validate_special_block_metadata(candidate, validation_error),
+             "graph-semantics fixtures must retain valid standalone metadata");
+      const bool valid = ANNS::validate_special_block_graph_semantics(
+          candidate, 8, 4, group_labels, group_ranges, point_to_group,
+          validation_error);
+      expect(valid == expected && (valid || !validation_error.empty()), message);
+   };
+   expect_graph_semantics(semantic_blocks, true,
+                          "valid nested block metadata must match its source graph");
+   auto unrelated_child = semantic_blocks;
+   unrelated_child[1].root_labels = {1, 4};
+   expect_graph_semantics(unrelated_child, false,
+                          "child root must be a strict descendant of its parent root");
+   auto unrelated_upper = semantic_blocks;
+   unrelated_upper[2].root_labels = {7};
+   expect_graph_semantics(unrelated_upper, false,
+                          "upper root must contain linked middle roots");
+   auto false_root = semantic_blocks;
+   false_root[0].root_labels = {1, 9};
+   expect_graph_semantics(false_root, false,
+                          "block root labels must contain every direct member group");
+   auto external_entry = semantic_blocks;
+   external_entry[0].entry_point_id = 5;
+   expect_graph_semantics(external_entry, false,
+                          "entry point must belong to a direct member group");
+   auto wrong_point_count = semantic_blocks;
+   wrong_point_count[0].point_count = 3;
+   expect_graph_semantics(wrong_point_count, false,
+                          "point_count must equal the direct member range total");
 
    const auto explicit_index = root / "explicit_index";
    std::filesystem::create_directories(explicit_index);
@@ -182,26 +310,72 @@ int main()
           << "special_blocks_enabled=1\n"
           << "special_block_partition=trie\n";
    }
-   const auto explicit_load_throws = [&]() {
+   const auto explicit_load_error = [&]() {
       try
       {
          ANNS::UniNavGraph index;
          index.load_special_block_index(explicit_index.string());
       }
-      catch (const std::runtime_error &)
+      catch (const std::runtime_error &ex)
       {
-         return true;
+         return std::string(ex.what());
       }
-      return false;
+      return std::string();
    };
-   expect(explicit_load_throws(),
+   expect(!explicit_load_error().empty(),
+          "explicit sidecar load must reject missing format and fingerprint");
+   {
+      std::ofstream out(explicit_index / "meta");
+      out << "index_format=special_block_trie_multilevel_v1\n"
+          << "num_points=0\n"
+          << "num_groups=0\n"
+          << "special_blocks_enabled=1\n"
+          << "special_block_partition=trie\n";
+   }
+   expect(!explicit_load_error().empty(),
+          "explicit sidecar load must reject a missing source fingerprint");
+   {
+      std::ofstream out(explicit_index / "meta");
+      out << "index_format=special_block_trie_multilevel_v1\n"
+          // FNV-1a fingerprint for an empty source UNG: append num_points=0
+          // and num_groups=0 using the production little-endian encoding.
+          << "source_ung_fingerprint=a31e272015f12c43\n"
+          << "num_points=0\n"
+          << "num_groups=0\n"
+          << "special_blocks_enabled=1\n"
+          << "special_block_partition=trie\n";
+   }
+   expect(!explicit_load_error().empty(),
           "explicit sidecar load must reject missing binary metadata");
    {
       std::ofstream out(explicit_index / "special_blocks.bin", std::ios::binary);
       out << "corrupt";
    }
-   expect(explicit_load_throws(),
+   expect(!explicit_load_error().empty(),
           "explicit sidecar load must reject corrupt binary metadata");
+
+   // Preflight the whole immutable bundle.  Placeholder files are sufficient
+   // here because the missing-file diagnostic must happen before parsing the
+   // intentionally corrupt metadata/trie payloads.
+   {
+      std::ofstream out(explicit_index / "special_block_trie.bin", std::ios::binary);
+      out << "placeholder";
+   }
+   {
+      std::ofstream out(explicit_index / "special_edges.bin", std::ios::binary);
+      out << "placeholder";
+   }
+   std::string load_error = explicit_load_error();
+   expect(load_error.find("special_trie_regular_edges.bin") != std::string::npos,
+          "explicit bundle must report a missing regular-edge sidecar before parsing");
+   {
+      std::ofstream out(explicit_index / "special_trie_regular_edges.bin", std::ios::binary);
+      out << "placeholder";
+   }
+   std::filesystem::remove(explicit_index / "special_edges.bin");
+   load_error = explicit_load_error();
+   expect(load_error.find("special_edges.bin") != std::string::npos,
+          "explicit bundle must report a missing special-edge sidecar before parsing");
 
    std::filesystem::remove_all(root);
    std::cout << "special edge binary I/O checks passed\n";

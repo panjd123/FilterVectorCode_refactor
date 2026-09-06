@@ -1,196 +1,222 @@
-# 多层 Special Block：方法、构建代价与同 Recall 查询性能
+# 多层 Special Block：方法、构建代价与端到端查询性能
 
 更新时间：2026-09-06
 
-## TL;DR
+## 摘要
 
-我们在单层 Special Block 上新增了真正的第二层图 overlay：保留 `T1=1000` 的中层 block，并以 `T2=4k/10k/25k/50k` 构建更大尺度的上层 block。查询候选不再只有普通/自由两个状态，而是按 `普通图(0) -> 中层(1) -> 上层(2)` 单调激活；普通候选不能直接使用上层边。它的作用不是让一次相同 `Lsearch` 的扩展更便宜，而是提供跨越更大合法子树的导航边，以更小的 `Lsearch` 达到相同端到端 Recall。
+我们把原来的单层 Special Block 扩展成固定的 two-level 分层图 overlay：保留中层 block，再独立增加覆盖更大合法子树的上层 block。当前实现只支持这两个 block 层级，不宣称任意 N 层。搜索候选携带单调递增的层级状态，只能按 `普通图 -> 中层 -> 上层` 逐级获得使用更高层边的权限。它不是简单地把阈值从 1000 改成 10000，也不是在一张图上无条件增加长边。
 
-在 Amazon 原始 100% x1、每档 1000 条真实 query、100 search threads、K=10 上，相对单层 `T1=1k`：
+实验使用 Amazon 原始 100% x1 数据（602,453 个 768 维向量，482,387 个 group，30,723 个实际 label），六档真实查询平均选择率为 0.499%、0.903%、9.907%、24.915%、49.971% 和 74.994%。每档 1000 条 query，K=10，100 个搜索线程，质量由同一 exact filtered ground truth 的端到端 Recall 定义。报告统一采用 `.90/.90/.90/.90/.85/.87` Recall 门槛；所有性能比较均选择达到对应门槛的最快实测点，不插值、不外推。若扫描内未达门槛，则选择最高 Recall，并在并列时取更快点，明确标记质量上限。
 
-| 平均选择率 | 共同 Recall 门槛 | 单层最快实测点 | 多层最快实测点 | 1000-query batch 加速 |
-|---:|---:|---|---|---:|
-| 24.915% | >=0.90 | L20000, R=0.9057, 6520.180 ms | T2=25k, L16000, R=0.9062, 5335.580 ms | **1.222x** |
-| 49.971% | >=0.85 | L2000, R=0.8640, 673.019 ms | T2=50k, L700, R=0.8661, 439.856 ms | **1.530x** |
-| 74.994% | >=0.87 | L5000, R=0.8865, 2508.740 ms | T2=25k, L1600, R=0.8871, 1069.745 ms | **2.345x** |
+核心结论有三点：
 
-在单层扫描可达的最高质量附近，多层分别为 `1.222x / 4.925x / 6.290x`。这证明第二层在宽过滤条件下能显著压低达到同质量所需的搜索预算；25% workload 的收益较小，是明确的适用边界。
+1. 新增上层本身确实有效。统一搜索 binary 后，固定 `T1=1k`，原始多层方法族相对单层在 24.915%、49.971%、74.994% 三档分别加速 **1.289x、1.709x、2.320x**。前两档赢家是 paired `T2=25k` 点；75% 的方法族赢家来自独立但同 binary 的 `T2=50k` sweep。固定 `T2=25k` 的同轮受控比较为 **1.289x、1.709x、2.229x**。
+2. `T1` 调优是另一项独立收益。同轮 paired formal 中，最终 `T1=2k,T2=25k` 相对 `T1=1k,T2=25k` 在上述三档再加速 **1.514x、1.067x、1.154x**；相对 plain UNG 在 49.971% 和 74.994% 达到 **14.48x 和 57.38x**。25% 及以下并非稳定优势区间。
+3. 方法有清楚的适用边界：0.903%、9.907%、24.915% 上 plain UNG 更快；0.499% 的 **1.044x** 小于测量波动尺度，应视为基本持平，尚未建立统计显著优势。多层的论文价值集中在宽过滤条件下以更少 `Lsearch` 达到同 Recall，而不是宣称对所有选择率全面更快。
 
-这不是“全面优于所有 filtered-ANN 系统”的结果。共同 Recall 门槛下，FAVOR 在三档 workload 都更快；多层方法在 50% 档快于 NaviX、Curator 和已测 ACORN，在 75% 档快于 NaviX/Curator、略快于 ACORN-gamma12，但仍慢于 FAVOR。论文应把主要创新 claim 放在单层到多层的结构增益，并把跨系统结果作为诚实的系统位置对照。
+机器生成的完整表见 `results_summary/paper_results.md`，选择结果见 `paper_results.csv`，构建数据见 `build_results.csv`。
 
-## 1. 问题与创新点
+## 1. 问题：为什么需要第二层 block
 
-### 1.1 单层结构的限制
+原始查询图包含普通组内边和跨组边。单层 Special Block 又把 label trie 上一个完整合法子树对应的点组织成一张附加图；查询完整覆盖该 block 时，可以使用这些 special edges 快速在合法区域内移动。
 
-单层 Special Block 把 label trie 上满足阈值的合法子树组织为 sidecar graph。查询完整覆盖某个 block 后，候选可以使用该 block 的 special edges。但是只有 `T1=1000` 一种尺度时，搜索可以在一个中等子树内快速移动，却缺少更大合法区域之间的长程导航。继续增大单层阈值会丢失原有中层结构，也不是多层。
+单层只有一个空间尺度。若 `T1=1000`，它擅长在约千点规模的合法子树内导航，却缺少跨越更大合法区域的长程结构。直接把 T1 改成 10000 会丢掉原来的中层结构，因此不等价于“中层 + 上层”。多层方法的目标是同时保留局部导航和更长尺度导航。
 
-### 1.2 我们的方法
+## 2. 方法
+
+### 2.1 分层构建
 
 构建器在同一 group trie 上执行两次独立的 bottom-up uncovered partition：
 
-- 中层：`T1=1000`，保持原单层 block 的 ID 和成员不变；
-- 上层：独立使用 `T2>T1` 构造更大 block；
-- 同一 group/point 可以同时属于一个中层和一个上层 block，分别维护 ownership；
-- 每个中层 block 记录最近的上层容器 `parent_block_id`；
-- 普通图、中层 special graph、上层 special graph 作为三个 overlay 共存。
+- 中层以阈值 `T1` 构建，保留原单层 block 的语义；
+- 上层以更大的 `T2>T1` 独立构建；
+- 一个 group/point 可以同时属于一个中层 block 和一个上层 block，因此维护两套 ownership；
+- 普通图、中层 special graph、上层 special graph 同时存在；上层不会替换中层。
 
-这里“独立分区”很重要：上层不是把中层 block 简单聚合后替换原图，而是在保留中层可达性的同时增加更长尺度的边。
+Special Block 被视为一种特殊 group，因此其图构建复用既有 group 图路径：小候选域走 exact top-K，较大候选域走 sampled Vamana 或 GPU 路径，跨 block 边走与普通跨组边相同的启发式 dispatch。正式 T1/T2 索引的实际日志显示：`n<=2048` 的 block 使用 CPU exact top-K，`2048<n<8192` 使用 CPU sampled-Vamana，`n>=8192` 使用 `jasper_style`/FastGrnnd CUDA；本批 block 间 pair 均走 CPU graph search。因此下文不能误称为 GPU/GPU 构建结果。
 
-查询候选携带 `activation_level in {0,1,2}`：
+### 2.2 逐层查询授权
+
+每个候选点维护 `activation_level in {0,1,2}`：
 
 ```text
 level 0: 只能走普通边
    | 完整进入合法中层 block
    v
-level 1: 可走普通边 + 中层 special edge
-   | 到达合法上层 block 根/成员
+level 1: 可走普通边和中层 special edge
+   | 到达查询完整覆盖的上层 block 根/成员
    v
-level 2: 可走普通边 + 中层 edge + 上层 edge
+level 2: 可走普通边、中层边和上层边
 ```
 
-状态只升不降，且一条边最多把候选提升一级，所以 level 0 不能绕过中层直接使用 level 2。若同一个 point 通过更高层路径再次到达，候选队列原位升级它的 level 并允许重新扩展，但不重复占用 `Lsearch` 或 top-K 槽。这个去重/升级约束是正确性的必要条件。
+状态只能上升，且一条 transition 最多提升一级，所以普通候选不能越过中层直接使用上层边。同一点若通过更高层路径再次到达，候选队列原位升级其 level 并允许重新展开，但不会重复占用 `Lsearch` 或 top-K 槽。主扩展与 pre-expand 共用同一个 edge-transition helper，避免两条执行路径语义漂移。
 
-## 2. Baseline 与公平比较
+这套结构的预期收益不是“相同 L 下每次展开更便宜”。special edge 会增加可扫描邻居，相同 L 下甚至可能更慢。真正目标是让 Recall-L 曲线左移，以更小 L 达到相同 Recall。
 
-### 2.1 内部结构 baseline
+## 3. Baseline、超参数与公平性
 
-| 方法 | 图结构 | 查询状态 | 用途 |
+### 3.1 内部 baseline
+
+| 方法 | 图结构 | 主要超参数 | 回答的问题 |
 |---|---|---|---|
-| Single-level | 普通图 + `T1=1k` overlay | 0 -> 1 | 直接回答第二层是否有价值，是核心 baseline |
-| Multi-level | 普通图 + `T1=1k` + `T2` overlay | 0 -> 1 -> 2 | 我们的方法 |
-| Upper-off | 与 Multi-level 使用同一个索引，但查询禁用 level 2 | 0 -> 1 | 排除“只是重新构图波动”的机制消融，不与 fresh single 的系统时间混用 |
+| Plain UNG | 只有普通组内/跨组图 | `Lsearch` | 不使用 Special Block 时的系统性能 |
+| Single-level | 普通图 + 中层 overlay | `T1=1k`, `Lsearch` | 一层 block 能带来什么 |
+| Original Multi-level | 普通图 + 中层 + 上层 | `T1=1k`, `T2=4k/10k/25k/50k`, `Lsearch` | 只增加第二层是否有效 |
+| Tuned Multi-level | 同上 | `T1=2k,T2=25k`, `Lsearch` | 联合调优后的最佳当前版本 |
+| Upper-off | 与多层使用同一索引但禁用 level 2 | 查询开关 | 排除重建随机性，验证上层路径的机制作用 |
 
-内部比较固定同一主图、ELS provider、query/GT、K 和线程数。由于多层在固定 L 下通常做更多有效探索、Recall 更高，性能主张必须按相同 Recall 比较；固定 L 只用于说明机制。
+原始多层与单层的比较固定 T1=1k，因而能单独归因到上层。最终调优多层包含 T1 改动，不能把它相对单层或 plain 的全部收益都归因于第二层。
 
-### 2.2 外部系统 baseline
+### 3.2 外部 baseline
 
-| 系统 | 本实验中的角色 | 调节参数 | 计时边界 |
+| 系统 | 实现与本实验角色 | 搜索参数 | 计时边界 |
 |---|---|---|---|
-| FAVOR | HNSW-based filtered search；用 exclusion mechanism 跳过不可能产生合法结果的区域，并动态选择搜索策略 | `Lsearch` | 1000-query batch total |
-| NaviX | 在 UNG runner 中接入的 NaviX navigation route；过滤入口和邻接扩展由其既有图路径处理 | `Lsearch` | 1000-query batch total |
-| Curator | clustering tree 上嵌入轻量 per-label sub-index；复杂谓词通过多个 label index 组合 | `search_ef` | 1000-query batch total |
-| Official ACORN | predicate-agnostic graph，把谓词合法 bitmap 传给官方 ACORN search；扫描 gamma 与 efSearch | `gamma`, `efSearch` | 同时报 total 与 core ANN search |
+| FAVOR | 项目已接入的官方式 filtered-search 路径，按选择率在 prefilter 与 graph route 间分流 | `Lsearch` | 1000-query batch total；过滤条件构造与选择率估计在 timed batch 外 |
+| NaviX | 项目 runner 中的 NaviX 系统路径，使用 `cpu_min_super_sets` 等既有入口流程 | `Lsearch` | 1000-query batch total |
+| Curator v2 | 独立官方仓库/FAISS 扩展重建的 x1 索引 | `search_ef` | 包含 filter preparation 与搜索的 batch total |
+| Official ACORN | 官方 commit `c259f11c` 加 Amazon x1 adapter；显式传入 containment bitmap | `gamma`, `efSearch` | 同时报 lookup、materialize、ANN search 和 total |
 
-ACORN adapter 发现官方 hybrid search 的初始 candidate 未同时检查 `filter_map`，会返回不合法点；修复后所有纳入结果的 filter violations 均为 0，Recall 不变。外部主表对每种方法仅选择达到预先声明 Recall 门槛的最快实测点，不插值、不外推。
+ACORN adapter 修复了官方 hybrid search 初始 candidate 未检查 `filter_map` 的过滤泄漏；所有纳入数据均为零 filter violations。五档 gamma（1/2/4/8/12）均实际扫描，不能假设 gamma 越大越好。
 
-## 3. 数据集与度量
+## 4. 数据和指标
 
-| 项目 | 数值/口径 |
+| 项目 | 口径 |
 |---|---|
-| 数据集 | Amazon 原始 100% x1，不使用 xN repeat/hybrid 数据 |
-| 向量数 / 维度 | 602,453 / 768 |
-| group 数 / label 数 | 482,387 / 30,723 |
-| query | 每档 1000 条真实 query |
-| 平均选择率 | 24.915%、49.971%、74.994% |
-| 输出 | K=10 |
-| 并行度 | 100 search threads |
+| 数据 | Amazon 原始 100% x1；不使用 xN repeat/hybrid |
+| 规模 | 602,453 points，768 dimensions |
+| 标签结构 | 482,387 groups，30,723 个实际 labels |
+| Workload | 6 档，每档 1000 条真实 query |
+| 平均选择率 | 0.499%、0.903%、9.907%、24.915%、49.971%、74.994% |
+| 搜索 | K=10，100 threads |
 | 质量 | 对同一 exact filtered GT 的端到端 Recall |
-| 时间主统计 | 排除 cold repeat 后的 1000-query batch median；同时保存 mean/CV |
+| 内部时间 | 7 repeats；排除 cold repeat 后 6 个 warm batch 的 median，同时保留 mean/CV |
+| 外部时间 | 5 measured repeats（历史高选择率部分为 cold 后 4 warm repeats）；以 total median 为主 |
 
-Block 数、覆盖率、入口数、边数和局部 top-K overlap 都只是诊断指标，不能代替最终 filtered-search Recall。
+Block 覆盖率、入口数、边数、局部 top-K overlap 只用于解释机制，不是准确率。唯一论文级质量标准是完整 filtered query 的 Recall。
 
-## 4. 构建代价
+内部正式结果全部由同一个 immutable 搜索 binary 产生，其 SHA-256 为 `f078e174...287b11`。结果生成器逐份检查 run manifest；若出现不同 binary、未完成运行或非零退出会直接拒绝生成主表。高选择率另做了一轮 paired formal：Single、同索引 upper-off、upper-on 和 T1=2k 在同一批次中依次运行，降低跨时段系统噪声。25%/50% 的方法族赢家来自该 paired 轮；75% 的方法族赢家是同 binary 的独立 T2=50k sweep，而 fixed-T2 因果比较使用 paired T2=25k。
 
-以下时间是在已经存在的 base UNG index 上构建 Special Block overlay 的时间，不是从原始向量开始的完整索引总时间。
+## 5. 六档内部主性能
 
-这批正式索引的实际构建 dispatch（由 `build.log` 核对）为：block 内部 `n<=2048` 用 CPU exact-topK，`2048<n<8192` 用 CPU sampled-Vamana（256 candidates），`n>=8192` 用 `jasper_style`/FastGrnnd CUDA；block 间 200--220 个 parent-child pairs 全部因 pair-work 超过 10000 而走 CPU graph search（`ef=32`），没有启用 GPU-inter。因此下表是“hybrid intra + CPU inter”的公平 single/multi 结构实验，不应误标为 GPU/GPU 构建结果。
+下表各方法独立选择达到门槛的最快实测点。`未达` 表示给定扫描上限内未达到门槛，此时只显示最高 Recall 点。
 
-| 方法 | upper blocks | overlay build | 相对单层 | special edges | sidecar bytes |
+| 选择率 / Recall门槛 | Plain UNG | Single T1=1k | Original Multi T1=1k | Tuned Multi T1=2k,T2=25k | Tuned / Plain |
+|---|---|---|---|---|---:|
+| 0.499% / .90 | L1500, R=.9134, 44.706 ms | L2000, R=.9133, 48.049 ms | T2=10k L2000, R=.9133, 48.224 ms | L1500, R=.9101, 42.829 ms | **1.044x** |
+| 0.903% / .90 | L2000, R=.9271, 60.656 ms | L4500, R=.9043, 152.858 ms | T2=50k L4500, R=.9043, 141.684 ms | L3000, R=.9169, 108.401 ms | **0.560x** |
+| 9.907% / .90 | L15000, R=.9016, 675.142 ms | 未达：L20000, R=.8948, 3455.295 ms | T2=10k L15000, R=.9088, 2669.605 ms | L10000, R=.9009, 1793.005 ms | **0.377x** |
+| 24.915% / .90 | L22000, R=.9026, 1648.470 ms | L18000, R=.9037, 5828.470 ms | T2=25k L14000, R=.9012, 4520.320 ms | L10000, R=.9023, 2986.040 ms | **0.552x** |
+| 49.971% / .85 | L40000, R=.8561, 5551.180 ms | L1800, R=.8523, 698.601 ms | T2=25k L600, R=.8584, 408.749 ms | L500, R=.8518, 383.260 ms | **14.484x** |
+| 74.994% / .87 | L110000, R=.8737, 44264.200 ms | L4000, R=.8703, 1983.815 ms | T2=50k L1200, R=.8725, 854.962 ms | L1000, R=.8729, 771.469 ms | **57.377x** |
+
+### 5.1 第二层的独立贡献
+
+在 T1 固定为 1k 时，Original Multi 相对 Single：
+
+| 选择率 | Single | Original Multi | 加速 | 解释 |
+|---:|---:|---:|---:|---|
+| 0.499% | 48.049 ms | 48.224 ms | 0.996x | 基本持平，上层没有可见收益 |
+| 0.903% | 152.858 ms | 141.684 ms | 1.079x | 小幅收益 |
+| 9.907% | 未达 R=.90 | 2669.605 ms 达标 | 不计算 | 第二层改善质量可达性，但耗时仍差于 plain |
+| 24.915% | 5828.470 ms | 4520.320 ms (T2=25k) | **1.289x** | 上层开始稳定减少所需 L |
+| 49.971% | 698.601 ms | 408.749 ms (T2=25k) | **1.709x** | 宽查询更常授权上层边 |
+| 74.994% | 1983.815 ms | 854.962 ms (T2=50k) | **2.320x** | 上层长程导航价值最大；paired T2=25k 为 2.229x |
+
+上表比较的是每个方法族达到 Recall 门槛的最快实测点，用来回答“增加第二层后系统能否用更小预算达标”。更强的因果消融是在同一 `T1=1k,T2=25k` 索引、同一 L 下只切换上层权限：
+
+| 选择率 | L | Upper-off Recall / 时间 | Upper-on Recall / 时间 | 结论 |
+|---:|---:|---:|---:|---|
+| 24.915% | 14000 | .8946 / 4200.080 ms | .9012 / 4520.320 ms | 上层以 7.6% 当轮时间代价跨过 .90 门槛 |
+| 49.971% | 600 | .7633 / 338.707 ms | .8584 / 408.749 ms | 上层带来 +9.51 个 Recall 百分点并跨过 .85 |
+| 74.994% | 1200 | .7678 / 672.272 ms | .8759 / 890.059 ms | 上层带来 +10.81 个 Recall 百分点并跨过 .87 |
+
+不能把 upper-on 的固定 L 时间增加误判为方法变慢：它实际扫描了新增的合法上层边，因此单次预算略贵；收益体现在 Recall-L 曲线左移，使方法能以远小于 Single 的 L 达到质量门槛。
+
+### 5.2 T1 调优的独立贡献
+
+固定 T2=25k 的 7-repeat 正式结果：
+
+| 选择率 | T1=500 | T1=1000 | T1=2000 | 最佳结论 |
+|---:|---|---|---|---|
+| 24.915%, R>=.90 | 未达（最高 .8905） | L14000, R=.9012, 4520.320 ms | L10000, R=.9023, 2986.040 ms | T1=2k 比 T1=1k 快 **1.514x** |
+| 49.971%, R>=.85 | L600, R=.8594, 426.165 ms | L600, R=.8584, 408.749 ms | L500, R=.8518, 383.260 ms | T1=2k 快 **1.067x** |
+| 74.994%, R>=.87 | L1200, R=.8747, 863.141 ms | L1200, R=.8759, 890.059 ms | L1000, R=.8729, 771.469 ms | T1=2k 快 **1.154x** |
+
+T1 越小并不越好：T1=500 产生更多中层 blocks 和边管理开销，25% 档甚至在 L=30k 仍未达到 .90。T1=500 来自同 binary 的独立正式运行；T1=1000/2000 数字来自最新 paired formal，因此只把后两者的比值作为稳定的同轮加速结论。
+
+## 6. 构建成本
+
+`total builder wall` 是在已有 base UNG index 上运行完整独立 Special Block builder 的墙钟时间；`special edge stage` 只包含 special intra/inter edge 阶段。两者不能混称。
+
+| 配置 | 中层块 | 上层块 | total builder wall | special edge stage | loaded allocated bytes |
 |---|---:|---:|---:|---:|---:|
-| Single T1=1k | 0 | 72.927 s | 1.000x | 40,395,111 | 539,055,889 |
-| Multi T2=4k | 46 | 94.425 s | 1.295x | 72,733,732 | 799,669,854 |
-| Multi T2=10k | 22 | 89.051 s | 1.221x | 71,753,752 | 791,828,031 |
-| Multi T2=25k | 8 | 92.024 s | 1.262x | 69,343,169 | 772,497,914 |
-| Multi T2=50k | 5 | 94.396 s | 1.294x | 66,543,978 | 749,982,894 |
+| Single T1=1k | 210 | 0 | 72.927 s | 53.472 s | 未记录 |
+| Multi T1=1k,T2=4k | 210 | 46 | 94.425 s | 73.003 s | 未记录 |
+| Multi T1=1k,T2=10k | 210 | 22 | 89.051 s | 68.690 s | 未记录 |
+| Multi T1=1k,T2=25k | 210 | 8 | 92.024 s | 70.157 s | 864,059,967 B |
+| Multi T1=1k,T2=50k | 210 | 5 | 94.396 s | 70.898 s | 未记录 |
+| Multi T1=500,T2=25k | 442 | 8 | 102.373 s | 未单列 | 918,423,543 B |
+| Tuned Multi T1=2k,T2=25k | 111 | 8 | **58.760 s** | 未单列 | **812,811,383 B** |
 
-第二层使 overlay build 增加约 22.1%--29.5%，sidecar 增加约 39.1%--48.3%。阈值更大时上层 block 更少、总边数和磁盘占用下降，但查询最优 T2 随 workload/质量变化，不能仅按最小索引选择。作为参照，base UNG 的历史 metadata 为 index build 211.819 s、index+additional 215.406 s；由于它与 overlay runner 的计时边界不同，不能把 `72--94 s` 直接与外部系统的 from-scratch build time 做严格速度比。
+原始 T1=1k 的第二层使 builder wall 相对 single 增加 22.1%--29.5%。T1=2k 则减少中层 block 数，使构建时间比 T1=1k,T2=25k 低 36.1%，甚至低于单层 T1=1k；这是阈值调优和工作量变化的结果，不能解释成“多构建一层本身更便宜”。
 
-外部系统的 from-scratch 构建记录如下。它们的索引语义、并行实现和文件边界不同，因此用于说明系统成本量级，不计算跨系统 build speedup。
+表中的 loaded bytes 来自修复 ownership-map 计数遗漏之前的运行日志，T1=1k/T2=25k 与 T1=2k/T2=25k 均约低估 4.1 MiB；sidecar 文件大小和构建墙钟不受影响。代码现已把 upper group/point ownership maps 纳入统计，但在不重建相同索引前，论文不应把旧 loaded-byte 数写成精确峰值。
 
-| 系统/配置 | build 时间 | 索引/内存 | 备注 |
-|---|---:|---:|---|
-| Base UNG metadata | 211.819 s；含 additional 为 215.406 s | 未与本表统一重测 | Special overlay 尚未计入 |
-| FAVOR | 76.174 s | 约 4.490 GB file / 4.494 GB memory | 完整 FAVOR index |
-| Curator | 102.207 s | 2.046 GB disk / 2.180 GB memory | Amazon x1 隔离重建 |
-| NaviX | 1316.957 s | graph 260.8 MB；vectors 1850.7 MB；labels 21.4 MB | 完整 NaviX build |
-| ACORN-1, gamma=1 | 17.268 s core（20.44 s wall） | 2.130 GB | `M=32, M_beta=64, efConstruction=40` |
-| ACORN gamma=2/4/8/12 | 53.413 / 80.696 / 135.577 / 212.311 s core | 约 2.06--2.08 GB | `M=32, M_beta=32`；efConstruction 随 gamma 为 64/128/256/384 |
+作为量级参照，base UNG 历史 metadata 为 index build 211.819 s、含 additional edges 为 215.406 s。该时间与独立 overlay builder 边界不同，不能直接相加后声称严格的 from-scratch speedup。外部完整索引构建记录：FAVOR 76.174 s，Curator 102.207 s，NaviX 1316.957 s；ACORN gamma=1/2/4/8/12 分别约 17.268/53.413/80.696/135.577/212.311 s core。跨系统索引语义和计时边界不同，因此只报告量级，不计算构建加速比。
 
-## 5. 查询主结果
+## 7. 外部系统位置
 
-### 5.1 相对单层：共同 Recall 门槛
+下面使用各 runner 自己定义的 total batch median；由于过滤准备边界不同，这是系统位置比较，不是严格统一的端到端计时排名。ACORN 括号内补充 core ANN search；未达门槛者只报告扫描内质量上限，不参与达标性能排序。
 
-每行先固定一个双方可达的 Recall 门槛，再从各自实测点中选最短时间。
+| 选择率 / 门槛 | Plain | Tuned Multi | FAVOR | NaviX | Curator | ACORN |
+|---|---|---|---|---|---|---|
+| 0.499% / .90 | R=.9134, **44.706 ms** | R=.9101, **42.829 ms** | R=.9224, 258.117 ms | 未达：R=.7649 | R=.9430, 2624.251 ms | 未达：R=.7391, 1188.030 ms (core 876.904) |
+| 0.903% / .90 | R=.9271, **60.656 ms** | R=.9169, 108.401 ms | R=.9094, 403.783 ms | 未达：R=.7899 | R=.9582, 2886.603 ms | 未达：R=.7907, 1790.202 ms (core 1556.979) |
+| 9.907% / .90 | R=.9016, **675.142 ms** | R=.9009, 1793.005 ms | R=.9204, 2641.120 ms | R=.9036, 2848.300 ms | R=.9816, 1420.208 ms | 未达：R=.8968, 7873.439 ms (core 7642.445) |
+| 24.915% / .90 | R=.9026, **1648.470 ms** | R=.9023, 2986.040 ms | R=.9133, 1754.680 ms | R=.9153, 2413.740 ms | R=.9744, 1838.554 ms | R=.9011, 8207.948 ms (core 7943.332) |
+| 49.971% / .85 | R=.8561, 5551.180 ms | R=.8518, 383.260 ms | R=.8644, **200.930 ms** | R=.8695, 2612.825 ms | R=.9742, 1590.117 ms | R=.8531, 3106.804 ms (core 2864.419) |
+| 74.994% / .87 | R=.8737, 44264.200 ms | R=.8729, 771.469 ms | R=.8920, **265.841 ms** | R=.9179, 2065.955 ms | R=.9629, 1942.862 ms | R=.8710, 1148.216 ms (core 843.998) |
 
-| 选择率 | 门槛 | Single T1=1k | Multi-level | L 缩减 | batch speedup |
-|---:|---:|---|---|---:|---:|
-| 24.915% | R>=0.90 | L20000, R=0.9057, 6520.180 ms | T2=25k, L16000, R=0.9062, 5335.580 ms | 20.0% | **1.222x** |
-| 49.971% | R>=0.85 | L2000, R=0.8640, 673.019 ms | T2=50k, L700, R=0.8661, 439.856 ms | 65.0% | **1.530x** |
-| 74.994% | R>=0.87 | L5000, R=0.8865, 2508.740 ms | T2=25k, L1600, R=0.8871, 1069.745 ms | 68.0% | **2.345x** |
+这里有三个必须保留的解释边界：
 
-对应 warm mean/CV 分别为：单层 `6511.293/0.007、674.929/0.011、2510.332/0.006 ms`；多层 `5336.662/0.009、441.970/0.016、1068.780/0.008 ms`。主表中的差异远大于稳态波动。
+- 外部系统的 Recall 高于门槛幅度不同，因此这是“达到门槛的最快离散实测点”，不是连续曲线上的精确同 Recall 插值。
+- FAVOR 在 0.499% 和 0.903% 分别有 88.3% 和 79.9% query 走 prefilter；9.907% 有 9.5% prefilter，其余走 graph。因此低选择率 FAVOR 是混合系统结果，不是纯图搜索。
+- Curator 的低选择率 total 被 filter preparation 主导；小 `search_ef` 不一定更快。ACORN 的 total 包含合法集合 lookup/materialization，不能只拿 core search 与其他系统 total 比。
 
-### 5.2 单层最高质量附近
+## 8. 机制解释
 
-| 选择率 | Single 最高质量点 | 达到不低于该 Recall 的最快 Multi | batch speedup |
-|---:|---|---|---:|
-| 24.915% | L20000, R=0.9057, 6520.180 ms | T2=25k, L16000, R=0.9062, 5335.580 ms | **1.222x** |
-| 49.971% | L20000, R=0.9506, 11518.550 ms | T2=50k, L5500, R=0.9511, 2338.770 ms | **4.925x** |
-| 74.994% | L20000, R=0.9301, 16614.450 ms | T2=50k, L4500, R=0.9311, 2641.455 ms | **6.290x** |
+上层只在 query 完整覆盖 block 时授权。25%/50%/75% workload 中，完整覆盖上层 block 的 query 比例约为 26.0%/51.3%/77.3%，因此宽查询更常利用长程边，Recall-L 曲线更明显左移。
 
-这组结果直接展示了多层结构在高选择率、高质量区域的价值：其收益主要来自把所需 L 降到单层的 22.5%--27.5%，而不是同 L kernel 更快。
+但选择率不是唯一变量。真实 query 的 label 组合、覆盖 block 的位置、入口分布与普通图可达性都会影响效果；这解释了 0.499% 的小幅正收益以及 0.903%/9.907% 的负收益并存。论文应表述为“收益与查询对层级 block 的完整覆盖结构相关，并在高选择率 workload 上最稳定”，而不是简单声称随选择率单调增长。
 
-### 5.3 外部系统位置
+同一多层索引的 upper-on/off 消融在已测点上显示启用 level 2 提高 Recall，运行计数也观察到上层激活、节点展开和边扫描；因此第二层收益来自真实上层路径，而不只是重建随机性。
 
-时间均为 1000-query batch median。`ACORN core` 仅是 ANN search；跨系统排序使用包含 filter lookup/materialization 的 `total`。不同系统的 Recall 高于门槛幅度不同，因此此表是“达到门槛的最快实测点”，不是完全相同 Recall 的连续插值。
+## 9. 论文可主张内容与局限
 
-| 选择率 / 门槛 | Multi-level | FAVOR | NaviX | Curator | Official ACORN |
-|---|---|---|---|---|---|
-| 24.915% / R>=0.90 | T2=25k L16000, R=.9062, **5335.580 ms** | L5000, R=.9133, **1754.680 ms** | L2000, R=.9153, **2413.740 ms** | ef10240, R=.9744, **1838.554 ms** | ACORN-1 ef16384, R=.9011, **8207.948 ms total / 7943.332 ms core** |
-| 49.971% / R>=0.85 | T2=50k L700, R=.8661, **439.856 ms** | L100, R=.8644, **200.929 ms** | L100, R=.8695, **2612.825 ms** | ef10240, R=.9742, **1590.117 ms** | ACORN-1 ef8192, R=.8531, **3106.804 ms total / 2864.419 ms core** |
-| 74.994% / R>=0.87 | T2=25k L1600, R=.8871, **1069.745 ms** | L200, R=.8920, **265.841 ms** | L200, R=.9179, **2065.955 ms** | ef10240, R=.9629, **1942.862 ms** | gamma12 ef2048, R=.8710, **1148.216 ms total / 843.998 ms core** |
+可以主张：
 
-解释边界：
+- 一种保留已有中层、叠加更大合法子树导航层的层级 Special Block overlay；
+- 逐级 activation、per-point 去重和原位 level upgrade 保证搜索权限语义；
+- 在 Amazon x1 的 50%/75% 宽过滤 workload，方法族最佳相对单层分别达到 1.709x/2.320x；固定 T2=25k 的 paired 结果为 1.709x/2.229x；联合调优后相对 plain 达 14.48x/57.38x；
+- 通过六档选择率、T1/T2 调参和外部系统比较展示适用区间与负结果。
 
-- 多层相对单层的因果性最强，因为两者共享主图、ELS 和搜索框架。
-- FAVOR 是当前三档均领先的系统 baseline，说明多层 overlay 还没有成为整体最优系统。
-- 50%/75% 下，多层比 NaviX/Curator 更快；25% 下则更慢。
-- 75% 下多层 total 比 ACORN-gamma12 快约 `1.073x`，但 ACORN core search 更快；差距来自 ACORN 的 filter lookup/materialization 边界，必须同时呈现。
-- Curator 在此网格的最优点 Recall 明显高于门槛，不能据此声称其在精确同 Recall 下必然更慢；需要更密的低预算点才是严格连续 Pareto 比较。
+不能主张：
 
-## 6. 为什么宽查询收益更大
+- 不能把最终 tuned-vs-single 的全部提升归因于新增第二层；
+- 不能说方法在所有选择率优于 plain 或 FAVOR；
+- 不能用固定 L 耗时、coverage、入口数或局部 top-K overlap 代替同 Recall 端到端结果；
+- 不能把独立 overlay builder wall 写成完整 from-scratch index build；
+- 不能把 21,834-label hybrid 主图的历史结果与当前 30,723-label x1 结果混用。
 
-完整覆盖上层 block 的 query 比例随选择率增加：25%/50%/75% 分别约为 26.0%/51.3%/77.3%。只有完整覆盖时，上层边才可被授权。因此：
+当前实现还有一个性能限制：多层 metadata 尚未进入 GPU free-distance batch scratch，因此发现 upper blocks 时查询会回落到 activation-gated CPU path，保证语义正确。若未来把 per-edge level 一并带入 batch scratch，有机会继续降低查询成本，但必须重新做端到端 Recall 验证。
 
-1. 25% 查询中，大多数 query 不能使用上层或只能短暂使用，新增边的维护/扫描成本更难摊薄；
-2. 50% 和 75% 查询更常完整覆盖大子树，上层边能跨越中层局部结构；
-3. Recall-L 曲线明显左移，最终以更小 L 达到相同质量。
+## 10. 复现与证据
 
-同一多层索引的 upper-on/off 消融显示，在所有已测 workload/L 上启用 level 2 都提高 Recall；详细计数也观测到上层激活、节点扩展和边扫描。因此收益来自真实的上层路径，而不是单纯的构建随机波动。
+- 隔离仓库：`/home/sunyahui/worktrees/FilterVectorCode_multilevel_special`；分支 `codex/multilevel-special-block-20260905`。服务器 Git 过旧不支持 native worktree，故使用 `git clone --shared`，原始脏仓库未被修改。
+- 当前实现检查点：`05a4381`；查询二进制 SHA-256：`f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11`。
+- 输入 provenance：base labels SHA-256 `aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96`，main-index labels SHA-256 `ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56`，source fingerprint `91d78580ae29f468`；逐轮完整值与 binary hash 见 `experiments/multilevel_special/results_summary/source/*_manifest.json`。
+- focused C++ tests 5/5 通过；多层 Python tests 13/13 通过；结果生成/provenance tests 11/11 通过；所有正式 selection sweep validator 通过。
+- `generate_paper_results.py` 从 compact source CSV 和每轮 manifest 重建 `paper_results.csv`、`paper_results.md`、`build_results.csv`、`internal_canonical_measured_points.csv` 与 `external_canonical_measured_points.csv`。每个内部 aggregate 的 method/workload/L 网格和 warm-repeat 数都必须与 manifest 完全一致；构建数据来自 `results_summary/source/build_results_source.csv`，不再硬编码在生成器中。Canonical aggregate 按 `(workload, method family, variant, budget)` 去重；相同点的 paired rerun 以更高优先级覆盖旧统计，因此它不是历史执行次数的逐行并集。raw `runs/` 和大型第三方索引不提交。
+- `results_summary/artifact_manifest.csv` 保护生成器、测试、关键配置、主报告与生成表组成的论文结果闭包；`AGENT_KANBAN.md` 和 `WORKTREE_HANDOFF.md` 是会随 checkpoint 更新的运维状态文档，故不纳入该闭包。
 
-## 7. 正确性、局限与论文 claim
-
-可以写入论文的结论：
-
-- 提出层级化 Special Block overlay，在保留中层图的同时增加更大尺度合法子树导航；
-- 通过逐级 activation、per-point 去重和原位 level upgrade 保证普通 -> 中层 -> 上层语义；
-- 在 Amazon x1 的 50%/75% 高选择率 workload 中，相对单层显著减少同 Recall 所需 L，并在最高质量附近达到 `4.925x/6.290x` batch speedup；
-- 代价是 overlay 构建增加约 22%--30%，sidecar 增加约 39%--48%。
-
-不能写的结论：
-
-- 不能把固定 L 下的耗时变化写成加速；
-- 不能把 block coverage、边 overlap 或入口数写成准确率；
-- 不能把 overlay build time 写成完整 from-scratch index build time；
-- 不能声称当前方法全面优于 FAVOR/Curator/NaviX/ACORN；
-- 不能把 21,834-label hybrid 主图上的旧结果与当前 30,723-label Amazon x1 结果混用。
-
-当前实现还有一个明确性能边界：GPU free-distance batch scratch 尚未携带 per-edge activation level，因此多层模式暂时走标量路径，避免把 level 2 错误降为 level 1。未来若把 level metadata 纳入 batch scratch，可以继续优化查询 kernel，但必须重新验证 Recall。
-
-## 8. 复现与证据
-
-- 实现分支：`codex/multilevel-special-block-20260905`，隔离 shared clone：`/home/sunyahui/worktrees/FilterVectorCode_multilevel_special`。
-- 内部正式结果：`runs/final_candidates_sel25_amazon_x1/summary/`、`runs/final_candidates_sel50_amazon_x1/summary/`、`runs/final_candidates_sel75_amazon_x1/summary/`。
-- 外部 baseline 汇总由 `experiments/external_baselines/`、`experiments/curator_baseline/` 和 `experiments/acorn_baseline/` 的 runner 生成；大索引和 raw runs 不提交。
-- focused C++ tests：4/4；多层 Python tests：13/13；Curator tests：12/12；ACORN 所有纳入结果为 0 filter violations。
-- 当前主表只使用实测点；所有 Recall 由同一 query/GT 计算，不使用局部 top-K overlap 替代。
+最终展示时，建议把“第二层独立贡献”作为主要创新结果，把最终 tuned 配置作为系统最佳结果，再用六档表明确展示边界。

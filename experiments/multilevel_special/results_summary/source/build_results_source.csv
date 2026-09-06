@@ -1,0 +1,8 @@
+method,T1,T2,middle_blocks,upper_blocks,total_builder_wall_s,special_edge_stage_s,special_edges,sidecar_bytes,loaded_allocated_bytes
+Single-level,1000,,210,0,72.927,53.472,40395111,539055889,
+Original Multi-level,1000,4000,210,46,94.425,73.003,72733732,799669854,
+Original Multi-level,1000,10000,210,22,89.051,68.690,71753752,791828031,
+Original Multi-level,1000,25000,210,8,92.024,70.157,69343169,772497914,864059967
+Original Multi-level,1000,50000,210,5,94.396,70.898,66543978,749982894,
+T1 sensitivity,500,25000,442,8,102.373,,,,918423543
+Tuned Multi-level,2000,25000,111,8,58.760,,,,812811383

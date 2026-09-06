@@ -108,9 +108,9 @@ struct SearchRuntimeConfig
    bool special_light_stats = false;
    SpecialSearchMode special_search_mode = SpecialSearchMode::FreeState;
    bool special_block_free_use_regular = false;
-   // Highest Special Block activation level allowed for this query. Level 1
-   // is the historical/middle overlay and level 2 is the first coarser
-   // overlay. UINT8_MAX preserves all levels by default.
+   // Highest Special Block activation level allowed for this query. The
+   // current fixed two-layer implementation uses 1 for the historical/middle
+   // overlay and 2 for the single upper overlay. UINT8_MAX enables both.
    uint8_t special_max_activation_level = std::numeric_limits<uint8_t>::max();
    // Suppress all upper overlays unless the query fully covers at least this
    // many direct member points across upper blocks. Zero disables the gate.

@@ -16,7 +16,8 @@ struct SpecialSearchCandidate
    IdxType id = 0;
    float distance = 0.0f;
    // 0: ordinary graph, 1: historical/middle Special Block graph,
-   // 2+: progressively coarser Special Block overlays.
+   // 2: upper Special Block graph. The current index has exactly two block
+   // layers; activation levels above two are invalid.
    uint8_t activation_level = 0;
 
    bool free() const { return activation_level != 0; }

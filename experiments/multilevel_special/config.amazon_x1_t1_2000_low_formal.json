@@ -1,0 +1,30 @@
+{
+  "data_root": "/home/graphdb/FilterVectorData/Amazon",
+  "gt_root": "/home/graphdb/FilterVectorResult/Amazon/GroundTruth",
+  "search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+  "main_index": "/home/graphdb/FilterVectorResult/Amazon/index/Trie_block/index_files",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/t1_2000_low_formal_amazon_x1",
+  "dataset": "Amazon",
+  "expected_base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+  "expected_main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+  "expected_source_fingerprint": "91d78580ae29f468",
+  "K": 10,
+  "num_threads": 100,
+  "num_entry_points": 16,
+  "num_repeats": 7,
+  "lsearch_values": [100],
+  "workloads": [
+    {"name": "sel_0p5", "query_dir": "query_minlen5_avgsel05pct", "mean_selectivity": 0.0049924907},
+    {"name": "sel_1", "query_dir": "query_minlen5_avgsel1pct", "mean_selectivity": 0.0090305484},
+    {"name": "sel_10", "query_dir": "query_minlen3_avgsel10pct", "mean_selectivity": 0.0990661529}
+  ],
+  "methods": [
+    {
+      "name": "multi_t1_2000_t2_25k",
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/t1_2000_sensitivity_builds_amazon_x1/t1_2000_t2_25000/block_index",
+      "entry_group_provider": "cpu_bruteforce_els",
+      "lsearch_values": [1000, 1250, 1500, 2000, 3000, 5000, 7500, 10000, 15000, 20000]
+    }
+  ]
+}

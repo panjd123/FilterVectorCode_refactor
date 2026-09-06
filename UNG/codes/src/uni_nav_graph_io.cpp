@@ -857,9 +857,11 @@ namespace ANNS
          special_block_size += block.child_block_ids.size() * sizeof(IdxType);
       }
       special_block_size += _group_id_to_special_block.size() * sizeof(IdxType);
+      special_block_size += _group_id_to_upper_special_block.size() * sizeof(IdxType);
       special_block_size += _group_is_special_block_root.size() * sizeof(uint8_t);
       special_block_size += _group_is_trivial_special_block_root.size() * sizeof(uint8_t);
       special_block_size += _point_to_special_block.size() * sizeof(IdxType);
+      special_block_size += _point_to_upper_special_block.size() * sizeof(IdxType);
       special_block_size += _point_is_special_block_root.size() * sizeof(uint8_t);
       special_block_size += _special_edges_by_point.size() * sizeof(std::vector<SpecialEdge>);
       for (const auto &edges : _special_edges_by_point)

@@ -1,0 +1,21 @@
+{
+  "data_root": "/home/graphdb/FilterVectorData/Amazon",
+  "gt_root": "/home/graphdb/FilterVectorResult/Amazon/GroundTruth",
+  "search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/t1_formal_sel25_amazon_x1/.binary_snapshots/search_UNG_index.f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11",
+  "main_index": "/home/graphdb/FilterVectorResult/Amazon/index/Trie_block/index_files",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/current_binary_high_sel25_amazon_x1",
+  "dataset": "Amazon",
+  "expected_base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+  "expected_main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+  "expected_source_fingerprint": "91d78580ae29f468",
+  "K": 10, "num_threads": 100, "num_entry_points": 16, "num_repeats": 7,
+  "lsearch_values": [100],
+  "workloads": [{"name": "sel_25", "query_dir": "query_minlen2_avgsel25pct", "mean_selectivity": 0.2491539473}],
+  "methods": [
+    {"name": "single_1k", "special_block_search": true, "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/fresh_single_build_amazon_x1/single_1000/block_index", "entry_group_provider": "cpu_bruteforce_els", "env": {"UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"}, "lsearch_values": [16000,18000,20000]},
+    {"name": "multi_1k_4k", "special_block_search": true, "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/multilevel_builds_amazon_x1/t2_4000/block_index", "entry_group_provider": "cpu_bruteforce_els", "lsearch_values": [12000,14000,16000]},
+    {"name": "multi_1k_10k", "special_block_search": true, "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/multilevel_builds_amazon_x1/t2_10000/block_index", "entry_group_provider": "cpu_bruteforce_els", "lsearch_values": [12000,14000,16000]},
+    {"name": "multi_1k_25k", "special_block_search": true, "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/multilevel_builds_amazon_x1/t2_25000/block_index", "entry_group_provider": "cpu_bruteforce_els", "lsearch_values": [12000,14000,16000]},
+    {"name": "multi_1k_50k", "special_block_search": true, "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/multilevel_builds_amazon_x1/t2_50000/block_index", "entry_group_provider": "cpu_bruteforce_els", "lsearch_values": [12000,14000,16000]}
+  ]
+}

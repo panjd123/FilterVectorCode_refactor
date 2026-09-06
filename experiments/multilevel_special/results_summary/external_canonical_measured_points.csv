@@ -1,0 +1,448 @@
+workload,method,variant,budget,recall,batch_median_ms,batch_mean_ms,cv,core_median_ms,repeats,timing_scope,source
+sel_0p5,ACORN,ACORN-1,ef16,0.4655,494.469,510.05633333333327,0.046789552117694734,60.06,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef32,0.5697,239.213,243.375,0.03916936930897261,31.147,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef64,0.6238,254.578,270.7456666666667,0.09012637814317323,51.244,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef128,0.661,369.234,399.5933333333333,0.10893905987803165,103.438,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef256,0.6868,315.109,325.7196666666667,0.04672448582532277,114.618,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef512,0.7016,486.235,559.1496666666667,0.19943264009049355,198.453,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef1024,0.7203,796.779,795.31,0.06910979416524173,349.66,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef2048,0.7345,882.732,879.6493333333333,0.09469839225743724,659.858,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef4096,0.7391,1188.03,1263.2372,0.12683814190081039,876.904,5,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef8192,0.7391,1345.474,1434.3636666666669,0.09635165794218427,1130.667,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef16384,0.7391,1413.247,1442.2833333333335,0.04094934016361374,1182.654,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-1,ef32768,0.7391,1375.015,1397.8086666666668,0.039505270552882665,1160.439,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef16,0.3355,209.331,210.50433333333334,0.00794661515745317,11.305,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef32,0.437,219.893,219.42766666666668,0.004105173611316387,18.547,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef64,0.4995,326.317,321.2056666666667,0.05607763986087869,65.127,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef128,0.5363,312.835,317.846,0.024378005390075962,34.873,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef256,0.5626,267.221,281.83133333333336,0.08044899479900468,61.673,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef512,0.5787,372.244,369.92333333333335,0.012541963698582332,82.654,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef1024,0.5931,580.353,532.5426666666666,0.1521393753203769,147.542,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef2048,0.5985,739.722,800.5563333333333,0.1718323298743717,302.239,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef4096,0.5995,827.409,814.0883333333333,0.09032730924933578,531.585,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef8192,0.5996,1110.004,1071.0823333333333,0.07376924914145819,823.566,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef16384,0.5996,1163.756,1150.7873333333334,0.060472515274505416,878.17,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma12,ef32768,0.5996,1152.258,1117.2946666666667,0.044276923950802786,868.346,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef16,0.2476,208.086,208.98666666666668,0.009185796846395833,8.547,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef32,0.3199,299.159,297.58233333333334,0.015431669572197378,12.798,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef64,0.3606,224.218,256.2716666666667,0.18305064128681575,21.505,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef128,0.3808,233.719,233.33900000000003,0.002453079189317294,30.504,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef256,0.3917,331.264,309.017,0.13382188884001767,47.809,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef512,0.3985,277.924,283.827,0.03922734553593259,74.534,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef1024,0.4046,331.374,337.17366666666663,0.040474517863762535,121.743,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef2048,0.4088,680.766,656.4013333333334,0.08720089582753383,298.282,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef4096,0.4101,619.413,628.9763333333334,0.08527090711694564,363.711,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef8192,0.4102,978.313,927.9073333333332,0.09157881009019708,764.893,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef16384,0.4102,1010.85,1033.39,0.09062321344393319,718.91,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma2,ef32768,0.4102,947.505,954.4583333333334,0.07923737316342933,714.721,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef16,0.2165,207.045,206.59333333333333,0.005628971305051318,8.768,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef32,0.2758,315.067,328.86566666666664,0.07024153988425949,37.982,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef64,0.3126,222.855,223.92866666666666,0.007505668900879336,20.47,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef128,0.3351,307.532,314.2273333333333,0.030926279134713106,29.259,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef256,0.3465,339.605,336.313,0.020591317530359494,50.238,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef512,0.3545,354.317,354.74033333333335,0.10953761148759948,94.35,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef1024,0.3595,445.966,415.6396666666667,0.14547990847319586,133.064,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef2048,0.363,605.331,588.2563333333334,0.057505586926834405,287.041,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef4096,0.3635,776.553,749.6143333333333,0.07265217442342811,454.19,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef8192,0.3635,925.948,966.0166666666668,0.0853974876713585,687.271,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef16384,0.3635,1142.715,1100.091,0.1314768020527273,726.016,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma4,ef32768,0.3635,895.156,914.997,0.05636997619861966,656.194,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef16,0.3044,211.966,212.92100000000002,0.007786682997533171,12.876,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef32,0.3879,216.934,217.49733333333333,0.005964282619812131,17.518,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef64,0.444,225.138,225.3226666666667,0.00440122743419001,24.54,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef128,0.4836,242.963,258.7896666666667,0.08819056956046471,41.668,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef256,0.5035,253.648,269.71999999999997,0.08543114384534833,52.255,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef512,0.5165,492.14,493.9823333333334,0.044206661549479456,107.759,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef1024,0.5294,335.088,337.79733333333337,0.01611160059329588,130.865,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef2048,0.5334,499.916,492.7169999999999,0.07181065128343177,273.831,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef4096,0.5349,722.424,731.2853333333333,0.07702461701634354,495.45,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef8192,0.5353,1073.03,1100.9206666666666,0.0877632619112802,818.073,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef16384,0.5353,992.266,1026.0523333333333,0.05373059732131894,778.69,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,ACORN,ACORN-gamma8,ef32768,0.5353,950.2,958.8740000000001,0.04803857904375213,708.1,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef8,0.5377,2271.023233,2207.318985,0.10898776902759066,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef16,0.6407,2377.440613,2386.5584944,0.013522511713965157,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef32,0.7017,2468.022533,2451.9025222,0.04267831006820338,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef64,0.7653,2416.162708,2395.0477098,0.018765332038390047,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef128,0.8375,2474.287018,2611.4704724,0.10635279083107366,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef256,0.895,2571.507858,2532.6607771999998,0.03632442394795397,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef512,0.943,2624.251276,2706.3654026,0.08820381303218472,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef1024,0.9637,2749.511475,2731.72608,0.022959308171115595,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef2048,0.9703,2887.321538,2930.0617216,0.07331962768630051,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef4096,0.9709,2869.354547,2860.3458522,0.044957019714033306,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef8192,0.9709,2971.056654,3049.6635024,0.08279195520391473,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,Curator,official_v2_adapter,ef10240,0.9709,2822.111392,2817.2918665999996,0.02358785601656091,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L16,0.9002000000000001,264.667,4699.0296,1.8902934017314736,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L32,0.9071,264.127,415.19719999999995,0.7544147396968318,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L50,0.9113,259.053,264.18919999999997,0.04944058470705004,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L100,0.9162000000000001,308.635,6388.4654,1.893745624268483,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L200,0.9224,258.117,1266.2014,1.5804468105637997,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L500,0.9353999999999999,8580.91,40649.881199999996,1.434633683993007,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L1000,0.9433,315.0,999.6647999999999,1.372488526327102,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L2000,0.9541000000000001,352.653,4468.4021999999995,1.842906895682637,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L5000,0.9665000000000001,457.024,3594.6562,1.7487283913355767,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L10000,0.9732,541.165,554.7794,0.05147635759167884,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,FAVOR,official,L20000,0.9789999999999999,672.32,676.3696,0.014800214037630448,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L16,0.5189,2738.45,2731.198,0.01284832160223047,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L32,0.5748,2681.47,2693.168,0.01793244878347277,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L50,0.5983,2709.69,2705.434,0.022653422763563,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L100,0.6578,2722.63,2670.308,0.04278668905852657,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L200,0.7183,2700.65,2698.808,0.04649479951194125,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L500,0.7575,2763.97,2735.1459999999997,0.024843605542025006,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L1000,0.7638,2756.25,2746.424,0.014495210141197899,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L2000,0.7642,2740.44,2743.4900000000002,0.02744399303745629,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L5000,0.7649,2834.08,2852.002,0.028371452897088072,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L10000,0.7649,2781.49,2784.498,0.012247772684869686,,5,batch total,results_summary/source/external_low_robust.csv
+sel_0p5,NaviX,project_route,L20000,0.7649,2847.87,2860.196,0.015625263201702887,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef16,0.5081,221.808,221.57233333333332,0.004567274483598373,20.222,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef32,0.6067,316.149,315.3426666666667,0.028780539885961194,29.362,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef64,0.6757,336.234,338.3516666666667,0.0256231200661382,46.612,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef128,0.7172,367.346,366.92900000000003,0.024834186014036575,75.055,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef256,0.7425,570.279,543.2913333333333,0.1818373031524439,155.589,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef512,0.7656,468.946,448.02366666666666,0.06658784812943769,255.447,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef1024,0.7781,804.824,770.9153333333334,0.11744443071872673,440.288,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef2048,0.7883,927.673,970.4576666666667,0.08223412376743575,633.888,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef4096,0.7893,1373.653,1345.2666666666667,0.04895175542339099,1041.544,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef8192,0.7907,1790.202,1959.1205999999997,0.1592468871299973,1556.979,5,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef16384,0.7907,2833.203,2780.1290000000004,0.034478863957581846,2564.508,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-1,ef32768,0.7907,5189.957,5606.3859999999995,0.10677458236999793,4949.871,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef16,0.3666,290.957,292.7776666666667,0.014546415548803438,11.395,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef32,0.4924,222.52,259.96433333333334,0.204749089380407,19.347,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef64,0.5613,233.101,233.25433333333334,0.0028559482677034957,28.575,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef128,0.6074,250.886,259.877,0.05593607062468212,42.925,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef256,0.6276,277.284,275.278,0.01572248805725631,66.505,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef512,0.6428,300.509,327.172,0.12051556771212528,95.865,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef1024,0.6578,408.233,421.19800000000004,0.1047510260337546,168.463,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef2048,0.666,674.045,663.457,0.07138421278920347,351.859,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef4096,0.6683,874.488,919.223,0.08635464296823997,642.77,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef8192,0.6684,1229.507,1334.0013333333334,0.12252176502618523,971.461,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef16384,0.6684,2002.338,2134.512666666667,0.09848034089839858,1747.97,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma12,ef32768,0.6684,4310.76,4306.171,0.03901126547236118,4036.549,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef16,0.2695,278.598,267.20300000000003,0.1578847375600836,9.119,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef32,0.3459,308.653,305.69433333333336,0.028906931447855652,16.994,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef64,0.3954,227.9,227.86866666666666,0.00020384327233050295,22.406,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef128,0.4277,235.232,236.56566666666666,0.00972642214234965,31.589,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef256,0.4457,346.688,385.8856666666666,0.1843435861969118,70.693,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef512,0.4573,377.504,383.39799999999997,0.02519904812105892,84.897,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef1024,0.4663,476.778,474.85133333333334,0.05458806843325426,195.299,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef2048,0.4701,534.475,544.4826666666667,0.1124671100497819,268.167,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef4096,0.4733,782.392,800.1840000000001,0.09539637791629652,561.527,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef8192,0.4733,1141.316,1207.7366666666667,0.10353338854831698,884.3,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef16384,0.4733,2259.683,2257.4276666666665,0.14177615026165727,2026.566,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma2,ef32768,0.4733,4127.396,4116.293,0.006054010240717661,3897.901,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef16,0.2473,288.95,291.56266666666664,0.017176598743869825,9.246,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef32,0.3287,306.907,304.23566666666665,0.01788069807262084,15.145,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef64,0.3771,302.988,307.192,0.027130546798437547,22.873,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef128,0.4082,347.124,338.9986666666667,0.05229432596555788,34.119,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef256,0.4198,264.389,269.4433333333333,0.052346387871736726,57.609,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef512,0.4323,288.073,290.18699999999995,0.012183484903374163,83.081,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef1024,0.4365,341.869,344.9693333333333,0.01803376954051925,135.328,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef2048,0.4393,551.974,592.0416666666666,0.17812173123394828,299.341,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef4096,0.4414,1043.32,986.4526666666667,0.09837174285587001,660.304,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef8192,0.4424,1302.323,1412.9489999999998,0.11987517677280679,1056.928,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef16384,0.4424,2061.888,2135.4519999999998,0.1327845559987366,1782.547,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma4,ef32768,0.4424,4154.88,4188.357666666667,0.022998075423543738,3853.103,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef16,0.3201,213.336,214.26133333333334,0.006333322872796772,11.345,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef32,0.4301,222.202,222.3083333333333,0.001970326678997218,17.686,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef64,0.4952,233.855,234.80533333333332,0.007518885871781321,28.312,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef128,0.5517,246.58,255.48533333333333,0.061586090788155815,41.62,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef256,0.5757,266.151,274.33,0.04239362077802353,55.481,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef512,0.5952,305.947,309.22266666666667,0.015523882682971692,101.113,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef1024,0.6093,404.851,395.06600000000003,0.05784415540841045,180.711,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef2048,0.6148,578.786,589.5133333333333,0.1099942888558894,335.77,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef4096,0.6165,806.262,807.381,0.00616284935921224,590.146,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef8192,0.6173,1221.813,1370.0576666666666,0.20013638942450346,912.504,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef16384,0.6173,1901.62,1974.6543333333332,0.08457233695359019,1679.566,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,ACORN,ACORN-gamma8,ef32768,0.6173,4344.528,4464.453333333334,0.038826346878064445,4124.029,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef8,0.5463,2842.864946,2752.4596664,0.26203365923513794,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef16,0.6565,2841.942927,2891.5095886,0.030770392194403966,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef32,0.7176,2918.961504,2859.3065016,0.16976758147040222,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef64,0.7816,2955.381951,2952.2737716,0.013870667992514574,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef128,0.8608,3005.508709,3152.3314258,0.10630804790723676,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef256,0.9173,2943.856884,2976.7994719999997,0.030303661154790273,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef512,0.9582,2886.602743,2916.0794984,0.03323493909151162,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef1024,0.9757,3139.046098,3087.3304676,0.030211950920884308,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef2048,0.9805,3094.235446,3107.5133895999998,0.02723611312349173,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef4096,0.983,2918.653134,2930.2281596000003,0.055027783267161345,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef8192,0.9832,3097.471007,3067.4506518000003,0.04348018935751449,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,Curator,official_v2_adapter,ef10240,0.9832,3161.893326,3165.2761874,0.0019269690166983026,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L16,0.8257999999999999,268.407,16979.584199999998,1.9304959035897682,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L32,0.8352999999999999,247.344,246.8104,0.03410679677374941,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L50,0.8425,246.448,3935.3884000000007,1.8723735363252878,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L100,0.8550000000000001,280.077,2433.0972,1.772967746988425,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L200,0.8716000000000002,292.338,294.7842,0.033613139493334485,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L500,0.8924999999999998,22189.5,19038.4556,0.9438432576040419,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L1000,0.9094,403.783,438.351,0.1622893960465355,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L2000,0.9318,490.384,687.691,0.572524602590017,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L5000,0.9570000000000001,692.9,699.9622,0.027834450947372243,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L10000,0.9711000000000001,903.343,905.7268,0.015791686753990505,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,FAVOR,official,L20000,0.9791000000000001,1199.27,1213.83,0.03276417707656848,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L16,0.5387,2779.31,2747.732,0.0390174642571873,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L32,0.5886,2780.92,2735.752,0.04134102484412985,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L50,0.6245,2748.15,2764.606,0.014413620033238959,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L100,0.6976,2798.2,2784.352,0.015597709338085337,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L200,0.7502,2785.0,2691.6400000000003,0.09505929212255985,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L500,0.7776,2801.17,2785.498,0.01394289344206487,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L1000,0.7855,2800.22,2805.388,0.014544900632992613,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L2000,0.7896,2836.41,2844.884,0.017658460869293485,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L5000,0.7899,2917.89,2898.15,0.012474135232941122,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L10000,0.7899,2886.67,2885.362,0.00693550207270904,,5,batch total,results_summary/source/external_low_robust.csv
+sel_1,NaviX,project_route,L20000,0.7899,2861.12,2886.5860000000002,0.025101341672210887,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef16,0.5516,263.34,268.305,0.05880599305081676,27.929,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef32,0.6807,415.068,403.654,0.07769770008995235,45.12,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef64,0.7706,494.469,489.60566666666665,0.02686490605223099,124.809,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef128,0.8202,530.805,526.0636666666666,0.023196150923099804,163.811,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef256,0.8544,647.219,632.143,0.07620978845732515,284.275,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef512,0.8737,829.481,826.9456666666666,0.09340513506886519,352.36,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef1024,0.8854,940.173,943.4326666666666,0.037656871618232134,544.069,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef2048,0.8914,1391.154,1396.1456666666666,0.0068687295784113055,1029.626,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef4096,0.8946,1967.042,2035.9276666666665,0.06209587108794797,1721.823,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef8192,0.8959,3667.147,3656.548666666667,0.005360556620482038,3414.435,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef16384,0.8968,7873.439,7916.6946,0.02083283925583862,7642.445,5,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-1,ef32768,0.8968,21153.105,21120.06133333333,0.006706353780455787,20861.708,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef16,0.4746,238.322,247.6496666666667,0.05360901989076444,16.446,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef32,0.6181,255.281,272.77233333333334,0.09421983580884669,32.176,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef64,0.7105,467.55,464.47599999999994,0.01708441673749677,45.098,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef128,0.7678,375.839,398.26,0.09017879360599718,69.961,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef256,0.7978,543.8,505.58,0.10984542587097006,124.735,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef512,0.8229,556.4,558.6246666666666,0.05088240652717472,239.91,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef1024,0.83,760.479,725.246,0.0988185127238444,337.181,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef2048,0.8412,917.901,917.4773333333333,0.07413287579567004,589.917,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef4096,0.8439,1243.152,1362.4246666666666,0.12909445842377756,958.188,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef8192,0.8458,2298.214,2355.7906666666663,0.0516009455081287,2055.102,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef16384,0.8464,5690.414,5736.111666666667,0.030292577715851567,5443.243,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma12,ef32768,0.8464,16161.916,16177.027333333333,0.01198063138214226,15917.295,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef16,0.4486,308.306,311.6433333333334,0.019505447065825115,18.844,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef32,0.5858,286.406,295.08233333333334,0.12708695549655713,30.505,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef64,0.6748,273.637,285.5063333333333,0.06548382994485288,45.0,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef128,0.7368,475.413,486.76966666666664,0.06476139210376905,102.897,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef256,0.7658,470.786,442.56033333333335,0.11977725102039335,136.404,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef512,0.7908,616.951,573.8986666666666,0.10734598972418884,221.414,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef1024,0.8031,585.458,651.8336666666667,0.1529875062177564,290.82,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef2048,0.8128,866.956,877.8633333333333,0.08077712868846616,554.018,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef4096,0.818,1295.215,1344.9543333333334,0.12308019195051925,957.926,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef8192,0.8194,2197.637,2284.4243333333334,0.06949549178323285,1950.555,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef16384,0.8195,5292.333,5338.264,0.022987705968974613,5048.532,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma2,ef32768,0.8195,16570.617,16486.467,0.01875245517440398,16270.73,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef16,0.4709,309.113,309.4893333333334,0.013423057339460021,16.925,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef32,0.5994,324.893,326.11133333333333,0.022980155506013587,26.719,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef64,0.6848,339.139,340.6673333333333,0.014977983598053699,43.549,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef128,0.7482,452.346,442.786,0.047635370240247804,95.123,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef256,0.7828,415.692,413.89366666666666,0.013728181014257377,115.811,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef512,0.8045,485.301,537.5953333333333,0.14876724893680182,178.943,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef1024,0.8148,689.071,649.6223333333334,0.14596480110585083,340.807,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef2048,0.8211,947.29,962.1216666666666,0.0781444188704683,554.91,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef4096,0.8245,1299.562,1272.6823333333334,0.0504420364925177,1004.744,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef8192,0.825,2341.778,2397.1746666666663,0.09042985816367216,2073.78,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef16384,0.8251,5638.843,5584.649666666667,0.017033918420787584,5371.799,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma4,ef32768,0.8251,16298.202,16402.684666666668,0.01776217813478873,16048.391,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef16,0.4756,305.362,303.8016666666667,0.008853992026930255,16.576,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef32,0.6026,325.508,326.01466666666664,0.015921370534929122,28.05,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef64,0.695,476.359,463.435,0.04480593190927929,42.834,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef128,0.7579,402.98,402.75800000000004,0.015703965752231187,97.911,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef256,0.7867,464.357,464.521,0.003410332528820441,153.68,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef512,0.809,572.007,565.9879999999999,0.03900190391425556,233.783,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef1024,0.8201,716.113,705.7553333333334,0.12267265474559141,341.124,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef2048,0.8278,1020.609,984.8316666666666,0.07232402604723327,667.817,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef4096,0.8316,1342.07,1397.5910000000001,0.08853888070913477,1031.601,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef8192,0.8333,2417.627,2451.491,0.03050640387877543,2168.633,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef16384,0.8339,5580.088,5584.616666666666,0.008462325648167662,5322.412,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,ACORN,ACORN-gamma8,ef32768,0.8341,16142.013,16368.751333333334,0.038323128966892384,15887.181,3,lookup + materialize + ANN search,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef8,0.4959,2295.603325,2296.247141,0.013513635655342077,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef16,0.5856,2301.642876,2446.0361806,0.1291844464269253,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef32,0.6354,2313.487664,2317.7312819999997,0.011170615452732282,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef64,0.6971,2322.694904,2335.3433124,0.013339047225922312,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef128,0.7603,2331.400895,2316.683384,0.016254295334714525,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef256,0.8315,2359.862012,2366.269366,0.016354879416847146,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef512,0.8838,2369.478427,2552.2669202,0.1580654443712596,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef1024,0.929,2350.428447,2329.4824214,0.01422387362624157,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef2048,0.9561,2369.248905,2509.5935194,0.1284663469680177,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef4096,0.9731,2213.024559,2224.4237302,0.02016770166540286,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef8192,0.9805,1492.093921,1653.6411738,0.18332787437740772,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,Curator,official_v2_adapter,ef10240,0.9816,1420.208082,1437.580129,0.048037979733441864,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L16,0.2525,88.7072,98.94095999999999,0.1823597509555767,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L32,0.3431,126.316,128.6432,0.09622249779545552,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L50,0.4105,142.161,153.076,0.14151861299859708,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L100,0.5128,194.209,197.1564,0.05343807375397102,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L200,0.603,277.773,287.5946,0.07394406672164353,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L500,0.702,483.754,497.3764,0.06262767760701815,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L1000,0.769,736.491,770.0004,0.09123567952410713,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L2000,0.8295,1104.59,1136.132,0.05630632487466429,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L5000,0.8901,1839.02,1839.506,0.005615980273874045,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L10000,0.9204000000000001,2641.12,2635.204,0.005229700382638189,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,FAVOR,official,L20000,0.9400999999999999,3736.46,3737.154,0.0034838394516251807,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L16,0.6236,2859.62,2712.926,0.0952592204736797,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L32,0.6907,2909.72,2780.8959999999997,0.09482291474935683,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L50,0.7209,2834.45,2694.1279999999997,0.08452298213928265,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L100,0.7862,2875.57,2777.804,0.07002512521381557,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L200,0.8522000000000001,2860.82,2755.468,0.07308762555970538,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L500,0.8847000000000002,2802.6,2786.852,0.033590657242396495,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L1000,0.8972,2882.95,2798.0739999999996,0.06504409561870574,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L2000,0.9036,2848.3,2842.102,0.038688168595894724,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L5000,0.9071,3268.43,3248.4199999999996,0.03571066760182238,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L10000,0.9074,3964.51,3916.958,0.038517414694776625,,5,batch total,results_summary/source/external_low_robust.csv
+sel_10,NaviX,project_route,L20000,0.9076000000000001,4712.63,4678.132,0.022007700692764386,,5,batch total,results_summary/source/external_low_robust.csv
+sel_50,NaviX,project route,L50,0.8295999999999999,2646.9700000000003,2654.74,0.06772222214746976,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,NaviX,project route,L100,0.8695,2612.825,2614.27,0.06548226402807103,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,NaviX,project route,L200,0.8899000000000001,2690.37,2679.8900000000003,0.05847299746481984,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,NaviX,project route,L500,0.9054,2645.79,2636.935,0.06810580951280226,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,NaviX,project route,L1000,0.9109999999999999,2654.2,2685.46,0.06214096907175359,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,NaviX,project route,L2000,0.9204000000000001,2775.27,2786.7200000000003,0.056117087058498626,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,NaviX,project route,L5000,0.9218,2975.215,2977.7925,0.04419763294398729,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,NaviX,project route,L10000,0.922,3299.23,3322.7125,0.04102056489140228,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,NaviX,project route,L20000,0.922,3773.2650000000003,3796.5325000000003,0.018902938688993492,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,NaviX,project route,L50,0.8467,2111.19,2105.605,0.029895957142927896,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,NaviX,project route,L100,0.8867,2100.27,2099.465,0.01885070622936369,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,NaviX,project route,L200,0.9179,2065.955,2079.9975,0.016792399346186107,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,NaviX,project route,L500,0.9379,2109.935,2106.73,0.004509464279512388,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,NaviX,project route,L1000,0.9521,2192.955,2208.035,0.015570776343590166,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,NaviX,project route,L2000,0.9606,2343.29,2354.4975,0.012974254098794196,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,NaviX,project route,L5000,0.9619,2595.34,2592.425,0.020850228898680732,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,NaviX,project route,L10000,0.9621999999999999,3094.1,3099.395,0.016161111071213152,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,NaviX,project route,L20000,0.9625,3953.82,3940.0275,0.016068580469657943,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,NaviX,project route,L50,0.7789,2219.23,2292.485,0.06384428499932716,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,NaviX,project route,L100,0.8344000000000001,2254.415,2378.1525,0.10599231447684829,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,NaviX,project route,L200,0.8634999999999999,2248.865,2366.6275,0.09733072029947486,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,NaviX,project route,L500,0.8972999999999999,2376.27,2380.3625,0.06358283176074145,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,NaviX,project route,L1000,0.9071999999999999,2449.245,2463.09,0.06496420627779033,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,NaviX,project route,L2000,0.9153,2413.74,2495.37,0.059434436272522116,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,NaviX,project route,L5000,0.9173,2826.495,2865.7975,0.040732584804942046,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,NaviX,project route,L10000,0.9183,3564.1,3624.7075,0.04564987053998433,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,NaviX,project route,L20000,0.9190000000000002,4315.125,4320.5625,0.0075502189322615015,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,FAVOR,official,L50,0.8323,160.9035,161.57425,0.014171561476829103,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,FAVOR,official,L100,0.8644000000000001,200.9295,200.16575,0.008636836072605904,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,FAVOR,official,L200,0.8991,269.121,4826.76325,1.6360779787101523,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,FAVOR,official,L500,0.9335000000000001,844.4425,4497.31225,1.4626792464355993,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,FAVOR,official,L1000,0.9526999999999999,621.4625,623.25275,0.024853663117501135,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,FAVOR,official,L2000,0.9679,890.8875,891.89,0.009580671189108965,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,FAVOR,official,L5000,0.9806000000000001,1461.3249999999998,1462.4299999999998,0.005048306029338279,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,FAVOR,official,L10000,0.9884999999999999,2097.42,2098.735,0.005882707133475283,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,FAVOR,official,L20000,0.9917,2951.7250000000004,2950.635,0.0025926672414135253,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,FAVOR,official,L50,0.8042999999999999,130.883,137.46550000000002,0.08670375392087162,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,FAVOR,official,L100,0.8438000000000001,179.5315,179.202,0.009671912357818708,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,FAVOR,official,L200,0.892,265.8405,264.6245,0.010098716901397893,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,FAVOR,official,L500,0.9304,456.13599999999997,456.32550000000003,0.0017905412068304385,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,FAVOR,official,L1000,0.9534,700.2835,701.124,0.004012303384056931,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,FAVOR,official,L2000,0.966,1070.185,1069.565,0.002353244128284565,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,FAVOR,official,L5000,0.9806000000000001,1791.84,1792.5525,0.002510893012825611,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,FAVOR,official,L10000,0.9899000000000001,2621.135,2618.0325,0.005247535800809969,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_75,FAVOR,official,L20000,0.9917,3763.995,3758.35,0.003735881337252433,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,FAVOR,official,L50,0.4686,123.931,127.01025,0.08394540222749676,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,FAVOR,official,L100,0.5345,171.096,169.77875,0.031738076766094234,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,FAVOR,official,L200,0.6203,250.60000000000002,251.99325,0.017341924681289367,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,FAVOR,official,L500,0.7258,449.9015,454.13625,0.020856496003637676,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,FAVOR,official,L1000,0.7962,694.2165,695.6795,0.012304607195786035,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,FAVOR,official,L2000,0.8480000000000001,1046.95,1050.3175,0.012371055088002127,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,FAVOR,official,L5000,0.9132999999999999,1754.6799999999998,1765.3775,0.012485554254735468,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,FAVOR,official,L10000,0.9474,2553.34,2558.105,0.005293801503702033,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_25,FAVOR,official,L20000,0.9673999999999999,3603.285,3607.2825000000003,0.003706533908060052,,4,warm total batch; cold repeat excluded,results_summary/source/navix_favor_robust.csv
+sel_50,Curator,official v2 adapter,ef64,0.7039,2538.070906,2512.4001892,0.07208305291602224,,5,batch total,results_summary/source/curator_robust.csv
+sel_50,Curator,official v2 adapter,ef128,0.7567,2531.357729,2673.082744,0.12640847672945663,,5,batch total,results_summary/source/curator_robust.csv
+sel_50,Curator,official v2 adapter,ef256,0.8108,2471.191035,2480.749651,0.031888481043966944,,5,batch total,results_summary/source/curator_robust.csv
+sel_50,Curator,official v2 adapter,ef512,0.8657,2414.248528,2572.5776842,0.14321260080561443,,5,batch total,results_summary/source/curator_robust.csv
+sel_50,Curator,official v2 adapter,ef1024,0.9037,2432.418302,2428.234979,0.019685729687734656,,5,batch total,results_summary/source/curator_robust.csv
+sel_50,Curator,official v2 adapter,ef2048,0.9357,2444.653456,2571.688961,0.1339437360425808,,5,batch total,results_summary/source/curator_robust.csv
+sel_50,Curator,official v2 adapter,ef4096,0.9571,2006.397782,2012.3463012,0.12349689628007622,,5,batch total,results_summary/source/curator_robust.csv
+sel_50,Curator,official v2 adapter,ef8192,0.9718,1762.008203,1867.7756844,0.17434606031068628,,5,batch total,results_summary/source/curator_robust.csv
+sel_50,Curator,official v2 adapter,ef10240,0.9742,1590.117413,1596.0924366,0.03025457370683403,,5,batch total,results_summary/source/curator_robust.csv
+sel_75,Curator,official v2 adapter,ef64,0.6497,2939.128109,2740.7634826,0.1589093080836174,,5,batch total,results_summary/source/curator_robust.csv
+sel_75,Curator,official v2 adapter,ef128,0.7012,2990.498392,3030.5730518,0.09628289326877369,,5,batch total,results_summary/source/curator_robust.csv
+sel_75,Curator,official v2 adapter,ef256,0.7652,2864.333569,2891.5562886000002,0.05431967361924817,,5,batch total,results_summary/source/curator_robust.csv
+sel_75,Curator,official v2 adapter,ef512,0.8268,2836.590317,3023.1200848,0.13745741754748383,,5,batch total,results_summary/source/curator_robust.csv
+sel_75,Curator,official v2 adapter,ef1024,0.8771,2733.003743,2700.0377078,0.03381225410824709,,5,batch total,results_summary/source/curator_robust.csv
+sel_75,Curator,official v2 adapter,ef2048,0.9167,2681.180911,2702.2037452,0.12434197157305364,,5,batch total,results_summary/source/curator_robust.csv
+sel_75,Curator,official v2 adapter,ef4096,0.9411,2245.95149,2286.6952278,0.039430768771154284,,5,batch total,results_summary/source/curator_robust.csv
+sel_75,Curator,official v2 adapter,ef8192,0.9588,1997.231135,2142.0723192,0.17076980259783872,,5,batch total,results_summary/source/curator_robust.csv
+sel_75,Curator,official v2 adapter,ef10240,0.9629,1942.861971,1944.342558,0.01177507856322364,,5,batch total,results_summary/source/curator_robust.csv
+sel_25,Curator,official v2 adapter,ef64,0.67,2463.111723,2446.629075,0.03096850328323968,,5,batch total,results_summary/source/curator_robust.csv
+sel_25,Curator,official v2 adapter,ef128,0.7406,2701.335384,2684.091711,0.025286548705797447,,5,batch total,results_summary/source/curator_robust.csv
+sel_25,Curator,official v2 adapter,ef256,0.8132,2910.589042,3095.7574502,0.14252344630521188,,5,batch total,results_summary/source/curator_robust.csv
+sel_25,Curator,official v2 adapter,ef512,0.8704,2880.129208,2862.8066052,0.015365680609563582,,5,batch total,results_summary/source/curator_robust.csv
+sel_25,Curator,official v2 adapter,ef1024,0.9147,2862.190798,2983.2740846,0.11958053190751494,,5,batch total,results_summary/source/curator_robust.csv
+sel_25,Curator,official v2 adapter,ef2048,0.9415,2803.604698,2810.244401,0.005356710884848084,,5,batch total,results_summary/source/curator_robust.csv
+sel_25,Curator,official v2 adapter,ef4096,0.961,2807.379204,2923.5807494,0.11725184750720372,,5,batch total,results_summary/source/curator_robust.csv
+sel_25,Curator,official v2 adapter,ef8192,0.9723,1999.261905,2103.0217514,0.07855380073889529,,5,batch total,results_summary/source/curator_robust.csv
+sel_25,Curator,official v2 adapter,ef10240,0.9744,1838.553629,1953.601857,0.1648959732708451,,5,batch total,results_summary/source/curator_robust.csv
+sel_25,ACORN,ACORN-1,ef64,0.7287,506.039,512.9613333333333,0.031601033929506146,115.618,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-1,ef256,0.8375,503.358,513.3973333333333,0.0747605905434078,255.597,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-1,ef1024,0.878,881.777,1003.6306666666668,0.2262134111670599,569.191,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-1,ef4096,0.8951,1983.78,2114.8816666666667,0.0987281939495648,1685.881,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-1,ef8192,0.8997,3665.36,3661.559333333333,0.01943530812230095,3399.846,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-1,ef16384,0.9011,8207.948,8258.4426,0.03299949020249774,7943.332,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-1,ef32768,0.9014,24691.078,24917.078666666668,0.021391263433221803,24407.468,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-1,ef64,0.6475,378.656,377.1623333333334,0.053158965067501666,81.549,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-1,ef256,0.7665,552.609,551.584,0.014036187022084801,271.72,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-1,ef1024,0.8204,958.193,1020.3953333333334,0.1336698432602155,641.451,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-1,ef4096,0.8477,1949.052,2020.2026666666668,0.11857839035386139,1683.381,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-1,ef8192,0.8531,3106.804,3121.0262000000002,0.017203838011013464,2864.419,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-1,ef16384,0.855,7144.638,7095.526000000001,0.01758618977576449,6887.904,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-1,ef32768,0.8563,23003.546,23111.642666666667,0.009144650937683416,22662.405,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-1,ef64,0.6085,407.715,408.15766666666667,0.04826480561630479,92.851,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-1,ef256,0.7626,677.739,668.5563333333333,0.020708641147790533,265.102,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-1,ef1024,0.8359,1003.361,1026.2693333333334,0.06788041431397614,655.246,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-1,ef4096,0.8716,2109.504,2149.7108,0.0559555766110214,1792.638,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-1,ef8192,0.8821,3734.476,3734.3250000000003,0.0349688898468638,3451.499,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-1,ef16384,0.8861,8575.101,8621.907333333334,0.008590713481679274,8271.327,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-1,ef32768,0.8875,29771.131,29868.24166666667,0.015628197265557055,29465.953,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef16,0.5042,334.934,333.72860000000003,0.05449454378878148,39.683,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef32,0.6317,429.168,428.8504,0.09125002456630846,48.83,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef64,0.713,276.646,277.9898,0.05626683051366815,67.913,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef128,0.7725,307.436,309.1806,0.024584923156254004,81.951,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef256,0.8058,410.917,421.5628,0.11327153436617338,151.916,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef512,0.8272,653.28,654.7196,0.12587104276128308,232.029,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef1024,0.8437,639.325,646.8622,0.09160982688927086,399.464,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef2048,0.8502,882.347,940.2041999999999,0.1575977343371827,637.029,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef4096,0.8559,1514.963,1498.277,0.094643899742489,1117.567,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef8192,0.8573,2647.754,2606.9043333333334,0.023107224102222344,2328.158,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef16384,0.8582,6477.969,6477.0070000000005,0.01987023045885173,6220.115,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma12,ef32768,0.8582,21905.998,22164.210000000003,0.01712103512801358,21646.67,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef16,0.5221,242.092,233.8866,0.06841478602044722,21.8,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef32,0.6454,260.391,267.1752,0.14225252689854676,34.922,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef64,0.7221,274.55,308.8836,0.16163083544660492,65.716,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef128,0.766,465.194,458.5852,0.05193688440146298,101.139,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef256,0.7923,494.382,488.64459999999997,0.11609887327184189,179.79,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef512,0.8047,699.586,690.609,0.08100835352478401,264.063,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef1024,0.8124,729.144,758.853,0.08900967304277263,399.738,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef2048,0.8149,947.877,1040.9238,0.13354974361916477,700.747,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef4096,0.8161,1573.655,1631.771,0.14665264365490685,1250.831,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef8192,0.8164,2782.38,2746.503,0.0226968142127601,2479.354,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef16384,0.8165,6509.153,6543.123333333333,0.020989817871311076,6254.723,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma12,ef32768,0.8165,22425.385,22229.588666666667,0.029047996670899516,22149.122,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef16,0.5766,357.614,358.5682,0.0866908464964024,26.315,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef32,0.7044,369.491,380.0254,0.10122224593259634,43.944,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef64,0.7727,376.809,400.4196,0.11696172969611696,69.199,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef128,0.8131,411.391,410.81859999999995,0.021377626486924668,120.741,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef256,0.8398,508.222,531.7128,0.0959149467850682,213.667,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef512,0.8557,670.157,693.1716,0.06857018946928076,369.862,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef1024,0.8662,774.375,804.1126,0.092032199014894,503.822,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef2048,0.871,1148.216,1237.8022,0.19609587052166433,843.998,5,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef4096,0.8731,1916.634,1927.5296666666666,0.10186488340133598,1546.644,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef8192,0.8746,3269.092,3253.6586666666667,0.026345262208329966,2988.898,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef16384,0.875,7844.616,7983.685,0.0360007565539823,7553.535,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma12,ef32768,0.875,28118.689,28046.890666666663,0.004862589365950479,27825.99,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma2,ef1024,0.8135,609.6,644.1216666666667,0.0781158229541279,378.453,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma2,ef4096,0.832,1399.738,1522.8346666666666,0.15534736556578288,1084.18,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma2,ef16384,0.8362,6260.546,6311.02,0.01913093605619366,5983.828,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma2,ef1024,0.7496,823.632,842.6786666666667,0.09732955495538219,509.412,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma2,ef4096,0.7577,1431.347,1546.0423333333335,0.11198322744114593,1147.99,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma2,ef16384,0.7595,6033.102,6110.891333333333,0.020847898933722197,5784.112,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma2,ef1024,0.8533,933.537,911.861,0.09463444929078574,532.552,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma2,ef4096,0.8629,1836.824,1820.7849999999999,0.038257821410358855,1430.908,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma2,ef16384,0.8662,7760.336,7781.218333333333,0.010520042492737131,7454.779,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma4,ef1024,0.8379,695.195,684.5276666666667,0.06198531008501485,379.102,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma4,ef4096,0.8505,1308.976,1463.5603333333336,0.17236535494301816,1061.12,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma4,ef16384,0.8534,6384.964,6474.011666666666,0.024843146469808234,6129.638,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma4,ef1024,0.7624,789.985,763.6873333333333,0.10957086388849699,451.199,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma4,ef4096,0.7686,1660.041,1672.3353333333332,0.0520570587844356,1338.536,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma4,ef16384,0.77,6263.178,6337.647333333333,0.040003897074027676,6008.3,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma4,ef1024,0.861,1004.057,1032.8296666666668,0.16790958691345495,721.044,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma4,ef4096,0.8691,1859.553,1923.3913333333333,0.07961181871301883,1543.143,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma4,ef16384,0.8719,8025.579,7966.389,0.015233884089059253,7733.147,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma8,ef1024,0.8332,658.859,706.1736666666666,0.1149275113244962,425.635,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma8,ef4096,0.8438,1340.786,1454.8419999999999,0.13077195338260866,1092.07,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_25,ACORN,ACORN-gamma8,ef16384,0.847,6741.19,6561.958333333333,0.050635757535468236,6479.469,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma8,ef1024,0.7984,740.043,782.266,0.12765947260117463,457.819,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma8,ef4096,0.8035,1535.926,1659.3193333333331,0.11498205877499458,1279.204,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_50,ACORN,ACORN-gamma8,ef16384,0.8037,6105.736,6216.970666666667,0.028124728048213782,5832.657,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma8,ef1024,0.8621,907.261,932.324,0.09575656814051067,590.176,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma8,ef4096,0.8704,1759.327,1849.255,0.1005290044652123,1431.973,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv
+sel_75,ACORN,ACORN-gamma8,ef16384,0.8723,8223.703,8333.831333333334,0.029666155400540684,7919.287,3,lookup + materialize + ANN search,results_summary/source/acorn_robust.csv

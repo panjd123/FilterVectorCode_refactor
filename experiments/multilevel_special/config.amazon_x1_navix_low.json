@@ -1,0 +1,14 @@
+{
+  "data_root": "/home/graphdb/FilterVectorData",
+  "result_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/external_baselines/navix_low_selectivity",
+  "source_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/UNG/codes",
+  "build_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel",
+  "auto_compile": false, "data_type": "float", "dist_fn": "L2", "scenario": "containment", "index_name": "NaviX", "method_name": "NaviX",
+  "build": {"num_threads": 60, "max_degree": 64, "Lbuild": 200, "alpha": 1.2, "index_type": "NaviX"},
+  "search": {"K": 10, "num_repeats": 5, "num_threads": 100, "num_entry_points": 16, "lsearch_start": 16, "lsearch_end": 20000, "lsearch_step": 16, "lsearch_values": [16,32,50,100,200,500,1000,2000,5000,10000,20000], "efs_start": 1, "efs_step_slow": 1, "efs_step_fast": 1, "lsearch_threshold": 1000},
+  "datasets": [
+    {"dataset":"Amazon","query_task":"query_minlen5_avgsel05pct","index_path_prefix":"/home/graphdb/FilterVectorResult/Amazon/index/NaviX/index_files","groundtruth_file":"/home/graphdb/FilterVectorResult/Amazon/GroundTruth/query_minlen5_avgsel05pct/Amazon_gt_labels_containment.bin"},
+    {"dataset":"Amazon","query_task":"query_minlen5_avgsel1pct","index_path_prefix":"/home/graphdb/FilterVectorResult/Amazon/index/NaviX/index_files","groundtruth_file":"/home/graphdb/FilterVectorResult/Amazon/GroundTruth/query_minlen5_avgsel1pct/Amazon_gt_labels_containment.bin"},
+    {"dataset":"Amazon","query_task":"query_minlen3_avgsel10pct","index_path_prefix":"/home/graphdb/FilterVectorResult/Amazon/index/NaviX/index_files","groundtruth_file":"/home/graphdb/FilterVectorResult/Amazon/GroundTruth/query_minlen3_avgsel10pct/Amazon_gt_labels_containment.bin"}
+  ]
+}

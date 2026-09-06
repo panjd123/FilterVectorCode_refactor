@@ -96,9 +96,206 @@ constexpr char kSpecialBlockMetadataMagicV2[8] = {'S', 'B', 'L', 'K', '0', '0', 
 constexpr char kSpecialBlockMetadataMagicV3[8] = {'S', 'B', 'L', 'K', '0', '0', '3', '\0'};
 constexpr uint32_t kSpecialBlockMetadataVersion = 3;
 
+bool validate_special_block_metadata_impl(
+    const std::vector<SpecialBlock> &blocks,
+    std::string &error)
+{
+   std::unordered_map<IdxType, IdxType> middle_group_owner;
+   std::unordered_map<IdxType, IdxType> upper_group_owner;
+   std::vector<IdxType> child_parent(blocks.size() + 1, 0);
+   for (size_t index = 0; index < blocks.size(); ++index)
+   {
+      const SpecialBlock &block = blocks[index];
+      if (block.block_id != index + 1)
+      {
+         error = "special block ids must be dense and one-based";
+         return false;
+      }
+      if (block.level > 1)
+      {
+         error = "special block metadata supports only middle level 0 and upper level 1";
+         return false;
+      }
+      if (block.member_group_ids.empty())
+      {
+         error = "special block must contain at least one direct member group";
+         return false;
+      }
+      if (block.root_labels.empty())
+      {
+         error = "special block root label path cannot be empty";
+         return false;
+      }
+      if (block.point_count == 0 || block.subtree_point_count < block.point_count)
+      {
+         error = "special block point counts are inconsistent";
+         return false;
+      }
+      if (block.root_group_id == 0 ||
+          std::find(block.member_group_ids.begin(), block.member_group_ids.end(),
+                    block.root_group_id) == block.member_group_ids.end())
+      {
+         error = "special block root group must be a direct member";
+         return false;
+      }
+      if (block.level == 1 && block.parent_block_id != 0)
+      {
+         error = "upper special block cannot have a parent block";
+         return false;
+      }
+      if (block.parent_block_id != 0)
+      {
+         if (block.level != 0 || block.parent_block_id > blocks.size() ||
+             blocks[block.parent_block_id - 1].level != 1)
+         {
+            error = "middle special block parent must reference an upper block";
+            return false;
+         }
+      }
+      auto &owners = block.level == 0 ? middle_group_owner : upper_group_owner;
+      for (IdxType group_id : block.member_group_ids)
+      {
+         if (group_id == 0 || !owners.emplace(group_id, block.block_id).second)
+         {
+            error = "a group may belong to at most one special block per layer";
+            return false;
+         }
+      }
+      for (IdxType child_id : block.child_block_ids)
+      {
+         if (child_id == 0 || child_id > blocks.size() || child_id == block.block_id ||
+             blocks[child_id - 1].level != block.level)
+         {
+            error = "special block child must reference a distinct block in the same layer";
+            return false;
+         }
+         if (child_parent[child_id] != 0)
+         {
+            error = "a special block may have at most one same-layer parent";
+            return false;
+         }
+         child_parent[child_id] = block.block_id;
+      }
+   }
+
+   // A valid layer is a forest.  Unique parents alone do not exclude a cycle
+   // (for example 1->2->1), so walk the parent chain from every block.
+   std::vector<uint8_t> visit(blocks.size() + 1, 0);
+   for (IdxType start = 1; start <= blocks.size(); ++start)
+   {
+      IdxType current = start;
+      while (current != 0 && visit[current] == 0)
+      {
+         visit[current] = 1;
+         current = child_parent[current];
+      }
+      if (current != 0 && visit[current] == 1)
+      {
+         error = "special block child topology contains a cycle";
+         return false;
+      }
+      current = start;
+      while (current != 0 && visit[current] == 1)
+      {
+         visit[current] = 2;
+         current = child_parent[current];
+      }
+   }
+   error.clear();
+   return true;
+}
+
+bool is_label_path_prefix(const std::vector<LabelType> &prefix,
+                          const std::vector<LabelType> &path,
+                          bool require_strict)
+{
+   if (prefix.size() > path.size() || (require_strict && prefix.size() == path.size()))
+      return false;
+   return std::equal(prefix.begin(), prefix.end(), path.begin());
+}
+
+bool validate_special_block_graph_semantics_impl(
+    const std::vector<SpecialBlock> &blocks,
+    IdxType num_points,
+    IdxType num_groups,
+    const std::vector<std::vector<LabelType>> &group_labels,
+    const std::vector<std::pair<IdxType, IdxType>> &group_ranges,
+    const std::vector<IdxType> &point_to_group,
+    std::string &error)
+{
+   if (group_labels.size() <= num_groups || group_ranges.size() <= num_groups ||
+       point_to_group.size() != num_points)
+   {
+      error = "source UNG group metadata is incomplete";
+      return false;
+   }
+
+   for (const SpecialBlock &block : blocks)
+   {
+      uint64_t actual_point_count = 0;
+      for (IdxType group_id : block.member_group_ids)
+      {
+         if (group_id == 0 || group_id > num_groups)
+         {
+            error = "special block contains an invalid direct member group";
+            return false;
+         }
+         const auto &range = group_ranges[group_id];
+         if (range.first > range.second || range.second > num_points)
+         {
+            error = "special block direct member has an invalid point range";
+            return false;
+         }
+         if (!is_label_path_prefix(block.root_labels, group_labels[group_id], false))
+         {
+            error = "special block root labels do not contain every direct member group";
+            return false;
+         }
+         actual_point_count += static_cast<uint64_t>(range.second - range.first);
+      }
+      if (actual_point_count != block.point_count)
+      {
+         error = "special block point_count does not match its direct member ranges";
+         return false;
+      }
+      if (block.entry_point_id == SpecialBlock::kInvalidEntryPoint ||
+          block.entry_point_id >= num_points ||
+          std::find(block.member_group_ids.begin(), block.member_group_ids.end(),
+                    point_to_group[block.entry_point_id]) == block.member_group_ids.end())
+      {
+         error = "special block entry point is not in a direct member group";
+         return false;
+      }
+
+      for (IdxType child_id : block.child_block_ids)
+      {
+         const SpecialBlock &child = blocks[child_id - 1];
+         if (!is_label_path_prefix(block.root_labels, child.root_labels, true))
+         {
+            error = "same-layer child root is not a strict trie descendant";
+            return false;
+         }
+      }
+      if (block.level == 0 && block.parent_block_id != 0)
+      {
+         const SpecialBlock &upper = blocks[block.parent_block_id - 1];
+         if (!is_label_path_prefix(upper.root_labels, block.root_labels, false))
+         {
+            error = "upper block does not contain its middle-layer member block";
+            return false;
+         }
+      }
+   }
+   error.clear();
+   return true;
+}
+
 void write_special_block_metadata_binary_impl(const std::string &path,
                                               const std::vector<SpecialBlock> &blocks)
 {
+   std::string validation_error;
+   if (!validate_special_block_metadata_impl(blocks, validation_error))
+      throw std::runtime_error("invalid special block metadata: " + validation_error);
    const std::string temporary_path = path + ".tmp";
    std::ofstream out(temporary_path, std::ios::binary | std::ios::trunc);
    if (!out)
@@ -224,6 +421,8 @@ bool read_special_block_metadata_binary_impl(const std::string &path,
       error = "special block metadata has trailing bytes";
       return false;
    }
+   if (!validate_special_block_metadata_impl(blocks, error))
+      return false;
    error.clear();
    return true;
 }
@@ -1451,6 +1650,27 @@ bool load_special_block_metadata_binary(
    return read_special_block_metadata_binary_impl(path, blocks, error);
 }
 
+bool validate_special_block_metadata(
+    const std::vector<SpecialBlock> &blocks,
+    std::string &error)
+{
+   return validate_special_block_metadata_impl(blocks, error);
+}
+
+bool validate_special_block_graph_semantics(
+    const std::vector<SpecialBlock> &blocks,
+    IdxType num_points,
+    IdxType num_groups,
+    const std::vector<std::vector<LabelType>> &group_labels,
+    const std::vector<std::pair<IdxType, IdxType>> &group_ranges,
+    const std::vector<IdxType> &point_to_group,
+    std::string &error)
+{
+   return validate_special_block_graph_semantics_impl(
+       blocks, num_points, num_groups, group_labels, group_ranges,
+       point_to_group, error);
+}
+
 void UniNavGraph::refresh_special_block_memory_stats()
 {
    uint64_t logical = 0;
@@ -1477,9 +1697,11 @@ void UniNavGraph::refresh_special_block_memory_stats()
       allocated += sizeof(Vector) + values.capacity() * sizeof(Value);
    };
    add_flat_vector(_group_id_to_special_block);
+   add_flat_vector(_group_id_to_upper_special_block);
    add_flat_vector(_group_is_special_block_root);
    add_flat_vector(_group_is_trivial_special_block_root);
    add_flat_vector(_point_to_special_block);
+   add_flat_vector(_point_to_upper_special_block);
    add_flat_vector(_point_is_special_block_root);
 
    const auto add_nested_vector = [&](const auto &rows) {
@@ -2165,8 +2387,10 @@ void UniNavGraph::load_special_block_index(const std::string &block_index_path_p
       prefix.push_back('/');
    const auto block_meta = parse_kv_file(prefix + "meta");
    const auto format_it = block_meta.find("index_format");
-   if (format_it != block_meta.end() &&
-       !is_supported_special_block_index_format(format_it->second))
+   if (format_it == block_meta.end())
+      throw std::runtime_error(
+          "independent special block metadata is missing index_format");
+   if (!is_supported_special_block_index_format(format_it->second))
       throw std::runtime_error("unsupported special block index format: " + format_it->second);
    const auto points_it = block_meta.find("num_points");
    const auto groups_it = block_meta.find("num_groups");
@@ -2176,7 +2400,7 @@ void UniNavGraph::load_special_block_index(const std::string &block_index_path_p
        static_cast<IdxType>(std::stoul(groups_it->second)) != _num_groups)
       throw std::runtime_error("special block index does not match the loaded UNG index");
    const auto fingerprint_it = block_meta.find("source_ung_fingerprint");
-   if (format_it != block_meta.end() && fingerprint_it == block_meta.end())
+   if (fingerprint_it == block_meta.end())
       throw std::runtime_error("independent special block metadata is missing its UNG fingerprint");
    if (fingerprint_it != block_meta.end() &&
        fingerprint_it->second != block_source_fingerprint(
@@ -3433,6 +3657,29 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
       return;
    }
 
+   const auto partition_it = meta_data.find("special_block_partition");
+   const bool trie_partition =
+       partition_it != meta_data.end() && partition_it->second == "trie";
+   if (require_binary_sidecars)
+   {
+      // An explicitly loaded overlay is an immutable bundle.  Check the
+      // complete required file set before parsing any one member so a corrupt
+      // metadata file cannot mask a missing graph sidecar.
+      const auto require_file = [&](const char *name) {
+         const std::string path = prefix + name;
+         if (!std::filesystem::is_regular_file(path))
+            throw std::runtime_error(
+                "required special block sidecar is missing: " + path);
+      };
+      require_file("special_blocks.bin");
+      if (trie_partition)
+      {
+         require_file("special_block_trie.bin");
+         require_file("special_trie_regular_edges.bin");
+      }
+      require_file("special_edges.bin");
+   }
+
    auto threshold_it = meta_data.find("special_block_min_points");
    if (threshold_it != meta_data.end())
       _special_block_summary.threshold = static_cast<IdxType>(std::stoul(threshold_it->second));
@@ -3555,11 +3802,18 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
       block.child_block_ids.erase(std::unique(block.child_block_ids.begin(), block.child_block_ids.end()),
                                   block.child_block_ids.end());
    }
+   std::string topology_error;
+   if (!validate_special_block_metadata(_special_blocks, topology_error))
+      throw std::runtime_error("invalid special block topology: " + topology_error);
+   std::string graph_semantics_error;
+   if (!validate_special_block_graph_semantics(
+           _special_blocks, _num_points, _num_groups, _group_id_to_label_set,
+           _group_id_to_range, _new_vec_id_to_group_id, graph_semantics_error))
+      throw std::runtime_error(
+          "special block metadata does not match its source UNG graph: " +
+          graph_semantics_error);
    rebuild_special_block_indexes();
 
-   const auto partition_it = meta_data.find("special_block_partition");
-   const bool trie_partition =
-       partition_it != meta_data.end() && partition_it->second == "trie";
    if (trie_partition)
    {
       const auto trie_load_start = std::chrono::high_resolution_clock::now();

@@ -25,9 +25,11 @@ struct SpecialBlock
    static constexpr IdxType kInvalidEntryPoint = std::numeric_limits<IdxType>::max();
 
    IdxType block_id = 0;
-   // Zero is the historical/middle Special Block layer. Higher values are
-   // progressively coarser overlays. Keeping the old layer at zero makes
-   // legacy indexes and the group-id ELS provider backward compatible.
+   // This format currently supports exactly two block layers: zero is the
+   // historical/middle layer and one is the coarser upper layer. Keeping the
+   // old layer at zero makes legacy indexes and group-id ELS backward
+   // compatible. Values above one are invalid until ownership and visited
+   // state are generalized beyond the fixed middle/upper representation.
    uint8_t level = 0;
    // Optional containing block in the next coarser layer. This relation is
    // diagnostic/navigation metadata; child_block_ids remains the direct
@@ -152,6 +154,23 @@ void save_special_block_metadata_binary(
 bool load_special_block_metadata_binary(
     const std::string &path,
     std::vector<SpecialBlock> &blocks,
+    std::string &error);
+// Validate the fixed middle/upper topology represented by the sidecar. This is
+// intentionally independent of a loaded UniNavGraph so the same invariant is
+// enforced before serialization and immediately after deserialization.
+bool validate_special_block_metadata(
+    const std::vector<SpecialBlock> &blocks,
+    std::string &error);
+// Validate invariants that can only be checked after the sidecar is attached
+// to its source UNG graph.  Metadata I/O deliberately stays graph-independent;
+// the full loader calls this second gate before rebuilding ownership indexes.
+bool validate_special_block_graph_semantics(
+    const std::vector<SpecialBlock> &blocks,
+    IdxType num_points,
+    IdxType num_groups,
+    const std::vector<std::vector<LabelType>> &group_labels,
+    const std::vector<std::pair<IdxType, IdxType>> &group_ranges,
+    const std::vector<IdxType> &point_to_group,
     std::string &error);
 
 } // namespace ANNS

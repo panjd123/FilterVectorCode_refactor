@@ -45,12 +45,12 @@
 | M3 | baseline | RESOLVED | 外部系统统一数据与 Recall 口径 | NaviX/FAVOR/Curator/官方 ACORN 均完成三档；主表按预声明 Recall 门槛选最快实测点 | 保留跨系统边界，不把不同图结构解释为局部消融 |
 | M4 | correctness | RESOLVED | 多 level 候选重复占槽 | `368227e` 后 Recall 恢复 | 保留回归测试 |
 | M5 | compatibility | RESOLVED | loader 不接受 multilevel format | 格式白名单和 round-trip test | 保留回归测试 |
-| M6 | interpretation | RESOLVED | 同 L 慢是否否定多层 | 同 L Recall 更高；正式同 Recall 主表为 1.222x/1.530x/2.345x，高质量上限为 1.222x/4.925x/6.290x | 后续只按等 Recall 主张 |
+| M6 | interpretation | RESOLVED | 同 L 慢是否否定多层 | 同 L upper-on 的工作更多、Recall 更高；统一 binary 方法族等 Recall 主表为 1.289x/1.709x/2.320x，fixed-T2 paired 为 1.289x/1.709x/2.229x | 后续分开方法族与受控消融口径 |
 | M7 | measurement | RESOLVED | plain UNG 的 CPU ELS warmup 曾被错误绑定到 Special Block 开关 | 修复后 CPU ELS 在计时前预热 156 ms；首个 L50 从 7.29 s 降到 264 ms，warm repeats 13.6--14.5 ms | 主表继续用 warm mean，并保留 all-repeat |
 | M8 | measurement | RESOLVED | 100-thread 极短任务仍有 wall-time 长尾 | 15 repeats 中 Recall 完全稳定，低 L 的 CV 可达 0.273；正式中高质量点 CV 为 0.006--0.016 | 主结论报告 warm median/mean/CV，避免用单次低 L 时间 |
 | M9 | orchestration | RESOLVED | 旧系统异常的 `ps -o` 输出造成旧 driver 已退出的误判，两个 runner 曾短暂并发 | 进程树确认 PID 10039 在跑 sel_75、新 tmux 在跑 sel_50；已同时停止，并隔离受影响产物 | runner 增加 output-root 独占锁；只用重新单独运行的 sel_50/sel_75 |
 | M10 | measurement | RESOLVED | 最终候选需要增加 repeats 和质量余量 | 7-repeat 正式矩阵完成，汇总含 Recall margin、median speedup、L reduction | 主表同时给目标 Recall 与实际 Recall |
-| M11 | algorithm | RESOLVED | 多层是否在不同选择率有效 | warm median：共同门槛为 1.222x/1.530x/2.345x；最高质量为 1.222x/4.925x/6.290x | 如实报告 25% 收益弱和外部负结果 |
+| M11 | algorithm | RESOLVED | 多层是否在不同选择率有效 | 统一 binary 方法族 warm median：共同门槛为 1.289x/1.709x/2.320x | 如实报告 25% 收益弱和外部负结果 |
 | M12 | measurement | REGRESSED | 历史 UNG 50% Recall 显著高于当前矩阵 | provenance 审计发现 query/GT 属于 30,723-label Amazon x1，而当前 overlay 主图仅 21,834 labels；query `{1}` 匹配点为 582,582 vs 290,684 | 废弃该 overlay 的 Recall 结论，在 30,723-label 主图重建 |
 | M13 | measurement | RESOLVED | T2 初筛曾受到运行中重编译和错误 instrumentation 条件影响 | 两轮结果已隔离；新 runner 把搜索程序复制为 content-addressed 只读快照并记录 SHA-256 | 只接受 `runs/t2_query_screen_amazon_x1` 且 hash 固定的结果 |
 | M14 | mechanism | RESOLVED | 需要证明上层不是只增加静态数据而未参与查询 | upper on/off 对所有 workload/L 提升 Recall；10k/50% detail smoke 每查询平均展开 52.207 个上层节点、扫描 2,834.590 条上层边、发生 46.101 次上层激活 | detail counters 只解释机制，不计入性能主表 |
@@ -62,6 +62,7 @@
 | M20 | provenance | RESOLVED | Curator 是否能绑定当前 x1 和统一 GT | 602,453 points、768D；隔离重建 102.207 s；持久化成功；smoke 320 IDs 无 filter 违规 | 保留 meta/hash和 smoke 证据 |
 | M21 | correctness | RESOLVED | 官方 ACORN hybrid 初始 candidate 未检查 `filter_map` | nested clone `fb07f1d` 修复后所有纳入结果 0 filter violations，Recall 不变 | 保留补丁和 adapter smoke |
 | M22 | tuning | RESOLVED | 单一 ACORN gamma 是否会造成不公平结论 | gamma=1/2/4/8/12 已构建和扫描；gamma 对 Recall 非单调，25%/50% 由 ACORN-1 达标，75% 最快达标点为 gamma12 | 表中标注 variant、ef、total/core 和重复次数 |
+| M23 | measurement | RESOLVED | 旧高选择率主表与 T1 formal 混用了不同搜索 binary | 重新用 `f078e174...287b11` 跑 current crossing 和 paired formal；生成器逐 manifest fail closed | 旧 `83c...` aggregate 不再进入 source manifest 或主表 |
 
 ## 当前假设
 
@@ -71,6 +72,6 @@
 
 ## 当前最终结果与后续方向
 
-共同 Recall 门槛 `0.90/0.85/0.87` 下，多层相对单层的 warm-median speedup 为 `1.222x/1.530x/2.345x`；在单层最高质量附近为 `1.222x/4.925x/6.290x`。第二层的主要作用是降低达到同 Recall 所需的 L，不是降低固定 L 的单次扩展成本。完整表见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md`。
+共同 Recall 门槛 `0.90/0.85/0.87` 下，多层方法族相对单层的统一-binary warm-median speedup 为 `1.289x/1.709x/2.320x`；固定 T2=25k 的同轮 paired 结果为 `1.289x/1.709x/2.229x`。同索引、同 L 的 upper-off/on 使 Recall 分别从 `.8946/.7633/.7678` 提升到 `.9012/.8584/.8759`，说明第二层的主要作用是降低达到同 Recall 所需的 L，不是降低固定 L 的单次扩展成本。完整表见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md`。
 
 当前外部比较的主要负结果是 FAVOR 三档均更快；25% workload 上多层也慢于 NaviX/Curator。下一步若继续优化，应优先让 GPU batch scratch 携带 per-edge activation level、减少多层标量路径开销，并在完全相同 Recall 附近补更密的外部参数点；这些不是本轮实现正确性与主表交付的阻塞项。

@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "method": "multi_1k_10k",
+      "workload": "sel_1",
+      "query_dir": "query_minlen5_avgsel1pct",
+      "mean_selectivity": 0.0090305484,
+      "num_queries": 1000,
+      "lsearch_values": [
+        3500,
+        4000,
+        4500,
+        5000,
+        6000
+      ],
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-06T06:37:31+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/low_sel1_crossing_formal_amazon_x1/multi_1k_10k/sel_1",
+      "provenance": {
+        "base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+        "main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+        "expected_source_fingerprint": "91d78580ae29f468"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11",
+      "elapsed_seconds": 20.904362248256803,
+      "returncode": 0,
+      "finished_at": "2026-09-06T06:37:52+0800"
+    },
+    {
+      "method": "multi_1k_25k",
+      "workload": "sel_1",
+      "query_dir": "query_minlen5_avgsel1pct",
+      "mean_selectivity": 0.0090305484,
+      "num_queries": 1000,
+      "lsearch_values": [
+        3500,
+        4000,
+        4500,
+        5000,
+        6000
+      ],
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-06T06:37:52+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/low_sel1_crossing_formal_amazon_x1/multi_1k_25k/sel_1",
+      "provenance": {
+        "base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+        "main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+        "expected_source_fingerprint": "91d78580ae29f468"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11",
+      "elapsed_seconds": 20.508273414801806,
+      "returncode": 0,
+      "finished_at": "2026-09-06T06:38:13+0800"
+    },
+    {
+      "method": "multi_1k_4k",
+      "workload": "sel_1",
+      "query_dir": "query_minlen5_avgsel1pct",
+      "mean_selectivity": 0.0090305484,
+      "num_queries": 1000,
+      "lsearch_values": [
+        3500,
+        4000,
+        4500,
+        5000,
+        6000
+      ],
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-06T06:37:08+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/low_sel1_crossing_formal_amazon_x1/multi_1k_4k/sel_1",
+      "provenance": {
+        "base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+        "main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+        "expected_source_fingerprint": "91d78580ae29f468"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11",
+      "elapsed_seconds": 23.740059239324182,
+      "returncode": 0,
+      "finished_at": "2026-09-06T06:37:31+0800"
+    },
+    {
+      "method": "multi_1k_50k",
+      "workload": "sel_1",
+      "query_dir": "query_minlen5_avgsel1pct",
+      "mean_selectivity": 0.0090305484,
+      "num_queries": 1000,
+      "lsearch_values": [
+        3500,
+        4000,
+        4500,
+        5000,
+        6000
+      ],
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-06T06:38:13+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/low_sel1_crossing_formal_amazon_x1/multi_1k_50k/sel_1",
+      "provenance": {
+        "base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+        "main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+        "expected_source_fingerprint": "91d78580ae29f468"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11",
+      "elapsed_seconds": 24.620661514345556,
+      "returncode": 0,
+      "finished_at": "2026-09-06T06:38:38+0800"
+    },
+    {
+      "method": "single_1k",
+      "workload": "sel_1",
+      "query_dir": "query_minlen5_avgsel1pct",
+      "mean_selectivity": 0.0090305484,
+      "num_queries": 1000,
+      "lsearch_values": [
+        3500,
+        4000,
+        4500,
+        5000,
+        6000
+      ],
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-06T06:36:41+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/low_sel1_crossing_formal_amazon_x1/single_1k/sel_1",
+      "provenance": {
+        "base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+        "main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+        "expected_source_fingerprint": "91d78580ae29f468"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11",
+      "elapsed_seconds": 26.295028740074486,
+      "returncode": 0,
+      "finished_at": "2026-09-06T06:37:08+0800"
+    }
+  ],
+  "updated_at": "2026-09-06T06:38:38+0800"
+}
