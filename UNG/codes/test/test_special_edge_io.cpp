@@ -469,6 +469,19 @@ int main()
                  partition_without_entries, 8, 4, group_labels, group_ranges,
                  point_to_group, validation_error),
              "the complete graph gate must require intra-graph entry points");
+      auto invalid_partition_count = partition_without_entries;
+      invalid_partition_count[0].point_count += 1;
+      expect(!ANNS::validate_special_block_partition_semantics(
+                 invalid_partition_count, 8, 4, group_labels, group_ranges,
+                 point_to_group, validation_error),
+             "partition preflight must still reject wrong direct point counts");
+      auto invalid_partition_reachability = partition_without_entries;
+      invalid_partition_reachability[2].member_group_ids = {3, 4};
+      invalid_partition_reachability[2].point_count = 3;
+      expect(!ANNS::validate_special_block_partition_semantics(
+                 invalid_partition_reachability, 8, 4, group_labels,
+                 group_ranges, point_to_group, validation_error),
+             "partition preflight must still reject unreachable upper blocks");
    }
    auto wrong_point_count = semantic_blocks;
    wrong_point_count[0].point_count = 3;

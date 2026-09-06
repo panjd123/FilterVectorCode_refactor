@@ -89,6 +89,8 @@ loader 不只检查 CSR offset、ID 范围和 metadata topology，还对每条�
 
 最终顺序已用 runner 的只读、内容寻址 snapshot 从头验证：builder SHA-256 `c5cee68dc2dab7c409270eb37bbd73e903a425fbedd6a7bf943a4c52c0653a8f`，T1=2000/T2=25000，57.313 s 完成，输出 111 blocks（8 upper）和 62,941,206 special edges。随后 search snapshot `af73a74de3cac02be1b4e9ae44c2d6eaa68cf73d463d43ddc1f3dc721064990b` 完整加载该 bundle；50%/L550 的 Recall=.8593，检查 10,000 个返回点、0 filter violation。它比既有三次独立重建区间 Recall=.8540--.8582 的上界高 .0011，仍属于 GPU approximate intra 的跨构建波动并超过 .85 门槛。服务器没有 `gpulock`，运行前确认 L20 空闲但没有外部锁，因此 57.313/1.225 s 都只作 fresh correctness/provenance audit，不进入冻结性能主表。
 
+同一最终 bundle 还按六档推荐 L 各跑 1 次计时外过滤审计；0.499%/0.903%/9.907%/24.915%/49.971%/74.994% 的 Recall 分别为 .9101/.9165/.9009/.9023/.8593/.8745。60,000 个结果槽中实际返回 59,991 个点，9 个空槽全部来自 24.915% 档，59,991 个返回点的 filter violation 为 0。compact 证据见 `results_summary/source/final_fresh_six_workload_audit.csv`；由于没有 repeats，这些查询时间不进入性能主表。
+
 最新 binary 的 light-stats 审计中 sidecar 冷加载为 1.835 s，查询 batch 为 0.855 s；此前相邻正确性审计的 load/query 分别在 1.85--2.10 s / 0.97--2.27 s 间波动。这是单次、负载敏感的正确性运行：load 不在 query batch timer 内，query 也没有正式 repeats，因此两者都不更新冻结性能表，更不能用相邻运行之差声称 metadata validator 或 parser 的精确 overhead。
 
 若要审计层级路径本身，在 method env 中额外设置 `UNG_SPECIAL_LIGHT_STATS=0`。同一 binary、sidecar、workload 和 `L=550` 的详细统计运行得到：533/1000 条 query 使用 special graph，512/1000 条搜索 upper block，累计扫描 15,622,167 条 middle edge 和 15,419,434 条 upper edge，发生 57,897 次 upper activation；Recall=.8575，10,000 个结果中 0 个过滤违规。详细统计运行耗时 1029.07 ms，包含 instrumentation overhead，仅证明机制被真实执行。

@@ -46,7 +46,7 @@
 
 ## 当前未决事项
 
-没有实现或论文主表阻断项。第二轮结构审阅为 clean follow-up；有限上下文交付审阅确认交付内容可理解。最终回归通过生产/测试目标构建、完整 CTest 14/14、Python 30/30、结果重建和 `git diff --check`。旧 loaded-byte 实测值来自计数修复前，约低估 4.1 MiB，报告已显式降级，不能当精确峰值。
+没有实现或论文主表阻断项。第二轮结构审阅为 clean follow-up；有限上下文交付审阅确认交付内容可理解。最终回归通过生产/测试目标构建、完整 CTest 14/14、Python 31/31、结果重建和 `git diff --check`。旧 loaded-byte 实测值来自计数修复前，约低估 4.1 MiB，报告已显式降级，不能当精确峰值。
 
 当前源码 binary `88d7dba1...f37f` 另完成六档 24 点版本漂移审计；它与冻结论文 binary 不同，因此只进入 `results_summary/current_source_regression.csv`，不改写主表。18 个 Special 点 Recall 最大漂移为 0；24 点耗时比中位数 1.0195、范围 0.9781--1.2188。0.499% 采用 21 repeats 后仍有调度长尾，不能用单次或严格 timing gate 判断回归。
 
@@ -60,6 +60,7 @@ sidecar loader 进一步加入逐 edge 的 owner/direct-child 语义校验，将
 最新 reachability 校验还要求每个 upper block 至少有一个由其子树内部 middle block 拥有的 direct member，保证查询覆盖 upper 时存在合法 `1 -> 2` 激活位置；仅由更大 middle 祖先相交不够，这不要求两个 partition 严格嵌套。公开 graph-aware validator 现在自包含基础 metadata 校验。focused C++ tests 7/7 通过。最终 binary `3947f438...11ba3` 全量加载同一 62,938,887-edge sidecar，50%/L550 Recall=.8575、10,000 个结果、0 违规。紧邻版本关闭 light stats 的机制审计显示 533/1000 query 使用 special graph、512/1000 搜索 upper block、57,897 次 upper activation；诊断耗时不进入主性能表。
 
 构造端 validator 已按生命周期拆成两阶段：partition 后的 preflight 不要求尚未生成的 `entry_point_id`；intra graph 构造后、昂贵 inter 前执行完整 graph validator，并在 special overlay 后防御性复核，最后才构造 regular overlay/保存。单测明确覆盖两个 gate 的差异。最终 immutable builder `c5cee68d...53a8f` fresh 构建 T1=2k/T2=25k 成功（57.313 s，111 blocks/8 upper，62,941,206 edges）；search binary `af73a74d...4990b` 在新 bundle 的 50%/L550 上 Recall=.8593、10,000 results、0 violations。运行无 `gpulock`，单次时间不更新冻结性能表。
+同一 current search binary 还重新加载旧单层 T1=1k sidecar；50%/L1800 Recall=.8523、10,000 results、0 violations，证明 loader/query 的 legacy single-level 兼容性未被两阶段构造校验破坏。
 三次 build 早于 immutable builder snapshot 功能，旧 manifest 未原生携带 builder hash；compact CSV 将审计记录的 hash 明确标为 `historical_audit_record`。当前 builder 文件 mtime 早于三次 manifest 且 hash 一致，但这仍不是逐份 manifest 的密码学绑定。新运行会记录 `manifest_snapshot`。
 CPU Vamana large-block 对照为 1131.863 s，GPU 路径按完整 builder wall 快 19.89x；该对照图本身不同，只用于说明确定性 CPU 回退的工程代价。
 

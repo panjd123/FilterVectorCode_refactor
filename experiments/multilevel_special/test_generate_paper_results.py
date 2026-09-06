@@ -151,6 +151,26 @@ class PaperResultsTest(unittest.TestCase):
             selection_summary.write_csv(output, rows)
             self.assertNotIn(b"\r\n", output.read_bytes())
 
+    def test_final_fresh_six_workload_audit_is_complete_and_clean(self) -> None:
+        rows = generator.read(generator.FINAL_FRESH_AUDIT_SOURCE)
+        self.assertEqual(len(rows), 6)
+        self.assertEqual({row["workload"] for row in rows}, set(generator.WORKLOADS))
+        self.assertEqual({row["search_binary_sha256"] for row in rows}, {
+            "af73a74de3cac02be1b4e9ae44c2d6eaa68cf73d463d43ddc1f3dc721064990b"
+        })
+        self.assertEqual({row["builder_sha256"] for row in rows}, {
+            "c5cee68dc2dab7c409270eb37bbd73e903a425fbedd6a7bf943a4c52c0653a8f"
+        })
+        self.assertEqual({row["timing_role"] for row in rows},
+                         {"correctness_audit_only"})
+        self.assertEqual(sum(int(row["result_slots"]) for row in rows), 60000)
+        self.assertEqual(sum(int(row["checked_results"]) for row in rows), 59991)
+        self.assertEqual(sum(int(row["missing_results"]) for row in rows), 9)
+        self.assertEqual(sum(int(row["filter_violations"]) for row in rows), 0)
+        for row in rows:
+            self.assertGreaterEqual(float(row["recall"]),
+                                    generator.WORKLOADS[row["workload"]][2])
+
     def test_current_source_regression_is_complete_and_recall_stable(self) -> None:
         rows = generator.read(
             SCRIPT_DIR / "results_summary" / "current_source_regression.csv"
