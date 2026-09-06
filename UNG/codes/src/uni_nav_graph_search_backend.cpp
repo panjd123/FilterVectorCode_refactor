@@ -625,14 +625,9 @@ namespace ANNS
       };
       auto point_upper_activation_level = [&](IdxType point_id,
                                               uint8_t current_level) -> uint8_t {
-         if (current_level == 0 || runtime.scenario != "containment" ||
-             point_id >= _point_to_upper_special_block.size())
-            return current_level;
-         const IdxType upper_block_id = _point_to_upper_special_block[point_id];
-         if (upper_block_id == 0 || upper_block_id >= query_free_block.size() ||
-             query_free_block[upper_block_id] == 0)
-            return current_level;
-         return std::max<uint8_t>(current_level, 2);
+         return special_block_point_activation_level(
+             runtime.scenario, current_level, point_id,
+             _point_to_upper_special_block, query_free_block);
       };
       auto visited_for_level = [&](uint8_t level) -> VisitedSet & {
          if (level >= 2)

@@ -40,6 +40,25 @@ int main()
                                               std::vector<uint8_t>{0, 0}),
           "an uncovered block must remain regular");
 
+   const std::vector<ANNS::IdxType> point_to_upper{0, 3, 0, 3};
+   const std::vector<uint8_t> covered_multilevel_blocks{0, 1, 0, 1};
+   expect(ANNS::special_block_point_activation_level(
+              "containment", 0, 1, point_to_upper, covered_multilevel_blocks) == 0,
+          "ordinary traversal must not activate an upper-owned point directly");
+   expect(ANNS::special_block_point_activation_level(
+              "containment", 1, 1, point_to_upper, covered_multilevel_blocks) == 2,
+          "middle traversal must activate a covered upper-owned point even across partition boundaries");
+   expect(ANNS::special_block_point_activation_level(
+              "containment", 1, 2, point_to_upper, covered_multilevel_blocks) == 1,
+          "a point outside upper ownership must retain middle activation");
+   expect(ANNS::special_block_point_activation_level(
+              "containment", 1, 1, point_to_upper,
+              std::vector<uint8_t>{0, 1, 0, 0}) == 1,
+          "an uncovered upper block must not activate");
+   expect(ANNS::special_block_point_activation_level(
+              "equality", 1, 1, point_to_upper, covered_multilevel_blocks) == 1,
+          "upper membership activation is containment-only");
+
    expect(ANNS::special_block_successor_is_free(true, false),
           "a child block must inherit free state from its parent block");
    expect(ANNS::special_block_successor_is_free(false, true),

@@ -30,6 +30,26 @@ inline bool special_block_successor_is_free(bool current_is_free,
    return current_is_free || target_block_is_covered;
 }
 
+// Ordinary traversal may activate only the middle layer. Once a candidate is
+// already middle-active, arriving at any point directly owned by a covered
+// upper block promotes it to level two. This point-membership rule is needed
+// even when independently partitioned middle and upper blocks do not form a
+// strict refinement.
+inline uint8_t special_block_point_activation_level(
+    const std::string &scenario, uint8_t current_level, IdxType point_id,
+    const std::vector<IdxType> &point_to_upper_block,
+    const std::vector<uint8_t> &query_covers_block)
+{
+   if (current_level == 0 || scenario != "containment" ||
+       point_id >= point_to_upper_block.size())
+      return current_level;
+   const IdxType upper_block_id = point_to_upper_block[point_id];
+   if (upper_block_id == 0 || upper_block_id >= query_covers_block.size() ||
+       query_covers_block[upper_block_id] == 0)
+      return current_level;
+   return std::max<uint8_t>(current_level, 2);
+}
+
 inline uint8_t special_block_activation_level(const SpecialBlock &block)
 {
    return static_cast<uint8_t>(block.level + 1);
