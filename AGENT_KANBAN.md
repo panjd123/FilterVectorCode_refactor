@@ -56,7 +56,7 @@
 - 最终六档 audit、边界单测和报告闭包已提交为 `fbac94bae94ced0551bf2627c376991c8bfdf665`。
 - 最终 source-layout gate 覆盖 sentinel、label path 规范/唯一性、全局 range 分区、point ownership、每层最近-root direct ownership、common labels 与 subtree point count；系统性损坏负例、完整 CTest 14/14、Python 32/32 均通过。
 - 当前 builder `10de4d7e...55f290f` fresh 构建 T1=2k/T2=25k 成功：runner wall 62.352 s、metadata 2.420 s、111 blocks/8 upper、62,941,374 edges；当前 search `60220cbc...a82e18` 在 fresh two-level 的 50%/L550 为 Recall=.8565，在旧 single-level 的 50%/L1800 为 Recall=.8523；各 10,000 results、0 violations。单次 timing 仅作 correctness/provenance audit。
-- merge-back 审计：原始 checkout HEAD 仍为共同基线 `dda63bd`，隔离分支领先 70 commits；原始 checkout 有 150 项脏改动。任务分支现有 409 个改动路径，其中 128 个与原始脏路径重叠：100 个内容相同、27 个不同、1 个只存在一侧。分支可独立审阅，但必须先保存原始改动并人工整合 27+1 个分叉路径，禁止直接自动 merge/cherry-pick。
+- merge-back 审计：原始 checkout HEAD 仍为共同基线 `dda63bd`，隔离分支领先 70 commits；原始 checkout 有 150 项脏改动。任务分支现有 409 个改动路径，其中 128 个与原始脏路径重叠：101 个当前结果相同（含双方都删除的一个路径）、27 个内容不同。分支可独立审阅，但必须先保存原始改动并人工整合 27 个分叉路径，禁止直接自动 merge/cherry-pick；清单见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_MERGE_BACK_CN.md`。
 
 ## 下一步
 
@@ -87,6 +87,7 @@
 ## 仅在需要时阅读的细节
 
 - `WORKTREE_HANDOFF.md` — 理解实现语义、隔离来源与 merge-back 边界时阅读。
+- `docs/reports/MULTILEVEL_SPECIAL_BLOCK_MERGE_BACK_CN.md` — 准备把隔离分支整合回原始脏 checkout 时阅读。
 - `experiments/multilevel_special/EXPERIMENT_STATE.md` — 恢复实验、查询 raw artifact 或解释历史隔离结果时阅读。
 - `docs/reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md` — 审阅方法与论文结论。
 - `docs/reports/MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md` — 从 compact evidence 审计或重新运行 raw benchmark 时阅读。

@@ -69,7 +69,7 @@ CPU Vamana large-block 对照为 1131.863 s，GPU 路径按完整 builder wall �
 
 原始 checkout 仍含大量用户改动，故本分支只声明 merge-ready，不自动修改原始 checkout。建议先保存原始工作树，再 cherry-pick 本分支从 `1f0c1e6` 到当前 HEAD 的任务提交；若只审阅最终增量，先从 `7a2bf46` 开始阅读。
 
-最新 merge-back 审计中，原始 checkout 仍停在共同基线 `dda63bd7663b06dce0ce3a977b81268df09b2d01`，隔离分支在其上有 70 个任务提交；原始 checkout 有 150 项未提交改动。任务分支的 409 个改动路径中有 128 个与原始脏路径重叠，其中 100 个文件内容已相同、27 个内容不同、1 个只存在一侧。提交历史没有新的 upstream commit 需要 rebase，但未提交工作树存在实质重叠，所以不能把“同一 merge-base”误写成“可无冲突自动合并”。应先备份/提交原始改动，再针对审计列出的 27+1 个分叉路径做三方整合并重跑本文件中的验证。
+最新 merge-back 审计中，原始 checkout 仍停在共同基线 `dda63bd7663b06dce0ce3a977b81268df09b2d01`，隔离分支在其上有 70 个任务提交；原始 checkout 有 150 项未提交改动。任务分支的 409 个改动路径中有 128 个与原始脏路径重叠，其中 101 个当前结果相同（含双方都删除的一个路径）、27 个内容不同，没有未解释的单边路径。提交历史没有新的 upstream commit 需要 rebase，但未提交工作树存在实质重叠，所以不能把“同一 merge-base”误写成“可无冲突自动合并”。应先备份/提交原始改动，再对 27 个分叉路径做三方整合并重跑本文件中的验证；完整路径清单见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_MERGE_BACK_CN.md`。
 
 ## 恢复入口
 
