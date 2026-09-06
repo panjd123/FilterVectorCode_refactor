@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；最终源码与证据检查点：`cb72797af5af615ca196d3618903417a54b0da2b`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；阶段计时与公平调优协议检查点：`4bd1fd50b7a046ba4f7f02817a320ddc3710bfb7`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 固化已通过 smoke 的互斥阶段计时，然后构建并执行 0 层 L、1 层 T1×L、2 层 T1×T2×L 的 coarse-to-fine 公平调参矩阵；赢家落在阈值边界时继续扩展或加密。
+- 使用同一个 immutable builder 构建完整结构粗筛网格（5 个单层 T1 + 18 个合法两层 T1/T2），随后执行 0/1/2 层 coarse-to-fine 查询调优；赢家落在阈值边界时继续扩展或加密。
 
 ## 完成历史
 
@@ -59,10 +59,11 @@
 - merge-back 审计：原始 checkout HEAD 仍为共同基线 `dda63bd`，隔离分支领先 70+ commits；原始 checkout 有 150 项脏改动。任务分支现有 410 个改动路径，其中 128 个与原始脏路径重叠：101 个当前结果相同（含双方都删除的一个路径）、27 个内容不同、0 个未解释单边路径。分支可独立审阅，但必须先保存原始改动并人工整合 27 个分叉路径，禁止直接自动 merge/cherry-pick；清单见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_MERGE_BACK_CN.md`。
 - 新的互斥阶段计时 smoke 已通过：0/1/2 层逐 query 的 `ELS + EntryPointSetup + BlockAuthorization + GraphSearch + Residual = Total`，最大 closure error 约 `3e-12 ms/query`；0 层 authorization=0。禁用 query-result reuse 后首轮 ELS lazy initialization 明显，故正式统计丢弃 repeat 0，后续 warm repeat 仍不复用查询结果。
 - 公平调优规则已锁定：0 层只调 L；1 层独立调 `T1={500,1k,2k,4k,8k} × L`；2 层调同一 T1 网格与合法 `T2={4k,10k,25k,50k} × L`，边界赢家必须继续向外扩展或局部加密。正式只声明预先声明离散网格内的实测最优，同时区分跨六档共享阈值（论文主结论）和逐 workload oracle（能力上界）。
+- 阶段计时、runner、测试与公平调优协议已提交为 `4bd1fd50b7a046ba4f7f02817a320ddc3710bfb7`；`runs/` 与 nested third-party clone 未暂存。
 
 ## 下一步
 
-提交阶段计时/runner checkpoint；构建缺失的单层和两层阈值索引，完成六档 coarse-to-fine sweep，再分别报告每 workload oracle 与每层一套共享阈值的部署最优。
+完成 23 个统一-builder 结构索引，再运行六档 coarse-to-fine sweep；按边界规则决定是否扩展阈值，最后分别报告每 workload oracle 与每层一套共享阈值的部署最优。
 
 ## 阻塞与问题
 
