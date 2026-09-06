@@ -79,6 +79,7 @@ INTERNAL_SOURCE_SPECS = (
 BUILD_SOURCE = SOURCE / "build_results_source.csv"
 BUILD_PREFLIGHT_AUDIT_SOURCE = SOURCE / "build_preflight_audit.csv"
 FINAL_FRESH_AUDIT_SOURCE = SOURCE / "final_fresh_six_workload_audit.csv"
+SOURCE_LAYOUT_AUDIT_SOURCE = SOURCE / "source_layout_validator_audit.csv"
 
 RESULT_FIELDS = [
     "comparison", "workload", "mean_selectivity", "recall_threshold",
@@ -423,6 +424,7 @@ def write_source_manifest() -> None:
         BUILD_SOURCE,
         BUILD_PREFLIGHT_AUDIT_SOURCE,
         FINAL_FRESH_AUDIT_SOURCE,
+        SOURCE_LAYOUT_AUDIT_SOURCE,
         *HIGH_INTERNAL.values(),
         *HIGH_PLAIN.values(),
         *HIGH_T1.values(),

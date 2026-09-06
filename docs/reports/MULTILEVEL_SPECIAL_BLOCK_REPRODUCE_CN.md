@@ -91,6 +91,8 @@ loader 不只检查 CSR offset、ID 范围和 metadata topology，还对每条�
 
 同一最终 bundle 还按六档推荐 L 各跑 1 次计时外过滤审计；0.499%/0.903%/9.907%/24.915%/49.971%/74.994% 的 Recall 分别为 .9101/.9165/.9009/.9023/.8593/.8745。60,000 个结果槽中实际返回 59,991 个点，9 个空槽全部来自 24.915% 档，59,991 个返回点的 filter violation 为 0。compact 证据见 `results_summary/source/final_fresh_six_workload_audit.csv`；由于没有 repeats，这些查询时间不进入性能主表。
 
+最终 source-layout 审计又把门禁扩大到完整 UNG source：group 0 必须是空 sentinel；每个 group 的 label path 必须非空、升序、去重且全局唯一；group ranges 必须按 group id 构成覆盖全部点的连续非空分区；`point_to_group` 必须逐点与 range 双向一致。对每一层还会从所有 block root 重建最近祖先 ownership，核对 direct members、`common_labels` 和完整 Trie 子树点数。当前内容寻址 builder `10de4d7e...55f290f` 从头构建成功（runner wall 62.352 s，metadata 2.420 s，111 blocks/8 upper、62,941,374 edges）；search binary `60220cbc...a82e18` 在该 bundle 的 50%/L550 上 Recall=.8565、10,000 results、0 violations，并成功加载旧单层 bundle（Recall=.8523、10,000 results、0 violations）。这些仍是单次 correctness/provenance audit，不更新冻结性能表；compact 记录见 `results_summary/source/source_layout_validator_audit.csv`。
+
 最新 binary 的 light-stats 审计中 sidecar 冷加载为 1.835 s，查询 batch 为 0.855 s；此前相邻正确性审计的 load/query 分别在 1.85--2.10 s / 0.97--2.27 s 间波动。这是单次、负载敏感的正确性运行：load 不在 query batch timer 内，query 也没有正式 repeats，因此两者都不更新冻结性能表，更不能用相邻运行之差声称 metadata validator 或 parser 的精确 overhead。
 
 若要审计层级路径本身，在 method env 中额外设置 `UNG_SPECIAL_LIGHT_STATS=0`。同一 binary、sidecar、workload 和 `L=550` 的详细统计运行得到：533/1000 条 query 使用 special graph，512/1000 条搜索 upper block，累计扫描 15,622,167 条 middle edge 和 15,419,434 条 upper edge，发生 57,897 次 upper activation；Recall=.8575，10,000 个结果中 0 个过滤违规。详细统计运行耗时 1029.07 ms，包含 instrumentation overhead，仅证明机制被真实执行。

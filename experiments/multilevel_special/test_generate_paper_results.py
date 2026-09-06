@@ -142,6 +142,32 @@ class PaperResultsTest(unittest.TestCase):
             {manifest_row["path"] for manifest_row in manifest_rows},
         )
 
+    def test_source_layout_validator_audit_is_manifested_and_correct(self) -> None:
+        rows = generator.read(generator.SOURCE_LAYOUT_AUDIT_SOURCE)
+        self.assertEqual({row["case_id"] for row in rows}, {
+            "fresh_source_layout_two_level", "legacy_single_level_load"
+        })
+        fresh = next(row for row in rows if row["index_kind"] == "two_level")
+        legacy = next(row for row in rows if row["index_kind"] == "single_level")
+        self.assertEqual((fresh["dataset_mode"], fresh["T1"], fresh["T2"]),
+                         ("x1", "2000", "25000"))
+        self.assertEqual((fresh["block_count"], fresh["upper_blocks"]),
+                         ("111", "8"))
+        self.assertGreaterEqual(float(fresh["recall"]), 0.85)
+        self.assertGreaterEqual(float(legacy["recall"]), 0.85)
+        self.assertEqual(sum(int(row["checked_results"]) for row in rows), 20000)
+        self.assertEqual(sum(int(row["filter_violations"]) for row in rows), 0)
+        self.assertEqual({row["search_binary_sha256"] for row in rows}, {
+            "60220cbc59447c1227a4ada2ee6f7bf2d0777259fcc01ebc2f12622eb0a82e18"
+        })
+        manifest_rows = generator.read(
+            SCRIPT_DIR / "results_summary" / "source_manifest.csv"
+        )
+        self.assertIn(
+            "results_summary/source/source_layout_validator_audit.csv",
+            {manifest_row["path"] for manifest_row in manifest_rows},
+        )
+
     def test_csv_writers_use_repository_lf_line_endings(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "rows.csv"

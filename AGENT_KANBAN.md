@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`3fa0616`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`fbac94bae94ced0551bf2627c376991c8bfdf665`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -11,11 +11,11 @@
 ## 当前状态
 
 - 总体：`验证中`
-- 摘要：固定 two-level 构建/逐级查询、正式实验与论文交付已完成；最新审计补足 upper activation reachability 校验，真实 sidecar、端到端过滤正确性与 upper 路径 telemetry 均通过。
+- 摘要：固定 two-level 构建/逐级查询、正式实验与论文交付已完成；最终 source-layout gate、fresh build、two-level/legacy load-query 和完整回归均已通过，正在固化最终 checkpoint 与 merge-back 风险清单。
 
 ## 进行中
 
-- 同步 reachability 审计文档与 manifest，重跑结果闭包测试并形成独立 checkpoint；冻结论文主性能数值不变。
+- 复核文档/manifest/分支范围，固化最终 checkpoint，并重新量化原始脏 checkout 的 merge-back 风险。
 
 ## 完成历史
 
@@ -46,10 +46,21 @@
 - converter/runtime fallback 已统一严格 CSV parser；upper inter per-target-block cap 使用 upper ownership；损坏 requested heavy binary 可用合法 CSV 回退、无 fallback 时 fail closed。测试还修复固定临时目录残留导致的不可重入问题，并明确空图/空 block bundle 是合法退化输入。最新 binary `550f04c4...204c` 再次全量加载 62,938,887 条边，50%/L=550 为 Recall=.8575、10,000 个结果、0 过滤违规；单次耗时不进入性能表。
 - 第三轮结构审计从 root-label path 重推导 nearest same-layer parent 与 nearest upper ancestor；真实 tuned metadata 为 103 个 middle、8 个 upper、108 条同层 child edge，全部一致。随机树反例证明独立 partition 不保证严格 refinement，故保留双 ownership 且不施加错误的全成员同 upper-owner 约束；cross-partition membership activation 已提取为共享 helper 并单测。最终 binary `b62d6e5...da2e` 全量加载 62,938,887 条边，50%/L550 Recall=.8575、10,000 个结果、0 违规。
 - upper activation reachability 校验要求每个 upper block 至少包含一个由其子树内部 middle block 拥有的非空 direct member；真实构造夹具、零 ownership 与仅 ancestor ownership 两类不可达负例均已覆盖。公开 graph validator 也已改为自包含基础格式校验，代码检查点 `3fa0616`。最终 binary `3947f438...11ba3` 全量加载 62,938,887 条边；50%/L550 Recall=.8575、10,000 个结果、0 违规。详细统计显示 512/1000 query 搜索 upper block、57,897 次 upper activation。
+- build-preflight 首次 immutable-snapshot 运行在 7.179 s 后按预期暴露生命周期错误：partition 阶段尚未生成 `entry_point_id`，完整 graph validator 报 `entry point is not in a direct member group`。此前 61.157 s 成功构建发生在该调用进入 binary 之前，不能作为新 preflight 的通过证据；旧判断已失效。失败 manifest 原生绑定 builder `df3015b5038095adcea83fc33fec713c69e3bf2f40bc01f9ac98bed5f8626be6`。
+- validator 已按生命周期拆分：partition preflight 验证拓扑、ownership、point count 与 upper reachability，但不要求尚未生成的 entry point；intra graph 完成后执行完整 gate，再构造 regular overlay/保存。新增单测验证无 entry point 的合法 partition 只通过前者。
+- 最终 immutable builder `c5cee68dc2dab7c409270eb37bbd73e903a425fbedd6a7bf943a4c52c0653a8f` fresh 构建成功：57.313 s，111 blocks（8 upper）、62,941,206 edges。search binary `af73a74de3cac02be1b4e9ae44c2d6eaa68cf73d463d43ddc1f3dc721064990b` 在该 bundle 上 50%/L550 Recall=.8593、10,000 results、0 violations；较旧 rebuild 上界 .8582 高 .0011，符合 approximate graph 波动并超过 .85 门槛。无 `gpulock`，单次时间不更新冻结性能表。
+- fresh build/query 证据已压缩为 `results_summary/source/build_preflight_audit.csv`，由 source/artifact manifest 闭包保护，并由新增 provenance test 锁定 hash、x1/T1/T2、Recall 与 0 violation。完整 build、CTest 14/14、Python 30/30 和结果重建均通过；主结果仍为 60 selected rows、209 internal points、7 build rows。
+- 两阶段 validator、单测、fresh provenance、报告与 artifact closure 已提交为 `394facda1f912a6710d189f44a34f66d53a4190d`；`runs/` 与 nested third-party clone 未暂存。
+- 完整 graph gate 已移动到 intra 完成、inter 开始前，并在 overlay 后防御性复核；最终 fresh build/query 证据已更新，代码 checkpoint `088c872`。preflight 单测进一步证明它仍拒绝错误 point count 与不可达 upper。current search binary 对旧单层 sidecar 的 50%/L1800 回归为 Recall=.8523、10,000 results、0 violations。
+- 最终 fresh bundle 六档 correctness audit 全部达标：Recall=.9101/.9165/.9009/.9023/.8593/.8745；60,000 slots、59,991 returned、9 missing、0 filter violations。compact 证据进入 `final_fresh_six_workload_audit.csv`，不使用单次耗时更新性能表。
+- 最终六档 audit、边界单测和报告闭包已提交为 `fbac94bae94ced0551bf2627c376991c8bfdf665`。
+- 最终 source-layout gate 覆盖 sentinel、label path 规范/唯一性、全局 range 分区、point ownership、每层最近-root direct ownership、common labels 与 subtree point count；系统性损坏负例、完整 CTest 14/14、Python 32/32 均通过。
+- 当前 builder `10de4d7e...55f290f` fresh 构建 T1=2k/T2=25k 成功：runner wall 62.352 s、metadata 2.420 s、111 blocks/8 upper、62,941,374 edges；当前 search `60220cbc...a82e18` 在 fresh two-level 的 50%/L550 为 Recall=.8565，在旧 single-level 的 50%/L1800 为 Recall=.8523；各 10,000 results、0 violations。单次 timing 仅作 correctness/provenance audit。
+- merge-back 审计：原始 checkout HEAD 仍为共同基线 `dda63bd`，隔离分支领先 67 commits；原始 checkout 有 150 项脏改动。128 个路径与任务分支重叠，其中 100 个内容相同、27 个不同、1 个只存在一侧。分支可独立审阅，但必须先保存原始改动并人工整合 27+1 个分叉路径，禁止直接自动 merge/cherry-pick。
 
 ## 下一步
 
-更新 artifact hash，重跑 Python/result closure，提交文档 checkpoint；随后检查 merge-readiness 并继续非破坏性审计至目标时长。
+提交 source-layout validator、compact evidence 与文档；随后重新核对原始 checkout 的脏路径重叠并形成最终 handoff。
 
 ## 阻塞与问题
 
@@ -67,7 +78,8 @@
 - `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：全部正式内部 sweep。
 - `python3 -m unittest -v experiments.multilevel_special.test_multilevel_selection` — `通过`：14/14；新增 builder binary immutable snapshot 回归。
 - `python3 -m unittest -v test_generate_paper_results.py` — `通过`：15/15；包含统一 binary、CSV/manifest 网格/repeats、build source、upper-off 消融、current-source 24 点回归、三次 rebuild 鲁棒性、过滤合法性审计和 LF-only CSV 输出检查。
-- `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py test_generate_paper_results.py` — `通过`：29/29；生成 60 行主结果、209 个内部点、7 行构建结果。
+- `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py test_generate_paper_results.py` — `通过`：31/31；生成 60 行主结果、209 个内部点、7 行构建结果。
+- source-layout 最终回归 — `通过`：完整 CTest 14/14；Python 32/32；fresh two-level 与旧 single-level 各 10,000 个结果、0 filter violations。
 - `validate_selection_sweep.py config.amazon_x1_paired_formal_sel{25,50,75}.json` — `通过`：3/3，每个方法 7 repeats、Recall 无漂移。
 - Curator 低选择率产物 — `通过`：3 workloads x 12 budgets x 5 measured。
 - ACORN 低选择率产物 — `通过`：180 个 screen 点 + 3 个 formal 点，filter violations=0。
@@ -83,7 +95,7 @@
 
 1. 先读本看板。
 2. 运行 `git status --short`，不要暂存 `runs/` 或 `thirdparty/` nested clones。
-3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` 和当前 validator checkpoint `3fa0616`；后者不改主性能数值。
+3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` 和当前 validator checkpoint `394facda1f912a6710d189f44a34f66d53a4190d`；后者不改主性能数值。
 4. 任何新数值必须先进入 source CSV 并由生成器输出。
 
 ## 清理提示

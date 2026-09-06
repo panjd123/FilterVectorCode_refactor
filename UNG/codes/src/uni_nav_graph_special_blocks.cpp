@@ -215,6 +215,82 @@ bool is_label_path_prefix(const std::vector<LabelType> &prefix,
    return std::equal(prefix.begin(), prefix.end(), path.begin());
 }
 
+bool validate_source_group_layout(
+    IdxType num_points,
+    IdxType num_groups,
+    const std::vector<std::vector<LabelType>> &group_labels,
+    const std::vector<std::pair<IdxType, IdxType>> &group_ranges,
+    const std::vector<IdxType> &point_to_group,
+    std::string &error)
+{
+   if (group_labels.size() <= num_groups || group_ranges.size() <= num_groups ||
+       point_to_group.size() != num_points)
+   {
+      error = "source UNG group metadata is incomplete";
+      return false;
+   }
+   // Group ids are one-based throughout UNG.  Keep index zero an actual
+   // sentinel so a shifted/corrupted sidecar cannot look like group zero.
+   if (!group_labels[0].empty() || group_ranges[0].first != 0 ||
+       group_ranges[0].second != 0)
+   {
+      error = "source UNG group-zero sentinel is invalid";
+      return false;
+   }
+
+   IdxType expected_begin = 0;
+   std::map<std::vector<LabelType>, IdxType> canonical_group_owner;
+   for (IdxType group_id = 1; group_id <= num_groups; ++group_id)
+   {
+      if (group_labels[group_id].empty())
+      {
+         error = "source UNG group has an empty label set";
+         return false;
+      }
+      if (!std::is_sorted(group_labels[group_id].begin(),
+                          group_labels[group_id].end()) ||
+          std::adjacent_find(group_labels[group_id].begin(),
+                             group_labels[group_id].end()) !=
+              group_labels[group_id].end())
+      {
+         error = "source UNG group labels must be sorted and unique";
+         return false;
+      }
+      if (!canonical_group_owner.emplace(group_labels[group_id], group_id).second)
+      {
+         error = "source UNG contains duplicate group label sets";
+         return false;
+      }
+      const auto &range = group_ranges[group_id];
+      // build_trie_and_divide_groups creates exactly one non-empty group for
+      // each observed label set, then reorder_data lays those groups out
+      // contiguously in increasing group id.  Checking only referenced block
+      // members would miss holes, overlaps, or corruption in ordinary groups.
+      if (range.first != expected_begin || range.second <= range.first ||
+          range.second > num_points)
+      {
+         error = "source UNG group ranges must be a contiguous non-empty partition";
+         return false;
+      }
+      for (IdxType point_id = range.first; point_id < range.second; ++point_id)
+      {
+         if (point_to_group[point_id] != group_id)
+         {
+            error = "source UNG point-to-group ownership disagrees with group ranges";
+            return false;
+         }
+      }
+      expected_begin = range.second;
+   }
+   if (expected_begin != num_points)
+   {
+      error = "source UNG group ranges do not cover every point";
+      return false;
+   }
+   error.clear();
+   return true;
+}
+
 bool validate_special_block_graph_semantics_impl(
     const std::vector<SpecialBlock> &blocks,
     IdxType num_points,
@@ -236,12 +312,9 @@ bool validate_special_block_graph_semantics_impl(
       error.clear();
       return true;
    }
-   if (group_labels.size() <= num_groups || group_ranges.size() <= num_groups ||
-       point_to_group.size() != num_points)
-   {
-      error = "source UNG group metadata is incomplete";
+   if (!validate_source_group_layout(num_points, num_groups, group_labels,
+                                     group_ranges, point_to_group, error))
       return false;
-   }
 
    // Reconstruct the persisted same-layer parent relation once. The block
    // builder always records the nearest block ancestor in each independently
@@ -252,8 +325,41 @@ bool validate_special_block_graph_semantics_impl(
    std::vector<IdxType> same_layer_parent(blocks.size() + 1, 0);
    std::map<std::vector<LabelType>, IdxType> block_by_root[2];
    std::vector<IdxType> group_middle_owner(num_groups + 1, 0);
+   std::vector<IdxType> group_upper_owner(num_groups + 1, 0);
    for (const SpecialBlock &block : blocks)
    {
+      if (!std::is_sorted(block.root_labels.begin(), block.root_labels.end()) ||
+          std::adjacent_find(block.root_labels.begin(), block.root_labels.end()) !=
+              block.root_labels.end())
+      {
+         error = "special block root labels must be sorted and unique";
+         return false;
+      }
+      if (!std::is_sorted(block.member_group_ids.begin(),
+                          block.member_group_ids.end()) ||
+          std::adjacent_find(block.member_group_ids.begin(),
+                             block.member_group_ids.end()) !=
+              block.member_group_ids.end() ||
+          block.root_group_id != block.member_group_ids.front())
+      {
+         error = "special block direct members must be sorted, unique, and led by the root group";
+         return false;
+      }
+      if (!std::is_sorted(block.child_block_ids.begin(),
+                          block.child_block_ids.end()) ||
+          std::adjacent_find(block.child_block_ids.begin(),
+                             block.child_block_ids.end()) !=
+              block.child_block_ids.end())
+      {
+         error = "special block child ids must be sorted and unique";
+         return false;
+      }
+      if (block.common_labels != compute_direct_member_common_labels(
+                                     block.member_group_ids, group_labels))
+      {
+         error = "special block common labels do not match its direct members";
+         return false;
+      }
       if (!block_by_root[block.level]
                .emplace(block.root_labels, block.block_id)
                .second)
@@ -261,13 +367,12 @@ bool validate_special_block_graph_semantics_impl(
          error = "two same-layer blocks cannot have the same Trie root";
          return false;
       }
-      if (block.level == 0)
+      std::vector<IdxType> &group_owner =
+          block.level == 0 ? group_middle_owner : group_upper_owner;
+      for (IdxType group_id : block.member_group_ids)
       {
-         for (IdxType group_id : block.member_group_ids)
-         {
-            if (group_id <= num_groups)
-               group_middle_owner[group_id] = block.block_id;
-         }
+         if (group_id <= num_groups)
+            group_owner[group_id] = block.block_id;
       }
       for (IdxType child_id : block.child_block_ids)
       {
@@ -280,8 +385,48 @@ bool validate_special_block_graph_semantics_impl(
       }
    }
 
+   // Reconstruct the exact direct-owner partition induced by every block
+   // root.  A source group belongs to the deepest block-root prefix in each
+   // independent layer.  This catches omitted members and assignments to an
+   // ancestor which range/count checks alone cannot distinguish.  At the same
+   // time, accumulate the complete source subtree size for each block root.
+   std::vector<uint64_t> source_subtree_points(blocks.size() + 1, 0);
+   for (IdxType group_id = 1; group_id <= num_groups; ++group_id)
+   {
+      std::vector<LabelType> labels = group_labels[group_id];
+      std::sort(labels.begin(), labels.end());
+      labels.erase(std::unique(labels.begin(), labels.end()), labels.end());
+      const uint64_t group_points = static_cast<uint64_t>(
+          group_ranges[group_id].second - group_ranges[group_id].first);
+      IdxType expected_owner[2] = {0, 0};
+      for (size_t prefix_size = labels.size(); prefix_size > 0; --prefix_size)
+      {
+         labels.resize(prefix_size);
+         for (uint8_t level = 0; level < 2; ++level)
+         {
+            const auto found = block_by_root[level].find(labels);
+            if (found == block_by_root[level].end())
+               continue;
+            source_subtree_points[found->second] += group_points;
+            if (expected_owner[level] == 0)
+               expected_owner[level] = found->second;
+         }
+      }
+      if (group_middle_owner[group_id] != expected_owner[0] ||
+          group_upper_owner[group_id] != expected_owner[1])
+      {
+         error = "special block direct membership does not match the nearest block-root partition";
+         return false;
+      }
+   }
+
    for (const SpecialBlock &block : blocks)
    {
+      if (source_subtree_points[block.block_id] != block.subtree_point_count)
+      {
+         error = "special block subtree_point_count does not match its source Trie subtree";
+         return false;
+      }
       uint64_t actual_point_count = 0;
       for (IdxType group_id : block.member_group_ids)
       {

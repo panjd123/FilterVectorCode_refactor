@@ -324,6 +324,7 @@ int main()
    semantic_blocks[0].point_count = 2;
    semantic_blocks[0].subtree_point_count = 5;
    semantic_blocks[0].root_labels = {1, 2};
+   semantic_blocks[0].common_labels = {1, 2};
    semantic_blocks[0].member_group_ids = {1};
    semantic_blocks[0].child_block_ids = {2};
    semantic_blocks[1].block_id = 2;
@@ -334,25 +335,35 @@ int main()
    semantic_blocks[1].point_count = 3;
    semantic_blocks[1].subtree_point_count = 3;
    semantic_blocks[1].root_labels = {1, 2, 3};
+   semantic_blocks[1].common_labels = {1, 2, 3};
    semantic_blocks[1].member_group_ids = {2};
    semantic_blocks[2].block_id = 3;
    semantic_blocks[2].level = 1;
-   semantic_blocks[2].root_group_id = 3;
+   semantic_blocks[2].root_group_id = 1;
    semantic_blocks[2].entry_point_id = 5;
    semantic_blocks[2].point_count = 8;
    semantic_blocks[2].subtree_point_count = 8;
    semantic_blocks[2].root_labels = {1};
+   semantic_blocks[2].common_labels = {1};
    semantic_blocks[2].member_group_ids = {1, 2, 3, 4};
 
    auto expect_graph_semantics = [&](const std::vector<ANNS::SpecialBlock> &candidate,
                                      bool expected,
                                      const char *message) {
       std::string validation_error;
-      expect(ANNS::validate_special_block_metadata(candidate, validation_error),
+      const bool metadata_valid =
+          ANNS::validate_special_block_metadata(candidate, validation_error);
+      if (!metadata_valid)
+         std::cerr << "standalone-metadata mismatch: " << message
+                   << "; validator: " << validation_error << '\n';
+      expect(metadata_valid,
              "graph-semantics fixtures must retain valid standalone metadata");
       const bool valid = ANNS::validate_special_block_graph_semantics(
           candidate, 8, 4, group_labels, group_ranges, point_to_group,
           validation_error);
+      if (valid != expected)
+         std::cerr << "graph-semantics mismatch: " << message
+                   << "; validator: " << validation_error << '\n';
       expect(valid == expected && (valid || !validation_error.empty()), message);
    };
    {
@@ -363,6 +374,81 @@ int main()
    }
    expect_graph_semantics(semantic_blocks, true,
                           "valid nested block metadata must match its source graph");
+   auto expect_invalid_source_layout =
+       [&](const std::vector<std::vector<ANNS::LabelType>> &candidate_labels,
+           const std::vector<std::pair<ANNS::IdxType, ANNS::IdxType>> &candidate_ranges,
+           const std::vector<ANNS::IdxType> &candidate_point_to_group,
+           const char *message) {
+          std::string validation_error;
+          expect(!ANNS::validate_special_block_partition_semantics(
+                     semantic_blocks, 8, 4, candidate_labels, candidate_ranges,
+                     candidate_point_to_group, validation_error) &&
+                     !validation_error.empty(),
+                 message);
+       };
+   {
+      auto invalid_sentinel_labels = group_labels;
+      invalid_sentinel_labels[0] = {99};
+      expect_invalid_source_layout(invalid_sentinel_labels, group_ranges,
+                                   point_to_group,
+                                   "group zero must remain an empty label sentinel");
+   }
+   {
+      auto invalid_sentinel_range = group_ranges;
+      invalid_sentinel_range[0] = {0, 1};
+      expect_invalid_source_layout(group_labels, invalid_sentinel_range,
+                                   point_to_group,
+                                   "group zero must remain an empty range sentinel");
+   }
+   {
+      auto empty_group_labels = group_labels;
+      empty_group_labels[4].clear();
+      expect_invalid_source_layout(empty_group_labels, group_ranges,
+                                   point_to_group,
+                                   "every source group must have a non-empty label set");
+   }
+   {
+      auto unsorted_group_labels = group_labels;
+      unsorted_group_labels[2] = {2, 1, 3};
+      expect_invalid_source_layout(unsorted_group_labels, group_ranges,
+                                   point_to_group,
+                                   "source group label sets must use canonical order");
+   }
+   {
+      auto duplicate_group_labels = group_labels;
+      duplicate_group_labels[4] = group_labels[3];
+      expect_invalid_source_layout(duplicate_group_labels, group_ranges,
+                                   point_to_group,
+                                   "source group label sets must be globally unique");
+   }
+   {
+      auto ranges_with_gap = group_ranges;
+      ranges_with_gap[2].first = 3;
+      expect_invalid_source_layout(group_labels, ranges_with_gap,
+                                   point_to_group,
+                                   "source group ranges must not contain holes");
+   }
+   {
+      auto overlapping_ranges = group_ranges;
+      overlapping_ranges[2].first = 1;
+      expect_invalid_source_layout(group_labels, overlapping_ranges,
+                                   point_to_group,
+                                   "source group ranges must not overlap");
+   }
+   {
+      auto truncated_ranges = group_ranges;
+      truncated_ranges[4].second = 7;
+      expect_invalid_source_layout(group_labels, truncated_ranges,
+                                   point_to_group,
+                                   "source group ranges must cover every point");
+   }
+   {
+      auto inconsistent_point_owner = point_to_group;
+      inconsistent_point_owner[2] = 1;
+      expect_invalid_source_layout(group_labels, group_ranges,
+                                   inconsistent_point_owner,
+                                   "point ownership must agree with the source group ranges");
+   }
    {
       auto invalid_level = semantic_blocks;
       invalid_level[0].level = 2;
@@ -387,6 +473,7 @@ int main()
    upper_child.point_count = 5;
    upper_child.subtree_point_count = 5;
    upper_child.root_labels = {1, 2};
+   upper_child.common_labels = {1, 2};
    upper_child.member_group_ids = {1, 2};
    ANNS::SpecialBlock outer_middle;
    outer_middle.block_id = 5;
@@ -397,9 +484,11 @@ int main()
    outer_middle.point_count = 1;
    outer_middle.subtree_point_count = 1;
    outer_middle.root_labels = {1, 4};
+   outer_middle.common_labels = {1, 4};
    outer_middle.member_group_ids = {3};
    nested_upper[2].child_block_ids = {4};
    nested_upper[2].member_group_ids = {3, 4};
+   nested_upper[2].root_group_id = 3;
    nested_upper[2].point_count = 3;
    nested_upper[0].parent_block_id = 4;
    nested_upper[1].parent_block_id = 4;
@@ -411,13 +500,36 @@ int main()
    skipped_upper_parent[0].parent_block_id = 3;
    expect_graph_semantics(skipped_upper_parent, false,
                           "middle parent must not skip a nearer upper block ancestor");
+   // Independent partitions need not align with middle ownership. Model an
+   // upper child nested inside a middle block: group 1 remains owned by the
+   // {1,2} upper block while group 2 moves to its {1,2,3} upper child.
    auto crossing_partition = nested_upper;
    crossing_partition[3].member_group_ids = {1};
    crossing_partition[3].point_count = 2;
+   crossing_partition[3].common_labels = {1, 2};
+   crossing_partition[3].child_block_ids = {6};
+   ANNS::SpecialBlock crossing_upper_child;
+   crossing_upper_child.block_id = 6;
+   crossing_upper_child.level = 1;
+   crossing_upper_child.root_group_id = 2;
+   crossing_upper_child.entry_point_id = 2;
+   crossing_upper_child.point_count = 3;
+   crossing_upper_child.subtree_point_count = 3;
+   crossing_upper_child.root_labels = {1, 2, 3};
+   crossing_upper_child.common_labels = {1, 2, 3};
+   crossing_upper_child.member_group_ids = {2};
+   crossing_partition[1].parent_block_id = 6;
+   crossing_partition.push_back(crossing_upper_child);
    expect_graph_semantics(crossing_partition, true,
-                          "independent thresholds may split a middle block across upper ownership");
+                          "independent layers may split one middle region across nested upper owners");
+   auto missing_upper_member = nested_upper;
+   missing_upper_member[3].member_group_ids = {1};
+   missing_upper_member[3].point_count = 2;
+   expect_graph_semantics(missing_upper_member, false,
+                          "a block cannot silently omit a group whose nearest root it owns");
    auto unreachable_upper = semantic_blocks;
    unreachable_upper[2].member_group_ids = {3, 4};
+   unreachable_upper[2].root_group_id = 3;
    unreachable_upper[2].point_count = 3;
    expect_graph_semantics(unreachable_upper, false,
                           "every upper block needs a middle-owned direct member activation point");
@@ -429,6 +541,7 @@ int main()
    ancestor_only_activation[0].point_count = 2;
    ancestor_only_activation[0].subtree_point_count = 5;
    ancestor_only_activation[0].root_labels = {1};
+   ancestor_only_activation[0].common_labels = {1, 2};
    ancestor_only_activation[0].member_group_ids = {1};
    ancestor_only_activation[1].block_id = 2;
    ancestor_only_activation[1].level = 1;
@@ -437,6 +550,7 @@ int main()
    ancestor_only_activation[1].point_count = 2;
    ancestor_only_activation[1].subtree_point_count = 5;
    ancestor_only_activation[1].root_labels = {1, 2};
+   ancestor_only_activation[1].common_labels = {1, 2};
    ancestor_only_activation[1].member_group_ids = {1};
    expect_graph_semantics(ancestor_only_activation, false,
                           "an upper block cannot rely on a larger middle ancestor for activation");
@@ -487,6 +601,10 @@ int main()
    wrong_point_count[0].point_count = 3;
    expect_graph_semantics(wrong_point_count, false,
                           "point_count must equal the direct member range total");
+   auto wrong_subtree_point_count = semantic_blocks;
+   wrong_subtree_point_count[0].subtree_point_count = 6;
+   expect_graph_semantics(wrong_subtree_point_count, false,
+                          "subtree_point_count must equal the complete source Trie subtree");
 
    const auto explicit_index = root / "explicit_index";
    std::filesystem::create_directories(explicit_index);
