@@ -2411,9 +2411,10 @@ void UniNavGraph::build_special_block_index(
           "constructed special block partition is invalid: " +
           graph_semantics_error);
    build_special_edge_overlay();
-   // Intra construction has now selected every block-local entry point. Run
-   // the complete gate before constructing the regular overlay or publishing
-   // any sidecar; the loader repeats it for untrusted persisted metadata.
+   // Defensively repeat the complete gate after the special overlay. The first
+   // complete check runs inside build_special_edge_overlay() after intra and
+   // before inter; this second boundary protects later refactors before the
+   // regular overlay or any sidecar is published.
    if (!validate_special_block_graph_semantics(
            _special_blocks, _num_points, _num_groups, _group_id_to_label_set,
            _group_id_to_range, _new_vec_id_to_group_id, graph_semantics_error))
@@ -3224,6 +3225,17 @@ void UniNavGraph::build_special_edge_overlay()
              complete_intra_points,
              cpu_intra_vamana_blocks,
              cpu_intra_vamana_points);
+
+   // Entry points become defined during intra construction. Validate them at
+   // the first legal lifecycle boundary, before the substantially more
+   // expensive parent-to-child inter-edge stage starts.
+   std::string graph_semantics_error;
+   if (!validate_special_block_graph_semantics(
+           _special_blocks, _num_points, _num_groups, _group_id_to_label_set,
+           _group_id_to_range, _new_vec_id_to_group_id, graph_semantics_error))
+      throw std::runtime_error(
+          "constructed special block intra graph is invalid: " +
+          graph_semantics_error);
 
    const CpuHybridCrossSettings hybrid_cfg = make_cpu_hybrid_cross_settings();
    const unsigned long long force_graph_pair_work = read_env_ull("UNG_SPECIAL_INTER_FORCE_GRAPH_PAIR_WORK", 10000);

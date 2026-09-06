@@ -127,10 +127,10 @@ class PaperResultsTest(unittest.TestCase):
         self.assertEqual(row["builder_sha256_source"], "manifest_snapshot")
         self.assertEqual(
             row["builder_sha256"],
-            "5599e3b1bc2f1a6e0a9fabfaaa847c9de4ab145f6ccd1e38c3b6aba98fd04011",
+            "c5cee68dc2dab7c409270eb37bbd73e903a425fbedd6a7bf943a4c52c0653a8f",
         )
         self.assertEqual(row["search_binary_sha256"],
-                         "d766b1df98fa0561171aa3a1d9915fa7aeab2f6ac9904a47e9dcb316a613de41")
+                         "af73a74de3cac02be1b4e9ae44c2d6eaa68cf73d463d43ddc1f3dc721064990b")
         self.assertGreaterEqual(float(row["recall"]), 0.85)
         self.assertEqual((row["checked_results"], row["filter_violations"]),
                          ("10000", "0"))

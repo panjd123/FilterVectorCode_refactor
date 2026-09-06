@@ -59,13 +59,15 @@ sidecar loader 进一步加入逐 edge 的 owner/direct-child 语义校验，将
 
 最新 reachability 校验还要求每个 upper block 至少有一个由其子树内部 middle block 拥有的 direct member，保证查询覆盖 upper 时存在合法 `1 -> 2` 激活位置；仅由更大 middle 祖先相交不够，这不要求两个 partition 严格嵌套。公开 graph-aware validator 现在自包含基础 metadata 校验。focused C++ tests 7/7 通过。最终 binary `3947f438...11ba3` 全量加载同一 62,938,887-edge sidecar，50%/L550 Recall=.8575、10,000 个结果、0 违规。紧邻版本关闭 light stats 的机制审计显示 533/1000 query 使用 special graph、512/1000 搜索 upper block、57,897 次 upper activation；诊断耗时不进入主性能表。
 
-构造端 validator 已按生命周期拆成两阶段：partition 后的 preflight 不要求尚未生成的 `entry_point_id`，intra graph 构造后再执行完整 graph validator，最后才构造 regular overlay/保存。单测明确覆盖两个 gate 的差异。immutable builder `5599e3b1...04011` fresh 构建 T1=2k/T2=25k 成功（57.603 s，111 blocks/8 upper，62,943,481 edges）；search binary `d766b1df...de41` 在新 bundle 的 50%/L550 上 Recall=.8548、10,000 results、0 violations。运行无 `gpulock`，单次时间不更新冻结性能表。
+构造端 validator 已按生命周期拆成两阶段：partition 后的 preflight 不要求尚未生成的 `entry_point_id`；intra graph 构造后、昂贵 inter 前执行完整 graph validator，并在 special overlay 后防御性复核，最后才构造 regular overlay/保存。单测明确覆盖两个 gate 的差异。最终 immutable builder `c5cee68d...53a8f` fresh 构建 T1=2k/T2=25k 成功（57.313 s，111 blocks/8 upper，62,941,206 edges）；search binary `af73a74d...4990b` 在新 bundle 的 50%/L550 上 Recall=.8593、10,000 results、0 violations。运行无 `gpulock`，单次时间不更新冻结性能表。
 三次 build 早于 immutable builder snapshot 功能，旧 manifest 未原生携带 builder hash；compact CSV 将审计记录的 hash 明确标为 `historical_audit_record`。当前 builder 文件 mtime 早于三次 manifest 且 hash 一致，但这仍不是逐份 manifest 的密码学绑定。新运行会记录 `manifest_snapshot`。
 CPU Vamana large-block 对照为 1131.863 s，GPU 路径按完整 builder wall 快 19.89x；该对照图本身不同，只用于说明确定性 CPU 回退的工程代价。
 
 `runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 是未跟踪实验/第三方产物，不得提交。compact aggregate、runner、patch、报告和 manifest 应提交。
 
 原始 checkout 仍含大量用户改动，故本分支只声明 merge-ready，不自动修改原始 checkout。建议先保存原始工作树，再 cherry-pick 本分支从 `1f0c1e6` 到当前 HEAD 的任务提交；若只审阅最终增量，先从 `7a2bf46` 开始阅读。
+
+最新 merge-back 审计中，原始 checkout 仍停在共同基线 `dda63bd7663b06dce0ce3a977b81268df09b2d01`，隔离分支在其上有 67 个任务提交；原始 checkout 有 150 项未提交改动。任务分支的 407 个改动路径中有 128 个与原始脏路径重叠，其中 100 个文件内容已相同、27 个内容不同、1 个只存在一侧。提交历史没有新的 upstream commit 需要 rebase，但未提交工作树存在实质重叠，所以不能把“同一 merge-base”误写成“可无冲突自动合并”。应先备份/提交原始改动，再针对审计列出的 27+1 个分叉路径做三方整合并重跑本文件中的验证。
 
 ## 恢复入口
 
