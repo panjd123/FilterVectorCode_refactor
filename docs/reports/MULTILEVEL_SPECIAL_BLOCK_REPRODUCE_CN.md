@@ -83,9 +83,9 @@ loader 不只检查 CSR offset、ID 范围和 metadata topology，还对每条�
 
 不能额外假设 `T2>T1` 会让 upper partition 成为 middle partition 的严格粗化。对一般树形的反例搜索表明，两次独立 uncovered partition 可能使一个 middle block 的直接成员跨越 upper ownership 边界；因此 loader 有意不要求一个 middle block 的全部 direct members 共享同一 upper owner。查询依靠两套 point ownership 在到达 covered upper member 时升级，语义不依赖这个数据特例。当前 Amazon tuned 索引本身恰好完全嵌套：103 个 middle block、8 个 upper block、108 条同层 child edge；102 个 middle block 有最近 upper ancestor，1 个确实位于所有 upper block 之外，逐项重推导均无错挂或漏挂。
 
-`test_special_edge_io` 包含合法 intra/inter、middle/upper target owner 解析、最近同层/上层祖先、允许跨 upper ownership 的独立 partition 反例、converter/runtime CSV 一致性、损坏 heavy binary 的合法 fallback 与无 fallback fail-closed，以及上述非法情形的正负测试；固定临时目录在每次测试前清空，失败后的重跑不会继承旧 sidecar。真实数据审计还用当前 binary 完整加载 fresh `T1=2k,T2=25k` sidecar 的 62,938,887 条 special edges，并在 50% workload、L=550 上得到 Recall=.8575、10,000 个返回点、0 个 filter violation。加入最近祖先校验后的最新审计 binary SHA-256 为 `c9b674333856ae0c8fa89a5527fdb868a4ad5e7536193f290c42570e4bfcdacf`。
+`test_special_edge_io` 包含合法 intra/inter、middle/upper target owner 解析、最近同层/上层祖先、允许跨 upper ownership 的独立 partition 反例、converter/runtime CSV 一致性、损坏 heavy binary 的合法 fallback 与无 fallback fail-closed，以及上述非法情形的正负测试；`test_special_block_free_state` 另外直接覆盖普通点不能越级、middle 到 upper-owned point 的 `1 -> 2` membership activation、未覆盖 upper 与非 containment 不升级。真实数据审计还用当前 binary 完整加载 fresh `T1=2k,T2=25k` sidecar 的 62,938,887 条 special edges，并在 50% workload、L=550 上得到 Recall=.8575、10,000 个返回点、0 个 filter violation。最终审计 binary SHA-256 为 `b62d6e5007f100d5a9a647870da77b56b82f411ac3b5622b309b3f97f6edda2e`。
 
-最新 binary 的本次 sidecar 冷加载为 2.098 s，查询 batch 为 1.695 s；此前相邻正确性审计的 load/query 分别在 1.88--2.06 s / 0.97--2.27 s 间波动。这是单次、负载敏感的正确性运行：load 不在 query batch timer 内，query 也没有正式 repeats，因此两者都不更新冻结性能表，更不能用相邻运行之差声称 metadata validator 或 parser 的精确 overhead。
+最新 binary 的本次 sidecar 冷加载为 2.096 s，查询 batch 为 1.518 s；此前相邻正确性审计的 load/query 分别在 1.88--2.10 s / 0.97--2.27 s 间波动。这是单次、负载敏感的正确性运行：load 不在 query batch timer 内，query 也没有正式 repeats，因此两者都不更新冻结性能表，更不能用相邻运行之差声称 metadata validator 或 parser 的精确 overhead。
 
 ### 4.2 过滤结果合法性审计
 
