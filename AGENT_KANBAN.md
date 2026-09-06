@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 使用同一个 immutable builder 构建完整结构粗筛网格（5 个单层 T1 + 18 个合法两层 T1/T2），随后执行 0/1/2 层 coarse-to-fine 查询调优；赢家落在阈值边界时继续扩展或加密。
+- 23 个统一-builder 结构索引已全部完成；执行 24 种结构 x 6 档 workload 的 coarse-to-fine 查询调优（851 个离散 L 点），赢家落在阈值边界时继续扩展或加密。
 
 ## 完成历史
 
@@ -60,10 +60,12 @@
 - 新的互斥阶段计时 smoke 已通过：0/1/2 层逐 query 的 `ELS + EntryPointSetup + BlockAuthorization + GraphSearch + Residual = Total`，最大 closure error 约 `3e-12 ms/query`；0 层 authorization=0。禁用 query-result reuse 后首轮 ELS lazy initialization 明显，故正式统计丢弃 repeat 0，后续 warm repeat 仍不复用查询结果。
 - 公平调优规则已锁定：0 层只调 L；1 层独立调 `T1={500,1k,2k,4k,8k} × L`；2 层调同一 T1 网格与合法 `T2={4k,10k,25k,50k} × L`，边界赢家必须继续向外扩展或局部加密。正式只声明预先声明离散网格内的实测最优，同时区分跨六档共享阈值（论文主结论）和逐 workload oracle（能力上界）。
 - 阶段计时、runner、测试与公平调优协议已提交为 `4bd1fd50b7a046ba4f7f02817a320ddc3710bfb7`；`runs/` 与 nested third-party clone 未暂存。
+- 统一结构网格完成 `23/23`：5 个单层、18 个合法两层，全部使用 builder `c305f487...e0b295b`；累计 wall 1660.278 s，索引声明磁盘总量 15.033 GiB。
+- 查询粗筛配置已 dry-run 覆盖 `24 methods x 6 workloads = 144 cases`、851 个 L 点；支持 workload-specific L 网格，严格检查每个 L/repeat 的 stage closure、0 层 authorization=0 和 ELS reuse disabled。
 
 ## 下一步
 
-完成 23 个统一-builder 结构索引，再运行六档 coarse-to-fine sweep；按边界规则决定是否扩展阈值，最后分别报告每 workload oracle 与每层一套共享阈值的部署最优。
+运行六档 coarse-to-fine 查询 sweep；按 Recall crossing 和边界规则决定局部复测/扩展，再分别报告每 workload oracle 与每层一套共享阈值的部署最优。
 
 ## 阻塞与问题
 

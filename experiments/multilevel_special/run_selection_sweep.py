@@ -159,6 +159,28 @@ def output_dir(config: dict[str, Any], method: dict[str, Any], workload: dict[st
     return Path(config["output_root"]) / method["name"] / workload["name"]
 
 
+def lsearch_values_for(config: dict[str, Any], method: dict[str, Any],
+                       workload: dict[str, Any]) -> list[int]:
+    """Resolve an explicit L grid, allowing workload-specific tuning.
+
+    Search difficulty differs by two orders of magnitude across the Amazon x1
+    workloads.  A single global L grid either misses a Recall crossing or
+    wastes most of the tuning budget, so the most specific declared grid wins.
+    """
+    workload_name = str(workload["name"])
+    by_workload = method.get("lsearch_values_by_workload", {})
+    values = by_workload.get(workload_name)
+    if values is None:
+        values = workload.get("lsearch_values")
+    if values is None:
+        values = method.get("lsearch_values", config["lsearch_values"])
+    resolved = [int(value) for value in values]
+    if not resolved or len(set(resolved)) != len(resolved) or any(value <= 0 for value in resolved):
+        raise ValueError(
+            f"invalid Lsearch grid for {method['name']}/{workload_name}: {resolved}")
+    return resolved
+
+
 def result_is_complete(path: Path, expected_lsearch: list[int],
                        require_stage_breakdown: bool = False) -> bool:
     summary = path / "search_time_summary.csv"
@@ -190,7 +212,7 @@ def build_command(config: dict[str, Any], method: dict[str, Any], workload: dict
     data_root = Path(config["data_root"])
     query_root = data_root / workload["query_dir"]
     dataset = config.get("dataset", "Amazon")
-    values = [int(value) for value in method.get("lsearch_values", config["lsearch_values"])]
+    values = lsearch_values_for(config, method, workload)
     query_group_file = query_root / f"{dataset}_query_source_groups.txt"
     if not query_group_file.exists():
         query_group_file = run_dir / "missing_query_source_groups.txt"
@@ -309,7 +331,7 @@ def main() -> int:
             if selected_workloads and workload["name"] not in selected_workloads:
                 continue
             run_dir = output_dir(config, method, workload)
-            values = [int(value) for value in method.get("lsearch_values", config["lsearch_values"])]
+            values = lsearch_values_for(config, method, workload)
             num_queries = validate_case(config, method, workload)
             provenance = validate_provenance(config, method)
             require_stage_breakdown = bool(config.get("require_stage_breakdown", False))
@@ -331,6 +353,9 @@ def main() -> int:
                 "mean_selectivity": workload.get("mean_selectivity"),
                 "num_queries": num_queries,
                 "lsearch_values": values,
+                "layer_count": int(method.get("layer_count", 0)),
+                "t1": method.get("t1"),
+                "t2": method.get("t2"),
                 "num_repeats": config["num_repeats"],
                 "status": "dry_run" if args.dry_run else "running",
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),

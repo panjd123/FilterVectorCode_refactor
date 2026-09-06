@@ -9,11 +9,12 @@ import json
 import statistics
 from pathlib import Path
 
+import run_selection_sweep
 
-def expected_lsearch_values(config: dict, method: dict) -> set[int]:
+
+def expected_lsearch_values(config: dict, method: dict, workload: dict) -> set[int]:
     """Return the exact L grid used by the runner for one method."""
-    return {int(value) for value in method.get("lsearch_values",
-                                                config["lsearch_values"])}
+    return set(run_selection_sweep.lsearch_values_for(config, method, workload))
 
 
 def main() -> int:
@@ -30,8 +31,8 @@ def main() -> int:
     }
 
     for method in config["methods"]:
-        expected_l = expected_lsearch_values(config, method)
         for workload in config["workloads"]:
+            expected_l = expected_lsearch_values(config, method, workload)
             name = f"{method['name']}/{workload['name']}"
             run_dir = root / method["name"] / workload["name"]
             summary_path = run_dir / "search_time_summary.csv"
@@ -82,6 +83,33 @@ def main() -> int:
                     f"{name}: recall spread {maximum_recall_spread:.6f} at L={spread_l}: "
                     f"{spread_values}"
                 )
+            if config.get("require_stage_breakdown", False):
+                stage_path = run_dir / "search_stage_details.csv"
+                if not stage_path.is_file():
+                    problems.append(f"{name}: missing stage details")
+                    continue
+                with stage_path.open(newline="") as stream:
+                    stages = list(csv.DictReader(stream))
+                stage_counts = {
+                    value: sum(int(row["Lsearch"]) == value for row in stages)
+                    for value in expected_l
+                }
+                bad_stage_counts = {key: value for key, value in stage_counts.items()
+                                    if value != expected_repeats}
+                if bad_stage_counts:
+                    problems.append(f"{name}: stage repeat counts {bad_stage_counts}")
+                max_closure = max((abs(float(row["ClosureError_ms"])) for row in stages),
+                                  default=float("inf"))
+                if max_closure > 1e-6:
+                    problems.append(f"{name}: stage closure error {max_closure} ms/query")
+                if int(method.get("layer_count", 0)) == 0:
+                    max_authorization = max(
+                        (abs(float(row["AverageBlockAuthorization_ms"])) for row in stages),
+                        default=float("inf"),
+                    )
+                    if max_authorization > 1e-9:
+                        problems.append(
+                            f"{name}: layer-0 authorization time is {max_authorization}")
 
     manifest_path = root / "manifest.json"
     if not manifest_path.is_file():
@@ -103,7 +131,10 @@ def main() -> int:
         for key, row in current.items():
             method = next(item for item in config["methods"]
                           if item["name"] == key[0])
-            expected_manifest_l = sorted(expected_lsearch_values(config, method))
+            workload = next(item for item in config["workloads"]
+                            if item["name"] == key[1])
+            expected_manifest_l = sorted(expected_lsearch_values(
+                config, method, workload))
             actual_manifest_l = sorted(int(value) for value in row.get("lsearch_values", []))
             if actual_manifest_l != expected_manifest_l:
                 problems.append(f"{key}: manifest L grid mismatch")
@@ -114,6 +145,11 @@ def main() -> int:
                 problems.append(f"{key}: main-index labels hash mismatch")
             if provenance.get("expected_source_fingerprint") != config.get("expected_source_fingerprint"):
                 problems.append(f"{key}: source fingerprint mismatch")
+            if config.get("require_stage_breakdown", False):
+                if not row.get("els_reuse_disabled"):
+                    problems.append(f"{key}: ELS query-result reuse was not disabled")
+                if not row.get("require_stage_breakdown"):
+                    problems.append(f"{key}: stage breakdown was not required by runner")
 
     if problems:
         print("VALIDATION FAILED")

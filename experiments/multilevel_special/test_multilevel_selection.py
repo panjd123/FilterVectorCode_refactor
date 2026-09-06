@@ -7,23 +7,82 @@ from pathlib import Path
 
 import run_selection_sweep
 import run_build_sweep
+import generate_layer_tuning_config
+import select_layer_tuning
 import summarize_selection_sweep
 import validate_selection_sweep
 
 
 class SelectionSweepTest(unittest.TestCase):
+    def test_layer_tuning_grid_covers_independent_legal_structures(self):
+        config = generate_layer_tuning_config.make_config(Path("/repo"))
+        methods = config["methods"]
+        self.assertEqual(sum(item["layer_count"] == 0 for item in methods), 1)
+        self.assertEqual(
+            {item["t1"] for item in methods if item["layer_count"] == 1},
+            set(generate_layer_tuning_config.T1_VALUES),
+        )
+        two_level = [item for item in methods if item["layer_count"] == 2]
+        self.assertEqual(len(two_level), 18)
+        self.assertTrue(all(item["t2"] > item["t1"] for item in two_level))
+        self.assertTrue(all(
+            set(item["lsearch_values_by_workload"]) ==
+            {workload["name"] for workload in config["workloads"]}
+            for item in methods
+        ))
+
+    def test_shared_tuning_requires_one_structure_to_cover_all_workloads(self):
+        def row(method, layer, workload, latency, recall, t1=None):
+            return {"method": method, "layer_count": layer, "workload": workload,
+                    "batch_ms_warm_median": latency, "batch_ms_warm": latency,
+                    "recall_min": recall, "lsearch": 100, "t1": t1, "t2": None}
+        points = [
+            row("plain", 0, "a", 10, .9), row("plain", 0, "b", 20, .9),
+            row("t1_1", 1, "a", 5, .9, 1), row("t1_1", 1, "b", 30, .9, 1),
+            row("t1_2", 1, "a", 7, .9, 2), row("t1_2", 1, "b", 10, .9, 2),
+            row("oracle_only", 1, "a", 1, .9, 3),
+        ]
+        summaries, selected = select_layer_tuning.select_shared(
+            points, {"a": .9, "b": .9})
+        chosen = next(item for item in summaries if item["layer_count"] == 1)
+        self.assertEqual(chosen["method"], "t1_2")
+        self.assertEqual({row["method"] for row in selected
+                          if row["layer_count"] == 1}, {"t1_2"})
+
     def test_validator_uses_method_specific_lsearch_grid(self):
         config = {"lsearch_values": [100]}
         self.assertEqual(
             validate_selection_sweep.expected_lsearch_values(
-                config, {"name": "single", "lsearch_values": [100, 500]}),
+                config, {"name": "single", "lsearch_values": [100, 500]},
+                {"name": "w"}),
             {100, 500},
         )
         self.assertEqual(
             validate_selection_sweep.expected_lsearch_values(
-                config, {"name": "default"}),
+                config, {"name": "default"}, {"name": "w"}),
             {100},
         )
+
+    def test_workload_specific_lsearch_grid_is_most_specific(self):
+        config = {"lsearch_values": [10]}
+        method = {
+            "name": "multi",
+            "lsearch_values": [20],
+            "lsearch_values_by_workload": {"high": [100, 200]},
+        }
+        self.assertEqual(
+            run_selection_sweep.lsearch_values_for(
+                config, method, {"name": "high", "lsearch_values": [30]}),
+            [100, 200],
+        )
+        self.assertEqual(
+            run_selection_sweep.lsearch_values_for(
+                config, method, {"name": "low", "lsearch_values": [30]}),
+            [30],
+        )
+        with self.assertRaisesRegex(ValueError, "invalid Lsearch grid"):
+            run_selection_sweep.lsearch_values_for(
+                config, {"name": "bad", "lsearch_values": []}, {"name": "w"})
 
     def test_clean_method_env_removes_inherited_special_settings(self):
         env = run_selection_sweep.clean_method_env(
