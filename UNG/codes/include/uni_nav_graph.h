@@ -134,6 +134,14 @@ namespace ANNS
           uint32_t num_threads,
           bool is_new_trie_method,
           bool is_rec_more_start);
+      // Timing-external correctness audit for filtered-search benchmarks.
+      // Result ids are in the original dataset order; the loaded index stores
+      // labels in reordered graph order, so this helper owns the id mapping.
+      size_t count_containment_result_violations(
+          const std::shared_ptr<IStorage> &query_storage,
+          const std::pair<IdxType, float> *results,
+          IdxType K,
+          size_t *checked_results = nullptr) const;
 
       std::vector<IdxType> select_entry_groups(
           const std::vector<IdxType> &minimum_entry_sets,

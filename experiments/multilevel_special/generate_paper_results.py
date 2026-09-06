@@ -481,6 +481,7 @@ def write_artifact_manifest() -> None:
         OUTPUT_DIR / "current_source_rebuild_query_regression.csv",
         OUTPUT_DIR / "current_source_rebuild_sel50_l_sweep.csv",
         OUTPUT_DIR / "current_source_build_backend.csv",
+        OUTPUT_DIR / "filter_validation_audit.csv",
         report,
         overview,
         runbook,

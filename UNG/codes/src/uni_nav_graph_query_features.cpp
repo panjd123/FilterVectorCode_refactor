@@ -1,6 +1,7 @@
 #include <omp.h>
 
 #include "include/uni_nav_graph.h"
+#include "include/ung_filter_validation.h"
 
 #include <atomic>
 #include <chrono>
@@ -21,6 +22,25 @@
 
 namespace ANNS
 {
+
+   size_t UniNavGraph::count_containment_result_violations(
+       const std::shared_ptr<IStorage> &query_storage,
+       const std::pair<IdxType, float> *results,
+       IdxType K,
+       size_t *checked_results) const
+   {
+      const auto summary = validate_containment_results(
+          query_storage->get_num_points(), results, K, _old_to_new_vec_ids, _num_points,
+          [&](IdxType query_id) -> const std::vector<LabelType> & {
+             return query_storage->get_label_set(query_id);
+          },
+          [&](IdxType reordered_id) -> const std::vector<LabelType> & {
+             return _base_storage->get_label_set(reordered_id);
+          });
+      if (checked_results != nullptr)
+         *checked_results = summary.checked_results;
+      return summary.violations;
+   }
 
    void UniNavGraph::warmup_selectors(uint32_t num_threads)
    {

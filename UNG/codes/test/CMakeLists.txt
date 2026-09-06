@@ -59,6 +59,10 @@ add_executable(test_special_block_trie test_special_block_trie.cpp)
 target_link_libraries(test_special_block_trie PRIVATE -Wl,--whole-archive ${PROJECT_NAME} Vamana -Wl,--no-whole-archive Boost::program_options Boost::filesystem OpenMP::OpenMP_CXX ${ROARING_LIB} onnxruntime faiss)
 add_test(NAME special_block_trie COMMAND test_special_block_trie)
 
+add_executable(test_filter_validation test_filter_validation.cpp)
+target_link_libraries(test_filter_validation PRIVATE -Wl,--whole-archive ${PROJECT_NAME} Vamana -Wl,--no-whole-archive Boost::program_options Boost::filesystem OpenMP::OpenMP_CXX ${ROARING_LIB} onnxruntime faiss)
+add_test(NAME filter_validation COMMAND test_filter_validation)
+
 
 add_executable(test_navix_search test_navix_search.cpp)
 target_link_libraries(test_navix_search PRIVATE -Wl,--whole-archive ${PROJECT_NAME} Vamana -Wl,--no-whole-archive Boost::program_options Boost::filesystem OpenMP::OpenMP_CXX ${ROARING_LIB} onnxruntime faiss)

@@ -639,6 +639,16 @@ int main(int argc, char **argv)
    std::map<ANNS::IdxType, std::vector<double>> time_per_lsearch;  // 使用 map 来按 Lsearch 值分组存储每次 repeat 的耗时，方便后续计算平均值
    std::map<ANNS::IdxType, std::vector<float>> recall_per_lsearch; // 用于存储每个 Lsearch 的 recall 值
    std::map<ANNS::IdxType, std::vector<int>> efs_per_lsearch;      // 用于存储每个 Lsearch 的 efs 值
+   struct FilterValidationLog
+   {
+      int repeat;
+      ANNS::IdxType l_search;
+      size_t checked_results;
+      size_t violations;
+   };
+   const bool validate_filter_results =
+       ANNS::ung_env_flag_enabled("UNG_VALIDATE_FILTER_RESULTS");
+   std::vector<FilterValidationLog> filter_validation_logs;
 
    for (int repeat = 0; repeat < num_repeats; ++repeat)
    {
@@ -687,6 +697,17 @@ int main(int argc, char **argv)
          // 2. 计算每个独立查询的Recall
          for (int i = 0; i < num_queries; ++i)
             query_stats[repeat][LsearchId][i].recall = calculate_single_query_recall(gt + i * K, results + i * K, K);
+         if (validate_filter_results)
+         {
+            size_t checked_results = 0;
+            const size_t violations = index.count_containment_result_violations(
+                query_storage, results, K, &checked_results);
+            filter_validation_logs.push_back(
+                {repeat, current_Lsearch, checked_results, violations});
+            std::cout << "  Filter validation Lsearch=" << current_Lsearch
+                      << ", checked=" << checked_results
+                      << ", violations=" << violations << std::endl;
+         }
 
          // 3. 计算当前这一个批次 (LsearchId) 的平均Recall
          double total_recall_for_batch = 0.0;
@@ -709,6 +730,25 @@ int main(int argc, char **argv)
 
          std::cout << "  Lsearch=" << current_Lsearch << ", efs=" << efs_per_lsearch[current_Lsearch][0] << ", time=" << time_cost << "ms" << ", avg_recall=" << avg_recall_for_batch << std::endl;
 
+      }
+   }
+
+   if (validate_filter_results)
+   {
+      std::ofstream validation_out(result_path_prefix + "filter_validation.csv");
+      validation_out << "Repeat,Lsearch,CheckedResults,FilterViolations\n";
+      size_t total_violations = 0;
+      for (const auto &row : filter_validation_logs)
+      {
+         validation_out << row.repeat << ',' << row.l_search << ','
+                        << row.checked_results << ',' << row.violations << '\n';
+         total_violations += row.violations;
+      }
+      if (total_violations != 0)
+      {
+         std::cerr << "Filtered-result validation found " << total_violations
+                   << " invalid returned points." << std::endl;
+         return 2;
       }
    }
 

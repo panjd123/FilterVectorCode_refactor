@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`review-ready`
+- 总体：`final-audit`
 - 摘要：固定 two-level 构建/逐级查询、六档内部正式实验、T1/T2 调优和四个外部系统比较均已完成。高选择率使用统一 immutable binary；两轮结构审阅和有限上下文交付审阅完成，最终回归与不可变实现/结果 checkpoint 已通过。
 
 ## 进行中
 
-- 无。实现、论文结果闭包、当前源码 24 点 search 回归与三次独立 rebuild 鲁棒性审计均已完成。
+- 正在完成 filtered-result 合法性审计的最终文档、manifest 与 checkpoint；核心实现和论文主表不变。
 
 ## 完成历史
 
@@ -40,6 +40,7 @@
 - 当前源码 tuned 配置完成三次独立 fresh build：builder wall 中位数 56.916 s；block/trie/regular edge bitwise stable，GPU approximate special edges 非 bitwise deterministic。50% 跨重建稳健点为 L=550，三次 Recall .8540--.8582。
 - CPU Vamana large-block 对照总 builder wall 1131.863 s；GPU tuned 构建中位 56.916 s，完整构建快 19.89x，故不以 CPU 回退换取字节级确定性。
 - 最终 provenance 审计把三次旧 fresh build 的 builder hash 来源显式写入 CSV：旧 manifest 没有原生 hash，故标为 `historical_audit_record`；后续 fresh run 才是 `manifest_snapshot`。同时说明日志 `gpu_intra_enabled=0` 是旧全局开关，实际 routed path 有 24 个大 block 使用 FastGrnnd CUDA。主性能表未变化；提交 `dba4696`。
+- 新增默认关闭、计时外的 filtered-result validator 与独立单元测试；真实 49.971% workload、L=550 共检查 10,000 个结果，违规为 0，Recall=.8575。审计只作正确性证据，不进入性能表。
 
 ## 下一步
 
@@ -55,11 +56,11 @@
 
 ## 验证
 
-- `ctest -R 'ung_build_config|special_block_trie|special_block_free_state|special_candidate_queue|special_edge_io'` — `通过`：5/5。
+- `ctest -R 'ung_build_config|special_block_trie|special_block_free_state|special_candidate_queue|lng_block_partition|special_edge_io|filter_validation'` — `通过`：7/7。
 - `cmake --build build_ung_rel -j16 --target build_special_block_index search_UNG_index` — `通过`。
 - `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：全部正式内部 sweep。
 - `python3 -m unittest -v experiments.multilevel_special.test_multilevel_selection` — `通过`：14/14；新增 builder binary immutable snapshot 回归。
-- `python3 -m unittest -v test_generate_paper_results.py` — `通过`：14/14；包含统一 binary、CSV/manifest 网格/repeats、build source、upper-off 消融、current-source 24 点回归、三次 rebuild 鲁棒性和 LF-only CSV 输出检查。
+- `python3 -m unittest -v test_generate_paper_results.py` — `通过`：15/15；包含统一 binary、CSV/manifest 网格/repeats、build source、upper-off 消融、current-source 24 点回归、三次 rebuild 鲁棒性、过滤合法性审计和 LF-only CSV 输出检查。
 - `validate_selection_sweep.py config.amazon_x1_paired_formal_sel{25,50,75}.json` — `通过`：3/3，每个方法 7 repeats、Recall 无漂移。
 - Curator 低选择率产物 — `通过`：3 workloads x 12 budgets x 5 measured。
 - ACORN 低选择率产物 — `通过`：180 个 screen 点 + 3 个 formal 点，filter violations=0。

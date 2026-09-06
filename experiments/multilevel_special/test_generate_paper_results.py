@@ -188,6 +188,20 @@ class PaperResultsTest(unittest.TestCase):
         self.assertEqual(gpu["build_samples"], "3")
         self.assertGreater(float(gpu["total_speedup_vs_cpu_vamana"]), 10.0)
 
+    def test_filter_validation_audit_is_complete_and_clean(self) -> None:
+        rows = generator.read(
+            SCRIPT_DIR / "results_summary/filter_validation_audit.csv"
+        )
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row["workload"], "query_minlen1_avgsel50pct")
+        self.assertEqual(row["timing_role"], "correctness_audit_only")
+        self.assertEqual(int(row["num_queries"]), 1000)
+        self.assertEqual(int(row["K"]), 10)
+        self.assertEqual(int(row["checked_results"]), 10000)
+        self.assertEqual(int(row["filter_violations"]), 0)
+        self.assertGreaterEqual(float(row["recall"]), 0.85)
+
 
 if __name__ == "__main__":
     unittest.main()

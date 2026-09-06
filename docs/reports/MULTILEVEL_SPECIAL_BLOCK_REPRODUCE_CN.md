@@ -54,11 +54,11 @@ done
 ```bash
 cd /home/sunyahui/worktrees/FilterVectorCode_multilevel_special
 cmake --build build_ung_rel -j16 --target \
-  test_special_edge_io build_special_block_index search_UNG_index
+  test_special_edge_io test_filter_validation build_special_block_index search_UNG_index
 
 cd build_ung_rel
 ctest --output-on-failure -R \
-  'ung_build_config|special_block_trie|special_block_free_state|special_candidate_queue|special_edge_io'
+  'ung_build_config|special_block_trie|special_block_free_state|special_candidate_queue|special_edge_io|filter_validation'
 cd ..
 
 cd experiments/multilevel_special
@@ -68,7 +68,19 @@ cd ../..
 git diff --check
 ```
 
-最终 checkpoint 上的预期结果为 C++ focused tests 5/5、Python tests 28/28。
+最终 checkpoint 上的预期结果为 C++ focused tests 7/7、Python tests 29/29。
+
+### 4.1 过滤结果合法性审计
+
+性能 Recall 只能说明返回点与 exact GT 的重合率；还应独立确认每个实际返回点都满足 query filter。`search_UNG_index` 提供默认关闭的 `UNG_VALIDATE_FILTER_RESULTS=1`：搜索 batch 计时停止后，它将 original result id 映射到 reordered graph id，并验证 point labels 包含全部 query labels。审计输出为 `filter_validation.csv`；有任一违规时进程返回 2。
+
+复用第 6 节内部搜索命令时额外设置：
+
+```bash
+export UNG_VALIDATE_FILTER_RESULTS=1
+```
+
+正确性运行和性能运行必须分开：审计逻辑虽位于 batch timer 外，但会额外读取标签、生成文件，不应把这种单次诊断运行的冷启动时间写入性能主表。已审计点为 49.971%、L=550、T1=2k/T2=25k、1000 queries、K=10、100 threads；`CheckedResults=10000`、`FilterViolations=0`、Recall=.8575。审计 binary SHA-256 为 `378e71d77f93c891f67660d33cce36213290dbadee312ee3cac769d6fb3f0313`，compact 证据见 `results_summary/filter_validation_audit.csv`。
 
 ## 5. 从当前源码重新构建 Special Block
 

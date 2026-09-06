@@ -1,0 +1,2 @@
+workload,selectivity_pct,num_queries,K,threads,Lsearch,T1,T2,checked_results,filter_violations,recall,batch_time_ms,timing_role,search_binary_sha256,block_bundle
+query_minlen1_avgsel50pct,49.971,1000,10,100,550,2000,25000,10000,0,0.8575,880.876,correctness_audit_only,378e71d77f93c891f67660d33cce36213290dbadee312ee3cac769d6fb3f0313,fresh_current_source_build_t1_2000_t2_25000_20260906
