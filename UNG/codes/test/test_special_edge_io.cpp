@@ -566,6 +566,14 @@ int main()
    false_root[0].root_labels = {1, 9};
    expect_graph_semantics(false_root, false,
                           "block root labels must contain every direct member group");
+   auto unsorted_root = semantic_blocks;
+   unsorted_root[1].root_labels = {3, 2, 1};
+   expect_graph_semantics(unsorted_root, false,
+                          "block root label paths must remain canonical");
+   auto wrong_common_labels = semantic_blocks;
+   wrong_common_labels[2].common_labels = {1, 2};
+   expect_graph_semantics(wrong_common_labels, false,
+                          "common labels must match the direct-member intersection");
    auto external_entry = semantic_blocks;
    external_entry[0].entry_point_id = 5;
    expect_graph_semantics(external_entry, false,

@@ -215,6 +215,20 @@ bool is_label_path_prefix(const std::vector<LabelType> &prefix,
    return std::equal(prefix.begin(), prefix.end(), path.begin());
 }
 
+struct LabelPathHash
+{
+   size_t operator()(const std::vector<LabelType> &labels) const noexcept
+   {
+      size_t hash = static_cast<size_t>(1469598103934665603ULL);
+      for (LabelType label : labels)
+      {
+         hash ^= static_cast<size_t>(label);
+         hash *= static_cast<size_t>(1099511628211ULL);
+      }
+      return hash;
+   }
+};
+
 bool validate_source_group_layout(
     IdxType num_points,
     IdxType num_groups,
@@ -239,7 +253,9 @@ bool validate_source_group_layout(
    }
 
    IdxType expected_begin = 0;
-   std::map<std::vector<LabelType>, IdxType> canonical_group_owner;
+   std::unordered_map<std::vector<LabelType>, IdxType, LabelPathHash>
+       canonical_group_owner;
+   canonical_group_owner.reserve(num_groups);
    for (IdxType group_id = 1; group_id <= num_groups; ++group_id)
    {
       if (group_labels[group_id].empty())
@@ -291,6 +307,33 @@ bool validate_source_group_layout(
    return true;
 }
 
+bool validate_special_block_entry_points(
+    const std::vector<SpecialBlock> &blocks,
+    IdxType num_points,
+    const std::vector<IdxType> &point_to_group,
+    std::string &error)
+{
+   if (point_to_group.size() != num_points)
+   {
+      error = "source UNG point ownership is incomplete";
+      return false;
+   }
+   for (const SpecialBlock &block : blocks)
+   {
+      if (block.entry_point_id == SpecialBlock::kInvalidEntryPoint ||
+          block.entry_point_id >= num_points ||
+          std::find(block.member_group_ids.begin(), block.member_group_ids.end(),
+                    point_to_group[block.entry_point_id]) ==
+              block.member_group_ids.end())
+      {
+         error = "special block entry point is not in a direct member group";
+         return false;
+      }
+   }
+   error.clear();
+   return true;
+}
+
 bool validate_special_block_graph_semantics_impl(
     const std::vector<SpecialBlock> &blocks,
     IdxType num_points,
@@ -323,7 +366,10 @@ bool validate_special_block_graph_semantics_impl(
    // changing which inter-block edges are available while still looking like
    // an acyclic forest.
    std::vector<IdxType> same_layer_parent(blocks.size() + 1, 0);
-   std::map<std::vector<LabelType>, IdxType> block_by_root[2];
+   std::unordered_map<std::vector<LabelType>, IdxType, LabelPathHash>
+       block_by_root[2];
+   block_by_root[0].reserve(blocks.size());
+   block_by_root[1].reserve(blocks.size());
    std::vector<IdxType> group_middle_owner(num_groups + 1, 0);
    std::vector<IdxType> group_upper_owner(num_groups + 1, 0);
    for (const SpecialBlock &block : blocks)
@@ -453,16 +499,6 @@ bool validate_special_block_graph_semantics_impl(
          error = "special block point_count does not match its direct member ranges";
          return false;
       }
-      if (require_entry_points &&
-          (block.entry_point_id == SpecialBlock::kInvalidEntryPoint ||
-           block.entry_point_id >= num_points ||
-           std::find(block.member_group_ids.begin(), block.member_group_ids.end(),
-                     point_to_group[block.entry_point_id]) == block.member_group_ids.end()))
-      {
-         error = "special block entry point is not in a direct member group";
-         return false;
-      }
-
       for (IdxType child_id : block.child_block_ids)
       {
          const SpecialBlock &child = blocks[child_id - 1];
@@ -523,6 +559,10 @@ bool validate_special_block_graph_semantics_impl(
          return false;
       }
    }
+   if (require_entry_points &&
+       !validate_special_block_entry_points(blocks, num_points,
+                                            point_to_group, error))
+      return false;
    error.clear();
    return true;
 }
@@ -2556,16 +2596,6 @@ void UniNavGraph::build_special_block_index(
           "constructed special block partition is invalid: " +
           graph_semantics_error);
    build_special_edge_overlay();
-   // Defensively repeat the complete gate after the special overlay. The first
-   // complete check runs inside build_special_edge_overlay() after intra and
-   // before inter; this second boundary protects later refactors before the
-   // regular overlay or any sidecar is published.
-   if (!validate_special_block_graph_semantics(
-           _special_blocks, _num_points, _num_groups, _group_id_to_label_set,
-           _group_id_to_range, _new_vec_id_to_group_id, graph_semantics_error))
-      throw std::runtime_error(
-          "constructed special block graph is invalid: " +
-          graph_semantics_error);
    build_special_trie_regular_edge_overlay();
    refresh_special_block_memory_stats();
    _special_block_summary.build_memory_logical_bytes =
@@ -3371,15 +3401,17 @@ void UniNavGraph::build_special_edge_overlay()
              cpu_intra_vamana_blocks,
              cpu_intra_vamana_points);
 
-   // Entry points become defined during intra construction. Validate them at
-   // the first legal lifecycle boundary, before the substantially more
-   // expensive parent-to-child inter-edge stage starts.
+   // Partition/source invariants were checked immediately after partitioning,
+   // and only entry_point_id has changed since then. Validate exactly that
+   // delta before the substantially more expensive inter-edge stage instead
+   // of rescanning every source group and point. The loader still calls the
+   // complete public graph validator because persisted input is untrusted.
    std::string graph_semantics_error;
-   if (!validate_special_block_graph_semantics(
-           _special_blocks, _num_points, _num_groups, _group_id_to_label_set,
-           _group_id_to_range, _new_vec_id_to_group_id, graph_semantics_error))
+   if (!validate_special_block_entry_points(
+           _special_blocks, _num_points, _new_vec_id_to_group_id,
+           graph_semantics_error))
       throw std::runtime_error(
-          "constructed special block intra graph is invalid: " +
+          "constructed special block entry points are invalid: " +
           graph_semantics_error);
 
    const CpuHybridCrossSettings hybrid_cfg = make_cpu_hybrid_cross_settings();

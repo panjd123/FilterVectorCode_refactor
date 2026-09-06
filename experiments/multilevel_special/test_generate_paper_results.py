@@ -158,7 +158,7 @@ class PaperResultsTest(unittest.TestCase):
         self.assertEqual(sum(int(row["checked_results"]) for row in rows), 20000)
         self.assertEqual(sum(int(row["filter_violations"]) for row in rows), 0)
         self.assertEqual({row["search_binary_sha256"] for row in rows}, {
-            "60220cbc59447c1227a4ada2ee6f7bf2d0777259fcc01ebc2f12622eb0a82e18"
+            "052e4cc31ecb214da580d7f26cd3bd39bb3b6873c68ee096257d8cc6e088be2a"
         })
         manifest_rows = generator.read(
             SCRIPT_DIR / "results_summary" / "source_manifest.csv"
