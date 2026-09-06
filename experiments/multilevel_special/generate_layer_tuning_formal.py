@@ -21,13 +21,16 @@ def dense_crossing_grid(rows: list[dict], threshold: float) -> list[int]:
     high = min(feasible, key=lambda row: row["lsearch"])["lsearch"]
     lower = [row["lsearch"] for row in ordered if row["lsearch"] < high]
     low = max(lower) if lower else max(1, high // 2)
+    higher = [row["lsearch"] for row in ordered if row["lsearch"] > high]
+    guard = min(higher) if higher else int(math.ceil(high * 1.25))
     if low == high:
-        return [high]
-    # Include endpoints plus quartiles; all are measured in the formal run.
+        return sorted({high, guard})
+    # Include the bracket, interior points, and one guard point above the
+    # coarse crossing. Every value is subsequently measured in the formal run.
     return sorted({low, high,
                    int(round(low + (high - low) * 0.25)),
                    int(round(low + (high - low) * 0.50)),
-                   int(round(low + (high - low) * 0.75))})
+                   int(round(low + (high - low) * 0.75)), guard})
 
 
 def selected_structure_workloads(
@@ -118,6 +121,12 @@ def make_formal_config(coarse: dict, points: list[dict]) -> dict:
     formal["num_repeats"] = 7
     formal["output_root"] = str(
         Path(coarse["output_root"]).with_name("layer_tuning_query_formal_amazon_x1"))
+    # Boundary auditing after shortlist reruns must retain the full coarse
+    # structure space rather than treating the shortlist as the entire grid.
+    formal["boundary_reference_methods"] = [
+        {key: source.get(key) for key in ("name", "layer_count", "t1", "t2")}
+        for source in coarse["methods"]
+    ]
     formal["methods"] = methods
     return formal
 

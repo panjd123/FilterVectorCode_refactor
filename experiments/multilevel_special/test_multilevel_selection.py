@@ -88,6 +88,20 @@ class SelectionSweepTest(unittest.TestCase):
              ("t2", "lower", "4000;10000")},
         )
 
+    def test_boundary_audit_can_use_full_coarse_reference_grid(self):
+        formal_points = [{"layer_count": 1, "method": "m2",
+                          "t1": 2000, "t2": None}]
+        oracle = [{"layer_count": 1, "method": "m2", "workload": "w",
+                   "t1": 2000, "t2": None}]
+        reference = [
+            {"layer_count": 1, "method": "m1", "t1": 1000, "t2": None},
+            {"layer_count": 1, "method": "m2", "t1": 2000, "t2": None},
+            {"layer_count": 1, "method": "m4", "t1": 4000, "t2": None},
+        ]
+        self.assertEqual(
+            select_layer_tuning.audit_structure_boundaries(
+                formal_points, oracle, [], reference), [])
+
     def test_formal_grid_brackets_coarse_recall_crossing(self):
         rows = [
             {"lsearch": 100, "recall_min": .80},
@@ -97,7 +111,17 @@ class SelectionSweepTest(unittest.TestCase):
         ]
         self.assertEqual(
             generate_layer_tuning_formal.dense_crossing_grid(rows, .90),
-            [500, 625, 750, 875, 1000],
+            [500, 625, 750, 875, 1000, 2000],
+        )
+
+    def test_formal_grid_extends_when_crossing_is_at_l_boundary(self):
+        rows = [
+            {"lsearch": 100, "recall_min": .80},
+            {"lsearch": 200, "recall_min": .90},
+        ]
+        self.assertEqual(
+            generate_layer_tuning_formal.dense_crossing_grid(rows, .90),
+            [100, 125, 150, 175, 200, 250],
         )
 
     def test_formal_oracle_only_structure_runs_only_selected_workload(self):

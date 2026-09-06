@@ -111,7 +111,8 @@ def select_shared(points: list[dict], thresholds: dict[str, float]) -> tuple[lis
 
 
 def audit_structure_boundaries(points: list[dict], oracle: list[dict],
-                               shared: list[dict]) -> list[dict]:
+                               shared: list[dict],
+                               reference_structures: list[dict] | None = None) -> list[dict]:
     """Report selected structures that touch a measured grid boundary.
 
     For two-level structures, an axis is compared only against configurations
@@ -121,7 +122,7 @@ def audit_structure_boundaries(points: list[dict], oracle: list[dict],
     """
     structures = {
         (row["layer_count"], row["method"], row["t1"], row["t2"])
-        for row in points
+        for row in (reference_structures or points)
     }
 
     def axis_values(layer: int, t1: int | None, t2: int | None,
@@ -192,7 +193,8 @@ def main() -> int:
     thresholds = {key: float(value) for key, value in config["recall_thresholds"].items()}
     oracle = select_oracle(points, thresholds)
     shared, selected = select_shared(points, thresholds)
-    boundaries = audit_structure_boundaries(points, oracle, shared)
+    boundaries = audit_structure_boundaries(
+        points, oracle, shared, config.get("boundary_reference_methods"))
     write_csv(root / "layer_oracle.csv", oracle)
     write_csv(root / "shared_configurations.csv", shared)
     write_csv(root / "shared_selected_points.csv", selected)
