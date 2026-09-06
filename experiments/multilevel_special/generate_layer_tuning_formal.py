@@ -30,10 +30,19 @@ def dense_crossing_grid(rows: list[dict], threshold: float) -> list[int]:
                    int(round(low + (high - low) * 0.75))})
 
 
-def top_structures(points: list[dict], thresholds: dict[str, float],
-                   shared_top_k: int = 3, oracle_top_k: int = 2) -> set[tuple[int, str]]:
+def selected_structure_workloads(
+    points: list[dict], thresholds: dict[str, float],
+    shared_top_k: int = 3, oracle_top_k: int = 2,
+) -> dict[tuple[int, str], set[str]]:
+    """Map each shortlisted structure to workloads needing a formal rerun.
+
+    Shared candidates must be measured on all workloads.  A structure selected
+    only for a per-workload oracle is rerun only on the workload(s) for which
+    it was competitive; this preserves the selection evidence while avoiding
+    an unnecessary Cartesian product in the seven-repeat stage.
+    """
     workloads = sorted(thresholds)
-    selected: set[tuple[int, str]] = set()
+    selected: dict[tuple[int, str], set[str]] = defaultdict(set)
     layers = sorted({row["layer_count"] for row in points})
     for layer in layers:
         methods = sorted({row["method"] for row in points if row["layer_count"] == layer})
@@ -55,7 +64,8 @@ def top_structures(points: list[dict], thresholds: dict[str, float],
             if feasible:
                 score = math.exp(sum(math.log(value) for value in ratios) / len(ratios))
                 ranked_shared.append((score, method))
-        selected.update((layer, method) for _, method in sorted(ranked_shared)[:shared_top_k])
+        for _, method in sorted(ranked_shared)[:shared_top_k]:
+            selected[(layer, method)].update(workloads)
         for workload in workloads:
             ranked_oracle = []
             for method in methods:
@@ -64,13 +74,21 @@ def top_structures(points: list[dict], thresholds: dict[str, float],
                     thresholds[workload])
                 if best is not None:
                     ranked_oracle.append((best["batch_ms_warm_median"], method))
-            selected.update((layer, method) for _, method in sorted(ranked_oracle)[:oracle_top_k])
+            for _, method in sorted(ranked_oracle)[:oracle_top_k]:
+                selected[(layer, method)].add(workload)
     return selected
+
+
+def top_structures(points: list[dict], thresholds: dict[str, float],
+                   shared_top_k: int = 3, oracle_top_k: int = 2) -> set[tuple[int, str]]:
+    """Compatibility wrapper returning only shortlisted structure keys."""
+    return set(selected_structure_workloads(
+        points, thresholds, shared_top_k, oracle_top_k))
 
 
 def make_formal_config(coarse: dict, points: list[dict]) -> dict:
     thresholds = {key: float(value) for key, value in coarse["recall_thresholds"].items()}
-    selected = top_structures(points, thresholds)
+    selected = selected_structure_workloads(points, thresholds)
     rows_by_key = defaultdict(list)
     for row in points:
         rows_by_key[(row["method"], row["workload"])].append(row)
@@ -83,7 +101,10 @@ def make_formal_config(coarse: dict, points: list[dict]) -> dict:
                   if key != "lsearch_values_by_workload"}
         by_workload = {}
         enabled = []
+        selected_workloads = selected[key]
         for workload in coarse["workloads"]:
+            if workload["name"] not in selected_workloads:
+                continue
             rows = rows_by_key[(source["name"], workload["name"])]
             if not rows:
                 continue

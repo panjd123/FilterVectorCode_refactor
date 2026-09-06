@@ -99,6 +99,26 @@ class SelectionSweepTest(unittest.TestCase):
             [500, 625, 750, 875, 1000],
         )
 
+    def test_formal_oracle_only_structure_runs_only_selected_workload(self):
+        def row(method, workload, latency, layer=1):
+            return {"method": method, "layer_count": layer,
+                    "workload": workload, "batch_ms_warm_median": latency,
+                    "batch_ms_warm": latency, "recall_min": .91,
+                    "lsearch": 100,
+                    "t1": int(method[-1]) if layer else None, "t2": None}
+        points = [
+            row("plain", "a", 10, layer=0),
+            row("plain", "b", 10, layer=0),
+            row("m1", "a", 1), row("m1", "b", 100),
+            row("m2", "a", 2), row("m2", "b", 2),
+            row("m3", "a", 100), row("m3", "b", 1),
+        ]
+        selected = generate_layer_tuning_formal.selected_structure_workloads(
+            points, {"a": .9, "b": .9}, shared_top_k=1, oracle_top_k=1)
+        self.assertEqual(selected[(1, "m2")], {"a", "b"})
+        self.assertEqual(selected[(1, "m1")], {"a"})
+        self.assertEqual(selected[(1, "m3")], {"b"})
+
     def test_validator_uses_method_specific_lsearch_grid(self):
         config = {"lsearch_values": [100]}
         self.assertEqual(
