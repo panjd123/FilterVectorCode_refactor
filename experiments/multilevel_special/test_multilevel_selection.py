@@ -44,6 +44,45 @@ class SelectionSweepTest(unittest.TestCase):
             )
             self.assertTrue(run_selection_sweep.result_is_complete(root, [100, 200]))
             self.assertFalse(run_selection_sweep.result_is_complete(root, [100, 200, 300]))
+            self.assertFalse(run_selection_sweep.result_is_complete(
+                root, [100, 200], require_stage_breakdown=True))
+            (root / "search_stage_details.csv").write_text(
+                "Repeat,Lsearch,AverageQueryTotal_ms,AverageELS_ms,"
+                "AverageEntryPointSetup_ms,AverageBlockAuthorization_ms,"
+                "AverageGraphSearch_ms,AverageResidual_ms,ClosureError_ms\n"
+                "0,100,1,0.1,0.2,0.1,0.5,0.1,0\n"
+                "0,200,2,0.1,0.2,0.1,1.5,0.1,0\n"
+            )
+            self.assertTrue(run_selection_sweep.result_is_complete(
+                root, [100, 200], require_stage_breakdown=True))
+
+    def test_summarizer_reads_warm_stage_medians(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run = root / "method" / "workload"
+            run.mkdir(parents=True)
+            (run / "search_time_summary.csv").write_text(
+                "Lsearch,Average_Time_ms,Average_Recall\n100,20,0.9\n")
+            (run / "search_time_details.csv").write_text(
+                "Repeat,Lsearch,Time_ms,Avg_Recall\n"
+                "0,100,30,0.9\n1,100,20,0.9\n2,100,22,0.9\n")
+            (run / "search_stage_details.csv").write_text(
+                "Repeat,Lsearch,AverageQueryTotal_ms,AverageELS_ms,"
+                "AverageEntryPointSetup_ms,AverageBlockAuthorization_ms,"
+                "AverageGraphSearch_ms,AverageResidual_ms,ClosureError_ms\n"
+                "0,100,3,0.3,0.3,0.3,1.8,0.3,0\n"
+                "1,100,2,0.2,0.2,0.2,1.2,0.2,0\n"
+                "2,100,2.2,0.4,0.2,0.2,1.2,0.2,0\n")
+            rows = summarize_selection_sweep.read_rows({
+                "output_root": str(root),
+                "methods": [{"name": "method"}],
+                "workloads": [{"name": "workload", "query_dir": "q",
+                               "mean_selectivity": 0.5}],
+            })
+            self.assertEqual(len(rows), 1)
+            self.assertAlmostEqual(rows[0]["els_ms_warm_median"], 0.3)
+            self.assertAlmostEqual(rows[0]["graph_ms_warm_median"], 1.2)
+            self.assertAlmostEqual(rows[0]["closure_error_ms_max_abs"], 0.0)
 
     def test_search_binary_snapshot_is_content_addressed_and_read_only(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -110,12 +149,21 @@ class SelectionSweepTest(unittest.TestCase):
         env = run_build_sweep.clean_build_env(
             {"PATH": "/bin", "UNG_SPECIAL_BLOCK_GPU_INTER": "1"},
             {"min_points": 1000, "env": {"UNG_SPECIAL_INTRA_ROUTE": "1"}},
+            {},
             25000,
         )
         self.assertEqual(env["PATH"], "/bin")
         self.assertNotIn("UNG_SPECIAL_BLOCK_GPU_INTER", env)
         self.assertEqual(env["UNG_SPECIAL_BLOCK_MIN_POINTS"], "1000")
         self.assertEqual(env["UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS"], "25000")
+
+    def test_build_case_can_override_t1_without_changing_global_config(self):
+        config = {"min_points": 1000, "env": {}}
+        case = {"name": "single_2000", "min_points": 2000}
+        env = run_build_sweep.clean_build_env({}, config, case, None)
+        self.assertEqual(run_build_sweep.case_min_points(config, case), 2000)
+        self.assertEqual(env["UNG_SPECIAL_BLOCK_MIN_POINTS"], "2000")
+        self.assertNotIn("UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS", env)
 
     def test_build_case_validation_checks_threshold_and_fingerprint(self):
         with tempfile.TemporaryDirectory() as temp:

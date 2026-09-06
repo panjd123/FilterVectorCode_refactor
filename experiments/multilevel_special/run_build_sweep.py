@@ -131,10 +131,15 @@ def acquire_lock(output_root: Path):
     return lock_file
 
 
-def clean_build_env(base: dict[str, str], config: dict[str, Any], upper: Optional[int]) -> dict[str, str]:
+def case_min_points(config: dict[str, Any], case: dict[str, Any]) -> int:
+    return int(case.get("min_points", config["min_points"]))
+
+
+def clean_build_env(base: dict[str, str], config: dict[str, Any], case: dict[str, Any],
+                    upper: Optional[int]) -> dict[str, str]:
     env = {key: value for key, value in base.items() if not key.startswith("UNG_")}
     env.update({str(key): str(value) for key, value in config.get("env", {}).items()})
-    env["UNG_SPECIAL_BLOCK_MIN_POINTS"] = str(int(config["min_points"]))
+    env["UNG_SPECIAL_BLOCK_MIN_POINTS"] = str(case_min_points(config, case))
     if upper is not None:
         env["UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS"] = str(upper)
     return env
@@ -182,7 +187,7 @@ def validate_case(config: dict[str, Any], case: dict[str, Any], case_root: Path)
         "source_ung_fingerprint": str(config["expected_source_fingerprint"]),
         "num_points": str(int(config["expected_num_points"])),
         "num_groups": str(int(config["expected_num_groups"])),
-        "special_block_min_points": str(int(config["min_points"])),
+        "special_block_min_points": str(case_min_points(config, case)),
         "special_block_max_degree": str(int(config["max_degree"])),
         "special_block_num_cross_edges": str(int(config["num_cross_edges"])),
     }
@@ -199,7 +204,8 @@ def validate_case(config: dict[str, Any], case: dict[str, Any], case_root: Path)
     return meta
 
 
-def build_command(config: dict[str, Any], case_root: Path, build_app: Optional[Path] = None) -> list[str]:
+def build_command(config: dict[str, Any], case: dict[str, Any], case_root: Path,
+                  build_app: Optional[Path] = None) -> list[str]:
     return [
         str(build_app or config["build_app"]),
         "--ung_index_path_prefix", str(Path(config["main_index"])) + "/",
@@ -210,7 +216,7 @@ def build_command(config: dict[str, Any], case_root: Path, build_app: Optional[P
         "--data_type", "float",
         "--dist_fn", "L2",
         "--num_threads", str(int(config["num_threads"])),
-        "--min_points", str(int(config["min_points"])),
+        "--min_points", str(case_min_points(config, case)),
         "--max_degree", str(int(config["max_degree"])),
         "--num_cross_edges", str(int(config["num_cross_edges"])),
         "--Lbuild", str(int(config["Lbuild"])),
@@ -264,7 +270,8 @@ def main() -> int:
             continue
         upper_value = case.get("upper_min_points")
         upper = int(upper_value) if upper_value is not None else None
-        if upper is not None and upper <= int(config["min_points"]):
+        minimum = case_min_points(config, case)
+        if upper is not None and upper <= minimum:
             raise ValueError(f"upper threshold must exceed T1: {upper}")
         final_root = Path(case.get("existing_path", output_root / case["name"]))
         try:
@@ -272,7 +279,8 @@ def main() -> int:
             if not args.force:
                 print(f"[SKIP] {case['name']} validated at {final_root}", flush=True)
                 update_manifest(manifest, {
-                    "name": case["name"], "upper_min_points": upper,
+                    "name": case["name"], "min_points": minimum,
+                    "upper_min_points": upper,
                     "status": "complete", "case_root": str(final_root),
                     "reused_existing": True, "metadata": meta,
                     "source_provenance": source_provenance,
@@ -290,20 +298,21 @@ def main() -> int:
         if staging.exists():
             quarantine(staging, output_root, "stale_staging")
         staging.mkdir(parents=True)
-        cmd = build_command(config, staging, build_app)
-        env = clean_build_env(os.environ, config, upper)
+        cmd = build_command(config, case, staging, build_app)
+        env = clean_build_env(os.environ, config, case, upper)
         (staging / "command.txt").write_text(shlex.join(cmd) + "\n")
         (staging / "environment.json").write_text(json.dumps(
             {key: value for key, value in env.items() if key.startswith("UNG_")},
             indent=2, sort_keys=True) + "\n")
-        record = {"name": case["name"], "upper_min_points": upper,
+        record = {"name": case["name"], "min_points": minimum,
+                  "upper_min_points": upper,
                   "status": "dry_run" if args.dry_run else "running",
                   "staging_root": str(staging),
                   "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                   "source_provenance": source_provenance}
         update_manifest(manifest, record)
         level_text = f"T2={upper}" if upper is not None else "single-level"
-        print(f"[BUILD] {case['name']} T1={config['min_points']} {level_text}", flush=True)
+        print(f"[BUILD] {case['name']} T1={minimum} {level_text}", flush=True)
         print(shlex.join(cmd), flush=True)
         if args.dry_run:
             continue

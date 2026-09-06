@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`完成`
-- 摘要：固定 two-level 构建/逐级查询、正式实验与论文交付均已完成；最终 source-layout gate、fresh build、two-level/legacy load-query、manifest 闭包和完整回归均已通过。隔离分支可独立审阅，但原始 checkout 有重叠脏改动，只能人工整合。
+- 总体：`进行中`
+- 摘要：多层实现及原正式结果已完成；用户现要求把核心比较修正为同一口径的 0 层、1 层、2 层，并分别报告 ELS、入口点初始化、图搜索及其他开销。每层方法都必须独立调优 block 阈值和 Lsearch，禁止用调优两层对比固定旧阈值单层。旧的 plain-vs-two-level 汇总仍可作为系统结果，但不足以单独证明第二层贡献。
 
 ## 进行中
 
-- 无；等待人工审阅或在保存原始 checkout 后执行三方整合。
+- 固化已通过 smoke 的互斥阶段计时，然后构建并执行 0 层 L、1 层 T1×L、2 层 T1×T2×L 的 coarse-to-fine 公平调参矩阵；赢家落在阈值边界时继续扩展或加密。
 
 ## 完成历史
 
@@ -57,10 +57,12 @@
 - 最终 source-layout gate 覆盖 sentinel、label path 规范/唯一性、全局 range 分区、point ownership、每层最近-root direct ownership、common labels 与 subtree point count；系统性损坏负例、完整 CTest 14/14、Python 32/32 均通过。
 - 构建阶段只做一次完整 source/partition preflight，intra 后只检查 entry-point delta；最终 builder `c305f487...e0b295b` fresh 构建 T1=2k/T2=25k 成功：runner wall 59.038 s、metadata/partition 2.659 s、111 blocks/8 upper、62,941,289 edges。最终 search `052e4cc3...88be2a` 在 fresh two-level 的 50%/L550 为 Recall=.8587，在旧 single-level 的 50%/L1800 为 Recall=.8523；各 10,000 results、0 violations。单次 timing 仅作 correctness/provenance audit。
 - merge-back 审计：原始 checkout HEAD 仍为共同基线 `dda63bd`，隔离分支领先 70+ commits；原始 checkout 有 150 项脏改动。任务分支现有 410 个改动路径，其中 128 个与原始脏路径重叠：101 个当前结果相同（含双方都删除的一个路径）、27 个内容不同、0 个未解释单边路径。分支可独立审阅，但必须先保存原始改动并人工整合 27 个分叉路径，禁止直接自动 merge/cherry-pick；清单见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_MERGE_BACK_CN.md`。
+- 新的互斥阶段计时 smoke 已通过：0/1/2 层逐 query 的 `ELS + EntryPointSetup + BlockAuthorization + GraphSearch + Residual = Total`，最大 closure error 约 `3e-12 ms/query`；0 层 authorization=0。禁用 query-result reuse 后首轮 ELS lazy initialization 明显，故正式统计丢弃 repeat 0，后续 warm repeat 仍不复用查询结果。
+- 公平调优规则已锁定：0 层只调 L；1 层独立调 `T1={500,1k,2k,4k,8k} × L`；2 层调同一 T1 网格与合法 `T2={4k,10k,25k,50k} × L`，边界赢家必须继续向外扩展或局部加密。正式只声明预先声明离散网格内的实测最优，同时区分跨六档共享阈值（论文主结论）和逐 workload oracle（能力上界）。
 
 ## 下一步
 
-由人工审阅隔离分支；若要回并，先保存原始 checkout 的 150 项改动，再按 merge-back 清单整合 27 个分叉路径。
+提交阶段计时/runner checkpoint；构建缺失的单层和两层阈值索引，完成六档 coarse-to-fine sweep，再分别报告每 workload oracle 与每层一套共享阈值的部署最优。
 
 ## 阻塞与问题
 
@@ -69,6 +71,8 @@
 - jump host 偶发断连；只做短时串行重试，避免并发 SSH。
 - `runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 是未跟踪运行/第三方产物，不得提交。
 - 多层查询发现 upper blocks 时禁用语义不完整的 GPU batch path，当前正确性优先，仍有性能优化空间。
+- 旧正式 CSV 主要支持总查询时间和 Recall；新的 breakdown 已验证互斥闭合，但正式六档调优尚未使用新协议重跑。
+- 旧报告中固定 T1=1k 的单层与调优 T1=2k,T2=25k 两层不是公平的最终层数比较；该结论降级，等待各层独立 tuning 后替换。
 
 ## 验证
 
@@ -82,6 +86,7 @@
 - `source_manifest.csv` 与 `artifact_manifest.csv` 逐文件 SHA-256 核验 — `通过`。
 - source-layout 最终回归 — `通过`：完整 CTest 14/14；Python 32/32；fresh two-level 与旧 single-level 各 10,000 个结果、0 filter violations。
 - `validate_selection_sweep.py config.amazon_x1_paired_formal_sel{25,50,75}.json` — `通过`：3/3，每个方法 7 repeats、Recall 无漂移。
+- `config.amazon_x1_layer_breakdown_smoke.json` — `通过`：三种层数 closure error 绝对值最大约 `3e-12 ms/query`，0 层 authorization=0；仅验证测量协议，不作为最优性能点。
 - Curator 低选择率产物 — `通过`：3 workloads x 12 budgets x 5 measured。
 - ACORN 低选择率产物 — `通过`：180 个 screen 点 + 3 个 formal 点，filter violations=0。
 

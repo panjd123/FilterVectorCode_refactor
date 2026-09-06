@@ -159,13 +159,30 @@ def output_dir(config: dict[str, Any], method: dict[str, Any], workload: dict[st
     return Path(config["output_root"]) / method["name"] / workload["name"]
 
 
-def result_is_complete(path: Path, expected_lsearch: list[int]) -> bool:
+def result_is_complete(path: Path, expected_lsearch: list[int],
+                       require_stage_breakdown: bool = False) -> bool:
     summary = path / "search_time_summary.csv"
     if not summary.exists():
         return False
     with summary.open(newline="") as stream:
         seen = {int(row["Lsearch"]) for row in csv.DictReader(stream)}
-    return seen == set(expected_lsearch)
+    if seen != set(expected_lsearch):
+        return False
+    if not require_stage_breakdown:
+        return True
+    stage = path / "search_stage_details.csv"
+    if not stage.exists():
+        return False
+    with stage.open(newline="") as stream:
+        stage_rows = list(csv.DictReader(stream))
+    stage_lsearch = {int(row["Lsearch"]) for row in stage_rows}
+    required_columns = {
+        "AverageQueryTotal_ms", "AverageELS_ms",
+        "AverageEntryPointSetup_ms", "AverageBlockAuthorization_ms",
+        "AverageGraphSearch_ms", "AverageResidual_ms", "ClosureError_ms",
+    }
+    return stage_lsearch == set(expected_lsearch) and bool(stage_rows) and \
+        required_columns.issubset(stage_rows[0])
 
 
 def build_command(config: dict[str, Any], method: dict[str, Any], workload: dict[str, Any],
@@ -295,7 +312,8 @@ def main() -> int:
             values = [int(value) for value in method.get("lsearch_values", config["lsearch_values"])]
             num_queries = validate_case(config, method, workload)
             provenance = validate_provenance(config, method)
-            if result_is_complete(run_dir, values) and not args.force:
+            require_stage_breakdown = bool(config.get("require_stage_breakdown", False))
+            if result_is_complete(run_dir, values, require_stage_breakdown) and not args.force:
                 print(f"[SKIP] {method['name']}/{workload['name']} complete", flush=True)
                 continue
             run_dir.mkdir(parents=True, exist_ok=True)
@@ -320,6 +338,8 @@ def main() -> int:
                 "provenance": provenance,
                 "source_search_app": str(source_search_app),
                 "search_binary_sha256": search_binary_sha256,
+                "els_reuse_disabled": effective_env.get("UNG_DISABLE_ELS_REUSE") == "1",
+                "require_stage_breakdown": require_stage_breakdown,
             }
             update_manifest(manifest_path, run_record)
             print(f"[RUN] {method['name']}/{workload['name']}", flush=True)
@@ -339,7 +359,7 @@ def main() -> int:
             update_manifest(manifest_path, run_record)
             if completed.returncode != 0:
                 raise RuntimeError(f"search failed for {method['name']}/{workload['name']}; see {run_dir / 'search.log'}")
-            if not result_is_complete(run_dir, values):
+            if not result_is_complete(run_dir, values, require_stage_breakdown):
                 raise RuntimeError(f"incomplete summary for {method['name']}/{workload['name']}")
     run_lock.close()
     return 0

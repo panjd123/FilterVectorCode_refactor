@@ -6,9 +6,13 @@
 
 - 主指标：相同端到端 Recall 下的 batch time / QPS。
 - 次指标：固定 L 下 Recall、距离计算量、构建时间、索引大小和加载时间。
-- ELS 控制：核心图结构 A/B 固定使用 `cpu_bruteforce_els`，且允许计时前 warmup/reuse；这样差异来自 graph overlay，而不是入口组算法。主图内嵌 labels、query labels 和 GT 必须来自同一 Amazon x1 版本。
+- ELS 控制：核心图结构 A/B 固定使用 `cpu_bruteforce_els`。新的阶段分解实验设置 `UNG_DISABLE_ELS_REUSE=1`，禁止复用整条 query 的 ELS 结果，但允许 provider 的只读索引在 cold repeat 初始化后常驻；repeat 0 仅作冷启动，主性能统计使用后续 warm repeats。这样既测到每次查询真实 ELS 工作，又不把一次性 lazy initialization 归因给某一层图。主图内嵌 labels、query labels 和 GT 必须来自同一 Amazon x1 版本。
 - 数据：Amazon 原始 100% x1，K=10，100 search threads，每个选择率 workload 使用相同 query 和精确 GT。
-- 初筛：每点 3 repeats、宽 L 网格；Pareto 前沿和精细 Recall 匹配点已经完成 7 repeats。
+- 分层独立调优：0 层扫描 `Lsearch`；1 层扫描 `T1 x Lsearch`；2 层扫描 `T1 x T2 x Lsearch`，且 `T2 > T1`。粗筛每点至少 3 repeats，正式赢家至少 1 cold + 6 warm repeats。不能用固定旧 T1 的单层结果对比已经调优 T1/T2 的两层结果。
+- 阈值搜索空间：T1 首轮覆盖 `500/1000/2000/4000/8000`；T2 在满足 `T2>T1` 时覆盖 `4000/10000/25000/50000`，并按边界赢家扩展或在 crossing 邻域加密。最终只声称“预先声明离散网格内实测最优”，不声称连续空间全局最优。
+- 选择规则：先在宽 L 网格定位每个 `(层数,T1,T2,workload)` 的 Recall crossing，再加密 crossing 邻域；在相同预声明 Recall 门槛下选择最快实测点，不插值外推。
+- 两套配置口径：主结论报告每层一套跨六档共享阈值的部署最优；逐 workload 独立选择阈值只报告为 oracle 能力上界。另保留固定相同 group-id ELS provider 的受控图结构消融。
+- 初筛：每点 3 repeats、宽 L 网格；Pareto 前沿和精细 Recall 匹配点再完成 7 repeats。
 - 冷启动：同时保存 all-repeat mean 与排除 repeat 0 的 warm mean；主性能结论使用 warm median，并同时报告 warm mean/CV。
 
 ## Workload 清单
@@ -63,6 +67,10 @@
 | M21 | correctness | RESOLVED | 官方 ACORN hybrid 初始 candidate 未检查 `filter_map` | nested clone `fb07f1d` 修复后所有纳入结果 0 filter violations，Recall 不变 | 保留补丁和 adapter smoke |
 | M22 | tuning | RESOLVED | 单一 ACORN gamma 是否会造成不公平结论 | gamma=1/2/4/8/12 已构建和扫描；gamma 对 Recall 非单调，25%/50% 由 ACORN-1 达标，75% 最快达标点为 gamma12 | 表中标注 variant、ef、total/core 和重复次数 |
 | M23 | measurement | RESOLVED | 旧高选择率主表与 T1 formal 混用了不同搜索 binary | 重新用 `f078e174...287b11` 跑 current crossing 和 paired formal；生成器逐 manifest fail closed | 旧 `83c...` aggregate 不再进入 source manifest 或主表 |
+| M24 | measurement | RESOLVED | 旧 `core_search_time_ms` 包含入口点构造，不能当纯图搜索 | 新增逐 repeat 互斥列 ELS、EntryPointSetup、BlockAuthorization、GraphSearch、Residual；三种层数 closure error 均约 `1e-12 ms/query` | 正式 sweep 要求 `search_stage_details.csv` |
+| M25 | measurement | RESOLVED | 禁用 ELS query-result reuse 后，首轮 lazy initialization 污染 ELS | 50% smoke 中 repeat 0 ELS 为 1.29--1.80 s/query，repeat 1 为 8.32--8.91 ms/query | 丢弃 repeat 0，保留 1 cold + 至少 6 warm |
+| M26 | tuning | ACTIVE | 旧单层仅固定 T1=1k，而两层已调 T1=2k/T2=25k，层数对比不公平 | 现有产物不足以证明单层最优；case-level T1 构建 runner 已支持 | 完成 0/1/2 层独立 coarse-to-fine tuning |
+| M27 | reporting | ACTIVE | 需要同时区分共享部署阈值与逐 workload oracle | 两者优化目标不同，混报会夸大可部署收益 | 生成两张表，主张以共享配置为准 |
 
 ## 当前假设
 
@@ -72,6 +80,6 @@
 
 ## 当前最终结果与后续方向
 
-共同 Recall 门槛 `0.90/0.85/0.87` 下，多层方法族相对单层的统一-binary warm-median speedup 为 `1.289x/1.709x/2.320x`；固定 T2=25k 的同轮 paired 结果为 `1.289x/1.709x/2.229x`。同索引、同 L 的 upper-off/on 使 Recall 分别从 `.8946/.7633/.7678` 提升到 `.9012/.8584/.8759`，说明第二层的主要作用是降低达到同 Recall 所需的 L，不是降低固定 L 的单次扩展成本。完整表见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md`。
+旧的共同 Recall 门槛结果仍是选择新网格的有效先验，但在 0/1/2 层分别完成阈值 tuning 前，不再把 `1.289x/1.709x/2.320x` 解释成公平的第二层收益。当前已验证新的阶段计时协议：50% workload 稳态 repeat 中，0/1/2 层的 ELS 分别为 8.321/8.908/8.768 ms/query，阶段 closure error 绝对值均小于 `1e-12 ms/query`；该 smoke 只验证计时，不作为最优性能结论。
 
 当前外部比较的主要负结果是 FAVOR 三档均更快；25% workload 上多层也慢于 NaviX/Curator。下一步若继续优化，应优先让 GPU batch scratch 携带 per-edge activation level、减少多层标量路径开销，并在完全相同 Recall 附近补更密的外部参数点；这些不是本轮实现正确性与主表交付的阻塞项。

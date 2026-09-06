@@ -57,10 +57,9 @@ float calculate_single_query_recall(const std::pair<ANNS::IdxType, float> *gt,
    return static_cast<float>(correct) / gt_set.size();
 }
 
-double query_other_time_ms(const ANNS::QueryStats &stats)
+double query_block_authorization_time_ms(const ANNS::QueryStats &stats)
 {
-   const double other = stats.time_ms - stats.get_min_super_sets_time_ms - stats.core_search_time_ms;
-   return other > 0.0 ? other : 0.0;
+   return stats.special_cover_time_ms;
 }
 
 double query_graph_search_time_ms(const ANNS::QueryStats &stats)
@@ -70,6 +69,17 @@ double query_graph_search_time_ms(const ANNS::QueryStats &stats)
    // to expose the time spent in the subsequent graph search.
    const double graph_search = stats.core_search_time_ms - stats.entry_point_setup_time_ms;
    return graph_search > 0.0 ? graph_search : 0.0;
+}
+
+double query_residual_time_ms(const ANNS::QueryStats &stats)
+{
+   // core_search_time_ms contains entry-point setup but starts after Special
+   // Block authorization.  The four reported phases therefore close exactly
+   // against the per-query total without double-counting entry work.
+   const double residual = stats.time_ms - stats.get_min_super_sets_time_ms -
+                           query_block_authorization_time_ms(stats) -
+                           stats.core_search_time_ms;
+   return residual > 0.0 ? residual : 0.0;
 }
 
 size_t query_graph_search_distance_calcs(const ANNS::QueryStats &stats)
@@ -450,7 +460,7 @@ int main(int argc, char **argv)
                entry_group_search_time += stats.get_min_super_sets_time_ms;
                entry_point_setup_time += stats.entry_point_setup_time_ms;
                graph_search_time += query_graph_search_time_ms(stats);
-               other_time += query_other_time_ms(stats);
+               other_time += query_residual_time_ms(stats);
                regular_edges += stats.regular_edges_scanned;
                free_edges += stats.free_edges_scanned;
                total_distance_calcs += stats.num_distance_calcs;
@@ -485,7 +495,7 @@ int main(int argc, char **argv)
                const auto &stats = query_stats[repeat][LsearchId][i];
                detail_out << Lsearch_list[LsearchId] << "," << i << ","
                           << stats.time_ms << "," << stats.core_search_time_ms << ","
-                          << stats.get_min_super_sets_time_ms << "," << query_other_time_ms(stats) << ","
+                          << stats.get_min_super_sets_time_ms << "," << query_residual_time_ms(stats) << ","
                           << stats.recall << "," << stats.num_distance_calcs << ","
                           << stats.num_nodes_visited << "," << stats.query_length << ","
                           << stats.candidate_set_size << "," << stats.num_entry_points << "\n";
@@ -777,7 +787,8 @@ int main(int argc, char **argv)
    {
       summary_out << "Lsearch,Average_Efs,Average_Time_ms,Average_Recall,"
                   << "Average_EntryGroupSearchTime_ms,Average_EntryPointSetupTime_ms,"
-                  << "Average_GraphSearchTime_ms,Average_OtherTime_ms,"
+                  << "Average_BlockAuthorizationTime_ms,Average_GraphSearchTime_ms,"
+                  << "Average_ResidualTime_ms,"
                   << "Average_RegularEdgesScanned,Average_FreeEdgesScanned,"
                   << "Average_SpecialIntraEdgesScanned,Average_SpecialInterEdgesScanned,"
                   << "Average_TotalEdgesScanned,Average_TotalDistanceCalcs,"
@@ -804,8 +815,9 @@ int main(int argc, char **argv)
 
             double entry_group_search_time = 0.0;
             double entry_point_setup_time = 0.0;
+            double block_authorization_time = 0.0;
             double graph_search_time = 0.0;
-            double other_time = 0.0;
+            double residual_time = 0.0;
             double regular_edges = 0.0;
             double free_edges = 0.0;
             double special_intra_edges = 0.0;
@@ -821,8 +833,9 @@ int main(int argc, char **argv)
                   const auto &stats = query_stats[repeat][LsearchId][query_id];
                   entry_group_search_time += stats.get_min_super_sets_time_ms;
                   entry_point_setup_time += stats.entry_point_setup_time_ms;
+                  block_authorization_time += query_block_authorization_time_ms(stats);
                   graph_search_time += query_graph_search_time_ms(stats);
-                  other_time += query_other_time_ms(stats);
+                  residual_time += query_residual_time_ms(stats);
                   regular_edges += stats.regular_edges_scanned;
                   free_edges += stats.free_edges_scanned;
                   special_intra_edges += stats.special_intra_edges_scanned;
@@ -837,8 +850,9 @@ int main(int argc, char **argv)
             summary_out << l_search << "," << avg_efs << "," << avg_time << "," << avg_recall << ","
                         << entry_group_search_time / divisor << ","
                         << entry_point_setup_time / divisor << ","
+                        << block_authorization_time / divisor << ","
                         << graph_search_time / divisor << ","
-                        << other_time / divisor << ","
+                        << residual_time / divisor << ","
                         << regular_edges / divisor << ","
                         << free_edges / divisor << ","
                         << special_intra_edges / divisor << ","
@@ -851,6 +865,51 @@ int main(int argc, char **argv)
       }
       summary_out.close();
       std::cout << "性能汇总 (平均efs/耗时/召回率) 已保存到: " << summary_file_path << std::endl;
+
+      // Per-repeat phase means let downstream analysis use warm-repeat
+      // medians.  Average_Time_ms above is batch wall time and cannot be
+      // decomposed by summing work performed concurrently by query threads.
+      std::ofstream stage_out(result_path_prefix + "search_stage_details.csv");
+      stage_out << "Repeat,Lsearch,AverageQueryTotal_ms,AverageELS_ms,"
+                << "AverageEntryPointSetup_ms,AverageBlockAuthorization_ms,"
+                << "AverageGraphSearch_ms,AverageResidual_ms,ClosureError_ms\n";
+      for (int repeat = 0; repeat < num_repeats; ++repeat)
+      {
+         for (size_t LsearchId = 0; LsearchId < Lsearch_list.size(); ++LsearchId)
+         {
+            double total = 0.0;
+            double els = 0.0;
+            double entry = 0.0;
+            double authorization = 0.0;
+            double graph = 0.0;
+            double residual = 0.0;
+            for (ANNS::IdxType query_id = 0; query_id < num_queries; ++query_id)
+            {
+               const auto &stats = query_stats[repeat][LsearchId][query_id];
+               total += stats.time_ms;
+               els += stats.get_min_super_sets_time_ms;
+               entry += stats.entry_point_setup_time_ms;
+               authorization += query_block_authorization_time_ms(stats);
+               graph += query_graph_search_time_ms(stats);
+               residual += query_residual_time_ms(stats);
+            }
+            const double divisor = num_queries > 0 ? static_cast<double>(num_queries) : 1.0;
+            const double mean_total = total / divisor;
+            const double mean_els = els / divisor;
+            const double mean_entry = entry / divisor;
+            const double mean_authorization = authorization / divisor;
+            const double mean_graph = graph / divisor;
+            const double mean_residual = residual / divisor;
+            const double closure = mean_total - mean_els - mean_entry -
+                                   mean_authorization - mean_graph - mean_residual;
+            stage_out << repeat << "," << Lsearch_list[LsearchId] << ","
+                      << mean_total << "," << mean_els << ","
+                      << mean_entry << "," << mean_authorization << ","
+                      << mean_graph << "," << mean_residual << ","
+                      << closure << "\n";
+         }
+      }
+      stage_out.close();
    }
    else
    {
@@ -860,7 +919,8 @@ int main(int argc, char **argv)
    // save query details
    std::ofstream detail_out(result_path_prefix + "query_details_repeat" + std::to_string(num_repeats) + ".csv");
    detail_out << "Lsearch,QueryID,Time_ms,EntryGroupSearchTime_ms,EntryPointSetupTime_ms,"
-              << "GraphSearchTime_ms,OtherTime_ms,RegularEdgesScanned,FreeEdgesScanned,"
+              << "BlockAuthorizationTime_ms,GraphSearchTime_ms,ResidualTime_ms,"
+              << "RegularEdgesScanned,FreeEdgesScanned,"
               << "TotalEdgesScanned,TotalDistanceCalcs,EntryPointDistanceCalcs,"
               << "GraphSearchDistanceCalcs,core_search_time_ms,ELS_time_ms,OtherT_ms,Recall,"
               << "DistCalcs,NumNodeVisited,QuerySize,CandSize,NumEntries,EntryGroupMatchedPoints,"
@@ -925,8 +985,9 @@ int main(int argc, char **argv)
                        << stats.time_ms << ","
                        << stats.get_min_super_sets_time_ms << ","
                        << stats.entry_point_setup_time_ms << ","
+                       << query_block_authorization_time_ms(stats) << ","
                        << query_graph_search_time_ms(stats) << ","
-                       << query_other_time_ms(stats) << ","
+                       << query_residual_time_ms(stats) << ","
                        << stats.regular_edges_scanned << ","
                        << stats.free_edges_scanned << ","
                        << (stats.regular_edges_scanned + stats.free_edges_scanned) << ","
@@ -935,7 +996,7 @@ int main(int argc, char **argv)
                        << graph_search_distance_calcs << ","
                        << stats.core_search_time_ms << ","
                        << stats.get_min_super_sets_time_ms << ","
-                       << query_other_time_ms(stats) << ","
+                       << query_residual_time_ms(stats) << ","
                        << stats.recall << ","
                        << stats.num_distance_calcs << ","
                        << stats.num_nodes_visited << ","

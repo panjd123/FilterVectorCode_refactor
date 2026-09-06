@@ -451,9 +451,10 @@ namespace ANNS
          }
          return sum * approx_scale;
       };
-      std::chrono::high_resolution_clock::time_point cover_time_start;
-      if (profile_timing)
-         cover_time_start = std::chrono::high_resolution_clock::now();
+      // Block authorization is a distinct pre-search phase.  Measure it even
+      // when the expensive fine-grained profiling counters are disabled so
+      // the paper breakdown can remain mutually exclusive and auditable.
+      const auto cover_time_start = std::chrono::high_resolution_clock::now();
       std::vector<uint8_t> query_covers_block(_special_blocks.size() + 1, 0);
       if (!query_covers_block.empty())
       {
@@ -567,8 +568,7 @@ namespace ANNS
               ? special_block_lazy_seed_mask(query_free_block_frontier,
                                              _special_blocks, lazy_seed_depth)
               : query_free_block;
-      if (profile_timing)
-         stats.special_cover_time_ms = elapsed_ms(cover_time_start);
+      stats.special_cover_time_ms = elapsed_ms(cover_time_start);
       std::vector<uint8_t> searched_blocks(_special_blocks.size() + 1, 0);
       std::vector<size_t> free_nodes_expanded_by_block(
           free_node_expansions_per_block != std::numeric_limits<size_t>::max() &&

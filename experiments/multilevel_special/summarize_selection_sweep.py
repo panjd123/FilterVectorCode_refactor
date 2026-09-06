@@ -27,6 +27,12 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                 with detail_path.open(newline="") as stream:
                     for detail in csv.DictReader(stream):
                         detail_by_l.setdefault(int(detail["Lsearch"]), []).append(detail)
+            stage_by_l: dict[int, list[dict[str, str]]] = {}
+            stage_path = run_dir / "search_stage_details.csv"
+            if stage_path.exists():
+                with stage_path.open(newline="") as stream:
+                    for stage in csv.DictReader(stream):
+                        stage_by_l.setdefault(int(stage["Lsearch"]), []).append(stage)
             with summary_path.open(newline="") as stream:
                 for source in csv.DictReader(stream):
                     lsearch = int(source["Lsearch"])
@@ -34,6 +40,11 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                     warm = [float(item["Time_ms"]) for item in detail if int(item["Repeat"]) > 0]
                     all_times = [float(item["Time_ms"]) for item in detail]
                     all_recall = [float(item["Avg_Recall"]) for item in detail]
+                    warm_stage = [item for item in stage_by_l.get(lsearch, [])
+                                  if int(item["Repeat"]) > 0]
+                    def stage_median(field: str) -> float | str:
+                        values = [float(item[field]) for item in warm_stage]
+                        return statistics.median(values) if values else ""
                     warm_mean = (statistics.mean(warm) if warm
                                  else float(source["Average_Time_ms"]))
                     rows.append({
@@ -52,6 +63,16 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                         "batch_ms_max": max(all_times) if all_times else float(source["Average_Time_ms"]),
                         "recall_min": min(all_recall) if all_recall else float(source["Average_Recall"]),
                         "recall_max": max(all_recall) if all_recall else float(source["Average_Recall"]),
+                        "query_total_ms_warm_median": stage_median("AverageQueryTotal_ms"),
+                        "els_ms_warm_median": stage_median("AverageELS_ms"),
+                        "entry_ms_warm_median": stage_median("AverageEntryPointSetup_ms"),
+                        "block_authorization_ms_warm_median": stage_median("AverageBlockAuthorization_ms"),
+                        "graph_ms_warm_median": stage_median("AverageGraphSearch_ms"),
+                        "residual_ms_warm_median": stage_median("AverageResidual_ms"),
+                        "closure_error_ms_max_abs": (
+                            max((abs(float(item["ClosureError_ms"])) for item in warm_stage),
+                                default="")
+                        ),
                         "summary_path": str(summary_path),
                     })
     return rows
