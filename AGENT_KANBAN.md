@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 无。等待用户在原始脏工作树形成安全基线后选择 cherry-pick 或 merge。
+- 补齐从 Amazon x1 输入到 raw runs、compact evidence 与论文表的分层复现手册。
 
 ## 完成历史
 
@@ -33,12 +33,13 @@
 - 构建结果已迁入受 source manifest 哈希保护的 `build_results_source.csv`；生成器拒绝 CSV/manifest 网格或 repeat 不一致。
 - 统一高选择率 binary：current crossing 与 paired formal 均使用 `f078e174...287b11`；三档 paired validator 全部通过，upper-off/on 因果证据已进入完整测量池。
 - 第二轮结构审阅为 clean follow-up（无 High/Medium/Low）；有限上下文交付审阅确认唯一阻断是不可变 checkpoint。
-- 最终回归通过：生产/测试目标构建成功，focused C++ 5/5，Python 24/24，结果生成器重建 60 行主结果、209 个内部 canonical 点和 7 行构建结果，`git diff --check` 通过。
+- 最终回归通过：生产/测试目标构建成功，focused C++ 5/5，Python 25/25，结果生成器重建 60 行主结果、209 个内部 canonical 点和 7 行构建结果，`git diff --check` 通过。
 - 实现、配置、compact evidence 与报告已提交为 `7a2bf4635eac43d174100770838daf1b3a10fa58`；`runs/` 和 nested third-party clones 未提交。
+- 最终 limited-context 交付复审 verdict 为 `review-ready`，不可变 checkpoint/provenance 阻断闭环。
 
 ## 下一步
 
-原始 checkout 含用户改动，因此不自动 merge；由用户先形成 clean checkpoint，再 cherry-pick 本分支提交或按 handoff 逐项集成。
+完成复现手册回归与 checkpoint；之后由用户先为原始 checkout 形成 clean checkpoint，再 cherry-pick 本分支提交或按 handoff 逐项集成。
 
 ## 阻塞与问题
 
@@ -54,7 +55,7 @@
 - `cmake --build build_ung_rel -j16 --target build_special_block_index search_UNG_index` — `通过`。
 - `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：全部正式内部 sweep。
 - `python3 -m unittest -v experiments.multilevel_special.test_multilevel_selection` — `通过`：13/13。
-- `python3 -m unittest -v test_generate_paper_results.py` — `通过`：11/11；包含统一 binary、CSV/manifest 网格/repeats、build source 和 upper-off 消融检查。
+- `python3 -m unittest -v test_generate_paper_results.py` — `通过`：12/12；包含统一 binary、CSV/manifest 网格/repeats、build source、upper-off 消融和 LF-only CSV 输出检查。
 - `validate_selection_sweep.py config.amazon_x1_paired_formal_sel{25,50,75}.json` — `通过`：3/3，每个方法 7 repeats、Recall 无漂移。
 - Curator 低选择率产物 — `通过`：3 workloads x 12 budgets x 5 measured。
 - ACORN 低选择率产物 — `通过`：180 个 screen 点 + 3 个 formal 点，filter violations=0。
@@ -64,6 +65,7 @@
 - `WORKTREE_HANDOFF.md` — 理解实现语义、隔离来源与 merge-back 边界时阅读。
 - `experiments/multilevel_special/EXPERIMENT_STATE.md` — 恢复实验、查询 raw artifact 或解释历史隔离结果时阅读。
 - `docs/reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md` — 审阅方法与论文结论。
+- `docs/reports/MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md` — 从 compact evidence 审计或重新运行 raw benchmark 时阅读。
 
 ## 恢复说明
 

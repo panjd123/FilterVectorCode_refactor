@@ -14,6 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import generate_paper_results as generator
+import summarize_selection_sweep as selection_summary
 
 
 class PaperResultsTest(unittest.TestCase):
@@ -114,6 +115,15 @@ class PaperResultsTest(unittest.TestCase):
             "results_summary/source/build_results_source.csv",
             {row["path"] for row in manifest_rows},
         )
+
+    def test_csv_writers_use_repository_lf_line_endings(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "rows.csv"
+            rows = [{"name": "example", "value": 1}]
+            generator.write_csv(output, ["name", "value"], rows)
+            self.assertNotIn(b"\r\n", output.read_bytes())
+            selection_summary.write_csv(output, rows)
+            self.assertNotIn(b"\r\n", output.read_bytes())
 
 
 if __name__ == "__main__":

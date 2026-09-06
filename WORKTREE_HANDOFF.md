@@ -45,7 +45,7 @@
 
 ## 当前未决事项
 
-没有实现或论文主表阻断项。第二轮结构审阅为 clean follow-up；有限上下文交付审阅确认交付内容可理解。最终回归通过生产/测试目标构建、focused C++ 5/5、Python 24/24、结果重建和 `git diff --check`。旧 loaded-byte 实测值来自计数修复前，约低估 4.1 MiB，报告已显式降级，不能当精确峰值。
+没有实现或论文主表阻断项。第二轮结构审阅为 clean follow-up；有限上下文交付审阅确认交付内容可理解。最终回归通过生产/测试目标构建、focused C++ 5/5、Python 25/25、结果重建和 `git diff --check`。旧 loaded-byte 实测值来自计数修复前，约低估 4.1 MiB，报告已显式降级，不能当精确峰值。
 
 `runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 是未跟踪实验/第三方产物，不得提交。compact aggregate、runner、patch、报告和 manifest 应提交。
 
@@ -58,3 +58,5 @@
 3. 重跑 `python3 experiments/multilevel_special/generate_paper_results.py` 和对应 unittest，确认表可完全重建。
 4. 运行 focused C++ tests、multilevel Python tests 和 `git diff --check`。
 5. 最终检查 implementation branch clean、原始 target 是否前进、nested clones 未进入提交；由于 target 脏，只声明 cherry-pick ready，不自动合并。
+
+完整命令、环境、raw replay 与当前源码 fresh rerun 的边界见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md`。历史论文 binary 位于未提交的 `runs/`；fresh rerun 必须使用新 output root 和新 manifest，不能覆盖历史 evidence。

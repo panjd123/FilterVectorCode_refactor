@@ -452,6 +452,9 @@ def write_artifact_manifest() -> None:
     overview = HERE.parents[1] / "docs/reports/THREE_MAINLINES_METHOD_BASELINE_DATA_SPEEDUP_CN.md"
     if not overview.is_file():
         overview = HERE / "THREE_MAINLINES_METHOD_BASELINE_DATA_SPEEDUP_CN.md"
+    runbook = HERE.parents[1] / "docs/reports/MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md"
+    if not runbook.is_file():
+        runbook = HERE / "MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md"
     paths = [
         Path(__file__).resolve(),
         HERE / "test_generate_paper_results.py",
@@ -464,6 +467,7 @@ def write_artifact_manifest() -> None:
         OUTPUT_DIR / "external_canonical_measured_points.csv",
         report,
         overview,
+        runbook,
     ]
     rows = []
     for path in paths:
