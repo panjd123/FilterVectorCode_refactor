@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前已提交 sidecar 检查点：`93b4058b5f15baf6aa8442ec58ca4b6f0a3ae284`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前代码检查点：`5793e04`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -11,11 +11,11 @@
 ## 当前状态
 
 - 总体：`验证中`
-- 摘要：固定 two-level 构建/逐级查询、正式实验与论文交付已完成；第三轮审计已补足最近同层/上层祖先校验，并明确独立 T1/T2 partition 不保证严格 refinement，真实 sidecar 与端到端正确性复测通过。
+- 摘要：固定 two-level 构建/逐级查询、正式实验与论文交付已完成；最新审计补足 upper activation reachability 校验，真实 sidecar、端到端过滤正确性与 upper 路径 telemetry 均通过。
 
 ## 进行中
 
-- 同步第三轮结构审计文档与 manifest，形成独立 checkpoint；核心算法和冻结论文主性能数值不变。
+- 同步 reachability 审计文档与 manifest，重跑结果闭包测试并形成独立 checkpoint；冻结论文主性能数值不变。
 
 ## 完成历史
 
@@ -45,10 +45,11 @@
 - sidecar loader 已补强逐 edge owner/direct-child 校验和 legacy staged load，并修复 upper inter edge 的 light/heavy 分流层级；真实 fresh bundle 的 62,938,887 条 special edges 全量通过，50%/L=550 查询为 Recall=.8575、10,000 个结果、0 过滤违规。
 - converter/runtime fallback 已统一严格 CSV parser；upper inter per-target-block cap 使用 upper ownership；损坏 requested heavy binary 可用合法 CSV 回退、无 fallback 时 fail closed。测试还修复固定临时目录残留导致的不可重入问题，并明确空图/空 block bundle 是合法退化输入。最新 binary `550f04c4...204c` 再次全量加载 62,938,887 条边，50%/L=550 为 Recall=.8575、10,000 个结果、0 过滤违规；单次耗时不进入性能表。
 - 第三轮结构审计从 root-label path 重推导 nearest same-layer parent 与 nearest upper ancestor；真实 tuned metadata 为 103 个 middle、8 个 upper、108 条同层 child edge，全部一致。随机树反例证明独立 partition 不保证严格 refinement，故保留双 ownership 且不施加错误的全成员同 upper-owner 约束；cross-partition membership activation 已提取为共享 helper 并单测。最终 binary `b62d6e5...da2e` 全量加载 62,938,887 条边，50%/L550 Recall=.8575、10,000 个结果、0 违规。
+- upper activation reachability 校验要求每个 upper block 至少包含一个 middle-owned direct member；真实构造夹具与不可达负例均已覆盖，提交 `5793e04`。binary `f0a978c5...a0aae` 全量加载 62,938,887 条边；50%/L550 Recall=.8575、10,000 个结果、0 违规。详细统计显示 512/1000 query 搜索 upper block、57,897 次 upper activation。
 
 ## 下一步
 
-提交第三轮 nearest-parent 防御性修复并继续非破坏性审计至目标时长。
+更新 artifact hash，重跑 Python/result closure，提交文档 checkpoint；随后检查 merge-readiness 并继续非破坏性审计至目标时长。
 
 ## 阻塞与问题
 
@@ -61,7 +62,8 @@
 ## 验证
 
 - `ctest -R 'ung_build_config|special_block_trie|special_block_free_state|special_candidate_queue|lng_block_partition|special_edge_io|filter_validation'` — `通过`：7/7。
-- `cmake --build build_ung_rel -j16 --target build_special_block_index search_UNG_index` — `通过`。
+- `cmake --build build_ung_rel -j16 --target build_special_block_index search_UNG_index convert_special_edges` — `通过`。
+- 真实 `T1=2k,T2=25k` sidecar + 50%/L550 — `通过`：62,938,887 edges，Recall=.8575，10,000 results，0 violations；detail stats 记录 57,897 upper activations。
 - `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：全部正式内部 sweep。
 - `python3 -m unittest -v experiments.multilevel_special.test_multilevel_selection` — `通过`：14/14；新增 builder binary immutable snapshot 回归。
 - `python3 -m unittest -v test_generate_paper_results.py` — `通过`：15/15；包含统一 binary、CSV/manifest 网格/repeats、build source、upper-off 消融、current-source 24 点回归、三次 rebuild 鲁棒性、过滤合法性审计和 LF-only CSV 输出检查。
@@ -81,7 +83,7 @@
 
 1. 先读本看板。
 2. 运行 `git status --short`，不要暂存 `runs/` 或 `thirdparty/` nested clones。
-3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` 和最终审计 HEAD `dba469626c94d52ec612ffdb55c6b2b60d116d40`；后者不改主性能数值。
+3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` 和当前 reachability checkpoint `5793e04`；后者不改主性能数值。
 4. 任何新数值必须先进入 source CSV 并由生成器输出。
 
 ## 清理提示
