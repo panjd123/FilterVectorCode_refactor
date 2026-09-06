@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from collections import defaultdict
@@ -120,7 +121,13 @@ def make_formal_config(coarse: dict, points: list[dict]) -> dict:
     formal = dict(coarse)
     formal["num_repeats"] = 7
     formal["output_root"] = str(
-        Path(coarse["output_root"]).with_name("layer_tuning_query_formal_amazon_x1"))
+        Path(coarse["output_root"]).with_name("layer_tuning_query_formal_fair_amazon_x1"))
+    formal["formal_selection"] = {
+        "shared_top_k_per_layer": 3,
+        "oracle_top_k_per_layer_workload": 2,
+        "quality_rule": "minimum repeat Recall meets the declared threshold",
+        "timing_rule": "warm-repeat batch median; cold repeat 0 excluded",
+    }
     # Boundary auditing after shortlist reruns must retain the full coarse
     # structure space rather than treating the shortlist as the entire grid.
     formal["boundary_reference_methods"] = [
@@ -141,6 +148,13 @@ def main() -> int:
     points_path = args.points or Path(coarse["output_root"]) / "summary/all_points.csv"
     points = select_layer_tuning.read_points(points_path)
     formal = make_formal_config(coarse, points)
+    formal["selection_provenance"] = {
+        "coarse_config": str(args.coarse_config.resolve()),
+        "coarse_config_sha256": hashlib.sha256(
+            args.coarse_config.read_bytes()).hexdigest(),
+        "coarse_points": str(points_path.resolve()),
+        "coarse_points_sha256": hashlib.sha256(points_path.read_bytes()).hexdigest(),
+    }
     output = args.output or args.coarse_config.with_name(
         "config.amazon_x1_layer_tuning_query_formal.json")
     output.write_text(json.dumps(formal, indent=2) + "\n")

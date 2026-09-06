@@ -155,6 +155,22 @@ class SelectionSweepTest(unittest.TestCase):
         self.assertEqual(selected[(1, "m1")], {"a"})
         self.assertEqual(selected[(1, "m3")], {"b"})
 
+    def test_formal_config_uses_fresh_output_and_records_selection_policy(self):
+        coarse = {
+            "output_root": "/tmp/layer_tuning_query_coarse_amazon_x1",
+            "recall_thresholds": {"w": .9},
+            "workloads": [{"name": "w"}],
+            "methods": [{"name": "plain", "layer_count": 0}],
+        }
+        points = [{"method": "plain", "layer_count": 0, "workload": "w",
+                   "batch_ms_warm_median": 10, "batch_ms_warm": 10,
+                   "recall_min": .91, "lsearch": 100, "t1": None, "t2": None}]
+        formal = generate_layer_tuning_formal.make_formal_config(coarse, points)
+        self.assertTrue(formal["output_root"].endswith(
+            "layer_tuning_query_formal_fair_amazon_x1"))
+        self.assertEqual(formal["num_repeats"], 7)
+        self.assertEqual(formal["formal_selection"]["shared_top_k_per_layer"], 3)
+
     def test_layer_report_keeps_batch_and_per_query_stages_distinct(self):
         row = {
             "selection_scope": "shared_thresholds", "workload": "w",
