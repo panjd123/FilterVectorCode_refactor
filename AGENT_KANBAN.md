@@ -45,7 +45,7 @@
 - sidecar loader 已补强逐 edge owner/direct-child 校验和 legacy staged load，并修复 upper inter edge 的 light/heavy 分流层级；真实 fresh bundle 的 62,938,887 条 special edges 全量通过，50%/L=550 查询为 Recall=.8575、10,000 个结果、0 过滤违规。
 - converter/runtime fallback 已统一严格 CSV parser；upper inter per-target-block cap 使用 upper ownership；损坏 requested heavy binary 可用合法 CSV 回退、无 fallback 时 fail closed。测试还修复固定临时目录残留导致的不可重入问题，并明确空图/空 block bundle 是合法退化输入。最新 binary `550f04c4...204c` 再次全量加载 62,938,887 条边，50%/L=550 为 Recall=.8575、10,000 个结果、0 过滤违规；单次耗时不进入性能表。
 - 第三轮结构审计从 root-label path 重推导 nearest same-layer parent 与 nearest upper ancestor；真实 tuned metadata 为 103 个 middle、8 个 upper、108 条同层 child edge，全部一致。随机树反例证明独立 partition 不保证严格 refinement，故保留双 ownership 且不施加错误的全成员同 upper-owner 约束；cross-partition membership activation 已提取为共享 helper 并单测。最终 binary `b62d6e5...da2e` 全量加载 62,938,887 条边，50%/L550 Recall=.8575、10,000 个结果、0 违规。
-- upper activation reachability 校验要求每个 upper block 至少包含一个 middle-owned direct member；真实构造夹具与不可达负例均已覆盖，提交 `5793e04`。binary `f0a978c5...a0aae` 全量加载 62,938,887 条边；50%/L550 Recall=.8575、10,000 个结果、0 违规。详细统计显示 512/1000 query 搜索 upper block、57,897 次 upper activation。
+- upper activation reachability 校验要求每个 upper block 至少包含一个由其子树内部 middle block 拥有的 direct member；真实构造夹具、零 ownership 与仅 ancestor ownership 两类不可达负例均已覆盖。最终 binary `a54518b8...7cd98` 全量加载 62,938,887 条边；50%/L550 Recall=.8575、10,000 个结果、0 违规。详细统计显示 512/1000 query 搜索 upper block、57,897 次 upper activation。
 
 ## 下一步
 
