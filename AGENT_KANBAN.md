@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-06 18:02 Asia/Shanghai`
+最后更新：`2026-09-06 18:15 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；formal provenance 检查点：`3057b1a5a930ab648303fe81992666bc4fb2a907`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；边界扩展检查点：`848949bb4a66aba3b0fbbe775240497217510e39`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 修正 root-label coverage 后的 coarse 查询 sweep 正由唯一后台进程 PID 62122 执行；最近确认 `86/144 complete, 1 running, 57 dry_run`，当前为 `layer2_t1_2000_t2_4000 / sel_10`。等待其完成期间不并发构建，避免 CPU/GPU/内存资源竞争污染计时。
+- 原始 24 结构 coarse sweep 已完成并严格验证 144/144 case；正在补建 10 个边界 guard 结构，随后用 34 结构 extended config 复用旧结果并补测新增结构。
 
 ## 完成历史
 
@@ -65,10 +65,12 @@
 - 旧单层结果曾缺少显式 root-label coverage，已隔离且不参与统计；修正后的所有 Special case 统一使用 `UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE=1`。plain 结果不受该开关影响并按 provenance 复用。
 - 单层已完成结构的中间证据显示除 `sel_005` 外，5 档 workload 的当前赢家落在 T1=8000 扫描上界；已准备 T1=16000/32000 构建扩展，待 coarse sweep 完成后补建与补测，当前不得宣称单层阈值最优。
 - formal shortlist 生成器已使用独立输出目录，并记录选择规则、coarse config 与 `all_points.csv` 的 SHA-256 来源，防止旧 formal 产物或被修改的 coarse 结果静默混入；提交 `3057b1a`，本地及远端单测均为 32/32。
+- 原 coarse 144/144 case 通过 validator；共享赢家为单层 T1=8k（相对 0 层 geomean speedup 2.01x）与两层 T1=8k/T2=25k（2.67x），两者均触 T1 上边界，尚不能作为最终最优结论。
+- 新增第一轮边界 guard：单层 T1=16k/32k；两层 (2k,100k)、(8k,9k/100k)、(16k,25k/50k/100k)、(32k,50k/100k)。总网格 34 个结构，其中 26 个两层结构；提交 `848949b`。
 
 ## 下一步
 
-等待 PID 62122 完成修正后的 coarse sweep；严格验证后检查两层 T1/T2 边界，随后构建并补测单层 T1=16000/32000（若两层赢家触边则同步扩展），最后生成 7-repeat crossing 正式复测。
+完成 10 个边界结构的构建与 60 个新增 query case，重新执行完整 204-case validator/selector；只有共享赢家和 oracle 不再触未探索边界后，才生成 7-repeat crossing 正式复测。
 
 ## 阻塞与问题
 
