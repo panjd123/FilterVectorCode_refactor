@@ -9,7 +9,7 @@
 - 原始 checkout：`/home/graphdb/FilterVectorCode_refactor`，分支 `shopai8/special-block-e2e-opt`，创建隔离目录时 HEAD `dda63bd`。
 - 隔离 checkout：`/home/sunyahui/worktrees/FilterVectorCode_multilevel_special`。
 - 实现分支：`codex/multilevel-special-block-20260905`。
-- 当前已提交检查点：`05a4381`；本轮实验配置、compact results、报告和看板尚待最终审阅后提交。
+- 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；包含本轮代码、实验配置、compact results、provenance 和论文报告。
 - 服务器 Git 1.8.3.1 不支持 native worktree，因此使用 `git clone --shared`；branch/index 独立、对象库共享。
 - 原始 checkout 有大量用户改动。不得在那里 reset/checkout/merge；应先由用户形成 clean checkpoint，再 cherry-pick 本分支意图提交。
 
@@ -25,6 +25,7 @@
 - `368227e`：point 去重、level 原位升级、loader 修复。
 - `7008424`：统一 edge transition helper，禁用语义不完整的多层 GPU batch path。
 - `05a4381`：T1/T2 配置统一所有权和最终校验，显式 sidecar fail-closed。
+- `7a2bf46`：graph-aware 语义校验、完整正式结果闭包、论文报告与最终回归基线。
 
 ## 已验证结果
 
@@ -44,9 +45,11 @@
 
 ## 当前未决事项
 
-第二轮结构审阅发现的拓扑持久化、显式 sidecar fail-closed、upper ownership 内存计数和固定两层命名问题已经修复并通过 focused tests。当前只剩最终 limited-context 交付审阅、全量回归、checkpoint commit 和 merge-readiness 审计。旧 loaded-byte 实测值来自计数修复前，约低估 4.1 MiB，报告已显式降级，不能当精确峰值。
+没有实现或论文主表阻断项。第二轮结构审阅为 clean follow-up；有限上下文交付审阅确认交付内容可理解。最终回归通过生产/测试目标构建、focused C++ 5/5、Python 24/24、结果重建和 `git diff --check`。旧 loaded-byte 实测值来自计数修复前，约低估 4.1 MiB，报告已显式降级，不能当精确峰值。
 
 `runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 是未跟踪实验/第三方产物，不得提交。compact aggregate、runner、patch、报告和 manifest 应提交。
+
+原始 checkout 仍含大量用户改动，故本分支只声明 merge-ready，不自动修改原始 checkout。建议先保存原始工作树，再 cherry-pick 本分支从 `1f0c1e6` 到当前 HEAD 的任务提交；若只审阅最终增量，先从 `7a2bf46` 开始阅读。
 
 ## 恢复入口
 

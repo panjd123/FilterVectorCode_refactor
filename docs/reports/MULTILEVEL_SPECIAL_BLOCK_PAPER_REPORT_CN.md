@@ -213,7 +213,7 @@ T1 越小并不越好：T1=500 产生更多中层 blocks 和边管理开销，25
 ## 10. 复现与证据
 
 - 隔离仓库：`/home/sunyahui/worktrees/FilterVectorCode_multilevel_special`；分支 `codex/multilevel-special-block-20260905`。服务器 Git 过旧不支持 native worktree，故使用 `git clone --shared`，原始脏仓库未被修改。
-- 当前实现检查点：`05a4381`；查询二进制 SHA-256：`f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11`。
+- 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；查询二进制 SHA-256：`f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11`。
 - 输入 provenance：base labels SHA-256 `aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96`，main-index labels SHA-256 `ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56`，source fingerprint `91d78580ae29f468`；逐轮完整值与 binary hash 见 `experiments/multilevel_special/results_summary/source/*_manifest.json`。
 - focused C++ tests 5/5 通过；多层 Python tests 13/13 通过；结果生成/provenance tests 11/11 通过；所有正式 selection sweep validator 通过。
 - `generate_paper_results.py` 从 compact source CSV 和每轮 manifest 重建 `paper_results.csv`、`paper_results.md`、`build_results.csv`、`internal_canonical_measured_points.csv` 与 `external_canonical_measured_points.csv`。每个内部 aggregate 的 method/workload/L 网格和 warm-repeat 数都必须与 manifest 完全一致；构建数据来自 `results_summary/source/build_results_source.csv`，不再硬编码在生成器中。Canonical aggregate 按 `(workload, method family, variant, budget)` 去重；相同点的 paired rerun 以更高优先级覆盖旧统计，因此它不是历史执行次数的逐行并集。raw `runs/` 和大型第三方索引不提交。

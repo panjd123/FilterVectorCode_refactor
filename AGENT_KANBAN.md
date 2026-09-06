@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`05a4381`（本轮文档与实验补充待提交；origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`验证中`
-- 摘要：两层构建/逐级查询已完成；六档内部正式实验、T1/T2 调优和四个外部系统比较均已完成。高选择率已用统一 immutable binary 重跑 crossing 与 paired formal，主表不再混用旧 binary；当前进行第二轮交付审阅与最终回归。
+- 总体：`review-ready`
+- 摘要：固定 two-level 构建/逐级查询、六档内部正式实验、T1/T2 调优和四个外部系统比较均已完成。高选择率使用统一 immutable binary；两轮结构审阅和有限上下文交付审阅完成，最终回归与不可变实现/结果 checkpoint 已通过。
 
 ## 进行中
 
-- 修复第二轮结构/交付审阅后做 follow-up clean review 与最终回归。
+- 无。等待用户在原始脏工作树形成安全基线后选择 cherry-pick 或 merge。
 
 ## 完成历史
 
@@ -32,10 +32,13 @@
 - 加强 graph-aware metadata validation：同层 child 唯一父节点且无环；root/child/upper label 必须满足 trie 包含关系；entry point、direct members、point_count 与源 UNG 必须一致；显式 bundle 缺 regular/special edge sidecar 时 fail closed。
 - 构建结果已迁入受 source manifest 哈希保护的 `build_results_source.csv`；生成器拒绝 CSV/manifest 网格或 repeat 不一致。
 - 统一高选择率 binary：current crossing 与 paired formal 均使用 `f078e174...287b11`；三档 paired validator 全部通过，upper-off/on 因果证据已进入完整测量池。
+- 第二轮结构审阅为 clean follow-up（无 High/Medium/Low）；有限上下文交付审阅确认唯一阻断是不可变 checkpoint。
+- 最终回归通过：生产/测试目标构建成功，focused C++ 5/5，Python 24/24，结果生成器重建 60 行主结果、209 个内部 canonical 点和 7 行构建结果，`git diff --check` 通过。
+- 实现、配置、compact evidence 与报告已提交为 `7a2bf4635eac43d174100770838daf1b3a10fa58`；`runs/` 和 nested third-party clones 未提交。
 
 ## 下一步
 
-运行 follow-up structure/deliverable review；随后执行完整回归、`git diff --check`、checkpoint commit 与 merge-readiness 检查。
+原始 checkout 含用户改动，因此不自动 merge；由用户先形成 clean checkpoint，再 cherry-pick 本分支提交或按 handoff 逐项集成。
 
 ## 阻塞与问题
 
@@ -66,8 +69,8 @@
 
 1. 先读本看板。
 2. 运行 `git status --short`，不要暂存 `runs/` 或 `thirdparty/` nested clones。
-3. 核对 HEAD 与看板检查点；本轮待提交文件以 `git diff --name-only` 为准。
-4. 从第二轮审阅继续；任何新数值必须先进入 source CSV 并由生成器输出。
+3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58`；其后的提交只更新交付状态。
+4. 任何新数值必须先进入 source CSV 并由生成器输出。
 
 ## 清理提示
 

@@ -16,7 +16,7 @@
 | 外部方法比较 | FAVOR、NaviX、Curator、ACORN 使用相同 Amazon x1 query/GT、K=10、1000 queries、100 threads，并明确 timing 边界 | 各 baseline runner、447 个外部 canonical 点和 ACORN correctness patch | 完成；仅作离散 Pareto 系统位置对照 |
 | 完整数据表和分析 | 可提交完整 sweep、主表、构建表、负结果、适用边界；数字可由脚本重算 | `generate_paper_results.py`、`paper_results.csv`、多层报告 | 完成 |
 | 可复现性 | 记录 commit、命令、配置、数据 checksum、repeats、raw/aggregate 路径 | configs、18 份内部 manifest、source SHA-256 manifest | 完成；raw `runs/` 按政策不提交 |
-| 审阅就绪 | 两轮结构审阅、一轮有限上下文交付审阅，阻塞问题处理或明确降级 | review-ready 审阅流程 | 第二轮结构问题已修复；有限上下文交付审阅与最终 checkpoint 进行中 |
+| 审阅就绪 | 两轮结构审阅、一轮有限上下文交付审阅，阻塞问题处理或明确降级 | 第二轮结构审阅 clean；有限上下文交付审阅通过；实现与结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` | 完成 |
 
 ## 当前不能使用的证据
 
@@ -27,4 +27,4 @@
 
 ## 当前剩余收尾
 
-完成 limited-context 交付审阅、完整回归、最终 checkpoint commit 和 merge-readiness 审计。没有待补的论文主表实验。
+没有待补的论文主表实验或代码阻断项。原始 checkout 是用户脏工作树，因此未自动 merge/push；后续只需由用户先保存其现有改动，再选择 cherry-pick 或 merge 本隔离分支。
