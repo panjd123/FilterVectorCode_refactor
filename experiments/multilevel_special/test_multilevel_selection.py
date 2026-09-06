@@ -107,6 +107,22 @@ class SelectionSweepTest(unittest.TestCase):
              ("t2", "lower", "4000;10000")},
         )
 
+    def test_boundary_audit_accepts_config_style_reference_names(self):
+        points = [{"layer_count": 1, "method": "m_2000",
+                   "t1": 2000, "t2": None}]
+        oracle = [{"layer_count": 1, "method": "m_2000",
+                   "workload": "w", "t1": 2000, "t2": None}]
+        references = [
+            {"layer_count": 1, "name": "m_1000", "t1": 1000, "t2": None},
+            {"layer_count": 1, "name": "m_2000", "t1": 2000, "t2": None},
+            {"layer_count": 1, "name": "m_4000", "t1": 4000, "t2": None},
+        ]
+        self.assertEqual(
+            select_layer_tuning.audit_structure_boundaries(
+                points, oracle, [], references),
+            [],
+        )
+
     def test_boundary_audit_can_use_full_coarse_reference_grid(self):
         formal_points = [{"layer_count": 1, "method": "m2",
                           "t1": 2000, "t2": None}]

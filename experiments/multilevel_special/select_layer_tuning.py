@@ -121,7 +121,8 @@ def audit_structure_boundaries(points: list[dict], oracle: list[dict],
     boundary even if a smaller T2 exists for another T1.
     """
     structures = {
-        (row["layer_count"], row["method"], row["t1"], row["t2"])
+        (row["layer_count"], row.get("method", row.get("name")),
+         row.get("t1"), row.get("t2"))
         for row in (reference_structures or points)
     }
 
