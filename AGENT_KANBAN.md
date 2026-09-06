@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-06`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；最终审计提交：`dba469626c94d52ec612ffdb55c6b2b60d116d40`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；当前已提交检查点：`d06d0fdf1d57c6dd6ad51dfa6d671489793ce65a`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`final-audit`
-- 摘要：固定 two-level 构建/逐级查询、六档内部正式实验、T1/T2 调优和四个外部系统比较均已完成。高选择率使用统一 immutable binary；两轮结构审阅和有限上下文交付审阅完成，最终回归与不可变实现/结果 checkpoint 已通过。
+- 总体：`验证中`
+- 摘要：固定 two-level 构建/逐级查询、正式实验与论文交付已完成；当前补强 sidecar 加载边界，逐条验证 special edge 的 source/target 是否符合声明的 owner/direct-child 语义，防止损坏或错配的边文件被静默接受。
 
 ## 进行中
 
-- 正在完成 filtered-result 合法性审计的最终文档、manifest 与 checkpoint；核心实现和论文主表不变。
+- 完成 edge-owner/child 语义校验的完整回归、文档与 manifest 同步，并形成独立 checkpoint；核心算法和论文主性能数值不变。
 
 ## 完成历史
 
@@ -41,10 +41,12 @@
 - CPU Vamana large-block 对照总 builder wall 1131.863 s；GPU tuned 构建中位 56.916 s，完整构建快 19.89x，故不以 CPU 回退换取字节级确定性。
 - 最终 provenance 审计把三次旧 fresh build 的 builder hash 来源显式写入 CSV：旧 manifest 没有原生 hash，故标为 `historical_audit_record`；后续 fresh run 才是 `manifest_snapshot`。同时说明日志 `gpu_intra_enabled=0` 是旧全局开关，实际 routed path 有 24 个大 block 使用 FastGrnnd CUDA。主性能表未变化；提交 `dba4696`。
 - 新增默认关闭、计时外的 filtered-result validator 与独立单元测试；六档真实 workload 共 60,000 个结果槽、59,991 个实际返回点、9 个 missing 槽，所有返回点违规为 0，六档 Recall 均达标。审计只作正确性证据，不进入性能表。
+- 六档 filtered-result 合法性数据与说明已提交为 `d06d0fd`。
+- sidecar loader 已补强逐 edge owner/direct-child 校验和 legacy staged load，并修复 upper inter edge 的 light/heavy 分流层级；真实 fresh bundle 的 62,938,887 条 special edges 全量通过，50%/L=550 查询为 Recall=.8575、10,000 个结果、0 过滤违规。
 
 ## 下一步
 
-由用户先为原始 checkout 形成 clean checkpoint，再 cherry-pick 本分支提交或按 handoff 逐项集成。
+同步报告、复现手册、handoff 与 artifact manifest，执行 diff/manifest/merge-back 检查并提交 edge 语义防御性修复。
 
 ## 阻塞与问题
 
@@ -61,6 +63,7 @@
 - `python3 experiments/multilevel_special/validate_selection_sweep.py ...` — `通过`：全部正式内部 sweep。
 - `python3 -m unittest -v experiments.multilevel_special.test_multilevel_selection` — `通过`：14/14；新增 builder binary immutable snapshot 回归。
 - `python3 -m unittest -v test_generate_paper_results.py` — `通过`：15/15；包含统一 binary、CSV/manifest 网格/repeats、build source、upper-off 消融、current-source 24 点回归、三次 rebuild 鲁棒性、过滤合法性审计和 LF-only CSV 输出检查。
+- `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py test_generate_paper_results.py` — `通过`：29/29；生成 60 行主结果、209 个内部点、7 行构建结果。
 - `validate_selection_sweep.py config.amazon_x1_paired_formal_sel{25,50,75}.json` — `通过`：3/3，每个方法 7 repeats、Recall 无漂移。
 - Curator 低选择率产物 — `通过`：3 workloads x 12 budgets x 5 measured。
 - ACORN 低选择率产物 — `通过`：180 个 screen 点 + 3 个 formal 点，filter violations=0。

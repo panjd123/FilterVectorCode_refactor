@@ -1559,34 +1559,70 @@ std::vector<IdxType> sample_special_inter_candidates(const std::vector<IdxType> 
 bool read_special_edge_binary_file(const std::string &path,
                                    std::vector<std::vector<SpecialEdge>> &edges_by_point,
                                    SpecialBlockBuildSummary &summary,
-                                   size_t &loaded_edges)
+                                   size_t &loaded_edges,
+                                   const std::vector<SpecialBlock> &blocks,
+                                   const std::vector<IdxType> &point_to_middle_block,
+                                   const std::vector<IdxType> &point_to_upper_block)
 {
    uint64_t binary_count = 0;
    std::string error;
+   std::string invalid_record;
+   std::vector<std::vector<SpecialEdge>> staged_edges(edges_by_point.size());
+   size_t staged_edges_count = 0;
+   size_t staged_intra_count = 0;
+   size_t staged_inter_count = 0;
    const bool loaded = for_each_special_edge_binary_record(
        path,
        [&](const SpecialEdgeBinaryRecord &rec) {
           if (rec.source >= edges_by_point.size())
+          {
+             invalid_record = "source id is out of range";
              return;
+          }
+          if (rec.kind > 1)
+          {
+             invalid_record = "edge kind is invalid";
+             return;
+          }
           SpecialEdge edge;
           edge.target_point_id = static_cast<IdxType>(rec.target);
           edge.special_block_id = static_cast<IdxType>(rec.block);
           edge.kind = rec.kind != 0 ? SpecialEdgeKind::InterBlock : SpecialEdgeKind::IntraBlock;
-          edges_by_point[rec.source].push_back(edge);
-          summary.special_edges += 1;
+          staged_edges[rec.source].push_back(edge);
+          staged_edges_count += 1;
           if (edge.kind == SpecialEdgeKind::InterBlock)
-             summary.inter_special_edges += 1;
+             staged_inter_count += 1;
           else
-             summary.intra_special_edges += 1;
-          loaded_edges += 1;
+             staged_intra_count += 1;
        },
        binary_count, error);
-   if (!loaded)
+   if (!loaded || !invalid_record.empty())
    {
       std::cerr << "[special_edges][load] invalid binary sidecar " << path
-                << ": " << error << "; falling back to CSV" << std::endl;
+                << ": " << (!invalid_record.empty() ? invalid_record : error)
+                << "; falling back to CSV" << std::endl;
       return false;
    }
+   for (IdxType source = 0; source < staged_edges.size(); ++source)
+   {
+      for (const SpecialEdge &edge : staged_edges[source])
+      {
+         std::string semantic_error;
+         if (!validate_special_edge_semantics(
+                 source, edge, blocks, point_to_middle_block,
+                 point_to_upper_block, semantic_error))
+         {
+            std::cerr << "[special_edges][load] invalid binary sidecar " << path
+                      << ": " << semantic_error << std::endl;
+            return false;
+         }
+      }
+   }
+   edges_by_point.swap(staged_edges);
+   summary.special_edges += static_cast<IdxType>(staged_edges_count);
+   summary.intra_special_edges += static_cast<IdxType>(staged_intra_count);
+   summary.inter_special_edges += static_cast<IdxType>(staged_inter_count);
+   loaded_edges += staged_edges_count;
    std::cout << "[special_edges][load] binary=" << path
              << " declared_edges=" << binary_count
              << " loaded_edges=" << loaded_edges << std::endl;
@@ -3554,7 +3590,9 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
             if (save_heavy_pair_work_threshold > 0 && edge.kind == SpecialEdgeKind::InterBlock &&
                 edge.target_point_id < _point_to_special_block.size())
             {
-               const IdxType child_id = _point_to_special_block[edge.target_point_id];
+               const IdxType child_id = special_edge_target_owner(
+                   edge, _special_blocks, _point_to_special_block,
+                   _point_to_upper_special_block);
                const unsigned long long key =
                    (static_cast<unsigned long long>(edge.special_block_id) << 32) |
                    static_cast<unsigned long long>(child_id);
@@ -3582,7 +3620,9 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
             if (save_heavy_pair_work_threshold == 0 || edge.kind != SpecialEdgeKind::InterBlock ||
                 edge.target_point_id >= _point_to_special_block.size())
                return false;
-            const IdxType child_id = _point_to_special_block[edge.target_point_id];
+            const IdxType child_id = special_edge_target_owner(
+                edge, _special_blocks, _point_to_special_block,
+                _point_to_upper_special_block);
             const unsigned long long key =
                 (static_cast<unsigned long long>(edge.special_block_id) << 32) |
                 static_cast<unsigned long long>(child_id);
@@ -3935,16 +3975,25 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
             read_ok = read_special_edge_csr_file(path, csr, error);
          if (!read_ok)
             throw std::runtime_error("invalid special-edge CSR sidecar: " + error);
-         for (const auto &packed : csr.edges)
+         for (IdxType source = 0; source < validation.num_sources; ++source)
          {
-            const SpecialEdge edge = packed.unpack();
-            if (edge.target_point_id >= _num_points || edge.special_block_id > _special_blocks.size())
-               throw std::runtime_error("special-edge CSR record is out of range");
-            _special_block_summary.special_edges += 1;
-            if (edge.kind == SpecialEdgeKind::InterBlock)
-               _special_block_summary.inter_special_edges += 1;
-            else
-               _special_block_summary.intra_special_edges += 1;
+            for (uint64_t edge_idx = csr.offsets[source];
+                 edge_idx < csr.offsets[source + 1]; ++edge_idx)
+            {
+               const SpecialEdge edge = csr.edges[edge_idx].unpack();
+               std::string semantic_error;
+               if (!validate_special_edge_semantics(
+                       source, edge, _special_blocks,
+                       _point_to_special_block, _point_to_upper_special_block,
+                       semantic_error))
+                  throw std::runtime_error(
+                      "invalid special-edge CSR semantics: " + semantic_error);
+               _special_block_summary.special_edges += 1;
+               if (edge.kind == SpecialEdgeKind::InterBlock)
+                  _special_block_summary.inter_special_edges += 1;
+               else
+                  _special_block_summary.intra_special_edges += 1;
+            }
          }
          loaded_edges += csr.edges.size();
          std::cout << "[special_edges][load] csr=" << path
@@ -3952,8 +4001,10 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
          return true;
       }
       legacy.assign(_num_points, {});
-      return read_special_edge_binary_file(
-          path, legacy, _special_block_summary, loaded_edges);
+      const bool loaded = read_special_edge_binary_file(
+          path, legacy, _special_block_summary, loaded_edges, _special_blocks,
+          _point_to_special_block, _point_to_upper_special_block);
+      return loaded;
    };
 
    size_t heavy_edges_loaded = 0;
@@ -3987,16 +4038,27 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
             continue;
          const IdxType source = static_cast<IdxType>(std::stoul(cols[0]));
          if (source >= _special_edges_by_point.size())
-            continue;
+            throw std::runtime_error("special-edge CSV source is out of range");
          SpecialEdge edge;
          edge.target_point_id = static_cast<IdxType>(std::stoul(cols[1]));
          edge.special_block_id = static_cast<IdxType>(std::stoul(cols[2]));
+         if (cols[3] != "intra" && cols[3] != "inter")
+            throw std::runtime_error("special-edge CSV kind is invalid");
          edge.kind = cols[3] == "inter" ? SpecialEdgeKind::InterBlock : SpecialEdgeKind::IntraBlock;
+         std::string semantic_error;
+         if (!validate_special_edge_semantics(
+                 source, edge, _special_blocks,
+                 _point_to_special_block, _point_to_upper_special_block,
+                 semantic_error))
+            throw std::runtime_error(
+                "invalid special-edge CSV semantics: " + semantic_error);
          bool use_heavy_sidecar = false;
          if (heavy_pair_work_threshold > 0 && edge.kind == SpecialEdgeKind::InterBlock &&
              edge.target_point_id < _point_to_special_block.size())
          {
-            const IdxType child_id = _point_to_special_block[edge.target_point_id];
+            const IdxType child_id = special_edge_target_owner(
+                edge, _special_blocks, _point_to_special_block,
+                _point_to_upper_special_block);
             if (child_id > 0)
             {
                const unsigned long long key =
@@ -4044,11 +4106,20 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
             continue;
          const IdxType source = static_cast<IdxType>(std::stoul(cols[0]));
          if (source >= _special_heavy_edges_by_point.size())
-            continue;
+            throw std::runtime_error("heavy special-edge CSV source is out of range");
          SpecialEdge edge;
          edge.target_point_id = static_cast<IdxType>(std::stoul(cols[1]));
          edge.special_block_id = static_cast<IdxType>(std::stoul(cols[2]));
+         if (cols[3] != "intra" && cols[3] != "inter")
+            throw std::runtime_error("heavy special-edge CSV kind is invalid");
          edge.kind = cols[3] == "inter" ? SpecialEdgeKind::InterBlock : SpecialEdgeKind::IntraBlock;
+         std::string semantic_error;
+         if (!validate_special_edge_semantics(
+                 source, edge, _special_blocks,
+                 _point_to_special_block, _point_to_upper_special_block,
+                 semantic_error))
+            throw std::runtime_error(
+                "invalid heavy special-edge CSV semantics: " + semantic_error);
          _special_heavy_edges_by_point[source].push_back(edge);
          _special_block_summary.special_edges += 1;
          if (edge.kind == SpecialEdgeKind::InterBlock)

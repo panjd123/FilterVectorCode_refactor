@@ -223,6 +223,50 @@ int main()
    expect_invalid_blocks(std::move(cyclic_children),
                          "same-layer child topology must be acyclic");
 
+   std::vector<ANNS::SpecialBlock> edge_blocks(3);
+   edge_blocks[0].block_id = 1;
+   edge_blocks[0].level = 0;
+   edge_blocks[0].child_block_ids = {2};
+   edge_blocks[1].block_id = 2;
+   edge_blocks[1].level = 0;
+   edge_blocks[2].block_id = 3;
+   edge_blocks[2].level = 1;
+   const std::vector<ANNS::IdxType> point_middle_owner = {1, 1, 2, 2};
+   const std::vector<ANNS::IdxType> point_upper_owner = {3, 3, 3, 3};
+   auto expect_edge_semantics = [&](ANNS::IdxType source,
+                                    const ANNS::SpecialEdge &edge,
+                                    bool expected, const char *message) {
+      std::string semantic_error;
+      expect(ANNS::validate_special_edge_semantics(
+                 source, edge, edge_blocks, point_middle_owner,
+                 point_upper_owner, semantic_error) == expected,
+             message);
+   };
+   expect_edge_semantics(0, {1, 1, ANNS::SpecialEdgeKind::IntraBlock}, true,
+                         "intra edge may stay within its direct owner");
+   expect_edge_semantics(0, {2, 1, ANNS::SpecialEdgeKind::InterBlock}, true,
+                         "inter edge may target a direct child block");
+   expect(ANNS::special_edge_target_owner(
+              {2, 1, ANNS::SpecialEdgeKind::InterBlock}, edge_blocks,
+              point_middle_owner, point_upper_owner) == 2,
+          "middle inter target owner must use middle ownership");
+   expect(ANNS::special_edge_target_owner(
+              {2, 3, ANNS::SpecialEdgeKind::InterBlock}, edge_blocks,
+              point_middle_owner, point_upper_owner) == 3,
+          "upper inter target owner must use upper ownership");
+   expect_edge_semantics(2, {3, 1, ANNS::SpecialEdgeKind::IntraBlock}, false,
+                         "intra edge source must belong to its declared owner");
+   expect_edge_semantics(0, {2, 1, ANNS::SpecialEdgeKind::IntraBlock}, false,
+                         "intra edge target must belong to its declared owner");
+   expect_edge_semantics(0, {3, 2, ANNS::SpecialEdgeKind::InterBlock}, false,
+                         "inter edge source must belong to its declared owner");
+   expect_edge_semantics(0, {2, 3, ANNS::SpecialEdgeKind::InterBlock}, false,
+                         "inter edge target must belong to a same-layer direct child");
+   expect_edge_semantics(0, {1, 0, ANNS::SpecialEdgeKind::IntraBlock}, false,
+                         "zero edge owner must be rejected");
+   expect_edge_semantics(4, {1, 1, ANNS::SpecialEdgeKind::IntraBlock}, false,
+                         "out-of-range edge source must be rejected");
+
    // The graph-aware validation gate checks semantic relationships which the
    // standalone binary format cannot know.  This fixture models two nested
    // middle blocks and one containing upper block over four contiguous groups.

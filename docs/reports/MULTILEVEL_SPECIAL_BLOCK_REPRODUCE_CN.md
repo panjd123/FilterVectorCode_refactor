@@ -69,8 +69,21 @@ git diff --check
 ```
 
 最终 checkpoint 上的预期结果为 C++ focused tests 7/7、Python tests 29/29。
+Python 测试必须从 `experiments/multilevel_special` 目录启动，因为测试模块使用同目录 import；从仓库根直接执行模块路径会因找不到 `run_selection_sweep` 而失败，这不表示算法回归。
 
-### 4.1 过滤结果合法性审计
+### 4.1 Special edge 持久化语义审计
+
+loader 不只检查 CSR offset、ID 范围和 metadata topology，还对每条持久化 special edge 做 owner/child 校验：
+
+- intra edge：source 与 target 都必须是声明 owner 在相应层的 direct member；
+- inter edge：source 必须属于声明 parent，target 必须属于其同层 direct child；
+- source/target/owner 越界、owner=0、未知 kind 或跨层/非直接 child 目标均拒绝；legacy binary 先读入 staging，整份验证成功后才发布，避免半加载状态；light/heavy sidecar 分流按 edge owner 的 level 选择中层或上层 ownership，不能固定使用中层 map。
+
+`test_special_edge_io` 包含合法 intra/inter、middle/upper target owner 解析与上述非法情形的正负测试。真实数据审计还用当前 binary 完整加载 fresh `T1=2k,T2=25k` sidecar 的 62,938,887 条 special edges，并在 50% workload、L=550 上得到 Recall=.8575、10,000 个返回点、0 个 filter violation。审计 binary SHA-256 为 `01a2ab66e0f6d2c5fc33389e77ba6f9be738effe0fa5353930114baf4eb6a5b4`。
+
+最终 binary 的本次 sidecar 冷加载为 2.057 s；此前相邻审计为 1.91--1.93 s。这是一次性 load，不在 query batch timer 内；由于冷页缓存和系统负载不同，不能把它与旧运行相减并声称为 edge 校验的精确 overhead。
+
+### 4.2 过滤结果合法性审计
 
 性能 Recall 只能说明返回点与 exact GT 的重合率；还应独立确认每个实际返回点都满足 query filter。`search_UNG_index` 提供默认关闭的 `UNG_VALIDATE_FILTER_RESULTS=1`：搜索 batch 计时停止后，它将 original result id 映射到 reordered graph id，并验证 point labels 包含全部 query labels。审计输出为 `filter_validation.csv`；有任一违规时进程返回 2。
 

@@ -53,6 +53,7 @@
 此外，当前 builder `6ff471a8...50692` 对 tuned 配置独立重建三次，wall time 为 60.250 / 56.285 / 56.916 s。结构 sidecar 稳定，但 GPU FastGrnnd approximate intra edges 因原子并行更新不保证 bitwise deterministic；50% 的冻结 L=500 在一份 bundle 上为 R=.8495，因此跨重建推荐 L=550（三次 R=.8540--.8582）。这组结果单列于 `current_source_rebuild*.csv`，不能与冻结主表混写。
 
 当前源码还增加了默认关闭、batch timer 外的 `UNG_VALIDATE_FILTER_RESULTS=1`。在同一 fresh-built T1=2k/T2=25k bundle 上覆盖六档 workload，共 60,000 个结果槽、59,991 个实际返回点、9 个 missing 槽，过滤违规为 0；六档 Recall 全部达标。该审计 binary 为 `378e71d7...0313`，只用于正确性，不更新冻结性能表；逐档 compact 记录为 `results_summary/filter_validation_audit.csv`。
+sidecar loader 进一步加入逐 edge 的 owner/direct-child 语义校验，将 legacy binary 改为验证后再发布的 staged load，并修正 upper inter edge 的 light/heavy 分流，使其按 owner level 选择 ownership map。真实 fresh bundle 的 62,938,887 条 special edges 全量通过；同一 binary 在 50% workload、L=550 得到 Recall=.8575、10,000 个返回点、0 个过滤违规。校验 binary 为 `01a2ab66...a5b4`；该运行不替换冻结性能表。
 三次 build 早于 immutable builder snapshot 功能，旧 manifest 未原生携带 builder hash；compact CSV 将审计记录的 hash 明确标为 `historical_audit_record`。当前 builder 文件 mtime 早于三次 manifest 且 hash 一致，但这仍不是逐份 manifest 的密码学绑定。新运行会记录 `manifest_snapshot`。
 CPU Vamana large-block 对照为 1131.863 s，GPU 路径按完整 builder wall 快 19.89x；该对照图本身不同，只用于说明确定性 CPU 回退的工程代价。
 

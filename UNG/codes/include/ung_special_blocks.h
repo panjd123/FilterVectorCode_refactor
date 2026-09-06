@@ -98,6 +98,88 @@ struct SpecialEdge
    SpecialEdgeKind kind = SpecialEdgeKind::IntraBlock;
 };
 
+// Resolve the target's direct owner in the layer declared by the edge owner.
+// Block ids are global across the middle/upper vectors, while point ownership
+// is stored separately per layer.  Callers that classify inter edges (for
+// example, light/heavy sidecar routing) must not assume the middle layer.
+inline IdxType special_edge_target_owner(
+    const SpecialEdge &edge,
+    const std::vector<SpecialBlock> &blocks,
+    const std::vector<IdxType> &point_to_middle_block,
+    const std::vector<IdxType> &point_to_upper_block)
+{
+   if (edge.special_block_id == 0 || edge.special_block_id > blocks.size())
+      return 0;
+   const SpecialBlock &owner = blocks[edge.special_block_id - 1];
+   const std::vector<IdxType> &point_owner =
+       owner.level == 0 ? point_to_middle_block : point_to_upper_block;
+   if (edge.target_point_id >= point_owner.size())
+      return 0;
+   return point_owner[edge.target_point_id];
+}
+
+// Check that an edge's declared owner agrees with the per-layer partition.
+// Intra edges stay among the owner's direct members. Inter edges originate in
+// the owner and target a direct child block in the same partition layer. This
+// is intentionally independent of vector distances and can therefore reject
+// a structurally valid but semantically mis-tagged persisted sidecar.
+inline bool validate_special_edge_semantics(
+    IdxType source_point_id,
+    const SpecialEdge &edge,
+    const std::vector<SpecialBlock> &blocks,
+    const std::vector<IdxType> &point_to_middle_block,
+    const std::vector<IdxType> &point_to_upper_block,
+    std::string &error)
+{
+   if (source_point_id >= point_to_middle_block.size() ||
+       source_point_id >= point_to_upper_block.size() ||
+       edge.target_point_id >= point_to_middle_block.size() ||
+       edge.target_point_id >= point_to_upper_block.size() ||
+       edge.special_block_id == 0 || edge.special_block_id > blocks.size())
+   {
+      error = "special edge source, target, or owner is out of range";
+      return false;
+   }
+
+   const SpecialBlock &owner = blocks[edge.special_block_id - 1];
+   const std::vector<IdxType> &point_owner =
+       owner.level == 0 ? point_to_middle_block : point_to_upper_block;
+   if (point_owner[source_point_id] != owner.block_id)
+   {
+      error = "special edge source is not a direct member of its declared owner";
+      return false;
+   }
+
+   const IdxType target_owner = special_edge_target_owner(
+       edge, blocks, point_to_middle_block, point_to_upper_block);
+   if (edge.kind == SpecialEdgeKind::IntraBlock)
+   {
+      if (target_owner != owner.block_id)
+      {
+         error = "intra special edge target is outside its declared owner";
+         return false;
+      }
+   }
+   else if (edge.kind == SpecialEdgeKind::InterBlock)
+   {
+      if (target_owner == 0 ||
+          !std::binary_search(owner.child_block_ids.begin(),
+                              owner.child_block_ids.end(), target_owner))
+      {
+         error = "inter special edge target is not in a direct child of its declared owner";
+         return false;
+      }
+   }
+   else
+   {
+      error = "special edge kind is invalid";
+      return false;
+   }
+
+   error.clear();
+   return true;
+}
+
 struct SpecialBlockBuildSummary
 {
    IdxType threshold = 0;
