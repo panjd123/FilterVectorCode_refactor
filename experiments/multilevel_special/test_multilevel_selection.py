@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
@@ -259,6 +260,30 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertTrue(run_selection_sweep.result_is_complete(
                 root, [100, 200], require_stage_breakdown=True))
 
+    def test_result_reuse_requires_matching_execution_contract(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            binary = root / "search"
+            binary.write_bytes(b"binary")
+            (root / "search_time_summary.csv").write_text(
+                "Lsearch,Average_Time_ms\n100,1\n")
+            (root / "search_time_details.csv").write_text(
+                "Repeat,Lsearch,Time_ms,Avg_Recall\n0,100,1,.9\n1,100,1,.9\n")
+            command = [str(binary), "--Lsearch", "100"]
+            (root / "command.txt").write_text(shlex.join(command) + "\n")
+            environment = {"UNG_DISABLE_ELS_REUSE": "1"}
+            (root / "environment.json").write_text(json.dumps(environment))
+            digest = run_selection_sweep.sha256_file(binary)
+            self.assertTrue(run_selection_sweep.result_is_complete(
+                root, [100], expected_repeats=2, expected_command=command,
+                expected_environment=environment, expected_binary_sha256=digest))
+            self.assertFalse(run_selection_sweep.result_is_complete(
+                root, [100], expected_repeats=3, expected_command=command,
+                expected_environment=environment, expected_binary_sha256=digest))
+            self.assertFalse(run_selection_sweep.result_is_complete(
+                root, [100], expected_repeats=2, expected_command=command,
+                expected_environment={"UNG_DISABLE_ELS_REUSE": "0"},
+                expected_binary_sha256=digest))
     def test_summarizer_reads_warm_stage_medians(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

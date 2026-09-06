@@ -187,7 +187,11 @@ def lsearch_values_for(config: dict[str, Any], method: dict[str, Any],
 
 
 def result_is_complete(path: Path, expected_lsearch: list[int],
-                       require_stage_breakdown: bool = False) -> bool:
+                       require_stage_breakdown: bool = False,
+                       expected_repeats: int | None = None,
+                       expected_command: list[str] | None = None,
+                       expected_environment: dict[str, str] | None = None,
+                       expected_binary_sha256: str | None = None) -> bool:
     summary = path / "search_time_summary.csv"
     if not summary.exists():
         return False
@@ -195,6 +199,37 @@ def result_is_complete(path: Path, expected_lsearch: list[int],
         seen = {int(row["Lsearch"]) for row in csv.DictReader(stream)}
     if seen != set(expected_lsearch):
         return False
+    details = path / "search_time_details.csv"
+    if expected_repeats is not None:
+        if not details.exists():
+            return False
+        with details.open(newline="") as stream:
+            detail_rows = list(csv.DictReader(stream))
+        repeat_counts = {
+            value: sum(int(row["Lsearch"]) == value for row in detail_rows)
+            for value in expected_lsearch
+        }
+        if any(count != expected_repeats for count in repeat_counts.values()):
+            return False
+    command_path = path / "command.txt"
+    if expected_command is not None:
+        if not command_path.exists() or shlex.split(command_path.read_text()) != expected_command:
+            return False
+    environment_path = path / "environment.json"
+    if expected_environment is not None:
+        if not environment_path.exists():
+            return False
+        recorded = json.loads(environment_path.read_text())
+        expected_ung = {key: value for key, value in expected_environment.items()
+                        if key.startswith("UNG_")}
+        if recorded != expected_ung:
+            return False
+    if expected_binary_sha256 is not None:
+        if expected_command is None or not expected_command:
+            return False
+        binary = Path(expected_command[0])
+        if not binary.is_file() or sha256_file(binary) != expected_binary_sha256:
+            return False
     if not require_stage_breakdown:
         return True
     stage = path / "search_stage_details.csv"
@@ -342,8 +377,14 @@ def main() -> int:
             num_queries = validate_case(config, method, workload)
             provenance = validate_provenance(config, method)
             require_stage_breakdown = bool(config.get("require_stage_breakdown", False))
-            if result_is_complete(run_dir, values, require_stage_breakdown) and not args.force:
-                effective_env = clean_method_env(os.environ, method)
+            expected_command = build_command(config, method, workload, run_dir)
+            effective_env = clean_method_env(os.environ, method)
+            if result_is_complete(
+                    run_dir, values, require_stage_breakdown,
+                    expected_repeats=int(config["num_repeats"]),
+                    expected_command=expected_command,
+                    expected_environment=effective_env,
+                    expected_binary_sha256=search_binary_sha256) and not args.force:
                 update_manifest(manifest_path, {
                     "method": method["name"],
                     "workload": workload["name"],
@@ -367,9 +408,8 @@ def main() -> int:
                 print(f"[SKIP] {method['name']}/{workload['name']} complete", flush=True)
                 continue
             run_dir.mkdir(parents=True, exist_ok=True)
-            cmd = build_command(config, method, workload, run_dir)
+            cmd = expected_command
             (run_dir / "command.txt").write_text(shlex.join(cmd) + "\n")
-            effective_env = clean_method_env(os.environ, method)
             (run_dir / "environment.json").write_text(
                 json.dumps({key: value for key, value in effective_env.items() if key.startswith("UNG_")},
                            indent=2, sort_keys=True) + "\n"
