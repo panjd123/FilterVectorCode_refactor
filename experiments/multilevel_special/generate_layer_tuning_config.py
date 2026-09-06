@@ -107,6 +107,7 @@ def make_config(repo: Path) -> dict:
         "expected_main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
         "dataset": "Amazon",
         "K": 10,
+        "expected_num_queries": 1000,
         "num_threads": 100,
         "num_entry_points": 16,
         "num_repeats": 3,

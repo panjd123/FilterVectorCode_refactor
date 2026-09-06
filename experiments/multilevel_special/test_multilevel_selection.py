@@ -28,6 +28,7 @@ class SelectionSweepTest(unittest.TestCase):
     def test_layer_tuning_grid_covers_independent_legal_structures(self):
         config = generate_layer_tuning_config.make_config(Path("/repo"))
         methods = config["methods"]
+        self.assertEqual(config["expected_num_queries"], 1000)
         self.assertEqual(sum(item["layer_count"] == 0 for item in methods), 1)
         self.assertEqual(
             {item["t1"] for item in methods if item["layer_count"] == 1},
