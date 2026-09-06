@@ -163,6 +163,25 @@ class SelectionSweepTest(unittest.TestCase):
             [row], [row], [])
         self.assertIn("batch 的 warm-repeat 中位墙钟", report)
         self.assertIn("50000.0", report)
+        self.assertIn("既有 UNG 主图", report)
+
+    def test_layer_report_build_cost_is_incremental_and_selected(self):
+        selected = [{"method": "layer0_plain"}, {"method": "layer1_t1_2000"}]
+        manifest = {"runs": [{
+            "name": "layer1_t1_2000", "min_points": 2000,
+            "upper_min_points": None, "status": "complete", "returncode": 0,
+            "elapsed_seconds": 42.0,
+            "metadata": {
+                "special_block_metadata_time(ms)": "1", "special_block_trie_build_time(ms)": "2",
+                "special_edge_intra_build_time(ms)": "3", "special_edge_inter_build_time(ms)": "4",
+                "special_trie_regular_edge_build_time(ms)": "5", "special_blocks_save_time(ms)": "6",
+                "special_block_count": "7", "special_block_upper_count": "0",
+                "special_edge_count": "8", "disk_bytes": str(1024 ** 3),
+            },
+        }, {"name": "unselected", "status": "complete", "returncode": 0}]}
+        rows = generate_layer_tuning_report.selected_build_rows(selected, [], manifest)
+        self.assertEqual([row["method"] for row in rows], ["layer1_t1_2000"])
+        self.assertEqual(rows[0]["wall_s"], 42.0)
 
     def test_validator_uses_method_specific_lsearch_grid(self):
         config = {"lsearch_values": [100]}
