@@ -9,6 +9,7 @@ import run_selection_sweep
 import run_build_sweep
 import generate_layer_tuning_config
 import generate_layer_tuning_formal
+import generate_layer_tuning_report
 import select_layer_tuning
 import summarize_selection_sweep
 import validate_selection_sweep
@@ -118,6 +119,26 @@ class SelectionSweepTest(unittest.TestCase):
         self.assertEqual(selected[(1, "m2")], {"a", "b"})
         self.assertEqual(selected[(1, "m1")], {"a"})
         self.assertEqual(selected[(1, "m3")], {"b"})
+
+    def test_layer_report_keeps_batch_and_per_query_stages_distinct(self):
+        row = {
+            "selection_scope": "shared_thresholds", "workload": "w",
+            "mean_selectivity": "0.5", "target_recall": "0.9",
+            "layer_count": "0", "method": "plain", "t1": "",
+            "t2": "", "lsearch": "100", "recall": "0.91",
+            "recall_min": "0.90", "batch_ms_warm_median": "20",
+            "speedup_vs_layer0": "1", "query_total_ms_warm_median": "1",
+            "els_ms_warm_median": "0.1", "entry_ms_warm_median": "0.2",
+            "block_authorization_ms_warm_median": "0",
+            "graph_ms_warm_median": "0.6", "residual_ms_warm_median": "0.1",
+        }
+        report = generate_layer_tuning_report.render_report(
+            {"expected_num_queries": 1000},
+            [{"layer_count": "0", "method": "plain", "t1": "", "t2": "",
+              "geomean_speedup_vs_layer0": "1", "sum_batch_ms_warm_median": "20"}],
+            [row], [row], [])
+        self.assertIn("batch 的 warm-repeat 中位墙钟", report)
+        self.assertIn("50000.0", report)
 
     def test_validator_uses_method_specific_lsearch_grid(self):
         config = {"lsearch_values": [100]}
