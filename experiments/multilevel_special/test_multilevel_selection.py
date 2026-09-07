@@ -186,6 +186,22 @@ class SelectionSweepTest(unittest.TestCase):
         self.assertEqual(selected[(1, "m1")], {"a"})
         self.assertEqual(selected[(1, "m3")], {"b"})
 
+    def test_formal_shortlist_keeps_near_best_beyond_top_k(self):
+        def row(method, workload, latency, layer=1):
+            return {"method": method, "layer_count": layer,
+                    "workload": workload, "batch_ms_warm_median": latency,
+                    "batch_ms_warm": latency, "recall_min": .91,
+                    "lsearch": 100,
+                    "t1": int(method[-1]) if layer else None, "t2": None}
+        points = [row("plain", "a", 100, layer=0)]
+        points += [row("m1", "a", 10), row("m2", "a", 10.2),
+                   row("m3", "a", 10.4), row("m4", "a", 10.6)]
+        selected = generate_layer_tuning_formal.selected_structure_workloads(
+            points, {"a": .9}, shared_top_k=1, oracle_top_k=1,
+            near_best_ratio=1.05)
+        self.assertIn((1, "m3"), selected)
+        self.assertNotIn((1, "m4"), selected)
+
     def test_formal_config_uses_fresh_output_and_records_selection_policy(self):
         coarse = {
             "output_root": "/tmp/layer_tuning_query_coarse_amazon_x1",

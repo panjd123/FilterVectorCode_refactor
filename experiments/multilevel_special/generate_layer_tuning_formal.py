@@ -37,6 +37,7 @@ def dense_crossing_grid(rows: list[dict], threshold: float) -> list[int]:
 def selected_structure_workloads(
     points: list[dict], thresholds: dict[str, float],
     shared_top_k: int = 3, oracle_top_k: int = 2,
+    near_best_ratio: float = 1.05,
 ) -> dict[tuple[int, str], set[str]]:
     """Map each shortlisted structure to workloads needing a formal rerun.
 
@@ -68,7 +69,12 @@ def selected_structure_workloads(
             if feasible:
                 score = math.exp(sum(math.log(value) for value in ratios) / len(ratios))
                 ranked_shared.append((score, method))
-        for _, method in sorted(ranked_shared)[:shared_top_k]:
+        ranked_shared.sort()
+        shared_limit = (ranked_shared[0][0] * near_best_ratio
+                        if ranked_shared else float("inf"))
+        for rank, (score, method) in enumerate(ranked_shared):
+            if rank >= shared_top_k and score > shared_limit:
+                continue
             selected[(layer, method)].update(workloads)
         for workload in workloads:
             ranked_oracle = []
@@ -78,7 +84,12 @@ def selected_structure_workloads(
                     thresholds[workload])
                 if best is not None:
                     ranked_oracle.append((best["batch_ms_warm_median"], method))
-            for _, method in sorted(ranked_oracle)[:oracle_top_k]:
+            ranked_oracle.sort()
+            oracle_limit = (ranked_oracle[0][0] * near_best_ratio
+                            if ranked_oracle else float("inf"))
+            for rank, (latency, method) in enumerate(ranked_oracle):
+                if rank >= oracle_top_k and latency > oracle_limit:
+                    continue
                 selected[(layer, method)].add(workload)
     return selected
 
@@ -125,6 +136,8 @@ def make_formal_config(coarse: dict, points: list[dict]) -> dict:
     formal["formal_selection"] = {
         "shared_top_k_per_layer": 3,
         "oracle_top_k_per_layer_workload": 2,
+        "coarse_near_best_ratio": 1.05,
+        "shortlist_rule": "retain top-k plus every structure within 5% of the coarse best",
         "quality_rule": "minimum repeat Recall meets the declared threshold",
         "timing_rule": "warm-repeat batch median; cold repeat 0 excluded",
     }
