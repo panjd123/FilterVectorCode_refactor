@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 第二轮 extended coarse sweep 已完成 240/240 case。共享部署配置已闭合：单层 T1=32k、两层 T1=16k/T2=100k，新增 64k/200k 未击败共享赢家；逐 workload oracle 仍有 sel_25 单层和 sel_005/sel_01 两层触边，正在用 workload 限定的最终端点 guard 闭合。实测确认 T2=600k 时 upper_count=0、T1=700k 时 block_count=0，因此它们只作为结构上界，不作为对应层数的性能候选。
+- 完整 coarse 调优已完成 254/254 case、1506 个离散实测点并通过 validator；共享配置与逐 workload oracle 均为 0 个边界命中。共享部署配置为单层 T1=32k、两层 T1=16k/T2=100k；sel_25 两层 oracle 的 64k/80k 也由 32k/80k、64k/64001、79999/80k 三个端点/对照闭合。当前正在运行独立的 7-repeat formal shortlist：17 个结构、54 个 structure/workload case、324 个 L 点。
 
 ## 完成历史
 
@@ -73,7 +73,7 @@
 
 ## 下一步
 
-完成最终 workload 限定的可行 oracle guard 结构与 11 个 query cases；确认共享配置和 oracle 边界均闭合后生成并运行 7-repeat crossing 正式复测。
+等待 7-repeat formal shortlist 完成；运行 validator、summarizer 与 selector，确认正式 shared/oracle 仍无边界命中，再生成论文主表与 breakdown。
 
 ## 阻塞与问题
 

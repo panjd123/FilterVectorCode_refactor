@@ -49,6 +49,13 @@ LAYER2_GUARD_PAIRS = (
     (128000, 600000),
     (256000, 400000),
     (256000, 600000),
+    # sel_25 selected 64k/80k after the final upper-threshold guard.  Close
+    # that local legal slice with one lower-T1 control and the exact integer
+    # endpoints imposed by T2 > T1.  These are workload-local oracle guards,
+    # not candidates for the six-workload shared deployment configuration.
+    (32000, 80000),
+    (64000, 64001),
+    (79999, 80000),
 )
 
 # These endpoint guards close only the still-open per-workload oracle axes.
@@ -71,6 +78,9 @@ ORACLE_GUARD_WORKLOADS = {
     "layer2_t1_128000_t2_600000": [],
     "layer2_t1_256000_t2_400000": ["sel_005", "sel_01"],
     "layer2_t1_256000_t2_600000": [],
+    "layer2_t1_32000_t2_80000": ["sel_25"],
+    "layer2_t1_64000_t2_64001": ["sel_25"],
+    "layer2_t1_79999_t2_80000": ["sel_25"],
 }
 
 WORKLOADS = (
@@ -160,6 +170,13 @@ def make_config(repo: Path) -> dict:
                t1=t1, t2=t2)
         for t1, t2 in layer2_pairs
     )
+    # Keep non-executable structural endpoints in the boundary reference.
+    # They close a threshold axis when crossing it removes the corresponding
+    # block layer, but must never become a measured performance candidate.
+    boundary_reference_methods = [
+        {key: item.get(key) for key in ("name", "layer_count", "t1", "t2")}
+        for item in methods
+    ]
     return {
         "search_app": str(repo / "build_ung_rel/apps/search_UNG_index"),
         "main_index": "/home/graphdb/FilterVectorResult/Amazon/index/Trie_block/index_files",
@@ -181,6 +198,7 @@ def make_config(repo: Path) -> dict:
             "sel_25": 0.90, "sel_50": 0.85, "sel_75": 0.87
         },
         "require_stage_breakdown": True,
+        "boundary_reference_methods": boundary_reference_methods,
         "workloads": list(WORKLOADS),
         "methods": methods,
     }

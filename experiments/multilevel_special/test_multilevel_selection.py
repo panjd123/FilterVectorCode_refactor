@@ -68,6 +68,13 @@ class SelectionSweepTest(unittest.TestCase):
             item["env"].get("UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE") == "1"
             for item in methods if item["layer_count"] > 0
         ))
+        self.assertEqual(
+            len(config["boundary_reference_methods"]), len(methods))
+        self.assertIn(
+            {"name": "layer1_t1_700000", "layer_count": 1,
+             "t1": 700000, "t2": None},
+            config["boundary_reference_methods"],
+        )
         self.assertNotIn(
             "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE",
             next(item for item in methods if item["layer_count"] == 0)["env"],
