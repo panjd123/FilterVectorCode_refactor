@@ -23,9 +23,10 @@
 - base-label SHA-256：`aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96`。
 - main-index label SHA-256：`ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56`。
 - source UNG fingerprint：`91d78580ae29f468`。
-- 论文实验 immutable search binary SHA-256：`f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11`。
+- 最新公平 0/1/2 层 formal search binary SHA-256：`6fa4082dae77e99b6c1b3c84c75d324d57cc25e0da32149011379453cfa40087`；builder SHA-256：`c305f48751d990715dbcd448185a65e8391302f38ff6a9410a982c0d5e0b295b`。
+- 旧的固定阈值/外部系统论文表使用历史 search binary `f078e1744775a3aefab6cc670b4a72e02b8d7d7118a6d34a6df76cb591287b11`，只作补充证据，不得与最新公平层数表拼接。
 
-当前源码重新编译出的 binary hash 可以不同；这表示“新鲜复测”，不能把其结果追加到上述历史 binary 的正式 manifest。内部 runner 会在每个 output root 中创建只读、内容寻址的 binary snapshot，并把 hash 写入 manifest。
+当前源码重新编译出的 binary hash可以不同；这表示“新鲜复测”，不能把其结果追加到任一已冻结正式 manifest。内部 runner 会在每个 output root 中创建只读、内容寻址的 binary snapshot，并把 hash 写入 manifest。
 
 本次已验证的当前源码 binary SHA-256 为 `88d7dba189478cd11402a8433076d220c7ad68ca9f9a6366118f78430752f37f`。六档 24 点 fresh regression 的 compact 输出被单独保存为 `results_summary/current_source_regression.csv`，不参与 `paper_results.csv` 的 operating-point 选择。
 
@@ -243,6 +244,32 @@ FAVOR 的 1% prefilter threshold 会使低两档混合 prefilter/graph route；A
 
 ## 8. 从 raw runs 生成 compact evidence
 
+公平 0/1/2 层主结论使用独立的 coarse -> formal 流程。coarse 配置与 1506-point 汇总的 SHA-256 会写入 formal 配置；formal 再显式加入首轮 7-repeat 暴露出的 4 个边界 guard。已有 case 只有在 binary、命令、环境、L-grid 和 7 repeats 全部一致时才复用：
+
+```bash
+python3 experiments/multilevel_special/generate_layer_tuning_config.py \
+  --output experiments/multilevel_special/config.amazon_x1_layer_tuning_query_extended.json
+
+python3 experiments/multilevel_special/generate_layer_tuning_formal.py \
+  experiments/multilevel_special/config.amazon_x1_layer_tuning_query_extended.json \
+  --points runs/layer_tuning_query_coarse_amazon_x1/summary/all_points.csv \
+  --output experiments/multilevel_special/config.amazon_x1_layer_tuning_query_formal.json
+
+python3 experiments/multilevel_special/run_selection_sweep.py \
+  experiments/multilevel_special/config.amazon_x1_layer_tuning_query_formal.json
+python3 experiments/multilevel_special/validate_selection_sweep.py \
+  experiments/multilevel_special/config.amazon_x1_layer_tuning_query_formal.json
+python3 experiments/multilevel_special/summarize_selection_sweep.py \
+  experiments/multilevel_special/config.amazon_x1_layer_tuning_query_formal.json
+python3 experiments/multilevel_special/select_layer_tuning.py \
+  experiments/multilevel_special/config.amazon_x1_layer_tuning_query_formal.json
+python3 experiments/multilevel_special/generate_layer_tuning_report.py \
+  experiments/multilevel_special/config.amazon_x1_layer_tuning_query_formal.json \
+  --build-manifest runs/layer_tuning_build_amazon_x1/manifest.json
+```
+
+预期最终规模是 32 个 formal 结构、92 个 structure/workload case、552 个 L 点、18 个 oracle 行、3 个 shared 配置和 0 个开放边界命中。共享阈值结果写入 `results_summary/layer_tuning_shared_summary.csv`，阶段数据写入 `layer_tuning_stage_breakdown.csv`，oracle 上界写入 `layer_tuning_oracle_summary.csv`；raw 文件哈希记录在 `layer_tuning_evidence_manifest.csv`。
+
 内部每个 sweep 先由 `summarize_selection_sweep.py` 生成 `summary/all_points.csv`，然后把正式 aggregate 和对应 `manifest.json` 复制到 `results_summary/source/` 的既定文件名。外部低选择率用：
 
 ```bash
@@ -267,7 +294,7 @@ git diff --check
 
 - 唯一质量标准是对相同 exact filtered GT 的端到端 Recall；coverage、block 数和局部 top-K overlap 仅作诊断。
 - 固定 L 的耗时不能直接形成加速结论；比较的是达到预声明 Recall 门槛的最快离散实测点。
-- `Upper-off`/`Upper-on` paired 对照度量新增第二层本身；T1 调优与 T1/T2 联合最优是另外两种结论。
+- 公平层数主结论使用每层独立调优后的共享配置；逐 workload oracle 只能作为上界。旧的 `Upper-off`/`Upper-on` paired 对照可用于机制说明，但不替代该主结论。
 - 不得把 overlay builder wall 当成完整 from-scratch UNG 建图时间。
 - 不得把 repeat/hybrid 数据或 21,834-label 历史主图混入当前 30,723-label Amazon x1 结果。
 - raw runs、数据集和第三方索引不提交；compact CSV、manifest、配置、生成器和报告才构成可审计论文闭包。

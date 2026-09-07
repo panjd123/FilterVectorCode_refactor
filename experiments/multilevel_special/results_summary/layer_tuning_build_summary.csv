@@ -1,0 +1,3 @@
+layer_count,structure,builder_total_ms,block_count,upper_block_count,special_edge_count,disk_bytes,measurement_scope
+1,T1=32000,42932.008239,7,0,28518091,443978828,incremental overlay on existing UNG
+2,T1=16000;T2=200000,68640.696636,15,1,51853327,632397035,incremental overlay on existing UNG

@@ -157,6 +157,16 @@ def audit_structure_boundaries(points: list[dict], oracle: list[dict],
                 directions.append("lower")
             if values and value == values[-1]:
                 directions.append("upper")
+            # T1 and T2 are integer thresholds with the strict legal
+            # constraint T2 > T1.  At T2=T1+1 the lower-T2 and upper-T1
+            # directions are mathematical domain endpoints, not open scan
+            # boundaries: no additional legal integer threshold exists.
+            if layer == 2 and row.get("t1") is not None and row.get("t2") is not None:
+                adjacent = int(row["t2"]) == int(row["t1"]) + 1
+                if adjacent and axis == "t1" and "upper" in directions:
+                    directions.remove("upper")
+                if adjacent and axis == "t2" and "lower" in directions:
+                    directions.remove("lower")
             for direction in directions:
                 output.append({
                     "selection_scope": scope,

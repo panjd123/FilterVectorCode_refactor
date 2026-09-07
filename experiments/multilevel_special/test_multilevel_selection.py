@@ -130,6 +130,22 @@ class SelectionSweepTest(unittest.TestCase):
             [],
         )
 
+    def test_boundary_audit_closes_strict_integer_legal_endpoint(self):
+        oracle = [{"layer_count": 2, "method": "adjacent",
+                   "workload": "w", "t1": 64000, "t2": 64001}]
+        references = [
+            {"layer_count": 2, "name": "lower_t1",
+             "t1": 32000, "t2": 64001},
+            {"layer_count": 2, "name": "adjacent",
+             "t1": 64000, "t2": 64001},
+            {"layer_count": 2, "name": "higher_t2",
+             "t1": 64000, "t2": 80000},
+        ]
+        self.assertEqual(
+            select_layer_tuning.audit_structure_boundaries([], oracle, [], references),
+            [],
+        )
+
     def test_boundary_audit_can_use_full_coarse_reference_grid(self):
         formal_points = [{"layer_count": 1, "method": "m2",
                           "t1": 2000, "t2": None}]
@@ -218,6 +234,36 @@ class SelectionSweepTest(unittest.TestCase):
         self.assertEqual(formal["num_repeats"], 7)
         self.assertEqual(formal["formal_selection"]["shared_top_k_per_layer"], 3)
 
+    def test_formal_config_adds_predeclared_boundary_guards(self):
+        coarse = {
+            "output_root": "/tmp/layer_tuning_query_coarse_amazon_x1",
+            "recall_thresholds": {"w": .9},
+            "workloads": [{"name": "w"}],
+            "methods": [
+                {"name": "layer0_plain", "layer_count": 0},
+                {"name": "layer2_t1_8000_t2_100000", "layer_count": 2,
+                 "t1": 8000, "t2": 100000,
+                 "block_index": "/builds/layer2_t1_8000_t2_100000/block_index"},
+            ],
+        }
+        points = [
+            {"method": "layer0_plain", "layer_count": 0, "workload": "w",
+             "batch_ms_warm_median": 10, "batch_ms_warm": 10,
+             "recall_min": .91, "lsearch": 100, "t1": None, "t2": None},
+            {"method": "layer2_t1_8000_t2_100000", "layer_count": 2,
+             "workload": "w", "batch_ms_warm_median": 5,
+             "batch_ms_warm": 5, "recall_min": .91, "lsearch": 200,
+             "t1": 8000, "t2": 100000},
+        ]
+        formal = generate_layer_tuning_formal.make_formal_config(coarse, points)
+        guard = next(method for method in formal["methods"]
+                     if method["name"] == "layer2_t1_8000_t2_200000")
+        self.assertEqual(guard["enabled_workloads"], ["w"])
+        self.assertEqual(guard["lsearch_values_by_workload"]["w"],
+                         [100, 125, 150, 175, 200, 250])
+        self.assertEqual(guard["block_index"],
+                         "/builds/layer2_t1_8000_t2_200000/block_index")
+
     def test_layer_report_keeps_batch_and_per_query_stages_distinct(self):
         row = {
             "selection_scope": "shared_thresholds", "workload": "w",
@@ -241,7 +287,11 @@ class SelectionSweepTest(unittest.TestCase):
         self.assertIn("既有 UNG 主图", report)
 
     def test_layer_report_build_cost_is_incremental_and_selected(self):
-        selected = [{"method": "layer0_plain"}, {"method": "layer1_t1_2000"}]
+        selected = [
+            {"method": "layer0_plain", "layer_count": "0", "t1": "", "t2": ""},
+            {"method": "layer1_t1_2000", "layer_count": "1",
+             "t1": "2000", "t2": ""},
+        ]
         manifest = {"runs": [{
             "name": "layer1_t1_2000", "min_points": 2000,
             "upper_min_points": None, "status": "complete", "returncode": 0,
@@ -257,6 +307,38 @@ class SelectionSweepTest(unittest.TestCase):
         rows = generate_layer_tuning_report.selected_build_rows(selected, [], manifest)
         self.assertEqual([row["method"] for row in rows], ["layer1_t1_2000"])
         self.assertEqual(rows[0]["wall_s"], 42.0)
+
+    def test_layer_report_accepts_validated_reused_build_without_wall_time(self):
+        selected = [{"method": "layer2_t1_2000_t2_10000",
+                     "layer_count": "2", "t1": "2000", "t2": "10000"}]
+        manifest = {"runs": [{
+            "name": "layer2_t1_2000_t2_10000", "min_points": 2000,
+            "upper_min_points": 10000, "status": "complete",
+            "reused_existing": True,
+            "metadata": {
+                "special_block_metadata_time(ms)": "1",
+                "special_block_trie_build_time(ms)": "2",
+                "special_edge_intra_build_time(ms)": "3",
+                "special_edge_inter_build_time(ms)": "4",
+                "special_trie_regular_edge_build_time(ms)": "5",
+                "special_blocks_save_time(ms)": "6",
+                "special_block_count": "7", "special_block_upper_count": "1",
+                "special_edge_count": "8", "disk_bytes": str(1024 ** 3),
+            },
+        }]}
+        rows = generate_layer_tuning_report.selected_build_rows(selected, [], manifest)
+        self.assertIsNone(rows[0]["wall_s"])
+
+    def test_layer_report_rejects_missing_returncode_for_nonreused_build(self):
+        selected = [{"method": "layer1_t1_2000", "layer_count": "1",
+                     "t1": "2000", "t2": ""}]
+        manifest = {"runs": [{
+            "name": "layer1_t1_2000", "min_points": 2000,
+            "upper_min_points": None, "status": "complete",
+            "reused_existing": False, "metadata": {},
+        }]}
+        with self.assertRaisesRegex(RuntimeError, "incomplete"):
+            generate_layer_tuning_report.selected_build_rows(selected, [], manifest)
 
     def test_validator_uses_method_specific_lsearch_grid(self):
         config = {"lsearch_values": [100]}

@@ -92,23 +92,45 @@ def selected_build_rows(shared_summary: list[dict[str, str]],
                         build_manifest: dict | None) -> list[dict]:
     if build_manifest is None:
         return []
-    selected_methods = {row["method"] for row in shared_summary}
-    selected_methods.update(row["method"] for row in oracle_rows)
+    selected = [*shared_summary, *oracle_rows]
+    selected_methods = {row["method"] for row in selected}
+    expected = {
+        row["method"]: (
+            int(row["layer_count"]),
+            int(row["t1"]) if row.get("t1") not in (None, "") else None,
+            int(row["t2"]) if row.get("t2") not in (None, "") else None,
+        )
+        for row in selected
+    }
     by_name = {row["name"]: row for row in build_manifest.get("runs", [])}
     output = []
     for method in sorted(selected_methods):
         source = by_name.get(method)
         if source is None:
-            continue  # layer 0 has no Special overlay build.
-        if source.get("status") != "complete" or source.get("returncode") != 0:
+            if expected[method][0] == 0:
+                continue  # layer 0 has no Special overlay build.
+            raise RuntimeError(f"selected build is missing: {method}")
+        reused = source.get("reused_existing") is True
+        returncode_ok = source.get("returncode") == 0 or (
+            reused and source.get("returncode") is None)
+        if source.get("status") != "complete" or not returncode_ok:
             raise RuntimeError(f"selected build is incomplete: {method}")
+        actual = (2 if source.get("upper_min_points") is not None else 1,
+                  int(source["min_points"]), source.get("upper_min_points"))
+        if actual != expected[method]:
+            raise RuntimeError(
+                f"selected build threshold mismatch for {method}: {actual} != {expected[method]}")
         meta = source.get("metadata", {})
         output.append({
             "method": method,
             "layer_count": 2 if source.get("upper_min_points") is not None else 1,
             "t1": int(source["min_points"]),
             "t2": source.get("upper_min_points"),
-            "wall_s": float(source["elapsed_seconds"]),
+            # Reused build records validate the artifact and metadata but do
+            # not retain the original runner wall clock.  Do not relabel the
+            # builder's internal total_time as an outer wall measurement.
+            "wall_s": (float(source["elapsed_seconds"])
+                       if source.get("elapsed_seconds") is not None else None),
             "metadata_ms": float(meta["special_block_metadata_time(ms)"]),
             "trie_ms": float(meta["special_block_trie_build_time(ms)"]),
             "intra_ms": float(meta["special_edge_intra_build_time(ms)"]),
@@ -132,7 +154,7 @@ def render_report(config: dict, shared_summary: list[dict[str, str]],
     lines = [
         "# 0/1/2 层 Special Block 公平调优结果", "",
         "所有性能点均为离散实测；以每个 repeat 的最低 Recall 达到预声明门槛为可行条件，不插值。",
-        "端到端列是 1000-query、100-thread batch 的 warm-repeat 中位墙钟；阶段列取定义该 batch 中位数的同一组 warm repeat，再报告其平均单查询工作时间。阶段五项彼此互斥并闭合到单查询总时间，但由于查询并行，不能与 batch 墙钟直接相加或换算。",
+        "端到端列是 1000-query、100-thread batch 的 warm-repeat 中位墙钟；阶段列取定义该 batch 中位数的同一组 warm repeat，再报告其平均单查询工作时间。阶段五项彼此互斥，并在逐 repeat 原始精度下闭合到单查询总时间；聚合展示可能有输出舍入误差。由于查询并行，阶段值不能与 batch 墙钟直接相加或换算。",
         "", "## 跨六档共享阈值：部署主结论", "",
         "| workload | 选择率 | 层数 | 共享结构 | L | Recall min / mean | batch ms | QPS | vs 0层 | ELS ms/q | Entry ms/q | Auth ms/q | Graph ms/q | Residual ms/q |",
         "|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
@@ -170,8 +192,9 @@ def render_report(config: dict, shared_summary: list[dict[str, str]],
               "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for row in sorted(build_rows or [], key=lambda item: (item["layer_count"], item["t1"], item["t2"] or 0)):
         t2 = "" if row["t2"] is None else f", T2={int(row['t2']):,}"
+        wall = "N/A" if row["wall_s"] is None else f"{row['wall_s']:.3f}"
         lines.append(
-            f"| {row['layer_count']} | T1={row['t1']:,}{t2} | {row['wall_s']:.3f} | "
+            f"| {row['layer_count']} | T1={row['t1']:,}{t2} | {wall} | "
             f"{row['metadata_ms']:.3f} | {row['trie_ms']:.3f} | {row['intra_ms']:.3f} | "
             f"{row['inter_ms']:.3f} | {row['regular_ms']:.3f} | {row['save_ms']:.3f} | "
             f"{row['blocks']:,} | {row['upper_blocks']:,} | {row['edges']:,} | "

@@ -13,6 +13,32 @@ from pathlib import Path
 import select_layer_tuning
 
 
+# A formal rerun can expose a winner on a structural axis that appeared
+# closed under the noisier three-repeat coarse sweep.  These controls are
+# declared before execution and inherit only the L-search bracket of the
+# listed adjacent coarse structure; their thresholds remain independent.
+FORMAL_BOUNDARY_GUARDS = {
+    "layer2_t1_8000_t2_200000": {
+        "reference": "layer2_t1_8000_t2_100000", "t1": 8000,
+        "t2": 200000, "workloads": None},
+    "layer2_t1_16000_t2_400000": {
+        "reference": "layer2_t1_16000_t2_200000", "t1": 16000,
+        "t2": 400000, "workloads": None},
+    "layer2_t1_32000_t2_400000": {
+        "reference": "layer2_t1_32000_t2_200000", "t1": 32000,
+        "t2": 400000, "workloads": ["sel_005"]},
+    "layer2_t1_32000_t2_64001": {
+        "reference": "layer2_t1_64000_t2_64001", "t1": 32000,
+        "t2": 64001, "workloads": ["sel_25"]},
+}
+FORMAL_BOUNDARY_ENDPOINTS = (
+    {"name": "layer2_t1_16000_t2_600000", "layer_count": 2,
+     "t1": 16000, "t2": 600000},
+    {"name": "layer2_t1_32000_t2_600000", "layer_count": 2,
+     "t1": 32000, "t2": 600000},
+)
+
+
 def dense_crossing_grid(rows: list[dict], threshold: float) -> list[int]:
     """Bracket the measured crossing and add real integer L points nearby."""
     ordered = sorted(rows, key=lambda row: row["lsearch"])
@@ -104,11 +130,27 @@ def top_structures(points: list[dict], thresholds: dict[str, float],
 def make_formal_config(coarse: dict, points: list[dict]) -> dict:
     thresholds = {key: float(value) for key, value in coarse["recall_thresholds"].items()}
     selected = selected_structure_workloads(points, thresholds)
+    source_by_name = {source["name"]: source for source in coarse["methods"]}
+    for target, guard in FORMAL_BOUNDARY_GUARDS.items():
+        reference = source_by_name.get(guard["reference"])
+        if reference is None:
+            continue
+        if target not in source_by_name:
+            source = dict(reference)
+            source.update({"name": target, "t1": guard["t1"], "t2": guard["t2"]})
+            if source.get("block_index"):
+                source["block_index"] = str(
+                    Path(source["block_index"]).parents[1] / target / "block_index")
+            source.pop("enabled_workloads", None)
+            source_by_name[target] = source
+        source = source_by_name[target]
+        selected[(int(source["layer_count"]), target)].update(
+            guard["workloads"] or thresholds)
     rows_by_key = defaultdict(list)
     for row in points:
         rows_by_key[(row["method"], row["workload"])].append(row)
     methods = []
-    for source in coarse["methods"]:
+    for source in source_by_name.values():
         key = (int(source.get("layer_count", 0)), source["name"])
         if key not in selected:
             continue
@@ -120,7 +162,9 @@ def make_formal_config(coarse: dict, points: list[dict]) -> dict:
         for workload in coarse["workloads"]:
             if workload["name"] not in selected_workloads:
                 continue
-            rows = rows_by_key[(source["name"], workload["name"])]
+            guard = FORMAL_BOUNDARY_GUARDS.get(source["name"])
+            reference = guard["reference"] if guard else source["name"]
+            rows = rows_by_key[(reference, workload["name"])]
             if not rows:
                 continue
             grid = dense_crossing_grid(rows, thresholds[workload["name"]])
@@ -138,6 +182,7 @@ def make_formal_config(coarse: dict, points: list[dict]) -> dict:
         "oracle_top_k_per_layer_workload": 2,
         "coarse_near_best_ratio": 1.05,
         "shortlist_rule": "retain top-k plus every structure within 5% of the coarse best",
+        "boundary_guards": FORMAL_BOUNDARY_GUARDS,
         "quality_rule": "minimum repeat Recall meets the declared threshold",
         "timing_rule": "warm-repeat batch median; cold repeat 0 excluded",
     }
@@ -147,6 +192,10 @@ def make_formal_config(coarse: dict, points: list[dict]) -> dict:
         {key: source.get(key) for key in ("name", "layer_count", "t1", "t2")}
         for source in coarse["methods"]
     ]
+    formal["boundary_reference_methods"].extend(
+        {"name": name, "layer_count": 2, "t1": guard["t1"], "t2": guard["t2"]}
+        for name, guard in FORMAL_BOUNDARY_GUARDS.items())
+    formal["boundary_reference_methods"].extend(FORMAL_BOUNDARY_ENDPOINTS)
     formal["methods"] = methods
     return formal
 
