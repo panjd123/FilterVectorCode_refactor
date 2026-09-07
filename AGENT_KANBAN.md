@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-07 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；边界扩展检查点：`848949bb4a66aba3b0fbbe775240497217510e39`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；公平 0/1/2 层文档与证据检查点：`fc67f946f7e3e30d95a94a6d7364bb74bfed2508`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`进行中`
-- 摘要：多层实现及原正式结果已完成；用户现要求把核心比较修正为同一口径的 0 层、1 层、2 层，并分别报告 ELS、入口点初始化、图搜索及其他开销。每层方法都必须独立调优 block 阈值和 Lsearch，禁止用调优两层对比固定旧阈值单层。旧的 plain-vs-two-level 汇总仍可作为系统结果，但不足以单独证明第二层贡献。
+- 总体：`已完成`
+- 摘要：公平 0/1/2 层正式调优已闭合：92/92 case、552 points、共享与 oracle 均为 0 个开放边界命中。跨六档共享结果为单层 T1=32k 3.034x、两层 T1=16k/T2=200k 3.019x；两层只在 75% 档明确超过单层。主文档已精简为系统组成、实验协议、适用区间、负结果和声明边界。
 
 ## 进行中
 
-- 完整 coarse 调优已完成 254/254 case、1506 个离散实测点并通过 validator；共享配置与逐 workload oracle 均为 0 个边界命中。共享部署配置为单层 T1=32k、两层 T1=16k/T2=100k；sel_25 两层 oracle 的 64k/80k 也由 32k/80k、64k/64001、79999/80k 三个端点/对照闭合。当前正在运行独立的 7-repeat formal shortlist：17 个结构、54 个 structure/workload case、324 个 L 点。
+- 无。正式 guard、evidence hash、文档一致性、全套测试和 checkpoint 提交均已完成。
 
 ## 完成历史
 
@@ -73,7 +73,7 @@
 
 ## 下一步
 
-等待 7-repeat formal shortlist 完成；运行 validator、summarizer 与 selector，确认正式 shared/oracle 仍无边界命中，再生成论文主表与 breakdown。
+等待人工审阅；若需要整合回原始脏 checkout，先按 merge-back 报告处理 27 个内容分叉路径，禁止直接自动 merge/cherry-pick。
 
 ## 阻塞与问题
 
@@ -82,8 +82,8 @@
 - jump host 偶发断连；只做短时串行重试，避免并发 SSH。
 - `runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 是未跟踪运行/第三方产物，不得提交。
 - 多层查询发现 upper blocks 时禁用语义不完整的 GPU batch path，当前正确性优先，仍有性能优化空间。
-- 旧正式 CSV 主要支持总查询时间和 Recall；新的 breakdown 已验证互斥闭合，但正式六档调优尚未使用新协议重跑。
-- 旧报告中固定 T1=1k 的单层与调优 T1=2k,T2=25k 两层不是公平的最终层数比较；该结论降级，等待各层独立 tuning 后替换。
+- 无实验阻塞；最终结论必须保留“两层总体未超过单层、优势集中在 75%”这一负结果边界。
+- build manifest 对复用构建不记录 returncode 与外层 wall；报告生成器已按 `reused_existing=true + validate_case 成功` 接受该状态，并把未知 wall 明确显示为 N/A，仍不把 builder 内部 total_time 冒充 runner wall。
 - `sunyahuia600-sunyahui` 当前并非有效 SSH alias；使用 `ssh -l sunyahui sunyahuia6000-jump`。网络失败时仍只串行短重试三次。
 
 ## 验证
@@ -100,6 +100,12 @@
 - `validate_selection_sweep.py config.amazon_x1_paired_formal_sel{25,50,75}.json` — `通过`：3/3，每个方法 7 repeats、Recall 无漂移。
 - `config.amazon_x1_layer_breakdown_smoke.json` — `通过`：三种层数 closure error 绝对值最大约 `3e-12 ms/query`，0 层 authorization=0；仅验证测量协议，不作为最优性能点。
 - `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py` — `通过`：32/32；包含 formal 输出隔离、选择策略与 coarse source SHA-256 provenance。
+- 首轮 7-repeat formal validator — `通过`：78/78 case、468 points；selector 为 18 oracle rows、3 shared configurations，并正确暴露 10 条结构轴边界。
+- 最终 7-repeat formal validator — `通过`：92/92 case、552 points；18 oracle rows、3 shared configurations、0 个开放边界命中。
+- `cd experiments/multilevel_special && python3 -m unittest -q test_multilevel_selection.py` — `通过`：38/38；覆盖复用 build manifest、formal boundary guard 和严格整数合法域端点。
+- `python3 -m unittest -q experiments.multilevel_special.test_generate_paper_results` — `通过`：18/18；旧论文结果闭包仍可重建。
+- `python3 -m unittest -q test_multilevel_selection.py test_generate_paper_results.py` — `通过`：56/56。
+- `artifact_manifest.csv` 与 `layer_tuning_evidence_manifest.csv` — `通过`：分别核验 43/43 与 12/12 个 SHA-256；文档本地路径 0 缺失；`git diff --check` 通过。
 - Curator 低选择率产物 — `通过`：3 workloads x 12 budgets x 5 measured。
 - ACORN 低选择率产物 — `通过`：180 个 screen 点 + 3 个 formal 点，filter violations=0。
 
@@ -115,7 +121,7 @@
 
 1. 先读本看板。
 2. 运行 `git status --short`，不要暂存 `runs/` 或 `thirdparty/` nested clones。
-3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` 和最终源码/证据检查点 `cb72797af5af615ca196d3618903417a54b0da2b`；后者不改冻结主性能数值。
+3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58`、最终源码/证据检查点 `cb72797af5af615ca196d3618903417a54b0da2b` 与公平 0/1/2 层文档/证据检查点 `fc67f946f7e3e30d95a94a6d7364bb74bfed2508`。
 4. 任何新数值必须先进入 source CSV 并由生成器输出。
 
 ## 清理提示
