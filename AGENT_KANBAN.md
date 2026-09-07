@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 第二轮 extended coarse sweep 已完成 240/240 case。共享部署配置已闭合：单层 T1=32k、两层 T1=16k/T2=100k，新增 64k/200k 未击败共享赢家；逐 workload oracle 仍有 sel_25 单层和 sel_005/sel_01 两层触边，正在用 workload 限定的最终端点 guard 闭合。
+- 第二轮 extended coarse sweep 已完成 240/240 case。共享部署配置已闭合：单层 T1=32k、两层 T1=16k/T2=100k，新增 64k/200k 未击败共享赢家；逐 workload oracle 仍有 sel_25 单层和 sel_005/sel_01 两层触边，正在用 workload 限定的最终端点 guard 闭合。实测确认 T2=600k 时 upper_count=0、T1=700k 时 block_count=0，因此它们只作为结构上界，不作为对应层数的性能候选。
 
 ## 完成历史
 
@@ -69,11 +69,11 @@
 - 新增第一轮边界 guard：单层 T1=16k/32k；两层 (2k,100k)、(8k,9k/100k)、(16k,25k/50k/100k)、(32k,50k/100k)。总网格 34 个结构，其中 26 个两层结构；提交 `848949b`。
 - 10 个 guard 结构全部构建并验证；34 个结构 x 6 workloads 的 extended coarse sweep 已完成 `204/204` case，旧网格严格复用 144 case，新增实测 60 case；等待完整 validator/selector 输出后判断是否闭合边界。
 - 完整 204-case validator 通过并汇总 1209 个离散点。共享配置更新为单层 T1=32k（coarse geomean 2.8435x）和两层 T1=16k/T2=100k（2.8862x）；二者仍分别触 T1/T2 上边界，不能作为最终最优结论。第二轮 focused guard 新增单层 T1=64k，以及两层 (16k,200k)、(32k,40k/200k)、(64k,100k/200k)，共 6 个结构、36 个 query cases。
-- 第二轮 6 个 guard 结构和 36 个 query cases 完成，完整 240-case validator 通过，汇总 1424 个离散点。共享赢家保持单层 T1=32k（2.8435x）与两层 T1=16k/T2=100k（2.8862x），因此共享部署阈值已不触边。oracle 尚有 6 个轴触边；最终 guard 只为 sel_25 单层、sel_25 两层和 sel_005/sel_01 两层补测 11 个结构、18 case，不参与共享配置选择。
+- 第二轮 6 个 guard 结构和 36 个 query cases 完成，完整 240-case validator 通过，汇总 1424 个离散点。共享赢家保持单层 T1=32k（2.8435x）与两层 T1=16k/T2=100k（2.8862x），因此共享部署阈值已不触边。oracle 尚有 6 个轴触边；最终 guard 只为 sel_25 单层、sel_25 两层和 sel_005/sel_01 两层补测 8 个可行结构、11 case，另保留 4 个退化端点作为结构上界，不参与共享配置选择。
 
 ## 下一步
 
-完成最终 workload 限定的 11 个 oracle guard 结构与 18 个 query cases；确认共享配置和 oracle 边界均闭合后生成并运行 7-repeat crossing 正式复测。
+完成最终 workload 限定的可行 oracle guard 结构与 11 个 query cases；确认共享配置和 oracle 边界均闭合后生成并运行 7-repeat crossing 正式复测。
 
 ## 阻塞与问题
 

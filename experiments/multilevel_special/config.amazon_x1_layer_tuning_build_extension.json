@@ -56,11 +56,8 @@
     {"name": "layer1_t1_700000", "min_points": 700000},
     {"name": "layer2_t1_64000_t2_80000", "min_points": 64000, "upper_min_points": 80000},
     {"name": "layer2_t1_64000_t2_400000", "min_points": 64000, "upper_min_points": 400000},
-    {"name": "layer2_t1_64000_t2_600000", "min_points": 64000, "upper_min_points": 600000},
     {"name": "layer2_t1_128000_t2_200000", "min_points": 128000, "upper_min_points": 200000},
     {"name": "layer2_t1_128000_t2_400000", "min_points": 128000, "upper_min_points": 400000},
-    {"name": "layer2_t1_128000_t2_600000", "min_points": 128000, "upper_min_points": 600000},
-    {"name": "layer2_t1_256000_t2_400000", "min_points": 256000, "upper_min_points": 400000},
-    {"name": "layer2_t1_256000_t2_600000", "min_points": 256000, "upper_min_points": 600000}
+    {"name": "layer2_t1_256000_t2_400000", "min_points": 256000, "upper_min_points": 400000}
   ]
 }

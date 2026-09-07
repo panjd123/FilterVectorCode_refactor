@@ -57,15 +57,20 @@ LAYER2_GUARD_PAIRS = (
 ORACLE_GUARD_WORKLOADS = {
     "layer1_t1_128000": ["sel_25"],
     "layer1_t1_256000": ["sel_25"],
-    "layer1_t1_700000": ["sel_25"],
+    # Structural endpoint only: 700k exceeds the 602,453-point dataset and
+    # produces zero middle blocks.  Keep it in the boundary reference grid
+    # but never report it as a measured one-level method.
+    "layer1_t1_700000": [],
     "layer2_t1_64000_t2_80000": ["sel_25"],
     "layer2_t1_64000_t2_400000": ["sel_005", "sel_01"],
-    "layer2_t1_64000_t2_600000": ["sel_005", "sel_01"],
+    # T2=600k produces no upper block on Amazon x1.  These are structural
+    # endpoints used only to prove that T2=400k is not an open search edge.
+    "layer2_t1_64000_t2_600000": [],
     "layer2_t1_128000_t2_200000": ["sel_005", "sel_01"],
     "layer2_t1_128000_t2_400000": ["sel_005", "sel_01"],
-    "layer2_t1_128000_t2_600000": ["sel_005", "sel_01"],
+    "layer2_t1_128000_t2_600000": [],
     "layer2_t1_256000_t2_400000": ["sel_005", "sel_01"],
-    "layer2_t1_256000_t2_600000": ["sel_005", "sel_01"],
+    "layer2_t1_256000_t2_600000": [],
 }
 
 WORKLOADS = (
