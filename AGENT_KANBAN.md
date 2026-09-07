@@ -1,6 +1,6 @@
 # Agent 看板
 
-最后更新：`2026-09-06 18:15 Asia/Shanghai`
+最后更新：`2026-09-07 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；边界扩展检查点：`848949bb4a66aba3b0fbbe775240497217510e39`（origin 指向用户脏工作树，不直接 push）
 
@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 原始 24 结构 coarse sweep 已完成并严格验证 144/144 case；正在补建 10 个边界 guard 结构，随后用 34 结构 extended config 复用旧结果并补测新增结构。
+- 第一轮 extended coarse sweep 已完成并通过 204/204 case 校验；共享单层选中 T1=32k（T1 上界），共享两层选中 T1=16k/T2=100k（T2 上界），oracle 也有多处 T1/T2 触边。正在补建第二轮 6 个最小必要 guard 结构。
 
 ## 完成历史
 
@@ -67,10 +67,12 @@
 - formal shortlist 生成器已使用独立输出目录，并记录选择规则、coarse config 与 `all_points.csv` 的 SHA-256 来源，防止旧 formal 产物或被修改的 coarse 结果静默混入；提交 `3057b1a`，本地及远端单测均为 32/32。
 - 原 coarse 144/144 case 通过 validator；共享赢家为单层 T1=8k（相对 0 层 geomean speedup 2.01x）与两层 T1=8k/T2=25k（2.67x），两者均触 T1 上边界，尚不能作为最终最优结论。
 - 新增第一轮边界 guard：单层 T1=16k/32k；两层 (2k,100k)、(8k,9k/100k)、(16k,25k/50k/100k)、(32k,50k/100k)。总网格 34 个结构，其中 26 个两层结构；提交 `848949b`。
+- 10 个 guard 结构全部构建并验证；34 个结构 x 6 workloads 的 extended coarse sweep 已完成 `204/204` case，旧网格严格复用 144 case，新增实测 60 case；等待完整 validator/selector 输出后判断是否闭合边界。
+- 完整 204-case validator 通过并汇总 1209 个离散点。共享配置更新为单层 T1=32k（coarse geomean 2.8435x）和两层 T1=16k/T2=100k（2.8862x）；二者仍分别触 T1/T2 上边界，不能作为最终最优结论。第二轮 focused guard 新增单层 T1=64k，以及两层 (16k,200k)、(32k,40k/200k)、(64k,100k/200k)，共 6 个结构、36 个 query cases。
 
 ## 下一步
 
-完成 10 个边界结构的构建与 60 个新增 query case，重新执行完整 204-case validator/selector；只有共享赢家和 oracle 不再触未探索边界后，才生成 7-repeat crossing 正式复测。
+完成第二轮 6 个 guard 结构构建与 36 个新增 query cases，再次执行 240-case validator/selector；边界闭合后生成并运行 7-repeat crossing 正式复测。
 
 ## 阻塞与问题
 

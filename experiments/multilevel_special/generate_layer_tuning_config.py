@@ -8,14 +8,11 @@ import json
 from pathlib import Path
 
 
-# The first complete coarse sweep selected T1=8000 at the upper boundary for
-# both the shared one-level and shared two-level configurations.  Some
-# per-workload two-level optima also selected T2=50000 (upper boundary), while
-# two workloads selected the smallest legal T2 above T1=8000.  Keep the
-# original Cartesian grid intact and add focused guard points for those three
-# exposed boundaries instead of paying for an unrelated full Cartesian
-# expansion.
-LAYER1_T1_VALUES = (500, 1000, 2000, 4000, 8000, 16000, 32000)
+# Successive complete coarse sweeps exposed upper T1/T2 boundaries and one
+# lower local T2 boundary. Keep the original Cartesian grid intact and add
+# focused guard points for only those exposed axes instead of paying for an
+# unrelated full Cartesian expansion.
+LAYER1_T1_VALUES = (500, 1000, 2000, 4000, 8000, 16000, 32000, 64000)
 LAYER2_T1_VALUES = (500, 1000, 2000, 4000, 8000)
 T2_VALUES = (4000, 10000, 25000, 50000)
 LAYER2_GUARD_PAIRS = (
@@ -27,6 +24,16 @@ LAYER2_GUARD_PAIRS = (
     (16000, 100000),
     (32000, 50000),
     (32000, 100000),
+    # Second boundary guard: the first extension selected T1=32000 for the
+    # shared one-level configuration and T2=100000 for the shared two-level
+    # configuration.  Add only the neighboring points needed to distinguish
+    # continued upper-bound improvement.  The 32k/40k point guards the lower
+    # T2 side exposed by the sel_25 oracle at 32k/50k.
+    (16000, 200000),
+    (32000, 40000),
+    (32000, 200000),
+    (64000, 100000),
+    (64000, 200000),
 )
 
 WORKLOADS = (
