@@ -12,7 +12,10 @@ from pathlib import Path
 # lower local T2 boundary. Keep the original Cartesian grid intact and add
 # focused guard points for only those exposed axes instead of paying for an
 # unrelated full Cartesian expansion.
-LAYER1_T1_VALUES = (500, 1000, 2000, 4000, 8000, 16000, 32000, 64000)
+LAYER1_T1_VALUES = (
+    500, 1000, 2000, 4000, 8000, 16000, 32000, 64000,
+    128000, 256000, 700000,
+)
 LAYER2_T1_VALUES = (500, 1000, 2000, 4000, 8000)
 T2_VALUES = (4000, 10000, 25000, 50000)
 LAYER2_GUARD_PAIRS = (
@@ -34,7 +37,36 @@ LAYER2_GUARD_PAIRS = (
     (32000, 200000),
     (64000, 100000),
     (64000, 200000),
+    # Final oracle guard.  The 700k one-level endpoint is above the 602,453
+    # point dataset and therefore explicitly measures the no-block limiting
+    # case.  Two-level points follow only the exposed 64k/200k and 32k/50k
+    # trajectories up to a near-dataset-size upper threshold.
+    (64000, 80000),
+    (64000, 400000),
+    (64000, 600000),
+    (128000, 200000),
+    (128000, 400000),
+    (128000, 600000),
+    (256000, 400000),
+    (256000, 600000),
 )
+
+# These endpoint guards close only the still-open per-workload oracle axes.
+# They intentionally do not enter shared-threshold selection, which requires a
+# structure to be measured on all six workloads.
+ORACLE_GUARD_WORKLOADS = {
+    "layer1_t1_128000": ["sel_25"],
+    "layer1_t1_256000": ["sel_25"],
+    "layer1_t1_700000": ["sel_25"],
+    "layer2_t1_64000_t2_80000": ["sel_25"],
+    "layer2_t1_64000_t2_400000": ["sel_005", "sel_01"],
+    "layer2_t1_64000_t2_600000": ["sel_005", "sel_01"],
+    "layer2_t1_128000_t2_200000": ["sel_005", "sel_01"],
+    "layer2_t1_128000_t2_400000": ["sel_005", "sel_01"],
+    "layer2_t1_128000_t2_600000": ["sel_005", "sel_01"],
+    "layer2_t1_256000_t2_400000": ["sel_005", "sel_01"],
+    "layer2_t1_256000_t2_600000": ["sel_005", "sel_01"],
+}
 
 WORKLOADS = (
     {"name": "sel_005", "query_dir": "query_minlen5_avgsel05pct",
@@ -104,6 +136,8 @@ def method(name: str, layer_count: int, l_grid: dict[str, list[int]],
         # automatically, but declare it for every Special method so the
         # one-level control uses identical semantics.
         result["env"]["UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE"] = "1"
+    if name in ORACLE_GUARD_WORKLOADS:
+        result["enabled_workloads"] = ORACLE_GUARD_WORKLOADS[name]
     return result
 
 
