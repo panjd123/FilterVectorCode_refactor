@@ -1,21 +1,21 @@
 # Agent 看板
 
-最后更新：`2026-09-07 Asia/Shanghai`
+最后更新：`2026-09-08 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；公平 0/1/2 层文档与证据检查点：`fc67f946f7e3e30d95a94a6d7364bb74bfed2508`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
-在隔离 shared clone 中实现并验证真正的多层 Special Block：保留中层，再叠加更大上层；在 Amazon 100% x1 六档真实选择率上按相同 Recall 比较 plain、单层、原始多层、调优多层和外部系统，形成可复现、可展示的论文级结果。
+在隔离 shared clone 中实现并验证真正的多层 Special Block，并补充 Amazon 原始 x1 数据上 75% 以上的公平 0/1/2 层实验，确定两层优势是否延续以及接近/达到 100% 时是否回落。
 
 ## 当前状态
 
-- 总体：`已完成`
-- 摘要：公平 0/1/2 层正式调优已闭合：92/92 case、552 points、共享与 oracle 均为 0 个开放边界命中。跨六档共享结果为单层 T1=32k 3.034x、两层 T1=16k/T2=200k 3.019x；两层只在 75% 档明确超过单层。主文档已精简为系统组成、实验协议、适用区间、负结果和声明边界。
+- 总体：`进行中`
+- 摘要：原六档公平评估已闭合；新增目标是在 75% 以上生成独立 workload 和 exact filtered GT，按相同 binary、ELS、Recall 与重复协议比较 0/1/2 层，不能从 75% 外推 100%。
 
 ## 进行中
 
-- 无。正式 guard、evidence hash、文档一致性、全套测试和 checkpoint 提交均已完成。
+- 盘点 workload/GT 生成工具并预声明 75% 以上实验档位、Recall 门槛和 L-grid；细节见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_HIGH_SELECTIVITY_PLAN_CN.md`。
 
 ## 完成历史
 
@@ -73,7 +73,7 @@
 
 ## 下一步
 
-等待人工审阅；若需要整合回原始脏 checkout，先按 merge-back 报告处理 27 个内容分叉路径，禁止直接自动 merge/cherry-pick。
+完成高选择率实验协议与 workload/GT 生成检查，随后先 coarse、再 formal 复测达到 Recall 门槛的 0/1/2 层点，并更新主报告。
 
 ## 阻塞与问题
 
@@ -82,7 +82,7 @@
 - jump host 偶发断连；只做短时串行重试，避免并发 SSH。
 - `runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 是未跟踪运行/第三方产物，不得提交。
 - 多层查询发现 upper blocks 时禁用语义不完整的 GPU batch path，当前正确性优先，仍有性能优化空间。
-- 无实验阻塞；最终结论必须保留“两层总体未超过单层、优势集中在 75%”这一负结果边界。
+- 新增 75% 以上实验尚未运行；在 exact GT 和公平独立调优完成前，不得声称两层优势延伸到 100%。
 - build manifest 对复用构建不记录 returncode 与外层 wall；报告生成器已按 `reused_existing=true + validate_case 成功` 接受该状态，并把未知 wall 明确显示为 N/A，仍不把 builder 内部 total_time 冒充 runner wall。
 - `sunyahuia600-sunyahui` 当前并非有效 SSH alias；使用 `ssh -l sunyahui sunyahuia6000-jump`。网络失败时仍只串行短重试三次。
 
@@ -116,6 +116,7 @@
 - `experiments/multilevel_special/EXPERIMENT_STATE.md` — 恢复实验、查询 raw artifact 或解释历史隔离结果时阅读。
 - `docs/reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md` — 审阅方法与论文结论。
 - `docs/reports/MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md` — 从 compact evidence 审计或重新运行 raw benchmark 时阅读。
+- `docs/reports/MULTILEVEL_SPECIAL_BLOCK_HIGH_SELECTIVITY_PLAN_CN.md` — 恢复 75% 以上 workload 生成、调优与结果审计时阅读。
 
 ## 恢复说明
 
