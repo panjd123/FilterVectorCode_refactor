@@ -15,7 +15,7 @@
 
 ## 进行中
 
-- 盘点 workload/GT 生成工具并预声明 75% 以上实验档位、Recall 门槛和 L-grid；细节见 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_HIGH_SELECTIVITY_PLAN_CN.md`。
+- 运行已预声明的 75% 以上 72-case coarse sweep；六个嵌套 workload 和 exact GT 已生成并完成格式、范围及 90% 独立重算审计。
 
 ## 完成历史
 
@@ -73,7 +73,7 @@
 
 ## 下一步
 
-完成高选择率实验协议与 workload/GT 生成检查，随后先 coarse、再 formal 复测达到 Recall 门槛的 0/1/2 层点，并更新主报告。
+运行并验证 72-case coarse sweep，按 Recall crossing 生成 7-repeat formal shortlist，再完成边界审计和主报告更新。
 
 ## 阻塞与问题
 

@@ -2,6 +2,7 @@ import csv
 import json
 import os
 import shlex
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,6 +18,47 @@ import validate_selection_sweep
 
 
 class SelectionSweepTest(unittest.TestCase):
+    def test_runner_accepts_empty_label_rows_for_full_containment_control(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            data = root / "data"
+            query = data / "full"
+            gt = root / "gt" / "full"
+            index = root / "index"
+            query.mkdir(parents=True)
+            gt.mkdir(parents=True)
+            index.mkdir()
+            (root / "search").write_text("")
+            (data / "Amazon_base_labels.txt").write_text("1\n")
+            (query / "Amazon_query.bin").write_bytes(
+                struct.pack("<II", 2, 1) + struct.pack("<ff", 0.0, 1.0))
+            (query / "Amazon_query_labels.txt").write_text("\n\n")
+            (gt / "Amazon_gt_labels_containment.bin").write_bytes(b"\0" * 160)
+            (index / "meta").write_text("")
+            (index / "labels.txt").write_text("1\n")
+            config = {
+                "search_app": str(root / "search"), "data_root": str(data),
+                "gt_root": str(root / "gt"), "main_index": str(index),
+                "dataset": "Amazon", "K": 10, "expected_num_queries": 2,
+            }
+            workload = {"name": "full", "query_dir": "full"}
+            self.assertEqual(run_selection_sweep.validate_case(
+                config, {"name": "plain"}, workload), 2)
+
+    def test_runner_uses_workload_scenario_override(self):
+        config = {
+            "data_root": "/data", "gt_root": "/gt",
+            "main_index": "/index", "search_app": "/search",
+            "dataset": "Amazon", "num_threads": 1, "K": 10,
+            "num_repeats": 1, "num_entry_points": 16,
+            "lsearch_values": [10], "scenario": "containment",
+        }
+        command = run_selection_sweep.build_command(
+            config, {"name": "plain"},
+            {"name": "full", "query_dir": "full", "scenario": "containment"},
+            Path("/run"))
+        self.assertEqual(command[command.index("--scenario") + 1], "containment")
+
     def test_validator_parses_executed_command_options(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "command.txt"

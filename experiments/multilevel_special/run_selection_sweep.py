@@ -295,7 +295,7 @@ def build_command(config: dict[str, Any], method: dict[str, Any], workload: dict
         "--index_path_prefix", str(Path(config["main_index"])) + "/",
         "--result_path_prefix", str(run_dir) + "/",
         "--selector_model_prefix", str(config.get("selector_model_prefix", "/nonexistent")),
-        "--scenario", "containment",
+        "--scenario", str(workload.get("scenario", config.get("scenario", "containment"))),
         "--num_entry_points", str(config["num_entry_points"]),
         "--Lsearch", *[str(value) for value in values],
         "--lsearch_start", str(min(values)),
@@ -336,7 +336,10 @@ def validate_case(config: dict[str, Any], method: dict[str, Any], workload: dict
         raise ValueError(
             f"query count mismatch: {num_queries} != {expected_num_queries} for {query_bin}")
     with query_labels.open() as stream:
-        label_rows = sum(1 for line in stream if line.strip())
+        # An empty label set is a valid containment query matching the whole
+        # dataset. Count physical rows rather than non-empty rows so a 100%
+        # control remains distinguishable from a truncated label file.
+        label_rows = sum(1 for _ in stream)
     if label_rows != num_queries:
         raise ValueError(f"query/label row mismatch: {num_queries} != {label_rows} for {query_root}")
     # compute_groundtruth stores K uint32 IDs followed by K float distances
