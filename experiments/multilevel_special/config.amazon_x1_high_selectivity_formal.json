@@ -1,0 +1,1450 @@
+{
+  "search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+  "main_index": "/home/graphdb/FilterVectorResult/Amazon/index/Trie_block/index_files",
+  "data_root": "/home/graphdb/FilterVectorData/Amazon",
+  "gt_root": "/home/graphdb/FilterVectorResult/Amazon/GroundTruth",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/high_selectivity_formal_amazon_x1",
+  "expected_source_fingerprint": "91d78580ae29f468",
+  "expected_base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+  "expected_main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+  "dataset": "Amazon",
+  "scenario": "containment",
+  "K": 10,
+  "expected_num_queries": 1000,
+  "num_threads": 100,
+  "num_entry_points": 16,
+  "num_repeats": 7,
+  "lsearch_values": [
+    100
+  ],
+  "require_stage_breakdown": true,
+  "recall_thresholds": {
+    "sel_80": 0.87,
+    "sel_85": 0.87,
+    "sel_90": 0.87,
+    "sel_95": 0.87,
+    "sel_967": 0.87,
+    "sel_100": 0.87
+  },
+  "workloads": [
+    {
+      "name": "sel_80",
+      "query_dir": "query_minlen1_nested_avgsel80pct",
+      "mean_selectivity": 0.8002369928
+    },
+    {
+      "name": "sel_85",
+      "query_dir": "query_minlen1_nested_avgsel85pct",
+      "mean_selectivity": 0.8496712723
+    },
+    {
+      "name": "sel_90",
+      "query_dir": "query_minlen1_nested_avgsel90pct",
+      "mean_selectivity": 0.9004633639
+    },
+    {
+      "name": "sel_95",
+      "query_dir": "query_minlen1_nested_avgsel95pct",
+      "mean_selectivity": 0.9501978063
+    },
+    {
+      "name": "sel_967",
+      "query_dir": "query_minlen1_label1_sel967pct",
+      "mean_selectivity": 0.9670165142
+    },
+    {
+      "name": "sel_100",
+      "query_dir": "query_empty_full100pct",
+      "mean_selectivity": 1.0
+    }
+  ],
+  "boundary_reference_methods": [
+    {
+      "name": "layer0_plain",
+      "layer_count": 0,
+      "t1": null,
+      "t2": null
+    },
+    {
+      "name": "layer1_t1_16000",
+      "layer_count": 1,
+      "t1": 16000,
+      "t2": null
+    },
+    {
+      "name": "layer1_t1_32000",
+      "layer_count": 1,
+      "t1": 32000,
+      "t2": null
+    },
+    {
+      "name": "layer1_t1_64000",
+      "layer_count": 1,
+      "t1": 64000,
+      "t2": null
+    },
+    {
+      "name": "layer2_t1_8000_t2_100000",
+      "layer_count": 2,
+      "t1": 8000,
+      "t2": 100000
+    },
+    {
+      "name": "layer2_t1_8000_t2_200000",
+      "layer_count": 2,
+      "t1": 8000,
+      "t2": 200000
+    },
+    {
+      "name": "layer2_t1_16000_t2_100000",
+      "layer_count": 2,
+      "t1": 16000,
+      "t2": 100000
+    },
+    {
+      "name": "layer2_t1_16000_t2_200000",
+      "layer_count": 2,
+      "t1": 16000,
+      "t2": 200000
+    },
+    {
+      "name": "layer2_t1_16000_t2_400000",
+      "layer_count": 2,
+      "t1": 16000,
+      "t2": 400000
+    },
+    {
+      "name": "layer2_t1_32000_t2_100000",
+      "layer_count": 2,
+      "t1": 32000,
+      "t2": 100000
+    },
+    {
+      "name": "layer2_t1_32000_t2_200000",
+      "layer_count": 2,
+      "t1": 32000,
+      "t2": 200000
+    },
+    {
+      "name": "layer2_t1_32000_t2_400000",
+      "layer_count": 2,
+      "t1": 32000,
+      "t2": 400000
+    },
+    {
+      "name": "layer1_t1_8000",
+      "layer_count": 1,
+      "t1": 8000,
+      "t2": null
+    },
+    {
+      "name": "layer1_t1_128000",
+      "layer_count": 1,
+      "t1": 128000,
+      "t2": null
+    },
+    {
+      "name": "layer2_t1_16000_t2_25000",
+      "layer_count": 2,
+      "t1": 16000,
+      "t2": 25000
+    },
+    {
+      "name": "layer2_t1_16000_t2_50000",
+      "layer_count": 2,
+      "t1": 16000,
+      "t2": 50000
+    },
+    {
+      "name": "layer2_t1_32000_t2_50000",
+      "layer_count": 2,
+      "t1": 32000,
+      "t2": 50000
+    },
+    {
+      "name": "layer2_t1_32000_t2_80000",
+      "layer_count": 2,
+      "t1": 32000,
+      "t2": 80000
+    },
+    {
+      "name": "layer2_t1_64000_t2_100000",
+      "layer_count": 2,
+      "t1": 64000,
+      "t2": 100000
+    },
+    {
+      "name": "layer2_t1_64000_t2_200000",
+      "layer_count": 2,
+      "t1": 64000,
+      "t2": 200000
+    },
+    {
+      "name": "layer2_t1_64000_t2_400000",
+      "layer_count": 2,
+      "t1": 64000,
+      "t2": 400000
+    },
+    {
+      "name": "layer1_t1_256000",
+      "layer_count": 1,
+      "t1": 256000,
+      "t2": null
+    },
+    {
+      "name": "layer1_t1_700000",
+      "layer_count": 1,
+      "t1": 700000,
+      "t2": null
+    }
+  ],
+  "methods": [
+    {
+      "name": "layer0_plain",
+      "layer_count": 0,
+      "special_block_search": false,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+      },
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          110000,
+          113750,
+          117500,
+          121250,
+          125000,
+          156250
+        ],
+        "sel_85": [
+          130000,
+          131250,
+          132500,
+          133750,
+          135000,
+          168750
+        ],
+        "sel_90": [
+          140000,
+          143750,
+          147500,
+          151250,
+          155000,
+          193750
+        ],
+        "sel_95": [
+          145000,
+          150000,
+          155000,
+          160000,
+          165000,
+          206250
+        ],
+        "sel_967": [
+          150000,
+          156250,
+          162500,
+          168750,
+          175000,
+          218750
+        ],
+        "sel_100": [
+          250000,
+          256250,
+          262500,
+          268750,
+          275000,
+          300000
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer1_t1_32000",
+      "layer_count": 1,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 32000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer1_t1_32000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          500,
+          562,
+          625,
+          688,
+          750,
+          1000
+        ],
+        "sel_85": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_90": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_95": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_967": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_100": [
+          100,
+          125,
+          150,
+          175,
+          200,
+          400
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer1_t1_64000",
+      "layer_count": 1,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 64000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer1_t1_64000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_967": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ]
+      },
+      "enabled_workloads": [
+        "sel_967"
+      ]
+    },
+    {
+      "name": "layer2_t1_8000_t2_100000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 8000,
+      "t2": 100000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_8000_t2_100000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          250,
+          281,
+          312,
+          344,
+          375,
+          500
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80"
+      ]
+    },
+    {
+      "name": "layer2_t1_8000_t2_200000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 8000,
+      "t2": 200000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_8000_t2_200000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ]
+      },
+      "enabled_workloads": [
+        "sel_90"
+      ]
+    },
+    {
+      "name": "layer2_t1_16000_t2_100000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 16000,
+      "t2": 100000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_16000_t2_100000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          250,
+          281,
+          312,
+          344,
+          375,
+          500
+        ],
+        "sel_85": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_100": [
+          25,
+          31,
+          38,
+          44,
+          50,
+          100
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer2_t1_16000_t2_200000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 16000,
+      "t2": 200000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_16000_t2_200000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          250,
+          281,
+          312,
+          344,
+          375,
+          500
+        ],
+        "sel_85": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_100": [
+          25,
+          31,
+          38,
+          44,
+          50,
+          100
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer2_t1_16000_t2_400000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 16000,
+      "t2": 400000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_16000_t2_400000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          250,
+          281,
+          312,
+          344,
+          375,
+          500
+        ],
+        "sel_85": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_100": [
+          25,
+          31,
+          38,
+          44,
+          50,
+          100
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer2_t1_32000_t2_100000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 32000,
+      "t2": 100000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_32000_t2_100000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          250,
+          281,
+          312,
+          344,
+          375,
+          500
+        ],
+        "sel_85": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_100": [
+          25,
+          31,
+          38,
+          44,
+          50,
+          100
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer2_t1_32000_t2_200000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 32000,
+      "t2": 200000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_32000_t2_200000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          250,
+          281,
+          312,
+          344,
+          375,
+          500
+        ],
+        "sel_85": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_100": [
+          25,
+          31,
+          38,
+          44,
+          50,
+          100
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer2_t1_32000_t2_400000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 32000,
+      "t2": 400000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_32000_t2_400000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          250,
+          281,
+          312,
+          344,
+          375,
+          500
+        ],
+        "sel_85": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_100": [
+          25,
+          31,
+          38,
+          44,
+          50,
+          100
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer1_t1_128000",
+      "layer_count": 1,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 128000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer1_t1_128000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          500,
+          562,
+          625,
+          688,
+          750,
+          1000
+        ],
+        "sel_85": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_90": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_95": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_967": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_100": [
+          100,
+          125,
+          150,
+          175,
+          200,
+          400
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer2_t1_16000_t2_25000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 16000,
+      "t2": 25000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_16000_t2_25000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          375,
+          406,
+          438,
+          469,
+          500,
+          625
+        ],
+        "sel_85": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_100": [
+          50,
+          62,
+          75,
+          88,
+          100,
+          200
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer2_t1_16000_t2_50000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 16000,
+      "t2": 50000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_16000_t2_50000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          375,
+          406,
+          438,
+          469,
+          500,
+          625
+        ],
+        "sel_85": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_100": [
+          50,
+          62,
+          75,
+          88,
+          100,
+          200
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer2_t1_32000_t2_50000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 32000,
+      "t2": 50000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_32000_t2_50000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ]
+      },
+      "enabled_workloads": [
+        "sel_90",
+        "sel_95",
+        "sel_967"
+      ]
+    },
+    {
+      "name": "layer2_t1_32000_t2_80000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 32000,
+      "t2": 80000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_32000_t2_80000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          375,
+          406,
+          438,
+          469,
+          500,
+          625
+        ],
+        "sel_85": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_100": [
+          25,
+          31,
+          38,
+          44,
+          50,
+          100
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer2_t1_64000_t2_100000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 64000,
+      "t2": 100000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_64000_t2_100000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ]
+      },
+      "enabled_workloads": [
+        "sel_95",
+        "sel_967"
+      ]
+    },
+    {
+      "name": "layer2_t1_64000_t2_200000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 64000,
+      "t2": 200000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_64000_t2_200000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ]
+      },
+      "enabled_workloads": [
+        "sel_90",
+        "sel_95",
+        "sel_967"
+      ]
+    },
+    {
+      "name": "layer2_t1_64000_t2_400000",
+      "layer_count": 2,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 64000,
+      "t2": 400000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_64000_t2_400000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          375,
+          406,
+          438,
+          469,
+          500,
+          625
+        ],
+        "sel_85": [
+          250,
+          281,
+          312,
+          344,
+          375,
+          500
+        ],
+        "sel_90": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_95": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_967": [
+          125,
+          156,
+          188,
+          219,
+          250,
+          375
+        ],
+        "sel_100": [
+          25,
+          31,
+          38,
+          44,
+          50,
+          100
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    },
+    {
+      "name": "layer1_t1_256000",
+      "layer_count": 1,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "t1": 256000,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer1_t1_256000/block_index",
+      "lsearch_values_by_workload": {
+        "sel_80": [
+          500,
+          562,
+          625,
+          688,
+          750,
+          1000
+        ],
+        "sel_85": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_90": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_95": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_967": [
+          250,
+          312,
+          375,
+          438,
+          500,
+          750
+        ],
+        "sel_100": [
+          50,
+          62,
+          75,
+          88,
+          100,
+          200
+        ]
+      },
+      "enabled_workloads": [
+        "sel_80",
+        "sel_85",
+        "sel_90",
+        "sel_95",
+        "sel_967",
+        "sel_100"
+      ]
+    }
+  ],
+  "study_design": {
+    "scope": "focused predeclared grid above the measured 75% anchor",
+    "shared_reference": [
+      "layer1_t1_32000",
+      "layer2_t1_16000_t2_200000"
+    ],
+    "quality_rule": "minimum repeat Recall >= 0.87",
+    "timing_rule": "warm-repeat batch median; repeat 0 excluded"
+  },
+  "formal_selection": {
+    "shared_top_k_per_layer": 3,
+    "oracle_top_k_per_layer_workload": 2,
+    "coarse_near_best_ratio": 1.05,
+    "shortlist_rule": "retain top-k plus every structure within 5% of the coarse best",
+    "boundary_guards": {},
+    "quality_rule": "minimum repeat Recall meets the declared threshold",
+    "timing_rule": "warm-repeat batch median; cold repeat 0 excluded"
+  },
+  "selection_provenance": {
+    "coarse_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_coarse.json",
+    "coarse_config_sha256": "8b312ed634abf171cbe42fb345ea0348edf41f68fe5a0b12d16c63e5b36820e8",
+    "coarse_points": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/high_selectivity_tuning_coarse_amazon_x1/summary/all_points_combined.csv",
+    "coarse_points_sha256": "b02bb122168d9f8dd1e28611e192d1df39f238492ff431c1c145097de631fc80",
+    "method_configs": [
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_coarse.json",
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_plain_extension.json",
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_full_plain_extension.json",
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_structure_extension.json",
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_structure_boundary_extension.json",
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_structure_endpoint_extension.json"
+    ],
+    "method_config_sha256": {
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_coarse.json": "8b312ed634abf171cbe42fb345ea0348edf41f68fe5a0b12d16c63e5b36820e8",
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_plain_extension.json": "33c700fe8c55dc99be4fa731339f3608c6602515bca333ce447b0109c6f19f18",
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_full_plain_extension.json": "863d6952ffebef0159ddc5797af9814cb8b80f35659c730315b3d7c4bd29595d",
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_structure_extension.json": "f81193c67c30c5ca39c0d2fb8469ee283a97c6754c17a190e28e87122811c7ad",
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_structure_boundary_extension.json": "d3807829342ec3f403dda2fffea0604ca74fec4206ced831f11dcdcf96868a57",
+      "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.amazon_x1_high_selectivity_tuning_structure_endpoint_extension.json": "608542ee805d9ee4bf0f6942c62d719cf6385756d30258e0fe07914989299b7e"
+    }
+  }
+}

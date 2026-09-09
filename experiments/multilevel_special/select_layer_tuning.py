@@ -112,7 +112,8 @@ def select_shared(points: list[dict], thresholds: dict[str, float]) -> tuple[lis
 
 def audit_structure_boundaries(points: list[dict], oracle: list[dict],
                                shared: list[dict],
-                               reference_structures: list[dict] | None = None) -> list[dict]:
+                               reference_structures: list[dict] | None = None,
+                               threshold_domain_max: int | None = None) -> list[dict]:
     """Report selected structures that touch a measured grid boundary.
 
     For two-level structures, an axis is compared only against configurations
@@ -167,6 +168,12 @@ def audit_structure_boundaries(points: list[dict], oracle: list[dict],
                     directions.remove("upper")
                 if adjacent and axis == "t2" and "lower" in directions:
                     directions.remove("lower")
+            # A threshold strictly above the dataset cardinality is a natural
+            # upper endpoint: increasing it cannot change block membership.
+            if (threshold_domain_max is not None and axis == "t1"
+                    and int(value) > threshold_domain_max
+                    and "upper" in directions):
+                directions.remove("upper")
             for direction in directions:
                 output.append({
                     "selection_scope": scope,
@@ -179,6 +186,45 @@ def audit_structure_boundaries(points: list[dict], oracle: list[dict],
                     "direction": direction,
                     "measured_axis_values": ";".join(map(str, values)),
                 })
+    return output
+
+
+def audit_lsearch_boundaries(points: list[dict], oracle: list[dict],
+                             shared_selected: list[dict],
+                             minimum_lsearch: int = 1) -> list[dict]:
+    """Report selected points whose lower Lsearch direction is open.
+
+    A selected feasible point is closed when at least one lower measured L is
+    available for the same method and workload. The lower point need not be
+    infeasible: selection is latency based, so a lower feasible point would
+    already have won unless measurement noise reversed the ordering.
+    """
+    output = []
+    selected = [("per_workload_oracle", row.get("workload"), row)
+                for row in oracle]
+    selected.extend(("shared_thresholds", row.get("workload"), row)
+                    for row in shared_selected)
+    for scope, workload, row in selected:
+        values = sorted({
+            int(point["lsearch"]) for point in points
+            if point["method"] == row["method"]
+            and point["workload"] == workload
+        })
+        value = int(row["lsearch"])
+        # Lsearch cannot be smaller than K. A winner at that natural domain
+        # endpoint is closed even though it is the smallest measured value.
+        if values and value == values[0] and value > minimum_lsearch:
+            output.append({
+                "selection_scope": scope,
+                "workload": workload,
+                "layer_count": int(row["layer_count"]),
+                "method": row["method"],
+                "t1": row.get("t1"),
+                "t2": row.get("t2"),
+                "lsearch": value,
+                "direction": "lower",
+                "measured_lsearch_values": ";".join(map(str, values)),
+            })
     return output
 
 
@@ -197,6 +243,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
     parser.add_argument("--points", type=Path)
+    parser.add_argument(
+        "--boundary-source", choices=("config", "points"), default="config",
+        help="use the config reference grid or all structures in --points",
+    )
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
     root = Path(config["output_root"]) / "summary"
@@ -204,14 +254,21 @@ def main() -> int:
     thresholds = {key: float(value) for key, value in config["recall_thresholds"].items()}
     oracle = select_oracle(points, thresholds)
     shared, selected = select_shared(points, thresholds)
+    reference_structures = (None if args.boundary_source == "points" else
+                            config.get("boundary_reference_methods"))
     boundaries = audit_structure_boundaries(
-        points, oracle, shared, config.get("boundary_reference_methods"))
+        points, oracle, shared, reference_structures,
+        config.get("structure_threshold_domain_max"))
+    lsearch_boundaries = audit_lsearch_boundaries(
+        points, oracle, selected, int(config.get("K", 1)))
     write_csv(root / "layer_oracle.csv", oracle)
     write_csv(root / "shared_configurations.csv", shared)
     write_csv(root / "shared_selected_points.csv", selected)
     write_csv(root / "selected_boundary_audit.csv", boundaries)
+    write_csv(root / "selected_lsearch_boundary_audit.csv", lsearch_boundaries)
     print(f"selected {len(oracle)} oracle rows and {len(shared)} shared configurations; "
-          f"{len(boundaries)} selected-axis boundary hits")
+          f"{len(boundaries)} selected structure-axis and "
+          f"{len(lsearch_boundaries)} selected Lsearch boundary hits")
     return 0
 
 

@@ -127,11 +127,30 @@ def top_structures(points: list[dict], thresholds: dict[str, float],
         points, thresholds, shared_top_k, oracle_top_k))
 
 
-def make_formal_config(coarse: dict, points: list[dict]) -> dict:
+def make_formal_config(coarse: dict, points: list[dict],
+                       method_configs: list[dict] | None = None,
+                       boundary_guards: dict | None = None,
+                       output_root_name: str =
+                       "layer_tuning_query_formal_fair_amazon_x1") -> dict:
     thresholds = {key: float(value) for key, value in coarse["recall_thresholds"].items()}
     selected = selected_structure_workloads(points, thresholds)
-    source_by_name = {source["name"]: source for source in coarse["methods"]}
-    for target, guard in FORMAL_BOUNDARY_GUARDS.items():
+    source_by_name = {}
+    for config in method_configs or [coarse]:
+        for source in config["methods"]:
+            existing = source_by_name.get(source["name"])
+            identity = tuple(source.get(key) for key in
+                             ("layer_count", "t1", "t2", "block_index"))
+            if existing is not None:
+                existing_identity = tuple(existing.get(key) for key in
+                                          ("layer_count", "t1", "t2", "block_index"))
+                if identity != existing_identity:
+                    raise ValueError(
+                        f"conflicting method definition: {source['name']}")
+                continue
+            source_by_name[source["name"]] = source
+    active_guards = (FORMAL_BOUNDARY_GUARDS if boundary_guards is None else
+                     boundary_guards)
+    for target, guard in active_guards.items():
         reference = source_by_name.get(guard["reference"])
         if reference is None:
             continue
@@ -162,7 +181,7 @@ def make_formal_config(coarse: dict, points: list[dict]) -> dict:
         for workload in coarse["workloads"]:
             if workload["name"] not in selected_workloads:
                 continue
-            guard = FORMAL_BOUNDARY_GUARDS.get(source["name"])
+            guard = active_guards.get(source["name"])
             reference = guard["reference"] if guard else source["name"]
             rows = rows_by_key[(reference, workload["name"])]
             if not rows:
@@ -176,13 +195,13 @@ def make_formal_config(coarse: dict, points: list[dict]) -> dict:
     formal = dict(coarse)
     formal["num_repeats"] = 7
     formal["output_root"] = str(
-        Path(coarse["output_root"]).with_name("layer_tuning_query_formal_fair_amazon_x1"))
+        Path(coarse["output_root"]).with_name(output_root_name))
     formal["formal_selection"] = {
         "shared_top_k_per_layer": 3,
         "oracle_top_k_per_layer_workload": 2,
         "coarse_near_best_ratio": 1.05,
         "shortlist_rule": "retain top-k plus every structure within 5% of the coarse best",
-        "boundary_guards": FORMAL_BOUNDARY_GUARDS,
+        "boundary_guards": active_guards,
         "quality_rule": "minimum repeat Recall meets the declared threshold",
         "timing_rule": "warm-repeat batch median; cold repeat 0 excluded",
     }
@@ -190,12 +209,13 @@ def make_formal_config(coarse: dict, points: list[dict]) -> dict:
     # structure space rather than treating the shortlist as the entire grid.
     formal["boundary_reference_methods"] = [
         {key: source.get(key) for key in ("name", "layer_count", "t1", "t2")}
-        for source in coarse["methods"]
+        for source in source_by_name.values()
     ]
-    formal["boundary_reference_methods"].extend(
-        {"name": name, "layer_count": 2, "t1": guard["t1"], "t2": guard["t2"]}
-        for name, guard in FORMAL_BOUNDARY_GUARDS.items())
-    formal["boundary_reference_methods"].extend(FORMAL_BOUNDARY_ENDPOINTS)
+    if active_guards:
+        formal["boundary_reference_methods"].extend(
+            {"name": name, "layer_count": 2, "t1": guard["t1"], "t2": guard["t2"]}
+            for name, guard in active_guards.items())
+        formal["boundary_reference_methods"].extend(FORMAL_BOUNDARY_ENDPOINTS)
     formal["methods"] = methods
     return formal
 
@@ -205,17 +225,32 @@ def main() -> int:
     parser.add_argument("coarse_config", type=Path)
     parser.add_argument("--points", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--method-configs", nargs="*", type=Path)
+    parser.add_argument("--disable-boundary-guards", action="store_true")
+    parser.add_argument("--output-root-name",
+                        default="layer_tuning_query_formal_fair_amazon_x1")
     args = parser.parse_args()
     coarse = json.loads(args.coarse_config.read_text())
     points_path = args.points or Path(coarse["output_root"]) / "summary/all_points.csv"
     points = select_layer_tuning.read_points(points_path)
-    formal = make_formal_config(coarse, points)
+    method_config_paths = args.method_configs or [args.coarse_config]
+    method_configs = [json.loads(path.read_text())
+                      for path in method_config_paths]
+    formal = make_formal_config(
+        coarse, points, method_configs=method_configs,
+        boundary_guards={} if args.disable_boundary_guards else None,
+        output_root_name=args.output_root_name)
     formal["selection_provenance"] = {
         "coarse_config": str(args.coarse_config.resolve()),
         "coarse_config_sha256": hashlib.sha256(
             args.coarse_config.read_bytes()).hexdigest(),
         "coarse_points": str(points_path.resolve()),
         "coarse_points_sha256": hashlib.sha256(points_path.read_bytes()).hexdigest(),
+        "method_configs": [str(path.resolve()) for path in method_config_paths],
+        "method_config_sha256": {
+            str(path.resolve()): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in method_config_paths
+        },
     }
     output = args.output or args.coarse_config.with_name(
         "config.amazon_x1_layer_tuning_query_formal.json")

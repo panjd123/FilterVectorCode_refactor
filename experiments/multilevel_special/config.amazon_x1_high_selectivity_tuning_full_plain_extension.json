@@ -1,0 +1,102 @@
+{
+  "search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+  "main_index": "/home/graphdb/FilterVectorResult/Amazon/index/Trie_block/index_files",
+  "data_root": "/home/graphdb/FilterVectorData/Amazon",
+  "gt_root": "/home/graphdb/FilterVectorResult/Amazon/GroundTruth",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/high_selectivity_tuning_full_plain_extension_amazon_x1",
+  "expected_source_fingerprint": "91d78580ae29f468",
+  "expected_base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+  "expected_main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+  "dataset": "Amazon",
+  "scenario": "containment",
+  "K": 10,
+  "expected_num_queries": 1000,
+  "num_threads": 100,
+  "num_entry_points": 16,
+  "num_repeats": 3,
+  "lsearch_values": [
+    100
+  ],
+  "require_stage_breakdown": true,
+  "recall_thresholds": {
+    "sel_80": 0.87,
+    "sel_85": 0.87,
+    "sel_90": 0.87,
+    "sel_95": 0.87,
+    "sel_967": 0.87,
+    "sel_100": 0.87
+  },
+  "workloads": [
+    {
+      "name": "sel_80",
+      "query_dir": "query_minlen1_nested_avgsel80pct",
+      "mean_selectivity": 0.8002369928
+    },
+    {
+      "name": "sel_85",
+      "query_dir": "query_minlen1_nested_avgsel85pct",
+      "mean_selectivity": 0.8496712723
+    },
+    {
+      "name": "sel_90",
+      "query_dir": "query_minlen1_nested_avgsel90pct",
+      "mean_selectivity": 0.9004633639
+    },
+    {
+      "name": "sel_95",
+      "query_dir": "query_minlen1_nested_avgsel95pct",
+      "mean_selectivity": 0.9501978063
+    },
+    {
+      "name": "sel_967",
+      "query_dir": "query_minlen1_label1_sel967pct",
+      "mean_selectivity": 0.9670165142
+    },
+    {
+      "name": "sel_100",
+      "query_dir": "query_empty_full100pct",
+      "mean_selectivity": 1.0
+    }
+  ],
+  "boundary_reference_methods": [
+    {
+      "name": "layer0_plain",
+      "layer_count": 0,
+      "t1": null,
+      "t2": null
+    }
+  ],
+  "methods": [
+    {
+      "name": "layer0_plain",
+      "layer_count": 0,
+      "special_block_search": false,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1"
+      },
+      "lsearch_values_by_workload": {
+        "sel_100": [
+          200000,
+          225000,
+          250000,
+          275000,
+          300000
+        ]
+      },
+      "enabled_workloads": [
+        "sel_100"
+      ]
+    }
+  ],
+  "study_design": {
+    "scope": "100-percent unfiltered plain Lsearch boundary closure",
+    "shared_reference": [
+      "layer1_t1_32000",
+      "layer2_t1_16000_t2_200000"
+    ],
+    "quality_rule": "minimum repeat Recall >= 0.87",
+    "timing_rule": "warm-repeat batch median; repeat 0 excluded"
+  }
+}

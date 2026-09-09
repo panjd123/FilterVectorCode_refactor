@@ -11,6 +11,7 @@ import run_selection_sweep
 import run_build_sweep
 import generate_layer_tuning_config
 import generate_layer_tuning_formal
+import generate_high_selectivity_tuning_config
 import generate_layer_tuning_report
 import select_layer_tuning
 import summarize_selection_sweep
@@ -58,6 +59,72 @@ class SelectionSweepTest(unittest.TestCase):
             {"name": "full", "query_dir": "full", "scenario": "containment"},
             Path("/run"))
         self.assertEqual(command[command.index("--scenario") + 1], "containment")
+
+    def test_high_selectivity_extensions_are_disjoint_from_coarse_points(self):
+        repo = Path("/repo")
+        coarse = generate_high_selectivity_tuning_config.make_config(repo, 3)
+        plain = generate_high_selectivity_tuning_config.make_plain_extension_config(
+            repo, 3)
+        structure = (
+            generate_high_selectivity_tuning_config.make_structure_extension_config(
+                repo, 3))
+        structure_boundary = (
+            generate_high_selectivity_tuning_config.
+            make_structure_boundary_extension_config(repo, 3))
+        structure_endpoint = (
+            generate_high_selectivity_tuning_config.
+            make_structure_endpoint_extension_config(repo, 3))
+        self.assertEqual([item["name"] for item in plain["methods"]],
+                         ["layer0_plain"])
+        coarse_plain = coarse["methods"][0]["lsearch_values_by_workload"]
+        extension_plain = plain["methods"][0]["lsearch_values_by_workload"]
+        for workload, values in extension_plain.items():
+            self.assertTrue(set(values).isdisjoint(coarse_plain[workload]))
+        self.assertEqual(len(structure["methods"]), 9)
+        self.assertTrue(all(
+            item.get("t2") is None or item["t2"] > item["t1"]
+            for item in structure["methods"]))
+        coarse_names = {item["name"] for item in coarse["methods"]}
+        self.assertTrue(coarse_names.isdisjoint(
+            item["name"] for item in structure["methods"]))
+        existing_structure_names = coarse_names | {
+            item["name"] for item in structure["methods"]}
+        self.assertEqual(
+            [item["name"] for item in structure_boundary["methods"]],
+            ["layer1_t1_256000"],
+        )
+        self.assertTrue(existing_structure_names.isdisjoint(
+            item["name"] for item in structure_boundary["methods"]))
+        self.assertEqual(
+            [item["name"] for item in structure_endpoint["methods"]],
+            ["layer1_t1_700000"],
+        )
+        full = generate_high_selectivity_tuning_config.make_full_plain_extension_config(
+            repo, 3)
+        self.assertEqual(full["methods"][0]["enabled_workloads"], ["sel_100"])
+        self.assertTrue(set(
+            full["methods"][0]["lsearch_values_by_workload"]["sel_100"]
+        ).isdisjoint(coarse_plain["sel_100"] + extension_plain["sel_100"]))
+        formal_boundary = (generate_high_selectivity_tuning_config.
+                           make_formal_boundary_extension_config(repo, 7))
+        self.assertEqual(formal_boundary["num_repeats"], 7)
+        self.assertEqual(
+            {item["name"] for item in formal_boundary["methods"]},
+            {"layer1_t1_128000", "layer2_t1_16000_t2_400000",
+             "layer2_t1_8000_t2_400000",
+             "layer2_t1_16000_t2_500000"},
+        )
+        self.assertEqual(
+            next(item for item in formal_boundary["methods"]
+                 if item["name"] == "layer2_t1_16000_t2_400000")
+            ["lsearch_values_by_workload"]["sel_100"],
+            [10, 15, 20],
+        )
+        self.assertIn(
+            {"name": "layer2_t1_16000_t2_700000", "layer_count": 2,
+             "t1": 16000, "t2": 700000},
+            formal_boundary["boundary_reference_methods"],
+        )
 
     def test_validator_parses_executed_command_options(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -188,6 +255,19 @@ class SelectionSweepTest(unittest.TestCase):
             [],
         )
 
+    def test_boundary_audit_closes_threshold_above_dataset_cardinality(self):
+        oracle = [{"layer_count": 1, "method": "endpoint",
+                   "workload": "w", "t1": 700000, "t2": None}]
+        references = [
+            {"layer_count": 1, "name": "lower", "t1": 256000, "t2": None},
+            {"layer_count": 1, "name": "endpoint", "t1": 700000, "t2": None},
+        ]
+        self.assertEqual(
+            select_layer_tuning.audit_structure_boundaries(
+                [], oracle, [], references, threshold_domain_max=602453),
+            [],
+        )
+
     def test_boundary_audit_can_use_full_coarse_reference_grid(self):
         formal_points = [{"layer_count": 1, "method": "m2",
                           "t1": 2000, "t2": None}]
@@ -201,6 +281,31 @@ class SelectionSweepTest(unittest.TestCase):
         self.assertEqual(
             select_layer_tuning.audit_structure_boundaries(
                 formal_points, oracle, [], reference), [])
+
+    def test_lsearch_boundary_audit_requires_a_lower_measured_guard(self):
+        points = [
+            {"method": "m", "workload": "w", "lsearch": 100},
+            {"method": "m", "workload": "w", "lsearch": 200},
+        ]
+        selected = [{"method": "m", "workload": "w",
+                     "layer_count": 1, "t1": 10, "t2": None,
+                     "lsearch": 100}]
+        audit = select_layer_tuning.audit_lsearch_boundaries(
+            points, selected, selected)
+        self.assertEqual(len(audit), 2)
+        self.assertTrue(all(row["direction"] == "lower" for row in audit))
+        selected[0]["lsearch"] = 200
+        self.assertEqual(
+            select_layer_tuning.audit_lsearch_boundaries(
+                points, selected, selected),
+            [],
+        )
+        selected[0]["lsearch"] = 100
+        self.assertEqual(
+            select_layer_tuning.audit_lsearch_boundaries(
+                points, selected, selected, minimum_lsearch=100),
+            [],
+        )
 
     def test_formal_grid_brackets_coarse_recall_crossing(self):
         rows = [
@@ -275,6 +380,32 @@ class SelectionSweepTest(unittest.TestCase):
             "layer_tuning_query_formal_fair_amazon_x1"))
         self.assertEqual(formal["num_repeats"], 7)
         self.assertEqual(formal["formal_selection"]["shared_top_k_per_layer"], 3)
+
+    def test_formal_config_can_merge_extension_method_sources(self):
+        coarse = {
+            "output_root": "/tmp/coarse", "recall_thresholds": {"w": .9},
+            "workloads": [{"name": "w"}],
+            "methods": [{"name": "plain", "layer_count": 0}],
+        }
+        extension = {"methods": [
+            {"name": "m", "layer_count": 1, "t1": 10,
+             "block_index": "/index/m"},
+        ]}
+        points = [
+            {"method": "plain", "layer_count": 0, "workload": "w",
+             "batch_ms_warm_median": 10, "batch_ms_warm": 10,
+             "recall_min": .91, "lsearch": 100, "t1": None, "t2": None},
+            {"method": "m", "layer_count": 1, "workload": "w",
+             "batch_ms_warm_median": 5, "batch_ms_warm": 5,
+             "recall_min": .91, "lsearch": 100, "t1": 10, "t2": None},
+        ]
+        formal = generate_layer_tuning_formal.make_formal_config(
+            coarse, points, [coarse, extension], boundary_guards={},
+            output_root_name="high_formal")
+        self.assertEqual({item["name"] for item in formal["methods"]},
+                         {"plain", "m"})
+        self.assertTrue(formal["output_root"].endswith("high_formal"))
+        self.assertEqual(formal["formal_selection"]["boundary_guards"], {})
 
     def test_formal_config_adds_predeclared_boundary_guards(self):
         coarse = {
@@ -413,6 +544,10 @@ class SelectionSweepTest(unittest.TestCase):
                 config, method, {"name": "low", "lsearch_values": [30]}),
             [30],
         )
+        with self.assertRaisesRegex(ValueError, "must be >= K=10"):
+            run_selection_sweep.lsearch_values_for(
+                {"K": 10, "lsearch_values": [9]},
+                {"name": "invalid"}, {"name": "low"})
         with self.assertRaisesRegex(ValueError, "invalid Lsearch grid"):
             run_selection_sweep.lsearch_values_for(
                 config, {"name": "bad", "lsearch_values": []}, {"name": "w"})

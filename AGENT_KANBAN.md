@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`进行中`
-- 摘要：原六档公平评估已闭合；新增目标是在 75% 以上生成独立 workload 和 exact filtered GT，按相同 binary、ELS、Recall 与重复协议比较 0/1/2 层，不能从 75% 外推 100%。
+- 总体：`验证中`
+- 摘要：Amazon x1 高选择率正式实验、边界补测、compact evidence 和三份报告均已完成。共享结构为单层 T1=128k、两层 T1=16k/T2=400k；五个 80.0%--96.7% filtered 测点上两层逐点更快，几何平均相对单层 1.093x；100% 独立 control 为 1.196x。共享结构轴与 Lsearch 轴均无开放边界。
 
 ## 进行中
 
-- 运行已预声明的 75% 以上 72-case coarse sweep；六个嵌套 workload 和 exact GT 已生成并完成格式、范围及 90% 独立重算审计。
+- 只暂存本轮源码、配置、文档和 compact evidence，创建最终 checkpoint；排除 `runs/` 与 nested third-party clones。
 
 ## 完成历史
 
@@ -70,10 +70,16 @@
 - 10 个 guard 结构全部构建并验证；34 个结构 x 6 workloads 的 extended coarse sweep 已完成 `204/204` case，旧网格严格复用 144 case，新增实测 60 case；等待完整 validator/selector 输出后判断是否闭合边界。
 - 完整 204-case validator 通过并汇总 1209 个离散点。共享配置更新为单层 T1=32k（coarse geomean 2.8435x）和两层 T1=16k/T2=100k（2.8862x）；二者仍分别触 T1/T2 上边界，不能作为最终最优结论。第二轮 focused guard 新增单层 T1=64k，以及两层 (16k,200k)、(32k,40k/200k)、(64k,100k/200k)，共 6 个结构、36 个 query cases。
 - 第二轮 6 个 guard 结构和 36 个 query cases 完成，完整 240-case validator 通过，汇总 1424 个离散点。共享赢家保持单层 T1=32k（2.8435x）与两层 T1=16k/T2=100k（2.8862x），因此共享部署阈值已不触边。oracle 尚有 6 个轴触边；最终 guard 只为 sel_25 单层、sel_25 两层和 sel_005/sel_01 两层补测 8 个可行结构、11 case，另保留 4 个退化端点作为结构上界，不参与共享配置选择。
+- 高选择率 7-repeat formal sweep 已完成并通过完整性验证：95/95 cases、570 points；repeat 0 为 cold，主指标为后 6 个 warm batch median，每个 repeat Recall 均须 >=0.87，固定 `cpu_bruteforce_els` 且 `UNG_DISABLE_ELS_REUSE=1`。
+- 正式主 sweep 与 boundary extension 合并为 719 个唯一 7-repeat 测点。最终共享结构结果：0 层总 warm median 853173.4 ms；1 层 T1=128k 为 2176.467 ms、相对 0 层 geomean 326.2761x；2 层 (T1=16k,T2=400k) 为 1960.075 ms、相对 0 层 361.8935x，因此两层相对单层约 1.1092x。共享结构轴与 Lsearch 轴均已闭合。
+- 100% 独立 unfiltered control 的最终共享点：0 层 L=256250、356311.0 ms；1 层 T1=128k/L=125、438.012 ms、相对 0 层 813.4731x；2 层 (16k,400k)/L=15、366.174 ms、相对 0 层 973.0647x。两层下侧已测到合法端点 L=K=10；该 control 不能与 filtered workload 连续外推。
+- 首轮专用 selector 输出 18 个逐 workload oracle、3 个共享配置，并暴露 13 个结构轴和 16 个 Lsearch 边界命中；补测后 shared 边界命中归零，oracle 仅保留 2 个结构轴提示。通用 equal-recall 汇总为空不表示无可行点，本任务以逐 repeat Recall 门槛的专用 selector 为准。
+- 三份报告已按证据域收紧：原六档不支持“两层整体优于单层”；新增 80.024%--96.702% 仅支持五个离散 filtered 测点的一致方向，不宣称连续区间或统计显著性；100% 单列为空 predicate control。
+- 高选择率 compact evidence 已完成哈希复核：10/10 artifact 与 `high_selectivity_evidence_manifest.csv` 一致；总量约 0.5 MiB。manifest 中绝对路径是原始远端执行 provenance，复现命令和提交内 evidence 入口均使用仓库相对路径。
 
 ## 下一步
 
-运行并验证 72-case coarse sweep，按 Recall crossing 生成 7-repeat formal shortlist，再完成边界审计和主报告更新。
+创建最终 checkpoint 并复核 staged tree；不提交 `runs/` 或 `thirdparty/`。
 
 ## 阻塞与问题
 
@@ -82,7 +88,8 @@
 - jump host 偶发断连；只做短时串行重试，避免并发 SSH。
 - `runs/`、`thirdparty/acorn-official/`、`thirdparty/curator-v2/` 是未跟踪运行/第三方产物，不得提交。
 - 多层查询发现 upper blocks 时禁用语义不完整的 GPU batch path，当前正确性优先，仍有性能优化空间。
-- 新增 75% 以上实验尚未运行；在 exact GT 和公平独立调优完成前，不得声称两层优势延伸到 100%。
+- 75% 以上共享边界已闭合，但仍只声称预声明离散网格内的实测最优；未做连续参数优化或统计显著性检验。
+- 100% 是空 containment predicate 的独立 unfiltered control；不得据此把 96.7% 与 100% 连成区间，也不得外推 97%--99%。
 - build manifest 对复用构建不记录 returncode 与外层 wall；报告生成器已按 `reused_existing=true + validate_case 成功` 接受该状态，并把未知 wall 明确显示为 N/A，仍不把 builder 内部 total_time 冒充 runner wall。
 - `sunyahuia600-sunyahui` 当前并非有效 SSH alias；使用 `ssh -l sunyahui sunyahuia6000-jump`。网络失败时仍只串行短重试三次。
 
@@ -105,6 +112,12 @@
 - `cd experiments/multilevel_special && python3 -m unittest -q test_multilevel_selection.py` — `通过`：38/38；覆盖复用 build manifest、formal boundary guard 和严格整数合法域端点。
 - `python3 -m unittest -q experiments.multilevel_special.test_generate_paper_results` — `通过`：18/18；旧论文结果闭包仍可重建。
 - `python3 -m unittest -q test_multilevel_selection.py test_generate_paper_results.py` — `通过`：56/56。
+- `validate_selection_sweep.py config.amazon_x1_high_selectivity_formal.json` — `通过`：95/95 cases，每 case 6 个 L 点、42 条 repeat 明细，stage closure 完整。
+- `select_layer_tuning.py ... --boundary-source config` — `通过`：18 个 oracle rows、3 个 shared configurations；审计暴露 13 个结构轴和 16 个 Lsearch 边界命中。
+- `cd experiments/multilevel_special && python3 -m unittest -v test_multilevel_selection.py` — `通过`：44/44；覆盖高选择率 extension、互斥点合并、Lsearch>=K 和边界审计。
+- 高选择率 boundary extension — `通过`：20/20 cases、149 points；与主 sweep 合并后 719 个唯一点，3 个 shared 配置，shared 结构/Lsearch 边界均为 0。
+- `python3 -m unittest -v test_generate_paper_results.py test_multilevel_selection.py` — `通过`：62/62；结果生成器重建 60 行主结果、209 个内部点和 7 行构建结果。
+- `high_selectivity_evidence_manifest.csv` 逐文件 SHA-256 核验 — `通过`：10/10；719 点 aggregate 与两份 execution manifest 均匹配。
 - `artifact_manifest.csv` 与 `layer_tuning_evidence_manifest.csv` — `通过`：分别核验 43/43 与 12/12 个 SHA-256；文档本地路径 0 缺失；`git diff --check` 通过。
 - Curator 低选择率产物 — `通过`：3 workloads x 12 budgets x 5 measured。
 - ACORN 低选择率产物 — `通过`：180 个 screen 点 + 3 个 formal 点，filter violations=0。

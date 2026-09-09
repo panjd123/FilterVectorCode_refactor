@@ -197,9 +197,12 @@ def lsearch_values_for(config: dict[str, Any], method: dict[str, Any],
     if values is None:
         values = method.get("lsearch_values", config["lsearch_values"])
     resolved = [int(value) for value in values]
-    if not resolved or len(set(resolved)) != len(resolved) or any(value <= 0 for value in resolved):
+    minimum_lsearch = int(config.get("K", 1))
+    if (not resolved or len(set(resolved)) != len(resolved)
+            or any(value < minimum_lsearch for value in resolved)):
         raise ValueError(
-            f"invalid Lsearch grid for {method['name']}/{workload_name}: {resolved}")
+            f"invalid Lsearch grid for {method['name']}/{workload_name}: "
+            f"{resolved}; every value must be >= K={minimum_lsearch}")
     return resolved
 
 

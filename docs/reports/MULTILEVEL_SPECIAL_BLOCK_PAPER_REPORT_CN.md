@@ -1,21 +1,38 @@
 # 两级 Special Block：系统组成、适用区间与公平性能评估
 
-更新时间：2026-09-07
+更新时间：2026-09-08
 
 ## 摘要
 
 本文评估一套用于 filtered graph search 的两级 Special Block overlay。系统在既有 UNG 主图之上保留中层 block，并增加覆盖更大合法 Trie 子树的上层 block；查询只有完整覆盖某个 block 的根标签时才能使用该层 special edges。当前实现是固定的两级 overlay，不宣称支持任意 N 层。
 
-我们在 Amazon 原始 100% x1 数据上，按同一 Recall 门槛、同一 ELS provider 和同一查询 binary，分别独立调优 0 层、1 层和 2 层。论文主结论使用“一层一套跨六档共享阈值”的可部署配置；逐 workload 换阈值的结果只作为 oracle 上界。正式评估包含 92 个 structure/workload case、552 个离散 `Lsearch` 点，每点 7 repeats；丢弃 cold repeat 0 后，以 6 个 warm batch 的中位数为主指标。所有共享与 oracle 赢家均已通过开放边界审计。
+我们在 Amazon 原始 100% x1 数据上，按同一 Recall 门槛、同一 ELS provider 和同一查询 binary，分别独立调优 0 层、1 层和 2 层。论文主结果使用“一层一套跨 workload 共享阈值”的可部署配置；逐 workload 换阈值的结果只作为 oracle 上界。原六档正式评估包含 92 个 structure/workload case、552 个离散 `Lsearch` 点；新增高选择率评估包含 95 个主实验 case 和 20 个边界补测 case，合并为 719 个唯一实测点。每点均运行 7 repeats；丢弃 cold repeat 0 后，以 6 个 warm batch 的中位数为主指标。原六档 shared/oracle 赢家均无开放边界命中；高选择率 shared 赢家亦无开放边界命中，但 oracle 保留两个结构轴提示，因此只作为离散网格上界。
 
 主要结论如下：
 
-1. 跨六档共享配置中，单层 `T1=32k` 的几何平均加速为 **3.034x**，两层 `T1=16k,T2=200k` 为 **3.019x**。两者总体差异仅约 0.5%，且未做显著性检验，因此不能声称两层整体优于单层。
+1. 原六档共享配置中，单层 `T1=32k` 的几何平均加速为 **3.034x**，两层 `T1=16k,T2=200k` 为 **3.019x**。两者总体差异仅约 0.5%，且未做显著性检验，因此不能声称两层在原六档总体上优于单层。
 2. 优势高度依赖查询环境。50%/75% 选择率下，单层相对 0 层分别为 **17.16x/71.94x**，两层为 **16.31x/84.38x**；75% 档两层又比单层快 **1.173x**。
 3. 低到中选择率不是该 overlay 的优势区间：0.499%、0.903%、9.907% 上两种 Special 配置都慢于 0 层；24.915% 上单层基本持平，两层慢 18.6%。
 4. 性能跃迁主要来自图搜索预算下降，而不是 ELS 或 Block Authorization。75% 档每查询 Graph Search 从 0 层的 3822.66 ms 降至单层 26.68 ms、两层 20.14 ms；Authorization 仅约 0.005 ms/query。
 
-因此，严谨的表述是：Special Block 对宽过滤条件、且查询能够完整授权大 block 的环境具有大幅性能优势；独立调优后的两层配置进一步改善了最高选择率 workload，但当前证据不支持“两层配置在所有 workload 或总体上都优于独立调优后的单层”。
+因此，严谨的表述是：Special Block 对宽过滤条件、且查询能够完整授权大 block 的环境具有大幅性能优势。原六档上，两层并未在总体上击败单层；新增高选择率实验则观察到一个清晰但有限的优势区间：在 Amazon x1 的 80.0%--96.7% 五个 filtered 测点上，共享两层配置逐点快于共享单层，五点几何平均再快 1.093x；100% 空过滤 control 上再快 1.196x。后者必须单列，不能外推未测的 97%--99%。
+
+### 新增：75% 以上与 100% control
+
+新增实验保持相同 binary、ELS 与 7-repeat 协议，六档统一要求每个 repeat `Recall>=0.87`。高选择率 workload 内重新选择的一套共享结构为单层 `T1=128k` 与两层 `T1=16k,T2=400k`；它们不同于原六档共享结构，不能把结果解释为旧配置的无调参外推。
+
+| 选择率 | 0层 ms | 1层 ms / vs 0 | 2层 ms / vs 0 | 2层 vs 1层 |
+|---:|---:|---:|---:|---:|
+| 80.024% | 58,192.9 | 404.634 / 143.82x | 389.620 / 149.36x | 1.039x |
+| 84.967% | 70,540.1 | 365.249 / 193.13x | 320.900 / 219.82x | 1.138x |
+| 90.046% | 99,821.0 | 335.249 / 297.75x | 297.188 / 335.88x | 1.128x |
+| 95.020% | 130,241.5 | 318.280 / 409.20x | 290.285 / 448.67x | 1.096x |
+| 96.702% | 138,067.0 | 315.044 / 438.25x | 295.908 / 466.59x | 1.065x |
+| 100% control | 356,311.0 | 438.012 / 813.47x | 366.174 / 973.06x | 1.196x |
+
+五个 filtered workload 的几何平均加速为单层 271.790x、两层 296.940x；跨五点两层相对单层为 1.093x。连同独立的 100% control 统计时，单层/两层相对 plain 分别为 326.276x/361.894x，两层相对单层为 1.109x。共享赢家已用 `(8k,400k)` 和 `(16k,500k)` 关闭 T1/T2 外侧，并把低 L 补至下侧 guard 或 `L=K=10` 合法端点；共享边界审计为空。
+
+100% 使用空 containment predicate，不属于 label-1 filtered workload 的连续延伸。它证明的是当前无过滤 control 上没有观察到回落，而不是 97%--99% 的性能，也不是一般 unfiltered ANN 系统的结论。逐 workload oracle 允许每档换结构，仅作上界；其剩余两个结构轴提示不影响共享部署结论。
 
 ## 1. 系统包含什么
 
@@ -96,7 +113,13 @@ Special edges 会增加单次展开的邻居数，因此“相同 `Lsearch` 更�
 
 两层配置相对单层最清晰的收益出现在 74.994%：共享两层比共享单层快 17.3%，Graph Search work 从 26.68 降到 20.14 ms/query。0.903% 上两层也比单层快 4.8%，但两者都慢于 plain；这不足以构成部署优势。50% 上单层反而比两层快 4.9%，说明上层并非越多越好。由于两套共享配置的 `T1` 不同，这里比较的是各自独立调优后的方法族，不是只切换第二层的纯因果消融。
 
-### 5.3 不适合的环境
+### 5.3 80%--96.7% 高选择率区间与 100% control
+
+新增实验在高选择率 workload 内重新选择共享结构，得到单层 `T1=128k` 和两层 `T1=16k,T2=400k`。在 80.024%、84.967%、90.046%、95.020% 和 96.702% 五个 filtered 测点上，两层逐点快于单层，相对加速为 1.039x--1.138x，五点几何平均为 1.093x。因此，当前证据支持“两层在这五个离散高选择率测点上存在稳定方向的一致收益”，但尚不支持把它提升为连续区间定理或统计显著性结论。
+
+独立的 100% 空 predicate control 上，两层相对单层为 1.196x，说明在这个 control 中未观察到优势回落。由于 96.702% 是单标签 containment 的自然上限，而 100% 改变了 predicate 语义，两者之间不能插值；97%--99% 仍无实验结论。
+
+### 5.4 不适合的环境
 
 在稀疏过滤或中等选择率下，block 授权机会和长程导航收益不足以抵消额外邻居扫描与路径管理。0.499%、0.903%、9.907% 应优先使用 plain；24.915% 下单层与 plain 基本持平，两层不合适。实际系统宜根据过滤结构选择路由，而不是全局强制开启两层。
 
@@ -131,11 +154,13 @@ Authorization 本身几乎可忽略。50% 时两层的 Graph Search 比单层略
 - 实现了保留中层并增加上层的真实两级 Special Block，以及逐级授权、双 ownership 和 fail-closed 验证；
 - 在 Amazon x1、预声明 Recall 门槛和离散参数网格内，单层/两层共享配置相对 0 层的六档几何平均加速分别为 3.034x/3.019x；
 - 在 50%/75% 宽过滤 workload 上取得 16.31–84.38x 相对 plain 的加速；75% 时第二层相对独立调优单层再快 1.173x；
+- 在另行调优的高选择率共享配置下，80.024%--96.702% 五个 filtered 离散测点上两层均快于单层，五点几何平均再快 1.093x；独立 100% control 上再快 1.196x；
 - 通过负结果明确界定方法适用区间。
 
 不能主张：
 
-- 两层整体优于单层，或所有选择率都受益；
+- 两层在全部选择率或任意 workload 上普遍优于单层，或所有选择率都受益；
+- 把 80.024%--96.702% 的五个离散 filtered 测点解释成连续区间定理、统计显著性，或用 100% control 外推 97%--99%；
 - 单层与两层几何平均加速约 0.5% 的相对差异具有统计显著性；
 - oracle 阈值是一套可部署配置；
 - 阶段 per-query work 可以相加成 batch wall；
@@ -151,7 +176,11 @@ Authorization 本身几乎可忽略。50% 时两层的 Graph Search 比单层略
 - 构建 compact 表：`experiments/multilevel_special/results_summary/layer_tuning_build_summary.csv`
 - 完整 raw 结果：`runs/layer_tuning_query_formal_fair_amazon_x1/`（不提交）
 - 构建 manifest：`runs/layer_tuning_build_amazon_x1/manifest.json`（不提交）
-- 实验验证：formal 92/92 case，552 points，boundary hits=0；Python 56/56。
+- 高选择率正式配置：`experiments/multilevel_special/config.amazon_x1_high_selectivity_formal.json`
+- 高选择率边界补测配置：`experiments/multilevel_special/config.amazon_x1_high_selectivity_formal_boundary_extension.json`
+- 高选择率 compact 表：`experiments/multilevel_special/results_summary/high_selectivity_shared_summary.csv`、`high_selectivity_shared_points.csv`
+- 高选择率证据清单：`experiments/multilevel_special/results_summary/high_selectivity_evidence_manifest.csv`
+- 实验验证：原六档 formal 92/92 case、552 points、shared/oracle boundary hits=0；高选择率主实验 95/95 case、570 points，边界补测 20/20 case、149 points，合并后 719 个唯一点，shared boundary hits=0，oracle-only structure notices=2。
 - 详细复现步骤：`docs/reports/MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md`。
 
 旧报告中的固定 `T1=1k` 单层、`T1=2k,T2=25k` 两层及外部系统表仍可用于历史机制研究，但不再作为公平 0/1/2 层主结论。

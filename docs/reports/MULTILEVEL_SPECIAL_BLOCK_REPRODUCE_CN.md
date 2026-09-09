@@ -290,7 +290,49 @@ git diff --check
 
 生成器会拒绝混用 search binary、缺失/额外 L-grid、错误 workload/query/selectivity、错误 repeat 数、重复 canonical key 或不完整 run。主报告读取的是生成后的 `paper_results.csv`，不是人工抄写的散点。
 
-## 9. 结果判定与禁止事项
+## 9. 75% 以上正式实验
+
+高选择率结果由 95-case 正式 shortlist 与 20-case 边界补测组成，均为 7 repeats；合并器要求 `(workload, method, Lsearch)` 键互斥，避免静默覆盖。`Lsearch` 的合法下界为 `K=10`。
+
+```bash
+# 验证两个 sweep
+python3 experiments/multilevel_special/validate_selection_sweep.py \
+  experiments/multilevel_special/config.amazon_x1_high_selectivity_formal.json
+python3 experiments/multilevel_special/validate_selection_sweep.py \
+  experiments/multilevel_special/config.amazon_x1_high_selectivity_formal_boundary_extension.json
+
+# 分别汇总，然后合并唯一实测点
+python3 experiments/multilevel_special/summarize_selection_sweep.py \
+  experiments/multilevel_special/config.amazon_x1_high_selectivity_formal.json
+python3 experiments/multilevel_special/summarize_selection_sweep.py \
+  experiments/multilevel_special/config.amazon_x1_high_selectivity_formal_boundary_extension.json
+python3 experiments/multilevel_special/combine_selection_points.py \
+  experiments/multilevel_special/config.amazon_x1_high_selectivity_formal.json \
+  experiments/multilevel_special/config.amazon_x1_high_selectivity_formal_boundary_extension.json \
+  --output runs/high_selectivity_formal_boundary_extension_amazon_x1/summary/all_points_combined.csv
+
+# 使用包含结构端点的配置做最终共享/oracle 选择与边界审计
+python3 experiments/multilevel_special/select_layer_tuning.py \
+  experiments/multilevel_special/config.amazon_x1_high_selectivity_formal_boundary_extension.json \
+  --points runs/high_selectivity_formal_boundary_extension_amazon_x1/summary/all_points_combined.csv \
+  --boundary-source config
+```
+
+预期结果：主 sweep 95/95 cases、570 points；boundary extension 20/20 cases、149 points；合并后 719 个唯一点、18 个 oracle 行、3 个共享配置。共享结构/Lsearch 边界命中均为 0；`selected_boundary_audit.csv` 中仅保留 2 个逐 workload oracle 结构轴提示。正式查询 binary SHA-256 为 `6fa4082dae77e99b6c1b3c84c75d324d57cc25e0da32149011379453cfa40087`。
+
+可提交 evidence 位于：
+
+- `results_summary/source/high_selectivity_formal_all_points.csv`
+- `results_summary/source/high_selectivity_formal_manifest.json`
+- `results_summary/source/high_selectivity_boundary_manifest.json`
+- `results_summary/high_selectivity_shared_summary.csv`
+- `results_summary/high_selectivity_shared_points.csv`
+- `results_summary/high_selectivity_oracle_summary.csv`
+- `results_summary/high_selectivity_oracle_boundary_audit.csv`
+
+100% 是空 predicate 的独立 unfiltered control；不得与 96.7% 连续插值，也不得据此外推 97%--99%。
+
+## 10. 结果判定与禁止事项
 
 - 唯一质量标准是对相同 exact filtered GT 的端到端 Recall；coverage、block 数和局部 top-K overlap 仅作诊断。
 - 固定 L 的耗时不能直接形成加速结论；比较的是达到预声明 Recall 门槛的最快离散实测点。

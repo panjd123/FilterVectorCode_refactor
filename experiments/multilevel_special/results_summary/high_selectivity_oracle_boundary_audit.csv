@@ -1,0 +1,3 @@
+selection_scope,workload,layer_count,method,t1,t2,axis,direction,measured_axis_values
+per_workload_oracle,sel_85,2,layer2_t1_16000_t2_500000,16000,500000,t1,lower,16000
+per_workload_oracle,sel_85,2,layer2_t1_16000_t2_500000,16000,500000,t1,upper,16000
