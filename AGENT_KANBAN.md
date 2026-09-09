@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-08 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；公平 0/1/2 层文档与证据检查点：`fc67f946f7e3e30d95a94a6d7364bb74bfed2508`（origin 指向用户脏工作树，不直接 push）
+实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；高选择率文档与证据检查点：`42c21c10696638dbf83a54bd00e37bb88dc474ac`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`验证中`
+- 总体：`完成`
 - 摘要：Amazon x1 高选择率正式实验、边界补测、compact evidence 和三份报告均已完成。共享结构为单层 T1=128k、两层 T1=16k/T2=400k；五个 80.0%--96.7% filtered 测点上两层逐点更快，几何平均相对单层 1.093x；100% 独立 control 为 1.196x。共享结构轴与 Lsearch 轴均无开放边界。
 
 ## 进行中
 
-- 只暂存本轮源码、配置、文档和 compact evidence，创建最终 checkpoint；排除 `runs/` 与 nested third-party clones。
+- 无；高选择率结果、证据与报告已提交，等待人工审阅或后续安全 merge-back。
 
 ## 完成历史
 
@@ -76,10 +76,11 @@
 - 首轮专用 selector 输出 18 个逐 workload oracle、3 个共享配置，并暴露 13 个结构轴和 16 个 Lsearch 边界命中；补测后 shared 边界命中归零，oracle 仅保留 2 个结构轴提示。通用 equal-recall 汇总为空不表示无可行点，本任务以逐 repeat Recall 门槛的专用 selector 为准。
 - 三份报告已按证据域收紧：原六档不支持“两层整体优于单层”；新增 80.024%--96.702% 仅支持五个离散 filtered 测点的一致方向，不宣称连续区间或统计显著性；100% 单列为空 predicate control。
 - 高选择率 compact evidence 已完成哈希复核：10/10 artifact 与 `high_selectivity_evidence_manifest.csv` 一致；总量约 0.5 MiB。manifest 中绝对路径是原始远端执行 provenance，复现命令和提交内 evidence 入口均使用仓库相对路径。
+- 高选择率配置、脚本、compact evidence 与三份报告已提交为 `42c21c10696638dbf83a54bd00e37bb88dc474ac`；`runs/` 与 nested third-party clones 未提交。
 
 ## 下一步
 
-创建最终 checkpoint 并复核 staged tree；不提交 `runs/` 或 `thirdparty/`。
+从论文报告开始人工审阅；如需整合回原始脏 checkout，先按 merge-back 报告处理 27 个分叉路径，禁止直接自动 merge。
 
 ## 阻塞与问题
 
@@ -135,7 +136,7 @@
 
 1. 先读本看板。
 2. 运行 `git status --short`，不要暂存 `runs/` 或 `thirdparty/` nested clones。
-3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58`、最终源码/证据检查点 `cb72797af5af615ca196d3618903417a54b0da2b` 与公平 0/1/2 层文档/证据检查点 `fc67f946f7e3e30d95a94a6d7364bb74bfed2508`。
+3. 核对实现/结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58`、最终源码/证据检查点 `cb72797af5af615ca196d3618903417a54b0da2b` 与高选择率文档/证据检查点 `42c21c10696638dbf83a54bd00e37bb88dc474ac`。
 4. 任何新数值必须先进入 source CSV 并由生成器输出。
 
 ## 清理提示
