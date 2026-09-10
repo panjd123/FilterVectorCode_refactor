@@ -1,4 +1,8 @@
 raw/*.nsys-rep
 raw/*.sqlite
 raw/*_stats.stderr
+raw/*_stats.csv.txt
+raw/nvidia_smi_preflight.txt
+raw/source_attribution.txt
+raw/structure_source_excerpt.txt
 runs/
