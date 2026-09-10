@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-10 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`9ba5ce8`（push：`未执行；origin 指向用户脏工作树`）
+检查点：`355ad92`（push：`未执行；origin 指向用户脏工作树`）
 
 ## 目标
 
@@ -26,6 +26,7 @@
 - 同 T1 profile 完成：0.903% formal 的孤立 8.83% 慢点未在 Nsys 重跑复现；搜索无 CUDA activity，middle/upper 执行计数均为 0，CPU 热点组成近似。当前只能归因为未稳定复现的 CPU 波动；overlay cache/内存效应尚未证实。
 - Amazon 查询目录审计完成：`old_query_1000/query_minlen1_cov10k` 可重算 GT 后正式使用；普通 hybrid 需重标定；Zipf 与当前 x1 label 语义不兼容；selected-recall 集存在后验选择偏差。
 - 历史 `cov10k` 正式复测完成：8/8 cases、24 points、7 repeats，validator 通过。固定 T1 双层相对单层 1.13--1.21x；独立调优单层 `T1=128k` 为 3831.68 ms，优于双层 `16k/400k` 的 4487.59 ms。profile 与历史查询 compact evidence 提交 `3bd438c`。
+- 新增 `MULTILEVEL_SPECIAL_BLOCK_COMPLETE_RESULTS_CN.md`，统一汇总六档共享、高选择率共享、固定 T1、逐 workload oracle、历史固定配置、历史 cov10k、外部方法和构建成本，并显式分开不同统计口径。
 
 ## 下一步
 
@@ -51,6 +52,7 @@
 ## 仅在需要时阅读的细节
 
 - `docs/reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md` — 面向展示的主结论。
+- `docs/reports/MULTILEVEL_SPECIAL_BLOCK_COMPLETE_RESULTS_CN.md` — 查询所有已知正式结果和参数时阅读。
 - `experiments/multilevel_special/LOW_SAME_T1_EXPERIMENT.md` — 固定 T1 低选择率协议与结果。
 - `experiments/multilevel_special/profile/low_selectivity_same_t1/PROFILE_REPORT.md` — 解释低选择率慢点时阅读。
 - `experiments/multilevel_special/LEGACY_AMAZON_QUERY_RETEST.md` — 查询目录兼容性与历史 cov10k 结果。
@@ -61,7 +63,7 @@
 
 1. 先读本看板并运行 `git status --short`。
 2. 不要暂存 `runs/`、`thirdparty/` 或 profile 下的大型 raw 文件。
-3. 核对 HEAD 至少包含 `9ba5ce8`；新数值必须先进入 compact evidence，再更新主报告。
+3. 核对 HEAD 至少包含 `355ad92`；新数值必须先进入 compact evidence，再更新主报告。
 4. 从“下一步”继续，不修改 `/home/graphdb/FilterVectorCode_refactor`。
 
 ## 清理提示

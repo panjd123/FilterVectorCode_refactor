@@ -188,6 +188,7 @@ Authorization 本身几乎可忽略。50% 时两层的 Graph Search 比单层略
 
 ## 9. 证据与复现入口
 
+- 完整结果总表：`docs/reports/MULTILEVEL_SPECIAL_BLOCK_COMPLETE_RESULTS_CN.md`
 - 正式配置：`experiments/multilevel_special/config.amazon_x1_layer_tuning_query_formal.json`
 - 共享 compact 表：`experiments/multilevel_special/results_summary/layer_tuning_shared_summary.csv`
 - 共享阶段表：`experiments/multilevel_special/results_summary/layer_tuning_stage_breakdown.csv`
