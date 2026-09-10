@@ -1,0 +1,23 @@
+{
+  "search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+  "main_index": "/home/graphdb/FilterVectorResult/Amazon/index/Trie_block/index_files",
+  "data_root": "/home/graphdb/FilterVectorData/Amazon",
+  "gt_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/legacy_query_retest_amazon_x1/groundtruth",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/legacy_query_retest_amazon_x1/boundary",
+  "expected_source_fingerprint": "91d78580ae29f468",
+  "expected_base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+  "expected_main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+  "dataset": "Amazon", "K": 10, "expected_num_queries": 1000,
+  "num_threads": 100, "num_entry_points": 16, "num_repeats": 3,
+  "lsearch_values": [100], "require_stage_breakdown": true,
+  "workloads": [{"name": "legacy_cov10k", "query_dir": "old_query_1000/query_minlen1_cov10k", "mean_selectivity": 0.28609626}],
+  "methods": [
+    {"name":"layer1_t1_1000","layer_count":1,"t1":1000,"special_block_search":true,"block_index":"/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer1_t1_1000/block_index","entry_group_provider":"cpu_bruteforce_els","env":{"UNG_DISABLE_ELS_REUSE":"1","UNG_DISABLE_CPU_ELS_WARMUP":"1","UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE":"1"},"lsearch_values":[18000,20000,22000,24000,28000,32000,40000]},
+    {"name":"layer2_t1_1000_t2_4000","layer_count":2,"t1":1000,"t2":4000,"special_block_search":true,"block_index":"/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_1000_t2_4000/block_index","entry_group_provider":"cpu_bruteforce_els","env":{"UNG_DISABLE_ELS_REUSE":"1","UNG_DISABLE_CPU_ELS_WARMUP":"1","UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE":"1"},"lsearch_values":[16000,18000,20000,22000,24000,28000,32000]},
+    {"name":"layer2_t1_1000_t2_10000","layer_count":2,"t1":1000,"t2":10000,"special_block_search":true,"block_index":"/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_1000_t2_10000/block_index","entry_group_provider":"cpu_bruteforce_els","env":{"UNG_DISABLE_ELS_REUSE":"1","UNG_DISABLE_CPU_ELS_WARMUP":"1","UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE":"1"},"lsearch_values":[16000,18000,20000,22000,24000,28000,32000]},
+    {"name":"layer2_t1_1000_t2_25000","layer_count":2,"t1":1000,"t2":25000,"special_block_search":true,"block_index":"/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_1000_t2_25000/block_index","entry_group_provider":"cpu_bruteforce_els","env":{"UNG_DISABLE_ELS_REUSE":"1","UNG_DISABLE_CPU_ELS_WARMUP":"1","UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE":"1"},"lsearch_values":[16000,18000,20000,22000,24000,28000,32000]},
+    {"name":"layer2_t1_1000_t2_50000","layer_count":2,"t1":1000,"t2":50000,"special_block_search":true,"block_index":"/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_1000_t2_50000/block_index","entry_group_provider":"cpu_bruteforce_els","env":{"UNG_DISABLE_ELS_REUSE":"1","UNG_DISABLE_CPU_ELS_WARMUP":"1","UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE":"1"},"lsearch_values":[16000,18000,20000,22000,24000,28000,32000]},
+    {"name":"layer1_t1_128000","layer_count":1,"t1":128000,"special_block_search":true,"block_index":"/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer1_t1_128000/block_index","entry_group_provider":"cpu_bruteforce_els","env":{"UNG_DISABLE_ELS_REUSE":"1","UNG_DISABLE_CPU_ELS_WARMUP":"1","UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE":"1"},"lsearch_values":[10000,12000,14000,16000,18000]},
+    {"name":"layer2_t1_16000_t2_400000","layer_count":2,"t1":16000,"t2":400000,"special_block_search":true,"block_index":"/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/layer_tuning_build_amazon_x1/layer2_t1_16000_t2_400000/block_index","entry_group_provider":"cpu_bruteforce_els","env":{"UNG_DISABLE_ELS_REUSE":"1","UNG_DISABLE_CPU_ELS_WARMUP":"1","UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE":"1"},"lsearch_values":[10000,12000,14000,16000,18000]}
+  ]
+}

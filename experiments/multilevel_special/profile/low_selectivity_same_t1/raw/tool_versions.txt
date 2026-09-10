@@ -1,0 +1,6 @@
+/bin/sh: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8)
+NVIDIA Nsight Systems version 2023.4.4.54-234433681190v0
+/bin/sh: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8)
+NVIDIA (R) Nsight Compute Command Line Profiler
+Copyright (c) 2018-2023 NVIDIA Corporation
+Version 2024.1.0.0 (build 33681293) (public-release)

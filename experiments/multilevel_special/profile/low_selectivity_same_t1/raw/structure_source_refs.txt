@@ -1,0 +1,36 @@
+UNG/codes/include/ung_special_block_trie.h:17:struct SpecialBlockTrieNode
+UNG/codes/include/ung_special_block_trie.h:30:struct SpecialBlockTrieSearchStats
+UNG/codes/include/ung_special_blocks.h:23:struct SpecialBlock
+UNG/codes/include/ung_special_blocks.h:94:struct SpecialEdge
+UNG/codes/include/ung_special_blocks.h:183:struct SpecialBlockBuildSummary
+UNG/codes/include/uni_nav_graph.h:53:   struct SpecialBlockTrieWarmupStats
+UNG/codes/include/uni_nav_graph.h:187:      struct SpecialEdgeView
+UNG/codes/include/uni_nav_graph.h:388:      std::vector<IdxType> _point_to_upper_special_block;
+UNG/codes/include/uni_nav_graph.h:420:      SpecialEdgeView special_edges_for_point(IdxType point_id) const;
+UNG/codes/include/special_block_index_builder.h:13:struct SpecialBlockIndexBuildOptions
+UNG/codes/include/ung_special_block_activation.h:58:struct SpecialBlockEdgeTransition
+UNG/codes/include/ung_special_block_activation.h:100:struct SpecialBlockLevelGateResult
+UNG/codes/include/ung_special_edge_io.h:15:struct SpecialEdgeBinaryRecord
+UNG/codes/include/ung_special_edge_io.h:26:struct SpecialEdgeBinaryValidation
+UNG/codes/include/ung_special_edge_io.h:67:struct SpecialEdgeCsr
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:2041:   add_flat_vector(_point_to_upper_special_block);
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:2074:UniNavGraph::special_edges_for_point(IdxType point_id) const
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:2214:   _point_to_upper_special_block.assign(_num_points, 0);
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:2251:                                               : _point_to_upper_special_block;
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:2269:   _point_to_upper_special_block.assign(_num_points, 0);
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:3919:                   _point_to_upper_special_block);
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:3949:                _point_to_upper_special_block);
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:4311:                       _point_to_special_block, _point_to_upper_special_block,
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:4330:          _point_to_special_block, _point_to_upper_special_block);
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:4380:                 _point_to_special_block, _point_to_upper_special_block,
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:4389:                _point_to_upper_special_block);
+UNG/codes/src/uni_nav_graph_special_blocks.cpp:4454:                 _point_to_special_block, _point_to_upper_special_block,
+UNG/codes/src/uni_nav_graph_search_backend.cpp:630:             _point_to_upper_special_block, query_free_block);
+UNG/codes/src/uni_nav_graph_search_backend.cpp:1149:            preexpand_edges(special_edges_for_point(seed.id), false,
+UNG/codes/src/uni_nav_graph_search_backend.cpp:1186:                                             cur.id < _point_to_upper_special_block.size()
+UNG/codes/src/uni_nav_graph_search_backend.cpp:1187:                                         ? _point_to_upper_special_block[cur.id]
+UNG/codes/src/uni_nav_graph_search_backend.cpp:1241:                cur.id < _point_to_upper_special_block.size())
+UNG/codes/src/uni_nav_graph_search_backend.cpp:1242:               current_free_block = _point_to_upper_special_block[cur.id];
+UNG/codes/src/uni_nav_graph_search_backend.cpp:1338:                               _point_to_upper_special_block);
+UNG/codes/src/uni_nav_graph_search_backend.cpp:1445:               scan_special_edges(special_edges_for_point(cur.id), false);
+UNG/codes/src/uni_nav_graph_search_backend.cpp:1851:            const auto special_edges = special_edges_for_point(cur.id);

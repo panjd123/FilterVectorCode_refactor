@@ -1,0 +1,21 @@
+SINGLE
+515M	runs/fresh_single_build_amazon_x1/single_1000/block_index
+meta 1553
+special_block_trie.bin 78414492
+special_blocks.bin 1918392
+special_edges.bin 327980552
+special_trie_regular_edges.bin 130740900
+MULTI10K
+756M	runs/multilevel_builds_amazon_x1/t2_10000/block_index
+meta 1571
+special_block_trie.bin 78414492
+special_blocks.bin 3821388
+special_edges.bin 578849680
+special_trie_regular_edges.bin 130740900
+MULTI50K
+716M	runs/multilevel_builds_amazon_x1/t2_50000/block_index
+meta 1570
+special_block_trie.bin 78414492
+special_blocks.bin 3654444
+special_edges.bin 537171488
+special_trie_regular_edges.bin 130740900

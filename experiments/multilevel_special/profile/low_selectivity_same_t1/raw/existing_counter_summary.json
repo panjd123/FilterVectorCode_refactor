@@ -1,0 +1,854 @@
+{
+  "sel1_single_L4500": {
+    "Time_ms": {
+      "mean": 13.270741346428572,
+      "median": 5.68784,
+      "nonzero": 7000,
+      "max": 186.053
+    },
+    "EntryGroupSearchTime_ms": {
+      "mean": 0.03311969571428572,
+      "median": 0.008779,
+      "nonzero": 7000,
+      "max": 4.66173
+    },
+    "EntryPointSetupTime_ms": {
+      "mean": 1.1157630417142856,
+      "median": 0.2779155,
+      "nonzero": 7000,
+      "max": 128.661
+    },
+    "GraphSearchTime_ms": {
+      "mean": 11.928445518571428,
+      "median": 4.58536,
+      "nonzero": 7000,
+      "max": 166.018
+    },
+    "OtherTime_ms": {
+      "mean": 0.19341345685714284,
+      "median": 0.063142,
+      "nonzero": 7000,
+      "max": 16.6293
+    },
+    "Recall": {
+      "mean": 0.9043000000000001,
+      "median": 1.0,
+      "nonzero": 6804,
+      "max": 1.0
+    },
+    "TotalDistanceCalcs": {
+      "mean": 3640.081,
+      "median": 2317.5,
+      "nonzero": 7000,
+      "max": 17270.0
+    },
+    "EntryPointDistanceCalcs": {
+      "mean": 576.191,
+      "median": 224.5,
+      "nonzero": 7000,
+      "max": 4287.0
+    },
+    "GraphSearchDistanceCalcs": {
+      "mean": 3063.89,
+      "median": 1803.5,
+      "nonzero": 6874,
+      "max": 16351.0
+    },
+    "EntryGroupMatchedPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialFreeBlockCount": {
+      "mean": 1.14,
+      "median": 0.0,
+      "nonzero": 1652,
+      "max": 15.0
+    },
+    "SpecialQueryMiddleBlockCount": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperBlockCount": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperCoveredPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperEnabled": {
+      "mean": 1.0,
+      "median": 1.0,
+      "nonzero": 7000,
+      "max": 1.0
+    },
+    "SpecialBlockSeedPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSeedPointsRetained": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSeedPointsPreexpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialEntryBlocks": {
+      "mean": 14.685,
+      "median": 10.0,
+      "nonzero": 7000,
+      "max": 111.0
+    },
+    "SpecialRetainedEntryBlocks": {
+      "mean": 14.685,
+      "median": 10.0,
+      "nonzero": 7000,
+      "max": 111.0
+    },
+    "SpecialBlocksSearched": {
+      "mean": 0.839,
+      "median": 0.0,
+      "nonzero": 1638,
+      "max": 11.0
+    },
+    "SpecialMiddleBlocksSearched": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperBlocksSearched": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSearchUsed": {
+      "mean": 0.234,
+      "median": 0.0,
+      "nonzero": 1638,
+      "max": 1.0
+    },
+    "SpecialRegularNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialFreeNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialMiddleNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialMiddleActivations": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperActivations": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueInsertAttempts": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueBoundRejections": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueInsertions": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueShiftedCandidates": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "BatchWarm_ms": {
+      "mean": 156.4425,
+      "median": 152.85750000000002,
+      "min": 147.739,
+      "max": 180.694,
+      "n": 6
+    }
+  },
+  "sel1_multi50k_L4500": {
+    "Time_ms": {
+      "mean": 10.924184156428572,
+      "median": 4.882395,
+      "nonzero": 7000,
+      "max": 93.2635
+    },
+    "EntryGroupSearchTime_ms": {
+      "mean": 0.011141831999999999,
+      "median": 0.0078395,
+      "nonzero": 7000,
+      "max": 3.13173
+    },
+    "EntryPointSetupTime_ms": {
+      "mean": 0.643977783,
+      "median": 0.24582749999999998,
+      "nonzero": 7000,
+      "max": 11.201
+    },
+    "GraphSearchTime_ms": {
+      "mean": 10.20306023,
+      "median": 4.150874999999999,
+      "nonzero": 7000,
+      "max": 91.7325
+    },
+    "OtherTime_ms": {
+      "mean": 0.06600464142857143,
+      "median": 0.051505999999999996,
+      "nonzero": 7000,
+      "max": 2.44671
+    },
+    "Recall": {
+      "mean": 0.9043000000000001,
+      "median": 1.0,
+      "nonzero": 6804,
+      "max": 1.0
+    },
+    "TotalDistanceCalcs": {
+      "mean": 3640.127,
+      "median": 2317.5,
+      "nonzero": 7000,
+      "max": 17267.0
+    },
+    "EntryPointDistanceCalcs": {
+      "mean": 576.191,
+      "median": 224.5,
+      "nonzero": 7000,
+      "max": 4287.0
+    },
+    "GraphSearchDistanceCalcs": {
+      "mean": 3063.936,
+      "median": 1803.5,
+      "nonzero": 6874,
+      "max": 16348.0
+    },
+    "EntryGroupMatchedPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialFreeBlockCount": {
+      "mean": 1.14,
+      "median": 0.0,
+      "nonzero": 1652,
+      "max": 15.0
+    },
+    "SpecialQueryMiddleBlockCount": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperBlockCount": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperCoveredPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperEnabled": {
+      "mean": 1.0,
+      "median": 1.0,
+      "nonzero": 7000,
+      "max": 1.0
+    },
+    "SpecialBlockSeedPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSeedPointsRetained": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSeedPointsPreexpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialEntryBlocks": {
+      "mean": 14.685,
+      "median": 10.0,
+      "nonzero": 7000,
+      "max": 111.0
+    },
+    "SpecialRetainedEntryBlocks": {
+      "mean": 14.685,
+      "median": 10.0,
+      "nonzero": 7000,
+      "max": 111.0
+    },
+    "SpecialBlocksSearched": {
+      "mean": 0.839,
+      "median": 0.0,
+      "nonzero": 1638,
+      "max": 11.0
+    },
+    "SpecialMiddleBlocksSearched": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperBlocksSearched": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSearchUsed": {
+      "mean": 0.234,
+      "median": 0.0,
+      "nonzero": 1638,
+      "max": 1.0
+    },
+    "SpecialRegularNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialFreeNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialMiddleNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialMiddleActivations": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperActivations": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueInsertAttempts": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueBoundRejections": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueInsertions": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueShiftedCandidates": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "BatchWarm_ms": {
+      "mean": 141.97633333333332,
+      "median": 141.684,
+      "min": 137.629,
+      "max": 146.122,
+      "n": 6
+    }
+  },
+  "sel10_single_L15000": {
+    "Time_ms": {
+      "mean": 228.46872883628572,
+      "median": 114.406,
+      "nonzero": 7000,
+      "max": 1088.33
+    },
+    "EntryGroupSearchTime_ms": {
+      "mean": 0.07365482657142858,
+      "median": 0.019955,
+      "nonzero": 7000,
+      "max": 10.1071
+    },
+    "EntryPointSetupTime_ms": {
+      "mean": 1.9672490117142858,
+      "median": 1.2786849999999998,
+      "nonzero": 7000,
+      "max": 120.677
+    },
+    "GraphSearchTime_ms": {
+      "mean": 226.2289067007143,
+      "median": 111.68299999999999,
+      "nonzero": 7000,
+      "max": 1086.42
+    },
+    "OtherTime_ms": {
+      "mean": 0.198911832,
+      "median": 0.138766,
+      "nonzero": 7000,
+      "max": 4.39903
+    },
+    "Recall": {
+      "mean": 0.8854000000000001,
+      "median": 1.0,
+      "nonzero": 6832,
+      "max": 1.0
+    },
+    "TotalDistanceCalcs": {
+      "mean": 26827.38,
+      "median": 16111.0,
+      "nonzero": 7000,
+      "max": 90341.0
+    },
+    "EntryPointDistanceCalcs": {
+      "mean": 1465.209,
+      "median": 1586.0,
+      "nonzero": 7000,
+      "max": 15025.0
+    },
+    "GraphSearchDistanceCalcs": {
+      "mean": 25362.171,
+      "median": 15098.0,
+      "nonzero": 6986,
+      "max": 88750.0
+    },
+    "EntryGroupMatchedPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialFreeBlockCount": {
+      "mean": 24.981,
+      "median": 2.0,
+      "nonzero": 4865,
+      "max": 68.0
+    },
+    "SpecialQueryMiddleBlockCount": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperBlockCount": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperCoveredPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperEnabled": {
+      "mean": 1.0,
+      "median": 1.0,
+      "nonzero": 7000,
+      "max": 1.0
+    },
+    "SpecialBlockSeedPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSeedPointsRetained": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSeedPointsPreexpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialEntryBlocks": {
+      "mean": 24.609,
+      "median": 22.0,
+      "nonzero": 6979,
+      "max": 164.0
+    },
+    "SpecialRetainedEntryBlocks": {
+      "mean": 24.609,
+      "median": 22.0,
+      "nonzero": 6979,
+      "max": 164.0
+    },
+    "SpecialBlocksSearched": {
+      "mean": 17.331,
+      "median": 2.0,
+      "nonzero": 4858,
+      "max": 62.0
+    },
+    "SpecialMiddleBlocksSearched": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperBlocksSearched": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSearchUsed": {
+      "mean": 0.694,
+      "median": 1.0,
+      "nonzero": 4858,
+      "max": 1.0
+    },
+    "SpecialRegularNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialFreeNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialMiddleNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialMiddleActivations": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperActivations": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueInsertAttempts": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueBoundRejections": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueInsertions": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueShiftedCandidates": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "BatchWarm_ms": {
+      "mean": 2487.9516666666664,
+      "median": 2487.645,
+      "min": 2432.17,
+      "max": 2542.23,
+      "n": 6
+    }
+  },
+  "sel10_multi10k_L15000": {
+    "Time_ms": {
+      "mean": 246.94525773128572,
+      "median": 115.387,
+      "nonzero": 7000,
+      "max": 1246.93
+    },
+    "EntryGroupSearchTime_ms": {
+      "mean": 0.06440383842857143,
+      "median": 0.019651000000000002,
+      "nonzero": 7000,
+      "max": 12.6029
+    },
+    "EntryPointSetupTime_ms": {
+      "mean": 2.098399464,
+      "median": 1.293635,
+      "nonzero": 7000,
+      "max": 127.274
+    },
+    "GraphSearchTime_ms": {
+      "mean": 244.58577257885713,
+      "median": 112.2655,
+      "nonzero": 7000,
+      "max": 1219.84
+    },
+    "OtherTime_ms": {
+      "mean": 0.1966871225714286,
+      "median": 0.14184249999999998,
+      "nonzero": 7000,
+      "max": 10.0443
+    },
+    "Recall": {
+      "mean": 0.9088,
+      "median": 1.0,
+      "nonzero": 6839,
+      "max": 1.0
+    },
+    "TotalDistanceCalcs": {
+      "mean": 27878.419,
+      "median": 16177.0,
+      "nonzero": 7000,
+      "max": 97053.0
+    },
+    "EntryPointDistanceCalcs": {
+      "mean": 1465.209,
+      "median": 1586.0,
+      "nonzero": 7000,
+      "max": 15025.0
+    },
+    "GraphSearchDistanceCalcs": {
+      "mean": 26413.21,
+      "median": 15141.5,
+      "nonzero": 6986,
+      "max": 95462.0
+    },
+    "EntryGroupMatchedPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialFreeBlockCount": {
+      "mean": 27.423,
+      "median": 2.0,
+      "nonzero": 4865,
+      "max": 75.0
+    },
+    "SpecialQueryMiddleBlockCount": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperBlockCount": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperCoveredPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueryUpperEnabled": {
+      "mean": 1.0,
+      "median": 1.0,
+      "nonzero": 7000,
+      "max": 1.0
+    },
+    "SpecialBlockSeedPoints": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSeedPointsRetained": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSeedPointsPreexpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialEntryBlocks": {
+      "mean": 24.609,
+      "median": 22.0,
+      "nonzero": 6979,
+      "max": 164.0
+    },
+    "SpecialRetainedEntryBlocks": {
+      "mean": 24.609,
+      "median": 22.0,
+      "nonzero": 6979,
+      "max": 164.0
+    },
+    "SpecialBlocksSearched": {
+      "mean": 4.544,
+      "median": 2.0,
+      "nonzero": 4858,
+      "max": 20.0
+    },
+    "SpecialMiddleBlocksSearched": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperBlocksSearched": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialBlockSearchUsed": {
+      "mean": 0.694,
+      "median": 1.0,
+      "nonzero": 4858,
+      "max": 1.0
+    },
+    "SpecialRegularNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialFreeNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialMiddleNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperNodesExpanded": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialMiddleActivations": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialUpperActivations": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueInsertAttempts": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueBoundRejections": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueInsertions": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "SpecialQueueShiftedCandidates": {
+      "mean": 0.0,
+      "median": 0.0,
+      "nonzero": 0,
+      "max": 0.0
+    },
+    "BatchWarm_ms": {
+      "mean": 2686.1583333333333,
+      "median": 2669.605,
+      "min": 2649.26,
+      "max": 2759.86,
+      "n": 6
+    }
+  }
+}

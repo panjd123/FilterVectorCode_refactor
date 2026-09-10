@@ -1,0 +1,4 @@
+raw/*.nsys-rep
+raw/*.sqlite
+raw/*_stats.stderr
+runs/

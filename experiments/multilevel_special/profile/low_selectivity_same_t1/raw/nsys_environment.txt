@@ -1,0 +1,18 @@
+/bin/sh: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8)
+Timestamp counter supported: Yes
+
+CPU Profiling Environment Check
+Root privilege: disabled
+Linux Kernel Paranoid Level = 2
+Linux Distribution = CentOS
+Linux Kernel Version = 3.10.0-1160.119.1.el7.x86_64: OK
+Linux perf_event_open syscall available: OK
+Sampling trigger event available: OK
+Intel(c) Last Branch Record support: Available
+CPU Profiling Environment (process-tree): OK
+CPU Profiling Environment (system-wide): Fail
+
+See the product documentation at https://docs.nvidia.com/nsight-systems for more information,
+including information on how to set the Linux Kernel Paranoid Level.
+2
+1

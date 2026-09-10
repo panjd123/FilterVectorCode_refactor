@@ -1,0 +1,37 @@
+Nsight Systems CPU sampling summary (SQLite extraction)
+Generated from nsys_sel1_{single,multi25k}_l4500.sqlite
+
+Scope rule:
+  retain COMPOSITE_EVENTS whose SAMPLING_CALLCHAINS contain
+  ANNS::UniNavGraph::execute_special_block_ung_query; group stackDepth=0 leaves.
+
+single T1=1000, L=4500
+  all samples: 158193
+  search-path samples: 120962 (76.46%)
+  top leaves (% of search-path samples):
+    SpecialCandidateQueue::insert                    53306  44.07%
+    FloatL2DistanceHandler::compute_avx2             20281  16.77%
+    execute_special_block_ung_query body symbol A    14728  12.18%
+    __memmove_ssse3_back                             11385   9.41%
+    execute_special_block_ung_query body symbol B     9358   7.74%
+    GraphSearchBackend::neighbors                     3124   2.58%
+    SpecialCandidateQueue::has_unexpanded             1394   1.15%
+    Storage<float>::get_vector                         913   0.75%
+    UniNavGraph::special_edges_for_point               365   0.30%
+
+two-level T1=1000,T2=25000, L=4500
+  all samples: 153590
+  search-path samples: 115464 (75.18%)
+  top leaves (% of search-path samples):
+    SpecialCandidateQueue::insert                    50260  43.53%
+    FloatL2DistanceHandler::compute_avx2             19584  16.96%
+    execute_special_block_ung_query body symbol A    14127  12.23%
+    __memmove_ssse3_back                             10788   9.34%
+    execute_special_block_ung_query body symbol B     9993   8.65%
+    GraphSearchBackend::neighbors                     3055   2.65%
+    SpecialCandidateQueue::has_unexpanded             1326   1.15%
+    Storage<float>::get_vector                         932   0.81%
+    UniNavGraph::special_edges_for_point               379   0.33%
+
+Limitation: there are no NVTX query/repeat ranges, so these samples cover the
+whole process and are statistical rather than exact repeat-level attribution.
