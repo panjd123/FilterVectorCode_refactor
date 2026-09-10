@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-10 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`355ad92`（push：`未执行；origin 指向用户脏工作树`）
+检查点：`3a48a51`（push：`未执行；origin 指向用户脏工作树`）
 
 ## 目标
 
@@ -63,7 +63,7 @@
 
 1. 先读本看板并运行 `git status --short`。
 2. 不要暂存 `runs/`、`thirdparty/` 或 profile 下的大型 raw 文件。
-3. 核对 HEAD 至少包含 `355ad92`；新数值必须先进入 compact evidence，再更新主报告。
+3. 核对 HEAD 至少包含 `3a48a51`；新数值必须先进入 compact evidence，再更新主报告。
 4. 从“下一步”继续，不修改 `/home/graphdb/FilterVectorCode_refactor`。
 
 ## 清理提示
