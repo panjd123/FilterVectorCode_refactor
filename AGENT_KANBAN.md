@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-10 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`3bd438c`（push：`未执行；origin 指向用户脏工作树`）
+检查点：`9ba5ce8`（push：`未执行；origin 指向用户脏工作树`）
 
 ## 目标
 
@@ -10,12 +10,12 @@
 
 ## 当前状态
 
-- 总体：`验证中`
+- 总体：`完成`
 - 摘要：实现、高选择率实验、低选择率固定 T1 消融、Nsys CPU profile 和历史 `cov10k` 重测均已完成。当前证据显示：低于 1% 时第二层与同 T1 单层基本同量级但不能声称严格不变；约 10% 时第二层相对同 T1 单层快 2.46--2.70x；历史 28.61% workload 上固定 T1 双层快 1.13--1.21x，但独立调优单层仍是候选中最快；两层相对单层最稳定的系统级优势出现在已测高选择率点。
 
 ## 进行中
 
-- 对新增 compact evidence、profile 文档、主报告和脚本执行最终重建、单测、hash 与 Git 状态检查。
+- 无。
 
 ## 完成历史
 
@@ -29,7 +29,7 @@
 
 ## 下一步
 
-运行最终验证；若全部通过，更新本看板为完成并创建最后 checkpoint。不要再启动 benchmark，除非验证发现结果缺失或哈希不一致。
+如需整合回原始脏仓库，先阅读 merge-back 报告并人工处理重叠路径；不要直接 merge 或 cherry-pick 整个分支。
 
 ## 阻塞与问题
 
@@ -43,7 +43,10 @@
 - `validate_selection_sweep.py config.amazon_x1_low_same_t1_formal.json` — `通过`：18/18 cases。
 - `validate_selection_sweep.py config.amazon_x1_legacy_cov10k_formal.json` — `通过`：8/8 cases、24 points，最大 stage closure error `2.794e-12 ms/query`。
 - 高选择率主实验与 boundary extension — `通过`：95/95 + 20/20 cases，合并 719 个唯一点。
-- 既有 CTest/Python 全套验证 — `通过`：最新实现闭包分别为 CTest 14/14、Python 62/62；新增文档/汇总脚本的本轮最终检查尚在进行。
+- `python3 -m py_compile summarize_legacy_cov10k.py summarize_query_details.py` — `通过`。
+- compact evidence 重建与 `cmp` — `通过`：equal-recall CSV 和 execution manifest snapshot 与提交版本一致。
+- `python3 -m unittest -q test_multilevel_selection.py test_generate_paper_results.py` — `通过`：62/62。
+- `git diff --check` 与 artifact manifest 更新 — `通过`。
 
 ## 仅在需要时阅读的细节
 
@@ -58,7 +61,7 @@
 
 1. 先读本看板并运行 `git status --short`。
 2. 不要暂存 `runs/`、`thirdparty/` 或 profile 下的大型 raw 文件。
-3. 核对 HEAD 至少包含 `3bd438c`；新数值必须先进入 compact evidence，再更新主报告。
+3. 核对 HEAD 至少包含 `9ba5ce8`；新数值必须先进入 compact evidence，再更新主报告。
 4. 从“下一步”继续，不修改 `/home/graphdb/FilterVectorCode_refactor`。
 
 ## 清理提示
