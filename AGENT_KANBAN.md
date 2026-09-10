@@ -1,21 +1,21 @@
 # Agent 看板
 
-最后更新：`2026-09-08 Asia/Shanghai`
+最后更新：`2026-09-10 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
 实现与结果检查点：`7a2bf4635eac43d174100770838daf1b3a10fa58`；高选择率文档与证据检查点：`42c21c10696638dbf83a54bd00e37bb88dc474ac`（origin 指向用户脏工作树，不直接 push）
 
 ## 目标
 
-在隔离 shared clone 中实现并验证真正的多层 Special Block，并补充 Amazon 原始 x1 数据上 75% 以上的公平 0/1/2 层实验，确定两层优势是否延续以及接近/达到 100% 时是否回落。
+在隔离 shared clone 中实现并验证真正的多层 Special Block；本轮新增核验 `FilterVectorData/Amazon` 中历史查询集，并在当前 Amazon x1 base/labels、exact GT 与统一 binary 下重测可兼容集合。
 
 ## 当前状态
 
-- 总体：`完成`
-- 摘要：Amazon x1 高选择率正式实验、边界补测、compact evidence 和三份报告均已完成。共享结构为单层 T1=128k、两层 T1=16k/T2=400k；五个 80.0%--96.7% filtered 测点上两层逐点更快，几何平均相对单层 1.093x；100% 独立 control 为 1.196x。共享结构轴与 Lsearch 轴均无开放边界。
+- 总体：`进行中`
+- 摘要：既有 Amazon x1 高选择率结论保持冻结。本轮发现 `old_query_1000/query_minlen1_cov10k` 与当前 x1 基本兼容（当前重算平均选择率 28.610%）；hybrid 普通集需重标定，hybrid Zipf 与当前 label 语义不兼容，selected 集存在后验筛选偏差。正在为兼容集重算 exact GT 并做 0/1/2 层重测。
 
 ## 进行中
 
-- 无；高选择率结果、证据与报告已提交，等待人工审阅或后续安全 merge-back。
+- 为 `old_query_1000/query_minlen1_cov10k` 生成当前 Amazon x1 exact GT，随后用统一 binary 粗筛 0 层、T1=1k 单层、T1=1k 多个 T2，以及已有共享调优单层/双层。
 
 ## 完成历史
 
@@ -80,10 +80,11 @@
 
 ## 下一步
 
-从论文报告开始人工审阅；如需整合回原始脏 checkout，先按 merge-back 报告处理 27 个分叉路径，禁止直接自动 merge。
+完成 exact GT 后 dry-run 新配置，先跑最小正确性点，再执行宽 L 粗筛；按预声明 Recall 门槛从实测点比较，而不使用旧 GT、旧 coverage 或插值。
 
 ## 阻塞与问题
 
+- `hybrid_query/query_minlen1_cov10k_zipf` 在当前 x1 上每 query 仅 0--1 个匹配点，不能作为 K=10 的同口径 Recall workload；`query_selected_recall_advantage` 是按历史方法表现后验筛选的集合，只能作诊断。
 - 原始 checkout 有大量用户改动，禁止直接 merge；最终仅声明分支/patch merge-ready。
 - 服务器 Git 1.8.3.1 不支持 native worktree，当前隔离环境是 `git clone --shared`。
 - jump host 偶发断连；只做短时串行重试，避免并发 SSH。
