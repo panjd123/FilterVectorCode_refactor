@@ -72,9 +72,9 @@ int main()
    upper_block.level = 1;
    const auto ordinary_to_middle =
        ANNS::special_block_edge_transition(0, middle_block, true);
-   expect(ordinary_to_middle.allowed &&
-              ordinary_to_middle.successor_activation_level == 1,
-          "ordinary search may enter a covered middle block at level one");
+   expect(!ordinary_to_middle.allowed &&
+              ordinary_to_middle.successor_activation_level == 0,
+          "ordinary search must not consume overlay edges before activation");
    const auto ordinary_to_upper =
        ANNS::special_block_edge_transition(0, upper_block, true);
    expect(!ordinary_to_upper.allowed &&
@@ -82,9 +82,14 @@ int main()
           "ordinary search must not bypass the middle layer");
    const auto middle_to_upper =
        ANNS::special_block_edge_transition(1, upper_block, true);
-   expect(middle_to_upper.allowed &&
-              middle_to_upper.successor_activation_level == 2,
-          "middle search may enter a covered upper block at level two");
+   expect(!middle_to_upper.allowed &&
+              middle_to_upper.successor_activation_level == 1,
+          "middle expansion must not mix in upper-layer edges");
+   const auto middle_to_middle =
+       ANNS::special_block_edge_transition(1, middle_block, true);
+   expect(middle_to_middle.allowed &&
+              middle_to_middle.successor_activation_level == 1,
+          "middle search must retain edges owned by its current layer");
    const auto uncovered_upper =
        ANNS::special_block_edge_transition(1, upper_block, false);
    expect(!uncovered_upper.allowed &&
@@ -92,9 +97,14 @@ int main()
           "query coverage remains mandatory and rejected edges preserve source state");
    const auto upper_to_middle =
        ANNS::special_block_edge_transition(2, middle_block, true);
-   expect(upper_to_middle.allowed &&
+   expect(!upper_to_middle.allowed &&
               upper_to_middle.successor_activation_level == 2,
-          "activation must be monotone when traversing a lower-layer edge");
+          "upper search must not fall back to middle-layer edges");
+   const auto upper_to_upper =
+       ANNS::special_block_edge_transition(2, upper_block, true);
+   expect(upper_to_upper.allowed &&
+              upper_to_upper.successor_activation_level == 2,
+          "upper search must retain edges owned by its current layer");
 
    expect(ANNS::special_batch_gpu_search_is_allowed(true, 0),
           "single-layer indexes must retain the requested batch GPU path");

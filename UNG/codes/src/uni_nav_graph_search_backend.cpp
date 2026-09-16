@@ -667,6 +667,8 @@ namespace ANNS
 
       auto add_entry_point = [&](IdxType point_id, uint8_t activation_level,
                                  bool is_block_seed = false) {
+         activation_level =
+             point_upper_activation_level(point_id, activation_level);
          VisitedSet &visited = visited_for_level(activation_level);
          if (visited.check(point_id))
             return false;
@@ -763,6 +765,25 @@ namespace ANNS
                add_entry_point(landmark, 1, true);
             }
          }
+      }
+      // A covered upper block is a legal search space in its own right. Seed
+      // its portal directly at the upper activation level; otherwise exact
+      // level gating would make upper reachability depend on accidentally
+      // encountering a cross-partition member through middle traversal. The
+      // shared bounded queue still decides whether this portal survives.
+      for (IdxType block_id = 1; block_id < query_seed_block.size(); ++block_id)
+      {
+         if (query_seed_block[block_id] == 0 ||
+             block_id > _special_blocks.size())
+            continue;
+         const SpecialBlock &block = _special_blocks[block_id - 1];
+         if (block.level == 0)
+            continue;
+         const IdxType entry_point = block.entry_point_id;
+         if (entry_point == SpecialBlock::kInvalidEntryPoint ||
+             entry_point >= _num_points)
+            continue;
+         add_entry_point(entry_point, special_block_activation_level(block), true);
       }
       const char *free_group_entry_cap_value =
           std::getenv("UNG_SPECIAL_TRIE_FREE_GROUP_ENTRY_CAP");
@@ -993,6 +1014,9 @@ namespace ANNS
                                 uint8_t from_level) {
          if (neighbor >= _num_points)
             return false;
+         // Promotion happens before deduplication and queue insertion. The
+         // target's later expansion therefore consumes only its new level.
+         next_level = point_upper_activation_level(neighbor, next_level);
          VisitedSet &visited = visited_for_level(next_level);
          if (visited.check(neighbor))
             return false;

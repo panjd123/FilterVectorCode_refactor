@@ -61,10 +61,9 @@ struct SpecialBlockEdgeTransition
    uint8_t successor_activation_level = 0;
 };
 
-// Authorize an overlay edge and compute the state carried by its target as one
-// indivisible operation. Keeping these decisions together prevents a caller
-// from accepting an upper edge with one policy and then assigning the target
-// a different activation level.
+// Authorize only the overlay owned by the candidate's current activation
+// level. Promotion is a point-state transition performed before the target is
+// queued, so one expansion never mixes edges from two overlay levels.
 inline SpecialBlockEdgeTransition special_block_edge_transition(
     uint8_t current_level, const SpecialBlock &owner, bool query_covers_owner)
 {
@@ -74,12 +73,10 @@ inline SpecialBlockEdgeTransition special_block_edge_transition(
       return transition;
 
    const uint8_t owner_level = special_block_activation_level(owner);
-   if (static_cast<unsigned int>(owner_level) >
-       static_cast<unsigned int>(current_level) + 1U)
+   if (owner_level != current_level)
       return transition;
 
    transition.allowed = true;
-   transition.successor_activation_level = std::max(current_level, owner_level);
    return transition;
 }
 
