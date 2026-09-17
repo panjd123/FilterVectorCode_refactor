@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "dataset": "CelebA",
+  "workload": "query_7",
+  "mean_selectivity": 0.8054435411823356,
+  "policy": {
+    "M_sb": 64,
+    "Lbuild_sb": 100,
+    "C_sb": 4,
+    "layer_count": 1,
+    "thresholds": [
+      8192
+    ],
+    "block_counts": [
+      8
+    ],
+    "coverage": [
+      0.7411586434286448
+    ],
+    "stop_threshold": 131072
+  },
+  "formal": [
+    {
+      "method": "layer0_plain",
+      "Lsearch": 14000,
+      "recall_min": 0.9151,
+      "recall_mean": 0.9179666666666666,
+      "warm_median_ms": 1023.94,
+      "warm_mean_ms": 1021.8116666666667,
+      "warm_cv": 0.015085877641099069,
+      "warm_p95_ms": 1036.74
+    },
+    {
+      "method": "auto_layer1_t1_8192",
+      "Lsearch": 12000,
+      "recall_min": 0.9001,
+      "recall_mean": 0.9001,
+      "warm_median_ms": 2840.23,
+      "warm_mean_ms": 2845.7816666666668,
+      "warm_cv": 0.012102807782545466,
+      "warm_p95_ms": 2901.8
+    }
+  ],
+  "auto_vs_plain": {
+    "median_speedup": 0.36051305704115516,
+    "paired_geomean_speedup": 0.3590494470677593,
+    "paired_bootstrap_95ci": [
+      0.3562758735151541,
+      0.3618837715297554
+    ]
+  }
+}

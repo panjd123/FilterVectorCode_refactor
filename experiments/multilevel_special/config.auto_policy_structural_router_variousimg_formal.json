@@ -1,0 +1,46 @@
+{
+  "search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+  "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
+  "data_root": "/home/graphdb/FilterVectorData/VariousImg",
+  "gt_root": "/home/graphdb/FilterVectorResult/VariousImg/GroundTruth",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_structural_router_variousimg_formal",
+  "dataset": "VariousImg",
+  "expected_source_fingerprint": "31332117e049fea8",
+  "expected_base_labels_sha256": "c82e1457ca1660c7b792c1a3d986c000640fcf24f83753ea2a36d34a59bf7f88",
+  "expected_main_index_labels_sha256": "aad3856c18179f49f533eb9adc106ddd15f02f58e6ea90816a9f2a89186c68b3",
+  "K": 10,
+  "num_threads": 100,
+  "num_entry_points": 16,
+  "num_repeats": 7,
+  "lsearch_values": [100],
+  "require_stage_breakdown": true,
+  "recall_thresholds": {"query_minlen2_cov5k": 0.9},
+  "workloads": [
+    {"name": "query_minlen2_cov5k", "query_dir": "query_minlen2_cov5k", "mean_selectivity": 0.10252070203640627}
+  ],
+  "methods": [
+    {
+      "name": "auto_qf_ssl_structural_router",
+      "layer_count": 2,
+      "t1": 8192,
+      "t2": 131072,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_variousimg/build/auto_layer2_t1_8192_t2_131072/block_index",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
+      },
+      "lsearch_values_by_workload": {
+        "query_minlen2_cov5k": [3500]
+      }
+    }
+  ],
+  "formal_protocol": {
+    "selection_source": "runs/auto_policy_structural_router_variousimg_screen",
+    "selection_rule": "smallest measured L whose three repeats all reach Recall@10 >= 0.90",
+    "timing_rule": "repeat 0 cold, repeats 1-6 warm"
+  }
+}

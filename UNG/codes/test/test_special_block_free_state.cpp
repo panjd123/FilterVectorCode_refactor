@@ -20,6 +20,25 @@ void expect(bool condition, const char *message)
 
 int main()
 {
+   std::vector<ANNS::SpecialBlock> routing_blocks(2);
+   routing_blocks[0].level = 0;
+   routing_blocks[0].root_labels = {1, 2};
+   routing_blocks[1].level = 1;
+   routing_blocks[1].root_labels = {1, 3, 5};
+   expect(ANNS::special_block_query_authorizes_upper(
+              "containment", {1, 3}, routing_blocks),
+          "a containment query covered by an upper root must authorize multilevel search");
+   expect(!ANNS::special_block_query_authorizes_upper(
+              "containment", {1, 4}, routing_blocks),
+          "a query outside every upper root must stay on the plain route");
+   expect(!ANNS::special_block_query_authorizes_upper(
+              "equality", {1, 3}, routing_blocks),
+          "the upper authorization router is containment-only");
+   routing_blocks[1].level = 0;
+   expect(!ANNS::special_block_query_authorizes_upper(
+              "containment", {1}, routing_blocks),
+          "a single-level index must not claim an upper-level route");
+
    const std::vector<ANNS::IdxType> group_to_block{0, 1, 0};
    const std::vector<ANNS::IdxType> point_to_block{0, 0, 0, 1};
    const std::vector<uint8_t> covered_blocks{0, 1};

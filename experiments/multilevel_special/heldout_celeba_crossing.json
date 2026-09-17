@@ -1,0 +1,77 @@
+{
+  "search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+  "main_index": "/home/graphdb/Codes/FilterVectorResults/UNG/celeba/Index/Q7_M32_LB100_alpha1.2_C6_EP16/index_files",
+  "data_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_heldout_celeba/data",
+  "gt_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_heldout_celeba/gt",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_heldout_celeba/frozen_crossing",
+  "dataset": "celeba",
+  "expected_num_queries": 1000,
+  "expected_source_fingerprint": "8623e62e6b593d84",
+  "expected_base_labels_sha256": "063169f749e2887b87e36856746d98d90734bebdf371bd86dbe7d8bbe22b4492",
+  "expected_main_index_labels_sha256": "7ee590937703f1800980cfce16bf728421df77ea59b0643d553b9d332a342001",
+  "K": 10,
+  "num_threads": 100,
+  "num_entry_points": 16,
+  "num_repeats": 3,
+  "lsearch_values": [100],
+  "require_stage_breakdown": true,
+  "recall_thresholds": {
+    "query_7": 0.9
+  },
+  "workloads": [
+    {
+      "name": "query_7",
+      "query_dir": "query_7",
+      "mean_selectivity": 0.8054435411823356
+    }
+  ],
+  "methods": [
+    {
+      "name": "layer0_plain",
+      "layer_count": 0,
+      "special_block_search": false,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "lsearch_values_by_workload": {
+        "query_7": [10000, 12000, 14000, 16000, 18000, 20000]
+      }
+    },
+    {
+      "name": "auto_layer1_t1_4096",
+      "layer_count": 1,
+      "t1": 4096,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_heldout_celeba/frozen_build/auto_layer1_t1_4096/block_index",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "lsearch_values_by_workload": {
+        "query_7": [8000, 10000, 12000, 14000, 16000, 18000, 20000]
+      }
+    },
+    {
+      "name": "auto_layer2_t1_4096_t2_32768",
+      "layer_count": 2,
+      "t1": 4096,
+      "t2": 32768,
+      "special_block_search": true,
+      "entry_group_provider": "cpu_bruteforce_els",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_heldout_celeba/frozen_build/auto_layer2_t1_4096_t2_32768/block_index",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      },
+      "lsearch_values_by_workload": {
+        "query_7": [100, 250, 500, 1000, 2000, 4000, 8000, 12000]
+      }
+    }
+  ]
+}

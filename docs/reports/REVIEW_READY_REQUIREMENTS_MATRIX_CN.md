@@ -18,4 +18,14 @@
 | 保存阶段优化：binary-only、skip reordered、skip LNG text | done | `SPECIAL_BLOCK_BUILD...` 保存阶段段落；`skip_export_binary_lngskip_build_20260706_121730`。 | `UNG_SKIP_LNG_TEXT_SETS=1` 不能用于 GPU cover-frontier provider。 |
 | two-tier heavy sidecar 查询恢复 broad query recall | partial | `twotier_adaptive_four_20260706_093816`、`twotier_alternating_broad2_20260706_094843`；文档记录 recall 恢复和 timing 噪声。 | 仍是候选/近似路线，需更多 workload 与同进程 A/B。 |
 | 和 Tagore/CAGRA/FastGrnnd 相关工作比较 | partial | `GPU_GROUP_GRAPH_RELATED_WORK_COLLISION_CN.md`、`THREE_MAINLINES...` PG/group graph 章节。 | 若写论文，需要补更正式 related-work 表和未开源方法的论文数字对齐。 |
-| 项目达到 review-ready：结构清楚、证据可复现、需求明确回答 | partial | 本文件、`REVIEW_READY_HANDOFF_CN.md`、`AGENT_KANBAN.md`；交付物审查和结构 follow-up 均为 `nearly review-ready`，主要 blocker 已修。 | 研究 artifact 可审阅；工作树仍不是干净 release branch，完整结构审查仍建议在提交前再跑。 |
+| exact-level 语义：候选只扫描当前 activation level 拥有的边 | done | `ung_special_block_activation.h` 的 owner-level gate；`test_special_block_free_state.cpp` | 当前只物化至两层。 |
+| 自动同时确定层数和阈值，且不依赖 latency/Recall/query calibration | done | QF-SSL：`analyze_auto_layer_policy.py`；`QF_SSL_AUTO_POLICY_REPORT_CN.md` 第 1--2 节 | 是结构启发式，不是最优性定理。 |
+| 仅有一个候选尺度时自动退化 plain | done | singleton stop rule；Genome 最终 `layer_count=0`；单元测试覆盖 | CelebA 最终静态工件未单独生成，旧一层结果仅作开发动机。 |
+| Amazon 0.5/1/5/10/30/60/80/95/99 九档等 Recall 重测 | done | router formal、low-critical compact CSV；报告第 4 节 | 99% 是 303 label-1 + 697 empty 的 synthetic mixture。 |
+| 低选择率保持不变、高选择率获得二层收益 | done | Amazon 15-repeat 低档 router/plain 总体持平；统一 current binary 的 30--99% router/同 T1 单层 geomean 1.992x | “持平”是统计结论，不是逐次 wall-time 恒等。 |
+| 自动分层与手工调优比较 | done | 主报告 4.1 节；统一 current binary 九档自动/prior-tuned geomean 1.010x，范围 0.932x--1.212x | prior-tuned 是一个历史固定结构，不是全局 oracle。 |
+| 双层最优、单层最优与 plain 比较 | done | 主报告 4.2 节；`layer_tuning_oracle_summary.csv` 的六档历史候选 sweep | “最优”严格限定为预定义已测候选网格；历史 binary 与最终实现分表呈现。 |
+| 跨数据集验证与数据集来源说明 | done | Amazon、Genome、Reviews、VariousImg；CelebA development negative；报告第 2、3、5 节 | Reviews 0.200% wall-time 因短任务调度不稳定，标为不可判定。 |
+| 区分 measured/static heuristic/prior-tuned/historical/inference | done | 报告第 4--8 节显式标注 | singleton rule 是观察负例后的开发修正，不称 held-out。 |
+| exact-level structural router：无 upper 授权时走 plain query path | done | `UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION=1`；`SpecialBlockSearchUsed` 路由证据 | sidecar 仍在进程初始化时加载，内存代价不消失。 |
+| 项目达到 review-ready：结构清楚、证据可复现、需求明确回答 | done | 本文件、`AGENT_KANBAN.md`、QF-SSL 主报告；两轮技术审阅和有限上下文读者审阅已完成；Python 66/66、C++ 1/1 通过。 | 当前实现最多物化两层；论文仍需将方法称为结构启发式而非最优性定理。 |

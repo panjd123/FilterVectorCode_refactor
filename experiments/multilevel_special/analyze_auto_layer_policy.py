@@ -74,7 +74,10 @@ def derive_mass_ladder(nodes, children, points, total: int, max_degree: int,
 
     The base scale is the first dyadic mass at least M*Lbuild.  The scale ratio
     is the next power of two at least M/C, where C is the per-block cross-edge
-    budget.  Levels are emitted until the deterministic trie partition is empty.
+    budget. Candidate levels are emitted until the deterministic trie partition
+    is empty. A lone non-empty scale is not materialized: without a coarser
+    bypass it adds overlay cost but no hierarchy. Thus the deployable layer
+    count is either zero or at least two.
     """
     if max_degree <= 1:
         raise ValueError("max degree must exceed one")
@@ -100,6 +103,15 @@ def derive_mass_ladder(nodes, children, points, total: int, max_degree: int,
                           "outcome": "add_level",
                           "block_count": row["block_count"]})
         threshold *= scale_ratio
+    candidate_levels = levels
+    materialized_levels = candidate_levels if len(candidate_levels) >= 2 else []
+    if len(candidate_levels) == 1:
+        decisions.append({
+            "level": 1,
+            "threshold": candidate_levels[0]["threshold"],
+            "outcome": "discard_singleton_hierarchy",
+            "reason": "one scale provides no coarser bypass",
+        })
     return {
         "name": "query_free_mass_ladder",
         "max_degree": max_degree,
@@ -107,11 +119,13 @@ def derive_mass_ladder(nodes, children, points, total: int, max_degree: int,
         "cross_edges": cross_edges,
         "base_rule": "T1 = next_power_of_two(M * Lbuild)",
         "scale_ratio_rule": "rho = next_power_of_two(max(2, M / C))",
-        "stop_rule": "stop before the first threshold whose trie partition has zero blocks",
+        "stop_rule": "stop before the first empty partition; materialize only if at least two scales exist",
         "scale_ratio": scale_ratio,
-        "layer_count": len(levels),
-        "thresholds": [row["threshold"] for row in levels],
-        "levels": levels,
+        "candidate_layer_count": len(candidate_levels),
+        "candidate_thresholds": [row["threshold"] for row in candidate_levels],
+        "layer_count": len(materialized_levels),
+        "thresholds": [row["threshold"] for row in materialized_levels],
+        "levels": materialized_levels,
         "decisions": decisions,
     }
 

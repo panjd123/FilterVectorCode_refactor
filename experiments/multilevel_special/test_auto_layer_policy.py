@@ -36,6 +36,20 @@ class AutoLayerPolicyTest(unittest.TestCase):
         self.assertEqual(policy["decisions"][-1]["threshold"], 32)
         self.assertEqual(policy["decisions"][-1]["outcome"], "stop")
 
+    def test_single_candidate_scale_falls_back_to_plain(self):
+        policy = derive_mass_ladder(
+            self.nodes, self.children, self.points, 25,
+            max_degree=4, build_width=3, cross_edges=2, max_levels=4,
+        )
+        self.assertEqual(policy["candidate_thresholds"], [16])
+        self.assertEqual(policy["candidate_layer_count"], 1)
+        self.assertEqual(policy["thresholds"], [])
+        self.assertEqual(policy["layer_count"], 0)
+        self.assertEqual(
+            policy["decisions"][-1]["outcome"],
+            "discard_singleton_hierarchy",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

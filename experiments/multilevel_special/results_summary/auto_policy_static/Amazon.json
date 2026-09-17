@@ -231,8 +231,13 @@
     "cross_edges": 4,
     "base_rule": "T1 = next_power_of_two(M * Lbuild)",
     "scale_ratio_rule": "rho = next_power_of_two(max(2, M / C))",
-    "stop_rule": "stop before the first threshold whose trie partition has zero blocks",
+    "stop_rule": "stop before the first empty partition; materialize only if at least two scales exist",
     "scale_ratio": 16,
+    "candidate_layer_count": 2,
+    "candidate_thresholds": [
+      8192,
+      131072
+    ],
     "layer_count": 2,
     "thresholds": [
       8192,

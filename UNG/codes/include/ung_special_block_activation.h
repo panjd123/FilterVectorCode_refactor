@@ -4,6 +4,7 @@
 #include "config.h"
 #include "ung_special_blocks.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -11,6 +12,31 @@
 
 namespace ANNS
 {
+
+// Query-free index construction can still make a deterministic per-query
+// routing decision: use a multilevel overlay only when the containment
+// predicate fully authorizes at least one upper block.  This asks no latency,
+// Recall, or selectivity model; it reuses the exact root-label condition that
+// guards upper-level traversal.
+inline bool special_block_query_authorizes_upper(
+    const std::string &scenario,
+    const std::vector<LabelType> &query_labels,
+    const std::vector<SpecialBlock> &blocks)
+{
+   if (scenario != "containment")
+      return false;
+   std::vector<LabelType> sorted_query = query_labels;
+   std::sort(sorted_query.begin(), sorted_query.end());
+   for (const SpecialBlock &block : blocks)
+   {
+      if (block.level == 0)
+         continue;
+      if (std::includes(block.root_labels.begin(), block.root_labels.end(),
+                        sorted_query.begin(), sorted_query.end()))
+         return true;
+   }
+   return false;
+}
 
 inline bool special_block_member_is_free(const std::string &scenario,
                                          const std::vector<IdxType> &owner_to_block,

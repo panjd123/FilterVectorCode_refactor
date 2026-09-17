@@ -490,6 +490,13 @@ def write_artifact_manifest() -> None:
         HERE / "test_auto_layer_policy.py",
         HERE / "config.auto_policy_formal_exact_level.json",
         HERE / "config.auto_policy_critical_exact_level.json",
+        HERE / "config.auto_policy_current_binary_controls.json",
+        HERE / "config.auto_policy_structural_router_formal.json",
+        HERE / "config.auto_policy_structural_router_low_critical.json",
+        HERE / "summarize_auto_policy_current_binary_controls.py",
+        HERE / "summarize_auto_policy_router.py",
+        HERE / "summarize_auto_policy_router_low_critical.py",
+        HERE / "summarize_auto_policy_router_cross_dataset.py",
         *(HERE / f"config.auto_policy_cross_dataset_{dataset}_formal.json"
           for dataset in ("genome", "reviews", "variousimg")),
         OUTPUT_DIR / "source_manifest.csv",
@@ -512,6 +519,10 @@ def write_artifact_manifest() -> None:
         OUTPUT_DIR / "auto_policy_amazon_formal.csv",
         OUTPUT_DIR / "auto_policy_critical_same_t1.csv",
         OUTPUT_DIR / "auto_policy_cross_dataset_formal.csv",
+        OUTPUT_DIR / "auto_policy_current_binary_controls.csv",
+        OUTPUT_DIR / "auto_policy_structural_router_formal.csv",
+        OUTPUT_DIR / "auto_policy_structural_router_low_critical.csv",
+        OUTPUT_DIR / "auto_policy_structural_router_cross_dataset.csv",
         *(OUTPUT_DIR / "auto_policy_static" / f"{dataset}.{suffix}"
           for dataset in ("Amazon", "Genome", "Reviews", "VariousImg")
           for suffix in ("json", "csv")),

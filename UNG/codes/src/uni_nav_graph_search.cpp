@@ -36,6 +36,13 @@ namespace ANNS
       SearchQueue cur_result;
       cur_result.reserve(runtime.K);
       const auto &query_labels = _query_storage->get_label_set(id);
+      const bool require_upper_authorization =
+          ung_env_flag_enabled("UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION");
+      const bool use_special_block_search =
+          runtime.special_block_search &&
+          (!require_upper_authorization ||
+           special_block_query_authorizes_upper(runtime.scenario, query_labels,
+                                                _special_blocks));
 
       std::vector<IdxType> entry_group_ids;
       QueryRouteDecision decision = decide_query_route(query_labels, runtime.idea2_available,
@@ -53,7 +60,7 @@ namespace ANNS
           &true_query_group_ids,
           &entry_group_ids,
           runtime.scalar_els_cap,
-          runtime.special_block_search &&
+          use_special_block_search &&
               (runtime.entry_group_provider == EntryGroupProviderImpl::CpuBruteForceEls ||
                runtime.entry_group_provider == EntryGroupProviderImpl::SpecialBlockTrie)};
       prepare_entry_groups_for_execution(entry_request, entry_group_ids, stats);
@@ -75,14 +82,14 @@ namespace ANNS
       {
          auto search_cache = search_cache_list.get_free_cache(runtime.Lsearch);
          bool search_ok = false;
-         if (runtime.special_block_search && !_special_blocks.empty() &&
+         if (use_special_block_search && !_special_blocks.empty() &&
              runtime.special_search_mode == SpecialSearchMode::FavorBlocks)
          {
             search_ok = execute_favor_block_ung_query(query, search_cache, runtime, graph_backend,
                                                       entry_group_ids, id,
                                                       num_cmps, cur_result, stats);
          }
-         else if (runtime.special_block_search && !_special_blocks.empty())
+         else if (use_special_block_search && !_special_blocks.empty())
          {
             search_ok = execute_special_block_ung_query(query, search_cache, runtime, graph_backend,
                                                         entry_group_ids, query_labels, id,

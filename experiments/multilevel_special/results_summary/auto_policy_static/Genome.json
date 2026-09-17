@@ -213,27 +213,15 @@
     "cross_edges": 4,
     "base_rule": "T1 = next_power_of_two(M * Lbuild)",
     "scale_ratio_rule": "rho = next_power_of_two(max(2, M / C))",
-    "stop_rule": "stop before the first threshold whose trie partition has zero blocks",
+    "stop_rule": "stop before the first empty partition; materialize only if at least two scales exist",
     "scale_ratio": 16,
-    "layer_count": 1,
-    "thresholds": [
+    "candidate_layer_count": 1,
+    "candidate_thresholds": [
       8192
     ],
-    "levels": [
-      {
-        "threshold": 8192,
-        "threshold_fraction": 0.07579781082006347,
-        "block_count": 9,
-        "covered_points": 107694,
-        "covered_fraction": 0.9964562302802632,
-        "root_residual_points": 383,
-        "min_block_mass": 8413,
-        "p50_block_mass": 11941,
-        "p90_block_mass": 16370,
-        "max_block_mass": 17550,
-        "level": 1
-      }
-    ],
+    "layer_count": 0,
+    "thresholds": [],
+    "levels": [],
     "decisions": [
       {
         "level": 1,
@@ -246,6 +234,12 @@
         "threshold": 131072,
         "outcome": "stop",
         "reason": "trie partition is empty"
+      },
+      {
+        "level": 1,
+        "threshold": 8192,
+        "outcome": "discard_singleton_hierarchy",
+        "reason": "one scale provides no coarser bypass"
       }
     ]
   }
