@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "policy_inputs": "static trie and group cardinalities only",
+  "num_points": 108077,
+  "num_groups": 108055,
+  "trie_nodes": 3544633,
+  "thresholds": [
+    {
+      "threshold": 250,
+      "threshold_fraction": 0.0023131656134052574,
+      "block_count": 251,
+      "covered_points": 108019,
+      "covered_fraction": 0.99946334557769,
+      "root_residual_points": 58,
+      "min_block_mass": 251,
+      "p50_block_mass": 369,
+      "p90_block_mass": 667,
+      "max_block_mass": 1315
+    },
+    {
+      "threshold": 500,
+      "threshold_fraction": 0.004626331226810515,
+      "block_count": 133,
+      "covered_points": 107694,
+      "covered_fraction": 0.9964562302802632,
+      "root_residual_points": 383,
+      "min_block_mass": 501,
+      "p50_block_mass": 745,
+      "p90_block_mass": 1226,
+      "max_block_mass": 1796
+    },
+    {
+      "threshold": 1000,
+      "threshold_fraction": 0.00925266245362103,
+      "block_count": 64,
+      "covered_points": 107694,
+      "covered_fraction": 0.9964562302802632,
+      "root_residual_points": 383,
+      "min_block_mass": 1026,
+      "p50_block_mass": 1524,
+      "p90_block_mass": 2551,
+      "max_block_mass": 3848
+    },
+    {
+      "threshold": 2000,
+      "threshold_fraction": 0.01850532490724206,
+      "block_count": 33,
+      "covered_points": 107694,
+      "covered_fraction": 0.9964562302802632,
+      "root_residual_points": 383,
+      "min_block_mass": 2009,
+      "p50_block_mass": 3114,
+      "p90_block_mass": 4915,
+      "max_block_mass": 5857
+    },
+    {
+      "threshold": 4000,
+      "threshold_fraction": 0.03701064981448412,
+      "block_count": 18,
+      "covered_points": 107694,
+      "covered_fraction": 0.9964562302802632,
+      "root_residual_points": 383,
+      "min_block_mass": 4087,
+      "p50_block_mass": 5910,
+      "p90_block_mass": 7631,
+      "max_block_mass": 7947
+    },
+    {
+      "threshold": 8000,
+      "threshold_fraction": 0.07402129962896824,
+      "block_count": 9,
+      "covered_points": 107694,
+      "covered_fraction": 0.9964562302802632,
+      "root_residual_points": 383,
+      "min_block_mass": 8413,
+      "p50_block_mass": 11941,
+      "p90_block_mass": 16370,
+      "max_block_mass": 17550
+    },
+    {
+      "threshold": 16000,
+      "threshold_fraction": 0.14804259925793647,
+      "block_count": 4,
+      "covered_points": 107694,
+      "covered_fraction": 0.9964562302802632,
+      "root_residual_points": 383,
+      "min_block_mass": 20889,
+      "p50_block_mass": 29972,
+      "p90_block_mass": 30727,
+      "max_block_mass": 30727
+    },
+    {
+      "threshold": 32000,
+      "threshold_fraction": 0.29608519851587295,
+      "block_count": 2,
+      "covered_points": 91324,
+      "covered_fraction": 0.8449901459144868,
+      "root_residual_points": 16753,
+      "min_block_mass": 44329,
+      "p50_block_mass": 44329,
+      "p90_block_mass": 46995,
+      "max_block_mass": 46995
+    },
+    {
+      "threshold": 64000,
+      "threshold_fraction": 0.5921703970317459,
+      "block_count": 1,
+      "covered_points": 107694,
+      "covered_fraction": 0.9964562302802632,
+      "root_residual_points": 383,
+      "min_block_mass": 107694,
+      "p50_block_mass": 107694,
+      "p90_block_mass": 107694,
+      "max_block_mass": 107694
+    },
+    {
+      "threshold": 128000,
+      "threshold_fraction": 1.1843407940634918,
+      "block_count": 0,
+      "covered_points": 0,
+      "covered_fraction": 0.0,
+      "root_residual_points": 108077,
+      "min_block_mass": 0,
+      "p50_block_mass": 0,
+      "p90_block_mass": 0,
+      "max_block_mass": 0
+    },
+    {
+      "threshold": 256000,
+      "threshold_fraction": 2.3686815881269836,
+      "block_count": 0,
+      "covered_points": 0,
+      "covered_fraction": 0.0,
+      "root_residual_points": 108077,
+      "min_block_mass": 0,
+      "p50_block_mass": 0,
+      "p90_block_mass": 0,
+      "max_block_mass": 0
+    },
+    {
+      "threshold": 400000,
+      "threshold_fraction": 3.7010649814484116,
+      "block_count": 0,
+      "covered_points": 0,
+      "covered_fraction": 0.0,
+      "root_residual_points": 108077,
+      "min_block_mass": 0,
+      "p50_block_mass": 0,
+      "p90_block_mass": 0,
+      "max_block_mass": 0
+    },
+    {
+      "threshold": 600000,
+      "threshold_fraction": 5.551597472172618,
+      "block_count": 0,
+      "covered_points": 0,
+      "covered_fraction": 0.0,
+      "root_residual_points": 108077,
+      "min_block_mass": 0,
+      "p50_block_mass": 0,
+      "p90_block_mass": 0,
+      "max_block_mass": 0
+    }
+  ],
+  "curvature_knees": [
+    {
+      "score": 0.16992500144231326,
+      "threshold": 8000,
+      "left_slope": -0.9999999999999993,
+      "right_slope": -1.1699250014423126
+    },
+    {
+      "score": 0.1699250014423127,
+      "threshold": 16000,
+      "left_slope": -1.1699250014423126,
+      "right_slope": -0.9999999999999999
+    },
+    {
+      "score": 0.13902131705160803,
+      "threshold": 500,
+      "left_slope": -0.9162611184495818,
+      "right_slope": -1.0552824355011898
+    },
+    {
+      "score": 0.1255308820838581,
+      "threshold": 4000,
+      "left_slope": -0.8744691179161412,
+      "right_slope": -0.9999999999999993
+    },
+    {
+      "score": 0.09967655485964388,
+      "threshold": 1000,
+      "left_slope": -1.0552824355011898,
+      "right_slope": -0.955605880641546
+    },
+    {
+      "score": 0.08113676272540471,
+      "threshold": 2000,
+      "left_slope": -0.955605880641546,
+      "right_slope": -0.8744691179161412
+    },
+    {
+      "score": 0.0,
+      "threshold": 32000,
+      "left_slope": -0.9999999999999999,
+      "right_slope": -0.9999999999999999
+    }
+  ],
+  "automatic_policy": {
+    "name": "query_free_mass_ladder",
+    "max_degree": 64,
+    "build_width": 100,
+    "cross_edges": 4,
+    "base_rule": "T1 = next_power_of_two(M * Lbuild)",
+    "scale_ratio_rule": "rho = next_power_of_two(max(2, M / C))",
+    "stop_rule": "stop before the first threshold whose trie partition has zero blocks",
+    "scale_ratio": 16,
+    "layer_count": 1,
+    "thresholds": [
+      8192
+    ],
+    "levels": [
+      {
+        "threshold": 8192,
+        "threshold_fraction": 0.07579781082006347,
+        "block_count": 9,
+        "covered_points": 107694,
+        "covered_fraction": 0.9964562302802632,
+        "root_residual_points": 383,
+        "min_block_mass": 8413,
+        "p50_block_mass": 11941,
+        "p90_block_mass": 16370,
+        "max_block_mass": 17550,
+        "level": 1
+      }
+    ],
+    "decisions": [
+      {
+        "level": 1,
+        "threshold": 8192,
+        "outcome": "add_level",
+        "block_count": 9
+      },
+      {
+        "level": 2,
+        "threshold": 131072,
+        "outcome": "stop",
+        "reason": "trie partition is empty"
+      }
+    ]
+  }
+}

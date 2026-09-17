@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "method": "auto_layer1_t1_8192",
+      "workload": "query_minlen2_cov1k",
+      "query_dir": "query_minlen2_cov1k",
+      "mean_selectivity": 0.06291949875243268,
+      "num_queries": 3000,
+      "lsearch_values": [
+        10
+      ],
+      "layer_count": 1,
+      "t1": 8192,
+      "t2": null,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:25:12+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_genome/formal/auto_layer1_t1_8192/query_minlen2_cov1k",
+      "provenance": {
+        "base_labels_sha256": "6c0037138a3082c631f82b5dfdefda57bd298ae21c7a5ae343ebd870cfbe599a",
+        "main_index_labels_sha256": "bdd8db647465c8fd36772a8f8ef06f48d37dd315f116801c65325b11a76bb4c4",
+        "expected_source_fingerprint": "fb2275537792ce23"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 22.99987345095724,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:25:35+0800"
+    },
+    {
+      "method": "auto_layer1_t1_8192",
+      "workload": "query_minlen5_cov0.1k",
+      "query_dir": "query_minlen5_cov0.1k",
+      "mean_selectivity": 0.0336451727317869,
+      "num_queries": 3000,
+      "lsearch_values": [
+        10
+      ],
+      "layer_count": 1,
+      "t1": 8192,
+      "t2": null,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:24:43+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_genome/formal/auto_layer1_t1_8192/query_minlen5_cov0.1k",
+      "provenance": {
+        "base_labels_sha256": "6c0037138a3082c631f82b5dfdefda57bd298ae21c7a5ae343ebd870cfbe599a",
+        "main_index_labels_sha256": "bdd8db647465c8fd36772a8f8ef06f48d37dd315f116801c65325b11a76bb4c4",
+        "expected_source_fingerprint": "fb2275537792ce23"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 29.3083778610453,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:25:12+0800"
+    },
+    {
+      "method": "layer0_plain",
+      "workload": "query_minlen2_cov1k",
+      "query_dir": "query_minlen2_cov1k",
+      "mean_selectivity": 0.06291949875243268,
+      "num_queries": 3000,
+      "lsearch_values": [
+        10
+      ],
+      "layer_count": 0,
+      "t1": null,
+      "t2": null,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:24:22+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_genome/formal/layer0_plain/query_minlen2_cov1k",
+      "provenance": {
+        "base_labels_sha256": "6c0037138a3082c631f82b5dfdefda57bd298ae21c7a5ae343ebd870cfbe599a",
+        "main_index_labels_sha256": "bdd8db647465c8fd36772a8f8ef06f48d37dd315f116801c65325b11a76bb4c4",
+        "expected_source_fingerprint": "fb2275537792ce23"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 21.306075869128108,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:24:43+0800"
+    },
+    {
+      "method": "layer0_plain",
+      "workload": "query_minlen5_cov0.1k",
+      "query_dir": "query_minlen5_cov0.1k",
+      "mean_selectivity": 0.0336451727317869,
+      "num_queries": 3000,
+      "lsearch_values": [
+        10
+      ],
+      "layer_count": 0,
+      "t1": null,
+      "t2": null,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:23:48+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_genome/formal/layer0_plain/query_minlen5_cov0.1k",
+      "provenance": {
+        "base_labels_sha256": "6c0037138a3082c631f82b5dfdefda57bd298ae21c7a5ae343ebd870cfbe599a",
+        "main_index_labels_sha256": "bdd8db647465c8fd36772a8f8ef06f48d37dd315f116801c65325b11a76bb4c4",
+        "expected_source_fingerprint": "fb2275537792ce23"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 33.70746889524162,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:24:21+0800"
+    }
+  ],
+  "updated_at": "2026-09-17T08:25:35+0800"
+}

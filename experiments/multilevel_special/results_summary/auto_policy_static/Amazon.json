@@ -1,0 +1,290 @@
+{
+  "schema_version": 1,
+  "policy_inputs": "static trie and group cardinalities only",
+  "num_points": 602453,
+  "num_groups": 482387,
+  "trie_nodes": 2800516,
+  "thresholds": [
+    {
+      "threshold": 250,
+      "threshold_fraction": 0.0004149701304500102,
+      "block_count": 847,
+      "covered_points": 596349,
+      "covered_fraction": 0.9898680892949325,
+      "root_residual_points": 6104,
+      "min_block_mass": 251,
+      "p50_block_mass": 431,
+      "p90_block_mass": 1196,
+      "max_block_mass": 24397
+    },
+    {
+      "threshold": 500,
+      "threshold_fraction": 0.0008299402609000204,
+      "block_count": 434,
+      "covered_points": 594855,
+      "covered_fraction": 0.9873882277953633,
+      "root_residual_points": 7598,
+      "min_block_mass": 501,
+      "p50_block_mass": 801,
+      "p90_block_mass": 2350,
+      "max_block_mass": 33873
+    },
+    {
+      "threshold": 1000,
+      "threshold_fraction": 0.0016598805218000408,
+      "block_count": 202,
+      "covered_points": 594855,
+      "covered_fraction": 0.9873882277953633,
+      "root_residual_points": 7598,
+      "min_block_mass": 1005,
+      "p50_block_mass": 1772,
+      "p90_block_mass": 5241,
+      "max_block_mass": 53634
+    },
+    {
+      "threshold": 2000,
+      "threshold_fraction": 0.0033197610436000815,
+      "block_count": 103,
+      "covered_points": 594855,
+      "covered_fraction": 0.9873882277953633,
+      "root_residual_points": 7598,
+      "min_block_mass": 2007,
+      "p50_block_mass": 3574,
+      "p90_block_mass": 9947,
+      "max_block_mass": 67254
+    },
+    {
+      "threshold": 4000,
+      "threshold_fraction": 0.006639522087200163,
+      "block_count": 46,
+      "covered_points": 594855,
+      "covered_fraction": 0.9873882277953633,
+      "root_residual_points": 7598,
+      "min_block_mass": 4427,
+      "p50_block_mass": 7959,
+      "p90_block_mass": 21083,
+      "max_block_mass": 101334
+    },
+    {
+      "threshold": 8000,
+      "threshold_fraction": 0.013279044174400326,
+      "block_count": 25,
+      "covered_points": 594855,
+      "covered_fraction": 0.9873882277953633,
+      "root_residual_points": 7598,
+      "min_block_mass": 8019,
+      "p50_block_mass": 15676,
+      "p90_block_mass": 38535,
+      "max_block_mass": 128010
+    },
+    {
+      "threshold": 16000,
+      "threshold_fraction": 0.026558088348800652,
+      "block_count": 14,
+      "covered_points": 582582,
+      "covered_fraction": 0.9670165141513114,
+      "root_residual_points": 19871,
+      "min_block_mass": 16257,
+      "p50_block_mass": 26142,
+      "p90_block_mass": 68086,
+      "max_block_mass": 162936
+    },
+    {
+      "threshold": 32000,
+      "threshold_fraction": 0.053116176697601304,
+      "block_count": 7,
+      "covered_points": 582582,
+      "covered_fraction": 0.9670165141513114,
+      "root_residual_points": 19871,
+      "min_block_mass": 34021,
+      "p50_block_mass": 63559,
+      "p90_block_mass": 89450,
+      "max_block_mass": 227861
+    },
+    {
+      "threshold": 64000,
+      "threshold_fraction": 0.10623235339520261,
+      "block_count": 3,
+      "covered_points": 548561,
+      "covered_fraction": 0.9105457189191521,
+      "root_residual_points": 53892,
+      "min_block_mass": 89450,
+      "p50_block_mass": 122163,
+      "p90_block_mass": 336948,
+      "max_block_mass": 336948
+    },
+    {
+      "threshold": 128000,
+      "threshold_fraction": 0.21246470679040522,
+      "block_count": 1,
+      "covered_points": 548561,
+      "covered_fraction": 0.9105457189191521,
+      "root_residual_points": 53892,
+      "min_block_mass": 548561,
+      "p50_block_mass": 548561,
+      "p90_block_mass": 548561,
+      "max_block_mass": 548561
+    },
+    {
+      "threshold": 256000,
+      "threshold_fraction": 0.42492941358081043,
+      "block_count": 1,
+      "covered_points": 548561,
+      "covered_fraction": 0.9105457189191521,
+      "root_residual_points": 53892,
+      "min_block_mass": 548561,
+      "p50_block_mass": 548561,
+      "p90_block_mass": 548561,
+      "max_block_mass": 548561
+    },
+    {
+      "threshold": 400000,
+      "threshold_fraction": 0.6639522087200164,
+      "block_count": 1,
+      "covered_points": 548561,
+      "covered_fraction": 0.9105457189191521,
+      "root_residual_points": 53892,
+      "min_block_mass": 548561,
+      "p50_block_mass": 548561,
+      "p90_block_mass": 548561,
+      "max_block_mass": 548561
+    },
+    {
+      "threshold": 600000,
+      "threshold_fraction": 0.9959283130800245,
+      "block_count": 0,
+      "covered_points": 0,
+      "covered_fraction": 0.0,
+      "root_residual_points": 602453,
+      "min_block_mass": 0,
+      "p50_block_mass": 0,
+      "p90_block_mass": 0,
+      "max_block_mass": 0
+    }
+  ],
+  "curvature_knees": [
+    {
+      "score": 1.584962500721156,
+      "threshold": 128000,
+      "left_slope": -1.584962500721156,
+      "right_slope": 0.0
+    },
+    {
+      "score": 0.36257007938470864,
+      "threshold": 64000,
+      "left_slope": -1.2223924213364474,
+      "right_slope": -1.584962500721156
+    },
+    {
+      "score": 0.283232804843917,
+      "threshold": 4000,
+      "left_slope": -1.1629385711262055,
+      "right_slope": -0.8797057662822885
+    },
+    {
+      "score": 0.22239242133644777,
+      "threshold": 32000,
+      "left_slope": -0.9999999999999997,
+      "right_slope": -1.2223924213364474
+    },
+    {
+      "score": 0.1912276155576289,
+      "threshold": 2000,
+      "left_slope": -0.9717109555685766,
+      "right_slope": -1.1629385711262055
+    },
+    {
+      "score": 0.16349873228287914,
+      "threshold": 16000,
+      "left_slope": -0.8365012677171205,
+      "right_slope": -0.9999999999999997
+    },
+    {
+      "score": 0.13867282280496507,
+      "threshold": 500,
+      "left_slope": -0.9646669268877194,
+      "right_slope": -1.1033397496926844
+    },
+    {
+      "score": 0.13162879412410788,
+      "threshold": 1000,
+      "left_slope": -1.1033397496926844,
+      "right_slope": -0.9717109555685766
+    },
+    {
+      "score": 0.04320449856516795,
+      "threshold": 8000,
+      "left_slope": -0.8797057662822885,
+      "right_slope": -0.8365012677171205
+    },
+    {
+      "score": 0.0,
+      "threshold": 256000,
+      "left_slope": 0.0,
+      "right_slope": 0.0
+    }
+  ],
+  "automatic_policy": {
+    "name": "query_free_mass_ladder",
+    "max_degree": 64,
+    "build_width": 100,
+    "cross_edges": 4,
+    "base_rule": "T1 = next_power_of_two(M * Lbuild)",
+    "scale_ratio_rule": "rho = next_power_of_two(max(2, M / C))",
+    "stop_rule": "stop before the first threshold whose trie partition has zero blocks",
+    "scale_ratio": 16,
+    "layer_count": 2,
+    "thresholds": [
+      8192,
+      131072
+    ],
+    "levels": [
+      {
+        "threshold": 8192,
+        "threshold_fraction": 0.013597741234585934,
+        "block_count": 23,
+        "covered_points": 594855,
+        "covered_fraction": 0.9873882277953633,
+        "root_residual_points": 7598,
+        "min_block_mass": 9773,
+        "p50_block_mass": 17700,
+        "p90_block_mass": 38535,
+        "max_block_mass": 128010,
+        "level": 1
+      },
+      {
+        "threshold": 131072,
+        "threshold_fraction": 0.21756385975337494,
+        "block_count": 1,
+        "covered_points": 548561,
+        "covered_fraction": 0.9105457189191521,
+        "root_residual_points": 53892,
+        "min_block_mass": 548561,
+        "p50_block_mass": 548561,
+        "p90_block_mass": 548561,
+        "max_block_mass": 548561,
+        "level": 2
+      }
+    ],
+    "decisions": [
+      {
+        "level": 1,
+        "threshold": 8192,
+        "outcome": "add_level",
+        "block_count": 23
+      },
+      {
+        "level": 2,
+        "threshold": 131072,
+        "outcome": "add_level",
+        "block_count": 1
+      },
+      {
+        "level": 3,
+        "threshold": 2097152,
+        "outcome": "stop",
+        "reason": "trie partition is empty"
+      }
+    ]
+  }
+}

@@ -2,6 +2,8 @@
 
 更新时间：2026-09-10
 
+> 版本说明（2026-09-17）：本文主体记录旧的逐级混合边语义与人工调参实验，保留用于历史比较。当前实现已改为严格 exact-level（候选在哪层就只扫描哪层拥有的边），新的自动参数方法和可引用结果请以 `QF_SSL_AUTO_POLICY_REPORT_CN.md` 为准；不得将本文旧数值冒充为新 exact-level 结果。
+
 ## 摘要
 
 本文评估一套用于 filtered graph search 的两级 Special Block overlay。系统在既有 UNG 主图之上保留中层 block，并增加覆盖更大合法 Trie 子树的上层 block；查询只有完整覆盖某个 block 的根标签时才能使用该层 special edges。当前实现是固定的两级 overlay，不宣称支持任意 N 层。

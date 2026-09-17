@@ -32,14 +32,15 @@ query entry group: gpu_cover_frontier correct-cover 是当前查询入口组选�
 | 1 | `reports/WORK_PRESENTATION_DEEPRESEARCH_CN.md` | 工作展示主文档：方法、baseline、数据集特点、主性能表和展示建议 |
 | 2 | `reports/REVIEW_READY_HANDOFF_CN.md` | 当前 review-ready 唯一入口：阅读顺序、最终结果、复现证据、风险 |
 | 3 | `reports/THREE_MAINLINES_METHOD_BASELINE_DATA_SPEEDUP_CN.md` | 五条主线最终性能大表、full-quality 输出边界、复现 checklist |
-| 4 | `reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md` | 多层 Special Block 权威报告：方法、Amazon x1 构建代价、同 Recall 查询主表与外部系统对照 |
-| 5 | `reports/SPECIAL_BLOCK_BUILD_QUERY_AB_CN.md` | 单层 special block、GPU intra/inter、save/load 与早期近似路线证据 |
-| 6 | `papers/EVIDENCE_MATRIX_CN.md` | claim-level 证据矩阵，说明哪些结论可写、哪些还缺实验 |
-| 7 | `runbooks/UNG_METHOD_REGISTRY_CN.md` | 方法注册表：每条实现路径的分类、选择方式、入口函数、语义边界 |
-| 8 | `reports/CURRENT_METHODS_EFFECTS_AND_GAPS_CN.md` | 更详细的当前总览：方法、效果、负结果、边界和下一步缺口 |
-| 9 | `reports/TECHNICAL_REPORT_OPTIMIZATION_SPEEDUP_CN.md` | 长技术报告和证据链；适合查细节，不再作为第一次阅读入口 |
-| 10 | `papers/SUBMISSION_READINESS_STATUS_CN.md` | 投稿就绪状态快照，先看当前 gate、阻塞项和主 claim 状态 |
-| 11 | `papers/REBUTTAL_CHECKLIST_CN.md` | reviewer 可能攻击点、当前回答和还需补的证据 |
+| 4 | `reports/QF_SSL_AUTO_POLICY_REPORT_CN.md` | 当前 exact-level 多层 Special Block 权威报告：无需 query 校准的自动层数/尺度、Amazon 九档与跨数据集等 Recall 结果 |
+| 5 | `reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md` | 旧搜索语义和人工调参结果的历史报告；不得作为当前 exact-level 主结果 |
+| 6 | `reports/SPECIAL_BLOCK_BUILD_QUERY_AB_CN.md` | 单层 special block、GPU intra/inter、save/load 与早期近似路线证据 |
+| 7 | `papers/EVIDENCE_MATRIX_CN.md` | claim-level 证据矩阵，说明哪些结论可写、哪些还缺实验 |
+| 8 | `runbooks/UNG_METHOD_REGISTRY_CN.md` | 方法注册表：每条实现路径的分类、选择方式、入口函数、语义边界 |
+| 9 | `reports/CURRENT_METHODS_EFFECTS_AND_GAPS_CN.md` | 更详细的当前总览：方法、效果、负结果、边界和下一步缺口 |
+| 10 | `reports/TECHNICAL_REPORT_OPTIMIZATION_SPEEDUP_CN.md` | 长技术报告和证据链；适合查细节，不再作为第一次阅读入口 |
+| 11 | `papers/SUBMISSION_READINESS_STATUS_CN.md` | 投稿就绪状态快照，先看当前 gate、阻塞项和主 claim 状态 |
+| 12 | `papers/REBUTTAL_CHECKLIST_CN.md` | reviewer 可能攻击点、当前回答和还需补的证据 |
 
 ## 2. 给 AI / 后续 Agent 看的入口
 
@@ -87,7 +88,8 @@ query entry group: gpu_cover_frontier correct-cover 是当前查询入口组选�
 | `reports/BEST_FULL_QUALITY_VERSION_CN.md` | 当前 best_full_quality 可复现配置、最新 CPU baseline 对比、端到端构建加速比和剩余瓶颈 |
 | `reports/SPECIAL_BLOCK_GRAPH_QUERY_DESIGN_CN.md` | 特异块构造、特异边 sidecar、查询 free 状态、x1-only 数据口径、threshold sweep 和 smoke 验证结果 |
 | `reports/SPECIAL_BLOCK_BUILD_QUERY_AB_CN.md` | 特异块 x1-restored full-quality build/query A/B、构建负结果、查询收益边界和下一步 |
-| `reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md` | 当前两层 Special Block 的论文级主报告；以 Amazon 原始 x1 和同 Recall 结果为准 |
+| `reports/QF_SSL_AUTO_POLICY_REPORT_CN.md` | 当前 exact-level 两层 Special Block 主报告；包含自动层数/尺度、Amazon 九档与跨数据集结果 |
+| `reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md` | 旧语义下的人工调参历史报告；仅作历史比较 |
 | `reports/GPU_GROUP_GRAPH_RELATED_WORK_COLLISION_CN.md` | GPU group graph / PG 构建相关工作与撞车风险分析，比较 CAGRA、Tagore、Vamana/NSG、Filtered-DiskANN 和当前 group-aware reverse exact-anchor |
 | `reports/CURRENT_METHODS_EFFECTS_AND_GAPS_CN.md` | 更详细的专家总览，按方法/效果/负结果/缺口展开 |
 | `reports/CODE_STRUCTURE_REVIEW_20260625_CN.md` | 代码结构审计，回答当前方法是否接口清晰、文件结构是否易维护 |

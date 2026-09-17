@@ -461,6 +461,9 @@ def write_artifact_manifest() -> None:
     runbook = HERE.parents[1] / "docs/reports/MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md"
     if not runbook.is_file():
         runbook = HERE / "MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md"
+    qfssl_report = HERE.parents[1] / "docs/reports/QF_SSL_AUTO_POLICY_REPORT_CN.md"
+    if not qfssl_report.is_file():
+        qfssl_report = HERE / "QF_SSL_AUTO_POLICY_REPORT_CN.md"
     paths = [
         Path(__file__).resolve(),
         HERE / "audit_current_source_regression.py",
@@ -480,6 +483,15 @@ def write_artifact_manifest() -> None:
         HERE / "config.amazon_x1_current_source_rebuilt_bundle_sel50_robust_l.json",
         HERE / "config.amazon_x1_current_source_rebuilt_bundle_repeat2_sel50_robust_l.json",
         HERE / "config.amazon_x1_current_source_rebuilt_bundle_repeat3_sel50_robust_l.json",
+        HERE / "analyze_auto_layer_policy.py",
+        HERE / "summarize_auto_policy_formal.py",
+        HERE / "summarize_auto_policy_critical.py",
+        HERE / "summarize_auto_policy_cross_dataset.py",
+        HERE / "test_auto_layer_policy.py",
+        HERE / "config.auto_policy_formal_exact_level.json",
+        HERE / "config.auto_policy_critical_exact_level.json",
+        *(HERE / f"config.auto_policy_cross_dataset_{dataset}_formal.json"
+          for dataset in ("genome", "reviews", "variousimg")),
         OUTPUT_DIR / "source_manifest.csv",
         OUTPUT_DIR / "paper_results.csv",
         OUTPUT_DIR / "paper_results.md",
@@ -497,7 +509,19 @@ def write_artifact_manifest() -> None:
         OUTPUT_DIR / "layer_tuning_oracle_summary.csv",
         OUTPUT_DIR / "layer_tuning_build_summary.csv",
         OUTPUT_DIR / "layer_tuning_evidence_manifest.csv",
+        OUTPUT_DIR / "auto_policy_amazon_formal.csv",
+        OUTPUT_DIR / "auto_policy_critical_same_t1.csv",
+        OUTPUT_DIR / "auto_policy_cross_dataset_formal.csv",
+        *(OUTPUT_DIR / "auto_policy_static" / f"{dataset}.{suffix}"
+          for dataset in ("Amazon", "Genome", "Reviews", "VariousImg")
+          for suffix in ("json", "csv")),
+        *(OUTPUT_DIR / "auto_policy_manifests" / name for name in (
+            "amazon_formal_manifest.json", "amazon_critical_manifest.json",
+            "genome_formal_manifest.json", "reviews_formal_manifest.json",
+            "variousimg_formal_manifest.json",
+        )),
         report,
+        qfssl_report,
         overview,
         runbook,
     ]

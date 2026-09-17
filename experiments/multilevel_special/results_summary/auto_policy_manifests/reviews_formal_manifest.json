@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "method": "auto_layer1_t1_8192",
+      "workload": "query_minlen2_cov1k",
+      "query_dir": "query_minlen2_cov1k",
+      "mean_selectivity": 0.041152254151593466,
+      "num_queries": 2864,
+      "lsearch_values": [
+        125
+      ],
+      "layer_count": 1,
+      "t1": 8192,
+      "t2": null,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:26:01+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_reviews/formal/auto_layer1_t1_8192/query_minlen2_cov1k",
+      "provenance": {
+        "base_labels_sha256": "48d558a0a4614125d13b603436f00300f9726dd3884c8e6592f39e0c853eb82e",
+        "main_index_labels_sha256": "6d19d9dea92ae0a44375fb36461d11f5b9ae36d9eab940a5f37e11c443fca448",
+        "expected_source_fingerprint": "72f20757984003d8"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 9.48283011186868,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:26:11+0800"
+    },
+    {
+      "method": "auto_layer1_t1_8192",
+      "workload": "query_minlen5_cov0.1k",
+      "query_dir": "query_minlen5_cov0.1k",
+      "mean_selectivity": 0.0020035038388326707,
+      "num_queries": 3000,
+      "lsearch_values": [
+        125
+      ],
+      "layer_count": 1,
+      "t1": 8192,
+      "t2": null,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:25:53+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_reviews/formal/auto_layer1_t1_8192/query_minlen5_cov0.1k",
+      "provenance": {
+        "base_labels_sha256": "48d558a0a4614125d13b603436f00300f9726dd3884c8e6592f39e0c853eb82e",
+        "main_index_labels_sha256": "6d19d9dea92ae0a44375fb36461d11f5b9ae36d9eab940a5f37e11c443fca448",
+        "expected_source_fingerprint": "72f20757984003d8"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 8.489144704304636,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:26:01+0800"
+    },
+    {
+      "method": "auto_layer2_t1_8192_t2_131072",
+      "workload": "query_minlen2_cov1k",
+      "query_dir": "query_minlen2_cov1k",
+      "mean_selectivity": 0.041152254151593466,
+      "num_queries": 2864,
+      "lsearch_values": [
+        125
+      ],
+      "layer_count": 2,
+      "t1": 8192,
+      "t2": 131072,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:26:19+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_reviews/formal/auto_layer2_t1_8192_t2_131072/query_minlen2_cov1k",
+      "provenance": {
+        "base_labels_sha256": "48d558a0a4614125d13b603436f00300f9726dd3884c8e6592f39e0c853eb82e",
+        "main_index_labels_sha256": "6d19d9dea92ae0a44375fb36461d11f5b9ae36d9eab940a5f37e11c443fca448",
+        "expected_source_fingerprint": "72f20757984003d8"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 11.055976767092943,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:26:30+0800"
+    },
+    {
+      "method": "auto_layer2_t1_8192_t2_131072",
+      "workload": "query_minlen5_cov0.1k",
+      "query_dir": "query_minlen5_cov0.1k",
+      "mean_selectivity": 0.0020035038388326707,
+      "num_queries": 3000,
+      "lsearch_values": [
+        125
+      ],
+      "layer_count": 2,
+      "t1": 8192,
+      "t2": 131072,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:26:11+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_reviews/formal/auto_layer2_t1_8192_t2_131072/query_minlen5_cov0.1k",
+      "provenance": {
+        "base_labels_sha256": "48d558a0a4614125d13b603436f00300f9726dd3884c8e6592f39e0c853eb82e",
+        "main_index_labels_sha256": "6d19d9dea92ae0a44375fb36461d11f5b9ae36d9eab940a5f37e11c443fca448",
+        "expected_source_fingerprint": "72f20757984003d8"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 7.687124448828399,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:26:19+0800"
+    },
+    {
+      "method": "layer0_plain",
+      "workload": "query_minlen2_cov1k",
+      "query_dir": "query_minlen2_cov1k",
+      "mean_selectivity": 0.041152254151593466,
+      "num_queries": 2864,
+      "lsearch_values": [
+        225
+      ],
+      "layer_count": 0,
+      "t1": null,
+      "t2": null,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:25:43+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_reviews/formal/layer0_plain/query_minlen2_cov1k",
+      "provenance": {
+        "base_labels_sha256": "48d558a0a4614125d13b603436f00300f9726dd3884c8e6592f39e0c853eb82e",
+        "main_index_labels_sha256": "6d19d9dea92ae0a44375fb36461d11f5b9ae36d9eab940a5f37e11c443fca448",
+        "expected_source_fingerprint": "72f20757984003d8"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 9.900218650698662,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:25:53+0800"
+    },
+    {
+      "method": "layer0_plain",
+      "workload": "query_minlen5_cov0.1k",
+      "query_dir": "query_minlen5_cov0.1k",
+      "mean_selectivity": 0.0020035038388326707,
+      "num_queries": 3000,
+      "lsearch_values": [
+        125
+      ],
+      "layer_count": 0,
+      "t1": null,
+      "t2": null,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:25:36+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_reviews/formal/layer0_plain/query_minlen5_cov0.1k",
+      "provenance": {
+        "base_labels_sha256": "48d558a0a4614125d13b603436f00300f9726dd3884c8e6592f39e0c853eb82e",
+        "main_index_labels_sha256": "6d19d9dea92ae0a44375fb36461d11f5b9ae36d9eab940a5f37e11c443fca448",
+        "expected_source_fingerprint": "72f20757984003d8"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 7.277951222844422,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:25:43+0800"
+    }
+  ],
+  "updated_at": "2026-09-17T08:26:30+0800"
+}

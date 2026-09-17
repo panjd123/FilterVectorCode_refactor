@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "method": "auto_layer1_t1_8192",
+      "workload": "query_minlen2_cov5k",
+      "query_dir": "query_minlen2_cov5k",
+      "mean_selectivity": 0.10252070203640627,
+      "num_queries": 3000,
+      "lsearch_values": [
+        3750
+      ],
+      "layer_count": 1,
+      "t1": 8192,
+      "t2": null,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:26:56+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_variousimg/formal/auto_layer1_t1_8192/query_minlen2_cov5k",
+      "provenance": {
+        "base_labels_sha256": "c82e1457ca1660c7b792c1a3d986c000640fcf24f83753ea2a36d34a59bf7f88",
+        "main_index_labels_sha256": "aad3856c18179f49f533eb9adc106ddd15f02f58e6ea90816a9f2a89186c68b3",
+        "expected_source_fingerprint": "31332117e049fea8"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 20.544270504266024,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:27:17+0800"
+    },
+    {
+      "method": "auto_layer2_t1_8192_t2_131072",
+      "workload": "query_minlen2_cov5k",
+      "query_dir": "query_minlen2_cov5k",
+      "mean_selectivity": 0.10252070203640627,
+      "num_queries": 3000,
+      "lsearch_values": [
+        3750
+      ],
+      "layer_count": 2,
+      "t1": 8192,
+      "t2": 131072,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:27:17+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_variousimg/formal/auto_layer2_t1_8192_t2_131072/query_minlen2_cov5k",
+      "provenance": {
+        "base_labels_sha256": "c82e1457ca1660c7b792c1a3d986c000640fcf24f83753ea2a36d34a59bf7f88",
+        "main_index_labels_sha256": "aad3856c18179f49f533eb9adc106ddd15f02f58e6ea90816a9f2a89186c68b3",
+        "expected_source_fingerprint": "31332117e049fea8"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 20.354139278642833,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:27:37+0800"
+    },
+    {
+      "method": "layer0_plain",
+      "workload": "query_minlen2_cov5k",
+      "query_dir": "query_minlen2_cov5k",
+      "mean_selectivity": 0.10252070203640627,
+      "num_queries": 3000,
+      "lsearch_values": [
+        4500
+      ],
+      "layer_count": 0,
+      "t1": null,
+      "t2": null,
+      "num_repeats": 7,
+      "status": "complete",
+      "started_at": "2026-09-17T08:32:39+0800",
+      "run_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_variousimg/formal/layer0_plain/query_minlen2_cov5k",
+      "provenance": {
+        "base_labels_sha256": "c82e1457ca1660c7b792c1a3d986c000640fcf24f83753ea2a36d34a59bf7f88",
+        "main_index_labels_sha256": "aad3856c18179f49f533eb9adc106ddd15f02f58e6ea90816a9f2a89186c68b3",
+        "expected_source_fingerprint": "31332117e049fea8"
+      },
+      "source_search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+      "search_binary_sha256": "f617033751636edf22b131bd145e6bdaf9b6a24be781b5f706df2827c54d2bc4",
+      "els_reuse_disabled": true,
+      "require_stage_breakdown": true,
+      "elapsed_seconds": 26.08630825765431,
+      "returncode": 0,
+      "finished_at": "2026-09-17T08:33:06+0800"
+    }
+  ],
+  "updated_at": "2026-09-17T08:33:06+0800"
+}

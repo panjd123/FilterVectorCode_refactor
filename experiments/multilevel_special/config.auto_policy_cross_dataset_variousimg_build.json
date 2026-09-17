@@ -1,0 +1,48 @@
+{
+  "build_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/build_special_block_index",
+  "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
+  "base_bin_file": "/home/graphdb/FilterVectorData/VariousImg/VariousImg_base.bin",
+  "base_label_file": "/home/graphdb/FilterVectorData/VariousImg/VariousImg_base_labels.txt",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/auto_policy_cross_dataset_variousimg/build",
+  "expected_num_points": 758935,
+  "expected_num_groups": 293903,
+  "expected_source_fingerprint": "31332117e049fea8",
+  "expected_base_labels_sha256": "c82e1457ca1660c7b792c1a3d986c000640fcf24f83753ea2a36d34a59bf7f88",
+  "num_threads": 100,
+  "min_points": 4096,
+  "max_degree": 64,
+  "num_cross_edges": 4,
+  "Lbuild": 100,
+  "alpha": 1.2,
+  "env": {
+    "UNG_SPECIAL_BLOCKS": "1",
+    "UNG_SPECIAL_BLOCK_DATA_MODE": "x1",
+    "UNG_SPECIAL_BLOCK_PARTITION": "trie",
+    "UNG_SPECIAL_INTRA_ROUTE": "1",
+    "UNG_SPECIAL_INTRA_SMALL_NX": "2048",
+    "UNG_SPECIAL_INTRA_LARGE_NX": "8192",
+    "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+    "UNG_SPECIAL_INTRA_MID_SAMPLE_CANDIDATES": "256",
+    "UNG_SPECIAL_INTRA_SAMPLE_MODE": "vamana_prune",
+    "UNG_SPECIAL_INTRA_SAMPLE_CANDIDATES": "256",
+    "UNG_SPECIAL_INTRA_SAMPLE_MIN_N": "257",
+    "UNG_TAGORE_K": "128",
+    "UNG_TAGORE_ITER": "4",
+    "UNG_TAGORE_M": "64",
+    "UNG_SPECIAL_INTER_FORCE_GRAPH_PAIR_WORK": "10000",
+    "UNG_SPECIAL_INTER_SEARCH_EF": "32",
+    "UNG_SPECIAL_INTER_ROUTE_PROFILE": "1",
+    "UNG_SPECIAL_EDGE_BINARY_ONLY": "1"
+  },
+  "cases": [
+    {
+      "name": "auto_layer1_t1_8192",
+      "min_points": 8192
+    },
+    {
+      "name": "auto_layer2_t1_8192_t2_131072",
+      "min_points": 8192,
+      "upper_min_points": 131072
+    }
+  ]
+}
