@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-17 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`073a775`（QF-SSL 脚本、报告与 compact evidence 待 commit；push：`不执行，origin 指向用户脏工作树`）
+检查点：`c079c25`（QF-SSL 脚本、报告与 compact evidence 已提交；push：`不执行，origin 指向用户脏工作树`）
 
 ## 目标
 
@@ -10,13 +10,13 @@
 
 ## 当前状态
 
-- 总体：`验证中`
-- 摘要：exact-level 实现、Amazon 九档正式/15-repeat 关键实验、Genome/Reviews/VariousImg 跨数据集实验均完成。QF-SSL 由 `M=64,Lbuild=100,C=4` 推导 `T1=8192,rho=16,T2=131072`，并以静态 trie partition 是否非空自动停止；Amazon/Reviews/VariousImg 选两层，Genome 选一层。正在进行最终文档、测试和 Git checkpoint。
+- 总体：`完成`
+- 摘要：exact-level 实现、Amazon 九档正式/15-repeat 关键实验、Genome/Reviews/VariousImg 跨数据集实验均完成。QF-SSL 由 `M=64,Lbuild=100,C=4` 推导 `T1=8192,rho=16,T2=131072`，并以静态 trie partition 是否非空自动停止；Amazon/Reviews/VariousImg 选两层，Genome 选一层。论文报告、compact evidence、provenance manifests、测试与 Git checkpoint 均已完成。
 - 当前最佳判断：QF-SSL 是 query-free structural prior，不是性能最优性定理。Amazon 中低选择率两层相对同 T1 单层总体持平，高选择率显著获益；跨数据集同时存在正、平、负例。
 
 ## 进行中
 
-- 审核论文级报告与 compact evidence，运行最终验证并提交。
+- 无；等待用户审阅。
 
 ## 完成历史
 
@@ -30,7 +30,7 @@
 
 ## 下一步
 
-运行 py_compile、单元测试、C++ focused tests、`git diff --check`；确认只暂存 QF-SSL 相关脚本/配置/compact evidence/报告/看板，然后 commit。
+用户可从 `docs/reports/QF_SSL_AUTO_POLICY_REPORT_CN.md` 审阅最终方案；若准备写论文，直接引用其中第 1、4、5、8 节。
 
 ## 阻塞与问题
 
@@ -47,6 +47,8 @@
 - `validate_selection_sweep.py config.auto_policy_formal_exact_level.json` — `通过`：Amazon 36 cases。
 - `validate_selection_sweep.py config.auto_policy_critical_exact_level.json` — `通过`：Amazon 18 cases、15 repeats。
 - 三个 `config.auto_policy_cross_dataset_*_formal.json` — `通过`：13 cases；所有正式 repeat 达 Recall 门槛。
+- `python3 -m unittest -q test_auto_layer_policy.py test_multilevel_selection.py test_generate_paper_results.py` — `通过`：65/65。
+- `git diff --cached --check` — `通过`；`runs/` 与两个 nested `thirdparty/` 未提交。
 
 ## 仅在需要时阅读的细节
 
