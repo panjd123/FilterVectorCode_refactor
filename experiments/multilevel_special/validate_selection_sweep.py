@@ -10,6 +10,7 @@ import shlex
 import statistics
 from pathlib import Path
 
+import experiment_core
 import run_selection_sweep
 
 
@@ -40,7 +41,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
     args = parser.parse_args()
-    config = json.loads(args.config.read_text())
+    config = experiment_core.load_config(args.config)
+    protocol = experiment_core.protocol_for(config)
     root = Path(config["output_root"])
     expected_repeats = int(config["num_repeats"])
     problems: list[str] = []
@@ -197,6 +199,14 @@ def main() -> int:
                     problems.append(f"{key}: ELS query-result reuse was not disabled")
                 if not row.get("require_stage_breakdown"):
                     problems.append(f"{key}: stage breakdown was not required by runner")
+            if "protocol" not in config:
+                continue
+            if row.get("protocol_phase") != protocol.phase:
+                problems.append(f"{key}: protocol phase mismatch")
+            if row.get("cold_repeats") != protocol.cold_repeats:
+                problems.append(f"{key}: cold repeat count mismatch")
+            if row.get("measured_repeats") != protocol.measured_repeats:
+                problems.append(f"{key}: measured repeat count mismatch")
 
     if problems:
         print("VALIDATION FAILED")

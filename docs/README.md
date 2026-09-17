@@ -89,6 +89,7 @@ query entry group: gpu_cover_frontier correct-cover 是当前查询入口组选�
 | `reports/SPECIAL_BLOCK_GRAPH_QUERY_DESIGN_CN.md` | 特异块构造、特异边 sidecar、查询 free 状态、x1-only 数据口径、threshold sweep 和 smoke 验证结果 |
 | `reports/SPECIAL_BLOCK_BUILD_QUERY_AB_CN.md` | 特异块 x1-restored full-quality build/query A/B、构建负结果、查询收益边界和下一步 |
 | `reports/QF_SSL_AUTO_POLICY_REPORT_CN.md` | 当前 exact-level 两层 Special Block 主报告；包含自动层数/尺度、Amazon 九档与跨数据集结果 |
+| `reports/UNG_PLAIN_ENTRY_PROVIDER_COMPARISON_CN.md` | 同 binary/index/Recall 门槛下的原始 UNG 与 Plain entry provider 正式对比和加速归因 |
 | `reports/MULTILEVEL_SPECIAL_BLOCK_PAPER_REPORT_CN.md` | 旧语义下的人工调参历史报告；仅作历史比较 |
 | `reports/GPU_GROUP_GRAPH_RELATED_WORK_COLLISION_CN.md` | GPU group graph / PG 构建相关工作与撞车风险分析，比较 CAGRA、Tagore、Vamana/NSG、Filtered-DiskANN 和当前 group-aware reverse exact-anchor |
 | `reports/CURRENT_METHODS_EFFECTS_AND_GAPS_CN.md` | 更详细的专家总览，按方法/效果/负结果/缺口展开 |

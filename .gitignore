@@ -13,6 +13,7 @@ core.*
 run.log
 tmp/
 tune_par/
+runs/
 # macOS AppleDouble files accidentally copied into remote worktrees
 ._*
 **/._*

@@ -22,6 +22,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import experiment_core
+
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -377,7 +379,8 @@ def main() -> int:
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
-    config = json.loads(args.config.read_text())
+    config = experiment_core.load_config(args.config)
+    protocol = experiment_core.protocol_for(config)
     output_root = Path(config["output_root"])
     output_root.mkdir(parents=True, exist_ok=True)
     # Retain this handle until main returns; closing it releases the advisory
@@ -431,6 +434,9 @@ def main() -> int:
                     "search_binary_sha256": search_binary_sha256,
                     "els_reuse_disabled": effective_env.get("UNG_DISABLE_ELS_REUSE") == "1",
                     "require_stage_breakdown": require_stage_breakdown,
+                    "protocol_phase": protocol.phase,
+                    "cold_repeats": protocol.cold_repeats,
+                    "measured_repeats": protocol.measured_repeats,
                 })
                 print(f"[SKIP] {method['name']}/{workload['name']} complete", flush=True)
                 continue
@@ -460,6 +466,9 @@ def main() -> int:
                 "search_binary_sha256": search_binary_sha256,
                 "els_reuse_disabled": effective_env.get("UNG_DISABLE_ELS_REUSE") == "1",
                 "require_stage_breakdown": require_stage_breakdown,
+                "protocol_phase": protocol.phase,
+                "cold_repeats": protocol.cold_repeats,
+                "measured_repeats": protocol.measured_repeats,
             }
             update_manifest(manifest_path, run_record)
             print(f"[RUN] {method['name']}/{workload['name']}", flush=True)
