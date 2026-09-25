@@ -6,6 +6,15 @@
 namespace ANNS
 {
 
+namespace
+{
+uint64_t candidate_state_key(IdxType id, uint8_t activation_level)
+{
+   return (static_cast<uint64_t>(activation_level) << 32) |
+          static_cast<uint64_t>(id);
+}
+} // namespace
+
 bool SpecialCandidateQueue::ResultHeapCompare::operator()(uint32_t a, uint32_t b) const
 {
    return special_candidate_less((*slots)[a].candidate, (*slots)[b].candidate);
@@ -28,7 +37,7 @@ void SpecialCandidateQueue::reset(size_t capacity, size_t top_k, bool use_heap)
    result_heap_.clear();
    expansion_heap_.clear();
    kth_scratch_.clear();
-   active_slot_by_id_.clear();
+   active_slot_by_state_.clear();
    result_heap_.reserve(capacity_);
    kth_scratch_.reserve(capacity_);
    ordered_.reserve(capacity_ + 1);
@@ -38,7 +47,8 @@ void SpecialCandidateQueue::add_slot(const SpecialSearchCandidate &candidate)
 {
    const uint32_t token = static_cast<uint32_t>(slots_.size());
    slots_.push_back(Slot{candidate, true, false});
-   active_slot_by_id_[candidate.id] = token;
+   active_slot_by_state_[candidate_state_key(candidate.id,
+                                              candidate.activation_level)] = token;
 
    result_heap_.push_back(token);
    std::push_heap(result_heap_.begin(), result_heap_.end(), ResultHeapCompare{&slots_});
@@ -51,12 +61,14 @@ void SpecialCandidateQueue::initialize(std::vector<SpecialSearchCandidate> candi
 {
    if (capacity_ == 0)
       return;
-   std::unordered_map<IdxType, size_t> unique_index;
+   std::unordered_map<uint64_t, size_t> unique_index;
    std::vector<SpecialSearchCandidate> unique_candidates;
    unique_candidates.reserve(candidates.size());
    for (const SpecialSearchCandidate &candidate : candidates)
    {
-      const auto inserted = unique_index.emplace(candidate.id, unique_candidates.size());
+      const auto inserted = unique_index.emplace(
+          candidate_state_key(candidate.id, candidate.activation_level),
+          unique_candidates.size());
       if (inserted.second)
       {
          unique_candidates.push_back(candidate);
@@ -64,7 +76,6 @@ void SpecialCandidateQueue::initialize(std::vector<SpecialSearchCandidate> candi
       }
       SpecialSearchCandidate &existing = unique_candidates[inserted.first->second];
       existing.distance = std::min(existing.distance, candidate.distance);
-      existing.activation_level = std::max(existing.activation_level, candidate.activation_level);
    }
    candidates.swap(unique_candidates);
    if (candidates.size() > capacity_)
@@ -102,15 +113,10 @@ SpecialCandidateInsertResult SpecialCandidateQueue::insert(IdxType id,
       for (size_t index = 0; index < ordered_.size(); ++index)
       {
          OrderedSlot &slot = ordered_[index];
-         if (slot.candidate.id != id)
+         if (slot.candidate.id != id ||
+             slot.candidate.activation_level != activation_level)
             continue;
-         if (activation_level <= slot.candidate.activation_level)
-            return SpecialCandidateInsertResult::BoundRejected;
-         slot.candidate.activation_level = activation_level;
-         slot.candidate.distance = std::min(slot.candidate.distance, distance);
-         slot.expanded = false;
-         ordered_cur_unexpanded_ = std::min(ordered_cur_unexpanded_, index);
-         return SpecialCandidateInsertResult::Inserted;
+         return SpecialCandidateInsertResult::BoundRejected;
       }
       if (ordered_.size() >= capacity_ &&
           special_candidate_less(ordered_.back().candidate, candidate))
@@ -136,24 +142,9 @@ SpecialCandidateInsertResult SpecialCandidateQueue::insert(IdxType id,
       return SpecialCandidateInsertResult::Inserted;
    }
 
-   const auto active_it = active_slot_by_id_.find(id);
-   if (active_it != active_slot_by_id_.end())
-   {
-      const uint32_t token = active_it->second;
-      Slot &slot = slots_[token];
-      if (activation_level <= slot.candidate.activation_level)
-         return SpecialCandidateInsertResult::BoundRejected;
-      slot.candidate.activation_level = activation_level;
-      slot.candidate.distance = std::min(slot.candidate.distance, distance);
-      if (slot.expanded)
-      {
-         slot.expanded = false;
-         expansion_heap_.push_back(token);
-      }
-      std::make_heap(result_heap_.begin(), result_heap_.end(), ResultHeapCompare{&slots_});
-      std::make_heap(expansion_heap_.begin(), expansion_heap_.end(), ExpansionHeapCompare{&slots_});
-      return SpecialCandidateInsertResult::Inserted;
-   }
+   const uint64_t state_key = candidate_state_key(id, activation_level);
+   if (active_slot_by_state_.find(state_key) != active_slot_by_state_.end())
+      return SpecialCandidateInsertResult::BoundRejected;
 
    if (result_heap_.size() >= capacity_)
    {
@@ -164,9 +155,12 @@ SpecialCandidateInsertResult SpecialCandidateQueue::insert(IdxType id,
       std::pop_heap(result_heap_.begin(), result_heap_.end(), ResultHeapCompare{&slots_});
       const uint32_t evicted_token = result_heap_.back();
       slots_[evicted_token].active = false;
-      const auto evicted_it = active_slot_by_id_.find(slots_[evicted_token].candidate.id);
-      if (evicted_it != active_slot_by_id_.end() && evicted_it->second == evicted_token)
-         active_slot_by_id_.erase(evicted_it);
+      const SpecialSearchCandidate &evicted = slots_[evicted_token].candidate;
+      const auto evicted_it = active_slot_by_state_.find(
+          candidate_state_key(evicted.id, evicted.activation_level));
+      if (evicted_it != active_slot_by_state_.end() &&
+          evicted_it->second == evicted_token)
+         active_slot_by_state_.erase(evicted_it);
       result_heap_.pop_back();
    }
 

@@ -24,7 +24,6 @@
 #include <bitset>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <queue>
 #include <boost/dynamic_bitset.hpp>
@@ -43,21 +42,7 @@ namespace faiss
 
 namespace ANNS
 {
-   struct CpuElsWarmupStats
-   {
-      size_t unique_query_keys = 0;
-      size_t prepared_labels = 0;
-      double elapsed_ms = 0.0;
-   };
-
-   struct SpecialBlockTrieWarmupStats
-   {
-      size_t unique_query_keys = 0;
-      double elapsed_ms = 0.0;
-   };
-
    class Vamana;
-   class GpuCoverFrontierProvider;
    class SpecialBlockIndexBuilder;
 
    class UniNavGraph
@@ -150,17 +135,6 @@ namespace ANNS
           double beta = 1.0,
           IdxType true_query_group_id = 0) const;
 
-      void initialize_gpu_cover_frontier_provider(size_t workspace_count = 0,
-                                                  size_t max_query_labels = 0);
-      void warmup_gpu_cover_frontier_provider(const std::vector<LabelType> &query_labels);
-      CpuElsWarmupStats warmup_cpu_bruteforce_els(
-          const std::shared_ptr<IStorage> &query_storage,
-          bool recursive_more_start,
-          bool ung_more_entry,
-          size_t scalar_els_cap);
-      SpecialBlockTrieWarmupStats warmup_special_block_trie(
-          const std::shared_ptr<IStorage> &query_storage);
-
       void get_min_super_sets_debug(const std::vector<LabelType> &query_label_set,
                                     std::vector<IdxType> &min_super_set_ids,
                                     bool avoid_self, bool need_containment,
@@ -242,26 +216,21 @@ namespace ANNS
                                             std::vector<IdxType> &entry_group_ids,
                                             QueryStats &stats);
 
-      // Entry-group provider. It is the boundary for CPU/GPU/minimal/non-
-      // minimal entry-group implementations; search backends consume only the
-      // resulting group IDs.
+      // Entry-group strategy. Search backends consume only the resulting group
+      // IDs; hierarchy and group-edge topology are independent choices.
       // Implementation: uni_nav_graph_entry_provider.cpp.
       void prepare_entry_groups_for_execution(const EntryGroupProviderRequest &request,
                                               std::vector<IdxType> &entry_group_ids,
                                               QueryStats &stats);
       EntryGroupProviderResult run_entry_group_provider(const EntryGroupProviderRequest &request,
                                                         QueryStats &stats);
-      EntryGroupProviderResult compute_cpu_entry_groups_for_execution(const EntryGroupProviderRequest &request,
-                                                                      QueryStats &stats);
-      EntryGroupProviderResult compute_cpu_bruteforce_entry_groups_for_execution(const EntryGroupProviderRequest &request,
-                                                                                 QueryStats &stats);
-      EntryGroupProviderResult compute_cpu_bruteforce_scalar_entry_groups_for_execution(const EntryGroupProviderRequest &request,
-                                                                                        QueryStats &stats);
-      EntryGroupProviderResult compute_special_block_trie_entry_groups_for_execution(
+      EntryGroupProviderResult compute_original_entry_groups_for_execution(
+          const EntryGroupProviderRequest &request, QueryStats &stats);
+      EntryGroupProviderResult compute_optimized_lng_entry_groups_for_execution(
+          const EntryGroupProviderRequest &request, QueryStats &stats);
+      EntryGroupProviderResult compute_trie_entry_groups_for_execution(
           const EntryGroupProviderRequest &request,
           QueryStats &stats);
-      EntryGroupProviderResult compute_gpu_entry_groups_for_execution(const EntryGroupProviderRequest &request,
-                                                                      QueryStats &stats);
 
       // Search backends. These execute ACORN-compatible or UNG graph expansion
       // after the route and entry-group provider have finished.
@@ -372,6 +341,9 @@ namespace ANNS
       // trie index and vector groups
       IdxType _num_groups = 0;
       TrieIndex _trie_index;
+      // Terminal group trie used only by the Trie entry strategy and Trie
+      // group-topology construction. It is available even without hierarchy.
+      SpecialBlockTrieIndex _group_trie_index;
       std::vector<IdxType> _new_vec_id_to_group_id;
       std::vector<std::vector<IdxType>> _group_id_to_vec_ids;
       std::vector<std::vector<LabelType>> _group_id_to_label_set;
@@ -380,20 +352,15 @@ namespace ANNS
       // Optional runtime overlay loaded from an independent block index.
       std::vector<SpecialBlock> _special_blocks;
       SpecialBlockTrieIndex _special_block_trie_index;
-      std::vector<IdxType> _group_id_to_special_block;
-      std::vector<IdxType> _group_id_to_upper_special_block;
+      std::vector<std::vector<IdxType>> _group_to_special_block_by_level;
       std::vector<uint8_t> _group_is_special_block_root;
       std::vector<uint8_t> _group_is_trivial_special_block_root;
-      std::vector<IdxType> _point_to_special_block;
-      std::vector<IdxType> _point_to_upper_special_block;
+      std::vector<std::vector<IdxType>> _point_to_special_block_by_level;
       std::vector<uint8_t> _point_is_special_block_root;
       std::vector<std::vector<SpecialEdge>> _special_edges_by_point;
       std::vector<std::vector<SpecialEdge>> _special_heavy_edges_by_point;
-      std::vector<std::vector<IdxType>> _special_trie_regular_edges_by_point;
       SpecialEdgeCsr _special_edges_csr;
       SpecialEdgeCsr _special_heavy_edges_csr;
-      RegularEdgeCsr _special_trie_regular_edges_csr;
-      bool _special_trie_regular_edges_available = false;
       SpecialBlockBuildSummary _special_block_summary;
       void build_special_block_index(const std::string &ung_index_path_prefix,
                                      const std::string &base_bin_file,
@@ -411,7 +378,6 @@ namespace ANNS
       void build_special_blocks();
       void rebuild_special_block_indexes();
       void build_special_edge_overlay();
-      void build_special_trie_regular_edge_overlay();
       void save_special_blocks(const std::string &prefix);
       void load_special_blocks(const std::string &prefix,
                                const std::map<std::string, std::string> &meta_data,
@@ -419,7 +385,6 @@ namespace ANNS
       void refresh_special_block_memory_stats();
       SpecialEdgeView special_edges_for_point(IdxType point_id) const;
       SpecialEdgeView special_heavy_edges_for_point(IdxType point_id) const;
-      ContiguousView<IdxType> special_regular_edges_for_point(IdxType point_id) const;
       bool has_special_edges() const;
       bool is_trivial_special_block_root_group(IdxType group_id) const;
       bool is_special_block_root_group(IdxType group_id) const;
@@ -431,6 +396,9 @@ namespace ANNS
 
       // Label navigating graph and coverage metadata.
       std::shared_ptr<LabelNavGraph> _label_nav_graph = nullptr;
+      // Relation used only to generate cross-group vector edges. It may share
+      // the LNG graph or hold an independent Trie-terminal topology.
+      std::shared_ptr<LabelNavGraph> _group_topology_graph = nullptr;
       void get_min_super_sets(const std::vector<LabelType> &query_label_set, std::vector<IdxType> &min_super_set_ids,
                               bool avoid_self = false, bool need_containment = true);
       void get_min_super_sets_optimized_bucket(const std::vector<LabelType> &query_label_set, std::vector<IdxType> &min_super_set_ids,
@@ -502,27 +470,6 @@ namespace ANNS
       std::vector<BitsetType> _covered_sets_bits;
       std::vector<roaring::Roaring> _lng_descendants_rb;
       std::vector<roaring::Roaring> _covered_sets_rb;
-      struct CpuBruteForceElsCache
-      {
-         bool valid = false;
-         IdxType num_groups_including_zero = 0;
-         IdxType words_per_query = 0;
-         IdxType max_group_label_size = 0;
-         std::unordered_map<LabelType, std::shared_ptr<const std::vector<uint64_t>>> label_group_bits;
-         std::vector<uint64_t> size_group_bits;
-      };
-      CpuBruteForceElsCache _cpu_bruteforce_els_cache;
-      std::mutex _cpu_bruteforce_els_cache_mutex;
-      EntryGroupResultCache _cpu_bruteforce_els_query_cache;
-      EntryGroupResultCache _special_block_trie_query_cache;
-      std::unordered_map<std::string, SpecialBlockTrieSearchStats>
-          _special_block_trie_search_stats_cache;
-      std::mutex _special_block_trie_query_cache_mutex;
-      std::unique_ptr<GpuCoverFrontierProvider> _gpu_cover_frontier_provider;
-      std::mutex _gpu_cover_frontier_provider_mutex;
-      void ensure_cpu_bruteforce_els_cache();
-      std::vector<std::shared_ptr<const std::vector<uint64_t>>>
-      prepare_cpu_bruteforce_els_label_rows(const std::vector<LabelType> &query_labels);
       void initialize_lng_descendants_coverage_bitsets();
       void initialize_roaring_bitsets();
 

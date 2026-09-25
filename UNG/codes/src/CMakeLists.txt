@@ -33,6 +33,8 @@ set(CPP_SOURCES
     # Runtime method selection/configuration
     MethodSelector.cpp
     ung_build_config.cpp
+    ung_hierarchy_config.cpp
+    ung_group_topology.cpp
     ung_build_settings.cpp
     ung_cross_edge_config.cpp
     ung_cross_edge_output_writer.cpp

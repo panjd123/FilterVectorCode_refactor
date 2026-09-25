@@ -1,6 +1,7 @@
 #include "include/uni_nav_graph.h"
 #include "include/utils.h"
 #include "include/ung_lng_block_partition.h"
+#include "include/ung_group_topology.h"
 
 #include "include/tagore_graph_builder.h"
 #include "include/ung_build_settings.h"
@@ -76,7 +77,6 @@ uint64_t special_block_disk_bytes(const std::string &prefix)
        "special_block_members.csv",
        "special_block_children.csv",
        "special_block_trie.bin",
-       "special_trie_regular_edges.bin",
        "special_edges.bin",
        "special_edges.csv",
        "special_heavy_edges.bin",
@@ -101,20 +101,16 @@ bool validate_special_block_metadata_impl(
     const std::vector<SpecialBlock> &blocks,
     std::string &error)
 {
-   std::unordered_map<IdxType, IdxType> middle_group_owner;
-   std::unordered_map<IdxType, IdxType> upper_group_owner;
-   std::vector<IdxType> child_parent(blocks.size() + 1, 0);
+   size_t layer_count = 0;
+   for (const SpecialBlock &block : blocks)
+      layer_count = std::max(layer_count, static_cast<size_t>(block.level) + 1);
+   std::vector<std::unordered_map<IdxType, IdxType>> group_owners(layer_count);
    for (size_t index = 0; index < blocks.size(); ++index)
    {
       const SpecialBlock &block = blocks[index];
       if (block.block_id != index + 1)
       {
          error = "special block ids must be dense and one-based";
-         return false;
-      }
-      if (block.level > 1)
-      {
-         error = "special block metadata supports only middle level 0 and upper level 1";
          return false;
       }
       if (block.member_group_ids.empty())
@@ -139,21 +135,17 @@ bool validate_special_block_metadata_impl(
          error = "special block root group must be a direct member";
          return false;
       }
-      if (block.level == 1 && block.parent_block_id != 0)
-      {
-         error = "upper special block cannot have a parent block";
-         return false;
-      }
       if (block.parent_block_id != 0)
       {
-         if (block.level != 0 || block.parent_block_id > blocks.size() ||
-             blocks[block.parent_block_id - 1].level != 1)
+         if (block.parent_block_id > blocks.size() ||
+             blocks[block.parent_block_id - 1].level !=
+                 static_cast<uint8_t>(block.level + 1))
          {
-            error = "middle special block parent must reference an upper block";
+            error = "special block parent must reference the next coarser layer";
             return false;
          }
       }
-      auto &owners = block.level == 0 ? middle_group_owner : upper_group_owner;
+      auto &owners = group_owners[block.level];
       for (IdxType group_id : block.member_group_ids)
       {
          if (group_id == 0 || !owners.emplace(group_id, block.block_id).second)
@@ -170,36 +162,14 @@ bool validate_special_block_metadata_impl(
             error = "special block child must reference a distinct block in the same layer";
             return false;
          }
-         if (child_parent[child_id] != 0)
+         const SpecialBlock &child = blocks[child_id - 1];
+         if (child.root_labels.size() <= block.root_labels.size() ||
+             !std::includes(child.root_labels.begin(), child.root_labels.end(),
+                            block.root_labels.begin(), block.root_labels.end()))
          {
-            error = "a special block may have at most one same-layer parent";
+            error = "special block topology edges must point to strict label supersets";
             return false;
          }
-         child_parent[child_id] = block.block_id;
-      }
-   }
-
-   // A valid layer is a forest.  Unique parents alone do not exclude a cycle
-   // (for example 1->2->1), so walk the parent chain from every block.
-   std::vector<uint8_t> visit(blocks.size() + 1, 0);
-   for (IdxType start = 1; start <= blocks.size(); ++start)
-   {
-      IdxType current = start;
-      while (current != 0 && visit[current] == 0)
-      {
-         visit[current] = 1;
-         current = child_parent[current];
-      }
-      if (current != 0 && visit[current] == 1)
-      {
-         error = "special block child topology contains a cycle";
-         return false;
-      }
-      current = start;
-      while (current != 0 && visit[current] == 1)
-      {
-         visit[current] = 2;
-         current = child_parent[current];
       }
    }
    error.clear();
@@ -359,19 +329,15 @@ bool validate_special_block_graph_semantics_impl(
                                      group_ranges, point_to_group, error))
       return false;
 
-   // Reconstruct the persisted same-layer parent relation once. The block
-   // builder always records the nearest block ancestor in each independently
-   // partitioned Trie layer. Merely checking that a child is some descendant
-   // is insufficient: a corrupted sidecar could skip an intermediate block,
-   // changing which inter-block edges are available while still looking like
-   // an acyclic forest.
-   std::vector<IdxType> same_layer_parent(blocks.size() + 1, 0);
-   std::unordered_map<std::vector<LabelType>, IdxType, LabelPathHash>
-       block_by_root[2];
-   block_by_root[0].reserve(blocks.size());
-   block_by_root[1].reserve(blocks.size());
-   std::vector<IdxType> group_middle_owner(num_groups + 1, 0);
-   std::vector<IdxType> group_upper_owner(num_groups + 1, 0);
+   size_t layer_count = 0;
+   for (const SpecialBlock &block : blocks)
+      layer_count = std::max(layer_count, static_cast<size_t>(block.level) + 1);
+   std::vector<std::unordered_map<std::vector<LabelType>, IdxType, LabelPathHash>>
+       block_by_root(layer_count);
+   std::vector<std::vector<IdxType>> group_owner(
+       layer_count, std::vector<IdxType>(num_groups + 1, 0));
+   for (auto &roots : block_by_root)
+      roots.reserve(blocks.size());
    for (const SpecialBlock &block : blocks)
    {
       if (!std::is_sorted(block.root_labels.begin(), block.root_labels.end()) ||
@@ -413,21 +379,11 @@ bool validate_special_block_graph_semantics_impl(
          error = "two same-layer blocks cannot have the same Trie root";
          return false;
       }
-      std::vector<IdxType> &group_owner =
-          block.level == 0 ? group_middle_owner : group_upper_owner;
+      std::vector<IdxType> &layer_owner = group_owner[block.level];
       for (IdxType group_id : block.member_group_ids)
       {
          if (group_id <= num_groups)
-            group_owner[group_id] = block.block_id;
-      }
-      for (IdxType child_id : block.child_block_ids)
-      {
-         if (child_id == 0 || child_id > blocks.size())
-         {
-            error = "special block contains an out-of-range child id";
-            return false;
-         }
-         same_layer_parent[child_id] = block.block_id;
+            layer_owner[group_id] = block.block_id;
       }
    }
 
@@ -444,11 +400,11 @@ bool validate_special_block_graph_semantics_impl(
       labels.erase(std::unique(labels.begin(), labels.end()), labels.end());
       const uint64_t group_points = static_cast<uint64_t>(
           group_ranges[group_id].second - group_ranges[group_id].first);
-      IdxType expected_owner[2] = {0, 0};
+      std::vector<IdxType> expected_owner(layer_count, 0);
       for (size_t prefix_size = labels.size(); prefix_size > 0; --prefix_size)
       {
          labels.resize(prefix_size);
-         for (uint8_t level = 0; level < 2; ++level)
+         for (size_t level = 0; level < layer_count; ++level)
          {
             const auto found = block_by_root[level].find(labels);
             if (found == block_by_root[level].end())
@@ -458,12 +414,12 @@ bool validate_special_block_graph_semantics_impl(
                expected_owner[level] = found->second;
          }
       }
-      if (group_middle_owner[group_id] != expected_owner[0] ||
-          group_upper_owner[group_id] != expected_owner[1])
-      {
-         error = "special block direct membership does not match the nearest block-root partition";
-         return false;
-      }
+      for (size_t level = 0; level < layer_count; ++level)
+         if (group_owner[level][group_id] != expected_owner[level])
+         {
+            error = "special block direct membership does not match the nearest block-root partition";
+            return false;
+         }
    }
 
    for (const SpecialBlock &block : blocks)
@@ -502,60 +458,43 @@ bool validate_special_block_graph_semantics_impl(
       for (IdxType child_id : block.child_block_ids)
       {
          const SpecialBlock &child = blocks[child_id - 1];
-         if (!is_label_path_prefix(block.root_labels, child.root_labels, true))
+         if (child.level != block.level ||
+             child.root_labels.size() <= block.root_labels.size() ||
+             !std::includes(child.root_labels.begin(), child.root_labels.end(),
+                            block.root_labels.begin(), block.root_labels.end()))
          {
-            error = "same-layer child root is not a strict trie descendant";
+            error = "same-layer topology edge must target a strict label superset";
             return false;
          }
       }
-
-      const auto nearest_prefix_block = [&](uint8_t level, bool include_self) {
-         std::vector<LabelType> prefix = block.root_labels;
-         if (!include_self && !prefix.empty())
-            prefix.pop_back();
-         while (!prefix.empty())
+      if (block.parent_block_id != 0)
+      {
+         const SpecialBlock &parent = blocks[block.parent_block_id - 1];
+         if (!std::includes(block.root_labels.begin(), block.root_labels.end(),
+                            parent.root_labels.begin(), parent.root_labels.end()))
          {
-            const auto found = block_by_root[level].find(prefix);
-            if (found != block_by_root[level].end())
-               return found->second;
-            prefix.pop_back();
+            error = "coarser-layer parent root must be contained by the child root";
+            return false;
          }
-         return IdxType{0};
-      };
-      const IdxType nearest_same_layer_parent =
-          nearest_prefix_block(block.level, false);
-      const IdxType nearest_upper_parent =
-          block.level == 0 ? nearest_prefix_block(1, true) : IdxType{0};
-      if (same_layer_parent[block.block_id] != nearest_same_layer_parent)
-      {
-         error = "same-layer child relation must reference the nearest Trie block ancestor";
-         return false;
       }
-      if (block.level == 0 && block.parent_block_id != nearest_upper_parent)
+      IdxType expected_parent = 0;
+      if (static_cast<size_t>(block.level) + 1 < layer_count)
       {
-         error = "middle block parent must reference its nearest upper Trie block ancestor";
-         return false;
+         std::vector<LabelType> prefix = block.root_labels;
+         for (size_t prefix_size = prefix.size(); prefix_size > 0; --prefix_size)
+         {
+            prefix.resize(prefix_size);
+            const auto found = block_by_root[block.level + 1].find(prefix);
+            if (found != block_by_root[block.level + 1].end())
+            {
+               expected_parent = found->second;
+               break;
+            }
+         }
       }
-      // A query covering this upper root may activate level 2 only through a
-      // middle block rooted at or below the upper root. Mere ownership
-      // overlap is insufficient: a larger middle ancestor can own a direct
-      // upper member even though the query does not cover that ancestor.
-      if (block.level == 1 &&
-          std::none_of(block.member_group_ids.begin(),
-                       block.member_group_ids.end(),
-                       [&](IdxType group_id) {
-                          if (group_id > num_groups)
-                             return false;
-                          const IdxType middle_id = group_middle_owner[group_id];
-                          return middle_id > 0 && middle_id <= blocks.size() &&
-                                 group_ranges[group_id].second >
-                                     group_ranges[group_id].first &&
-                                 is_label_path_prefix(
-                                     block.root_labels,
-                                     blocks[middle_id - 1].root_labels, false);
-                       }))
+      if (block.parent_block_id != expected_parent)
       {
-         error = "upper block has no reachable middle-owned direct member activation point";
+         error = "special block parent does not match the nearest root in the next coarser layer";
          return false;
       }
    }
@@ -1838,8 +1777,7 @@ bool read_special_edge_binary_file(const std::string &path,
                                    SpecialBlockBuildSummary &summary,
                                    size_t &loaded_edges,
                                    const std::vector<SpecialBlock> &blocks,
-                                   const std::vector<IdxType> &point_to_middle_block,
-                                   const std::vector<IdxType> &point_to_upper_block)
+                                   const std::vector<std::vector<IdxType>> &point_to_block_by_level)
 {
    uint64_t binary_count = 0;
    std::string error;
@@ -1886,8 +1824,7 @@ bool read_special_edge_binary_file(const std::string &path,
       {
          std::string semantic_error;
          if (!validate_special_edge_semantics(
-                 source, edge, blocks, point_to_middle_block,
-                 point_to_upper_block, semantic_error))
+                 source, edge, blocks, point_to_block_by_level, semantic_error))
          {
             std::cerr << "[special_edges][load] invalid binary sidecar " << path
                       << ": " << semantic_error << std::endl;
@@ -2033,14 +1970,6 @@ void UniNavGraph::refresh_special_block_memory_stats()
       logical += values.size() * sizeof(Value);
       allocated += sizeof(Vector) + values.capacity() * sizeof(Value);
    };
-   add_flat_vector(_group_id_to_special_block);
-   add_flat_vector(_group_id_to_upper_special_block);
-   add_flat_vector(_group_is_special_block_root);
-   add_flat_vector(_group_is_trivial_special_block_root);
-   add_flat_vector(_point_to_special_block);
-   add_flat_vector(_point_to_upper_special_block);
-   add_flat_vector(_point_is_special_block_root);
-
    const auto add_nested_vector = [&](const auto &rows) {
       using Outer = std::decay_t<decltype(rows)>;
       using Inner = typename Outer::value_type;
@@ -2053,15 +1982,17 @@ void UniNavGraph::refresh_special_block_memory_stats()
          allocated += row.capacity() * sizeof(Value);
       }
    };
+   add_nested_vector(_group_to_special_block_by_level);
+   add_flat_vector(_group_is_special_block_root);
+   add_flat_vector(_group_is_trivial_special_block_root);
+   add_nested_vector(_point_to_special_block_by_level);
+   add_flat_vector(_point_is_special_block_root);
    add_nested_vector(_special_edges_by_point);
    add_nested_vector(_special_heavy_edges_by_point);
-   add_nested_vector(_special_trie_regular_edges_by_point);
    add_flat_vector(_special_edges_csr.offsets);
    add_flat_vector(_special_edges_csr.edges);
    add_flat_vector(_special_heavy_edges_csr.offsets);
    add_flat_vector(_special_heavy_edges_csr.edges);
-   add_flat_vector(_special_trie_regular_edges_csr.offsets);
-   add_flat_vector(_special_trie_regular_edges_csr.targets);
 
    logical += _special_block_trie_index.logical_memory_size_bytes();
    allocated += _special_block_trie_index.memory_size_bytes();
@@ -2099,25 +2030,6 @@ UniNavGraph::special_heavy_edges_for_point(IdxType point_id) const
    }
    if (point_id < _special_heavy_edges_by_point.size())
       return {_special_heavy_edges_by_point[point_id].data(), nullptr, _special_heavy_edges_by_point[point_id].size()};
-   return {};
-}
-
-UniNavGraph::ContiguousView<IdxType>
-UniNavGraph::special_regular_edges_for_point(IdxType point_id) const
-{
-   if (!_special_trie_regular_edges_csr.empty() &&
-       point_id < _special_trie_regular_edges_csr.num_sources())
-   {
-      const uint64_t begin = _special_trie_regular_edges_csr.offsets[point_id];
-      const uint64_t end = _special_trie_regular_edges_csr.offsets[point_id + 1];
-      if (begin == end)
-         return {};
-      return {_special_trie_regular_edges_csr.targets.data() + begin,
-              static_cast<size_t>(end - begin)};
-   }
-   if (point_id < _special_trie_regular_edges_by_point.size())
-      return {_special_trie_regular_edges_by_point[point_id].data(),
-              _special_trie_regular_edges_by_point[point_id].size()};
    return {};
 }
 
@@ -2206,15 +2118,19 @@ void UniNavGraph::populate_special_query_stats(const std::vector<LabelType> &que
 
 void UniNavGraph::rebuild_special_block_indexes()
 {
-   _group_id_to_special_block.assign(_num_groups + 1, 0);
-   _group_id_to_upper_special_block.assign(_num_groups + 1, 0);
+   size_t layer_count = 0;
+   for (const SpecialBlock &block : _special_blocks)
+      layer_count = std::max(layer_count, static_cast<size_t>(block.level) + 1);
+   _group_to_special_block_by_level.assign(
+       layer_count, std::vector<IdxType>(_num_groups + 1, 0));
    _group_is_special_block_root.assign(_num_groups + 1, 0);
    _group_is_trivial_special_block_root.assign(_num_groups + 1, 0);
-   _point_to_special_block.assign(_num_points, 0);
-   _point_to_upper_special_block.assign(_num_points, 0);
+   _point_to_special_block_by_level.assign(
+       layer_count, std::vector<IdxType>(_num_points, 0));
    _point_is_special_block_root.assign(_num_points, 0);
    _special_block_summary.num_blocks = static_cast<IdxType>(_special_blocks.size());
    _special_block_summary.upper_blocks = 0;
+   _special_block_summary.layer_block_counts.assign(layer_count, 0);
    _special_block_summary.trivial_blocks = 0;
    _special_block_summary.member_groups = 0;
    _special_block_summary.member_points = 0;
@@ -2224,6 +2140,7 @@ void UniNavGraph::rebuild_special_block_indexes()
    {
       if (block.level > 0)
          _special_block_summary.upper_blocks += 1;
+      _special_block_summary.layer_block_counts[block.level] += 1;
       _special_block_summary.member_groups += static_cast<IdxType>(block.member_group_ids.size());
       _special_block_summary.member_points += block.point_count;
       _special_block_summary.child_block_edges += static_cast<IdxType>(block.child_block_ids.size());
@@ -2241,14 +2158,13 @@ void UniNavGraph::rebuild_special_block_indexes()
       }
       for (IdxType group_id : block.member_group_ids)
       {
-         if (group_id >= _group_id_to_special_block.size())
+         if (block.level >= _group_to_special_block_by_level.size() ||
+             group_id >= _group_to_special_block_by_level[block.level].size())
             continue;
-         std::vector<IdxType> &group_map = block.level == 0
-                                               ? _group_id_to_special_block
-                                               : _group_id_to_upper_special_block;
-         std::vector<IdxType> &point_map = block.level == 0
-                                               ? _point_to_special_block
-                                               : _point_to_upper_special_block;
+         std::vector<IdxType> &group_map =
+             _group_to_special_block_by_level[block.level];
+         std::vector<IdxType> &point_map =
+             _point_to_special_block_by_level[block.level];
          group_map[group_id] = block.block_id;
          const auto &range = _group_id_to_range[group_id];
          for (IdxType point_id = range.first; point_id < range.second && point_id < point_map.size(); ++point_id)
@@ -2261,78 +2177,29 @@ void UniNavGraph::build_special_blocks()
 {
    _special_blocks.clear();
    _special_block_trie_index.clear();
-   _group_id_to_special_block.assign(_num_groups + 1, 0);
-   _group_id_to_upper_special_block.assign(_num_groups + 1, 0);
+   _group_to_special_block_by_level.clear();
    _group_is_special_block_root.assign(_num_groups + 1, 0);
    _group_is_trivial_special_block_root.assign(_num_groups + 1, 0);
-   _point_to_special_block.assign(_num_points, 0);
-   _point_to_upper_special_block.assign(_num_points, 0);
+   _point_to_special_block_by_level.clear();
    _point_is_special_block_root.assign(_num_points, 0);
    _special_edges_by_point.clear();
    _special_heavy_edges_by_point.clear();
    _special_block_summary = {};
-   _special_block_summary.threshold = static_cast<IdxType>(_build_config.special_block_min_points);
+   _special_block_summary.layer_thresholds.clear();
+   for (const HierarchyLayerSpec &layer : _build_config.hierarchy.layers)
+      _special_block_summary.layer_thresholds.push_back(layer.min_points);
+   _special_block_summary.threshold = _special_block_summary.layer_thresholds.empty()
+                                          ? 0
+                                          : _special_block_summary.layer_thresholds.front();
    _special_block_summary.upper_threshold =
-       static_cast<IdxType>(_build_config.special_block_upper_min_points);
+       _special_block_summary.layer_thresholds.size() > 1
+           ? _special_block_summary.layer_thresholds[1]
+           : 0;
 
-   if (!_build_config.special_blocks_enabled)
+   if (!_build_config.special_blocks_enabled || _build_config.hierarchy.empty())
       return;
 
    const auto start = std::chrono::high_resolution_clock::now();
-   if (_build_config.special_block_partition == UngSpecialBlockPartition::Lng)
-   {
-      if (_build_config.special_block_upper_min_points > 0)
-         throw std::runtime_error(
-             "multi-level Special Blocks currently require trie partitioning");
-      if (!_label_nav_graph)
-         throw std::runtime_error("LNG special block partition requires the label navigation graph to be built first.");
-      std::vector<IdxType> group_points(_num_groups + 1, 0);
-      for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
-      {
-         const auto &range = _group_id_to_range[group_id];
-         group_points[group_id] = range.second - range.first;
-      }
-
-      LngBlockPartitionInput input;
-      input.out_neighbors = &_label_nav_graph->out_neighbors;
-      input.group_points = &group_points;
-      input.group_labels = &_group_id_to_label_set;
-      input.min_points = static_cast<IdxType>(_build_config.special_block_min_points);
-      input.tree_mode = _build_config.special_block_tree_mode == "bfs"
-                            ? LngBlockTreeMode::Bfs
-                            : LngBlockTreeMode::Random;
-      input.tree_seed = _build_config.special_block_tree_seed;
-      LngBlockPartitionResult partition = build_lng_special_blocks(input);
-      _special_blocks = std::move(partition.blocks);
-      rebuild_special_block_indexes();
-
-      const double ms = std::chrono::duration<double, std::milli>(
-                            std::chrono::high_resolution_clock::now() - start)
-                            .count();
-      _special_block_summary.metadata_ms = ms;
-      std::cout << "[special_blocks] enabled=1 partition=lng tree_mode="
-                << _build_config.special_block_tree_mode
-                << " tree_seed=" << _build_config.special_block_tree_seed
-                << " threshold=" << _special_block_summary.threshold
-                << " blocks=" << _special_block_summary.num_blocks
-                << " trivial_blocks=" << _special_block_summary.trivial_blocks
-                << " member_groups=" << _special_block_summary.member_groups
-                << " member_points=" << _special_block_summary.member_points
-                << " child_block_edges=" << _special_block_summary.child_block_edges
-                << " ms=" << ms << std::endl;
-      prof_logf("[PROF] special_blocks partition=lng tree_mode=%s tree_seed=%llu threshold=%u blocks=%u trivial_blocks=%u member_groups=%u member_points=%u child_block_edges=%u ms=%.3f",
-                _build_config.special_block_tree_mode.c_str(),
-                static_cast<unsigned long long>(_build_config.special_block_tree_seed),
-                static_cast<unsigned>(_special_block_summary.threshold),
-                static_cast<unsigned>(_special_block_summary.num_blocks),
-                static_cast<unsigned>(_special_block_summary.trivial_blocks),
-                static_cast<unsigned>(_special_block_summary.member_groups),
-                static_cast<unsigned>(_special_block_summary.member_points),
-                static_cast<unsigned>(_special_block_summary.child_block_edges),
-                ms);
-      return;
-   }
-
    const auto trie_build_start = std::chrono::high_resolution_clock::now();
    _special_block_trie_index.build(_group_id_to_label_set, _num_groups);
    _special_block_summary.trie_build_ms = std::chrono::duration<double, std::milli>(
@@ -2403,25 +2270,37 @@ void UniNavGraph::build_special_blocks()
       return node_to_block;
    };
 
-   const std::vector<IdxType> middle_node_to_block = append_layer(
-       static_cast<IdxType>(_build_config.special_block_min_points), 0);
-   if (_build_config.special_block_upper_min_points > 0)
+   std::vector<std::vector<IdxType>> node_to_block_by_level;
+   node_to_block_by_level.reserve(_build_config.hierarchy.layers.size());
+   for (size_t level = 0; level < _build_config.hierarchy.layers.size(); ++level)
    {
-      const std::vector<IdxType> upper_node_to_block = append_layer(
-          static_cast<IdxType>(_build_config.special_block_upper_min_points), 1);
-      // Link each middle block to its nearest containing upper-layer block.
-      for (const IdxType middle_block_id : middle_node_to_block)
+      if (level >= static_cast<size_t>(std::numeric_limits<uint8_t>::max()))
+         throw std::invalid_argument("hierarchy supports at most 255 materialized layers");
+      node_to_block_by_level.push_back(append_layer(
+          _build_config.hierarchy.layers[level].min_points,
+          static_cast<uint8_t>(level)));
+      apply_layer_topology(_build_config.hierarchy.layers[level].topology,
+                           static_cast<uint8_t>(level), _special_blocks);
+   }
+
+   // Cross-layer parent metadata is optional for search, but retaining the
+   // nearest containing block in the next coarser layer makes the hierarchy
+   // inspectable without coupling traversal between layers.
+   for (size_t level = 0; level + 1 < node_to_block_by_level.size(); ++level)
+   {
+      const auto &fine = node_to_block_by_level[level];
+      const auto &coarse = node_to_block_by_level[level + 1];
+      for (const IdxType fine_block_id : fine)
       {
-         if (middle_block_id == 0 || middle_block_id > _special_blocks.size())
+         if (fine_block_id == 0 || fine_block_id > _special_blocks.size())
             continue;
-         SpecialBlock &middle = _special_blocks[middle_block_id - 1];
-         auto node_id = _special_block_trie_index.find_exact_node(middle.root_labels);
+         SpecialBlock &fine_block = _special_blocks[fine_block_id - 1];
+         auto node_id = _special_block_trie_index.find_exact_node(fine_block.root_labels);
          while (node_id != SpecialBlockTrieIndex::kInvalidNodeId)
          {
-            if (node_id < upper_node_to_block.size() &&
-                upper_node_to_block[node_id] != 0)
+            if (node_id < coarse.size() && coarse[node_id] != 0)
             {
-               middle.parent_block_id = upper_node_to_block[node_id];
+               fine_block.parent_block_id = coarse[node_id];
                break;
             }
             if (node_id == 0)
@@ -2437,8 +2316,8 @@ void UniNavGraph::build_special_blocks()
                          std::chrono::high_resolution_clock::now() - start)
                          .count();
    _special_block_summary.metadata_ms = ms;
-   std::cout << "[special_blocks] enabled=1 partition=trie threshold=" << _special_block_summary.threshold
-             << " upper_threshold=" << _special_block_summary.upper_threshold
+   std::cout << "[special_blocks] enabled=1 layers="
+             << _build_config.hierarchy.encode()
              << " trie_nodes=" << _special_block_summary.trie_node_count
              << " trie_children=" << _special_block_summary.trie_child_count
              << " trie_bytes=" << _special_block_summary.trie_serialized_bytes
@@ -2450,8 +2329,8 @@ void UniNavGraph::build_special_blocks()
              << " member_points=" << _special_block_summary.member_points
              << " child_block_edges=" << _special_block_summary.child_block_edges
              << " ms=" << ms << std::endl;
-   prof_logf("[PROF] special_blocks partition=trie threshold=%u trie_nodes=%llu trie_children=%llu trie_bytes=%llu trie_build_ms=%.3f blocks=%u trivial_blocks=%u member_groups=%u member_points=%u child_block_edges=%u ms=%.3f",
-             static_cast<unsigned>(_special_block_summary.threshold),
+   prof_logf("[PROF] special_blocks layers=%s trie_nodes=%llu trie_children=%llu trie_bytes=%llu trie_build_ms=%.3f blocks=%u trivial_blocks=%u member_groups=%u member_points=%u topology_edges=%u ms=%.3f",
+             _build_config.hierarchy.encode().c_str(),
              static_cast<unsigned long long>(_special_block_summary.trie_node_count),
              static_cast<unsigned long long>(_special_block_summary.trie_child_count),
              static_cast<unsigned long long>(_special_block_summary.trie_serialized_bytes),
@@ -2596,7 +2475,6 @@ void UniNavGraph::build_special_block_index(
           "constructed special block partition is invalid: " +
           graph_semantics_error);
    build_special_edge_overlay();
-   build_special_trie_regular_edge_overlay();
    refresh_special_block_memory_stats();
    _special_block_summary.build_memory_logical_bytes =
        _special_block_summary.memory_logical_bytes;
@@ -2610,12 +2488,7 @@ void UniNavGraph::build_special_block_index(
    const auto compact_reload_start = std::chrono::high_resolution_clock::now();
    std::vector<std::vector<SpecialEdge>>().swap(_special_edges_by_point);
    std::vector<std::vector<SpecialEdge>>().swap(_special_heavy_edges_by_point);
-   std::vector<std::vector<IdxType>>().swap(_special_trie_regular_edges_by_point);
    std::string reload_error;
-   if (!read_regular_edge_csr_file(
-           block_prefix + "special_trie_regular_edges.bin",
-           _special_trie_regular_edges_csr, reload_error))
-      throw std::runtime_error("cannot reload saved regular-edge CSR: " + reload_error);
    if (!read_special_edge_csr_file(
            block_prefix + "special_edges.bin", _special_edges_csr, reload_error))
       throw std::runtime_error("cannot reload saved special-edge CSR: " + reload_error);
@@ -2641,6 +2514,8 @@ void UniNavGraph::build_special_block_index(
    meta["num_groups"] = std::to_string(_num_groups);
    meta["special_blocks_enabled"] = "1";
    meta["special_block_partition"] = "trie";
+   meta["base_group_topology"] = to_string(_build_config.hierarchy.base_topology);
+   meta["hierarchy_layers"] = _build_config.hierarchy.encode();
    meta["special_block_min_points"] =
        std::to_string(_build_config.special_block_min_points);
    meta["special_block_upper_min_points"] =
@@ -2656,12 +2531,6 @@ void UniNavGraph::build_special_block_index(
    meta["special_edge_count"] = std::to_string(_special_block_summary.special_edges);
    meta["special_edge_intra_count"] = std::to_string(_special_block_summary.intra_special_edges);
    meta["special_edge_inter_count"] = std::to_string(_special_block_summary.inter_special_edges);
-   meta["special_trie_regular_group_edge_count"] =
-       std::to_string(_special_block_summary.trie_regular_group_edges);
-   meta["special_trie_regular_vector_edge_count"] =
-       std::to_string(_special_block_summary.trie_regular_vector_edges);
-   meta["special_trie_regular_portal_edge_count"] =
-       std::to_string(_special_block_summary.trie_regular_portal_edges);
    meta["special_block_trie_format_version"] =
        std::to_string(SpecialBlockTrieIndex::kFormatVersion);
    meta["special_block_trie_nodes"] = std::to_string(_special_block_summary.trie_node_count);
@@ -2673,8 +2542,6 @@ void UniNavGraph::build_special_block_index(
    meta["special_edge_overlay_time(ms)"] = std::to_string(_special_block_summary.edge_overlay_ms);
    meta["special_edge_intra_build_time(ms)"] = std::to_string(_special_block_summary.intra_edge_build_ms);
    meta["special_edge_inter_build_time(ms)"] = std::to_string(_special_block_summary.inter_edge_build_ms);
-   meta["special_trie_regular_edge_build_time(ms)"] =
-       std::to_string(_special_block_summary.trie_regular_edge_build_ms);
    meta["special_blocks_save_time(ms)"] = std::to_string(_special_block_summary.save_total_ms);
    meta["build_memory_logical_bytes"] =
        std::to_string(_special_block_summary.build_memory_logical_bytes);
@@ -2707,7 +2574,6 @@ void UniNavGraph::build_special_block_index(
           << "special_edge_intra_build_time," << _special_block_summary.intra_edge_build_ms << '\n'
           << "special_edge_inter_build_time," << _special_block_summary.inter_edge_build_ms << '\n'
           << "special_edge_overlay_time," << _special_block_summary.edge_overlay_ms << '\n'
-          << "special_trie_regular_edge_build_time," << _special_block_summary.trie_regular_edge_build_ms << '\n'
           << "special_blocks_save_time," << _special_block_summary.save_total_ms << '\n'
           << "disk_bytes," << _special_block_summary.disk_bytes << '\n'
           << "build_memory_logical_bytes," << _special_block_summary.build_memory_logical_bytes << '\n'
@@ -2754,6 +2620,16 @@ void UniNavGraph::load_special_block_index(const std::string &block_index_path_p
                                     _num_points, _num_groups,
                                     _group_id_to_label_set, _group_id_to_range))
       throw std::runtime_error("special block index was built from a different UNG group layout");
+   const auto base_topology_it = block_meta.find("base_group_topology");
+   const auto hierarchy_layers_it = block_meta.find("hierarchy_layers");
+   if (hierarchy_layers_it != block_meta.end())
+   {
+      _build_config.hierarchy = parse_hierarchy_plan(
+          hierarchy_layers_it->second,
+          parse_group_topology(base_topology_it == block_meta.end()
+                                   ? "lng"
+                                   : base_topology_it->second));
+   }
    load_special_blocks(prefix, block_meta, true);
    refresh_special_block_memory_stats();
    _special_block_summary.disk_bytes = special_block_disk_bytes(prefix);
@@ -2764,113 +2640,6 @@ void UniNavGraph::load_special_block_index(const std::string &block_index_path_p
              << " disk_bytes=" << _special_block_summary.disk_bytes
              << " memory_logical_bytes=" << _special_block_summary.memory_logical_bytes
              << " memory_allocated_bytes=" << _special_block_summary.memory_allocated_bytes
-             << std::endl;
-}
-
-void UniNavGraph::build_special_trie_regular_edge_overlay()
-{
-   _special_trie_regular_edges_by_point.clear();
-   _special_trie_regular_edges_available = false;
-   _special_block_summary.trie_regular_group_edges = 0;
-   _special_block_summary.trie_regular_vector_edges = 0;
-   _special_block_summary.trie_regular_portal_edges = 0;
-   _special_block_summary.trie_regular_edge_build_ms = 0.0;
-
-   if (_build_config.special_block_partition != UngSpecialBlockPartition::Trie ||
-       _special_block_trie_index.empty() || !_base_storage)
-      return;
-
-   const auto start = std::chrono::high_resolution_clock::now();
-   std::vector<std::vector<IdxType>> group_successors(_num_groups + 1);
-   for (const auto &pair : _special_block_trie_index.terminal_successor_pairs())
-   {
-      if (pair.first == 0 || pair.first > _num_groups ||
-          pair.second == 0 || pair.second > _num_groups || pair.first == pair.second)
-         continue;
-      group_successors[pair.first].push_back(pair.second);
-   }
-
-   const auto portal_pairs = _special_block_trie_index.terminal_block_portal_pairs();
-   uint64_t portal_vector_edge_count = 0;
-   for (const auto &pair : portal_pairs)
-   {
-      const IdxType source_group = pair.first;
-      const IdxType block_id = pair.second;
-      if (source_group == 0 || source_group > _num_groups ||
-          block_id == 0 || block_id > _special_blocks.size())
-         continue;
-      const IdxType entry_point = _special_blocks[block_id - 1].entry_point_id;
-      if (entry_point == SpecialBlock::kInvalidEntryPoint || entry_point >= _num_points)
-         throw std::runtime_error(
-             "special Trie portal requires a valid block-local graph entry point");
-      const auto &source_range = _group_id_to_range[source_group];
-      portal_vector_edge_count += source_range.second - source_range.first;
-   }
-
-   uint64_t successor_group_edge_count = 0;
-   for (auto &successors : group_successors)
-   {
-      std::sort(successors.begin(), successors.end());
-      successors.erase(std::unique(successors.begin(), successors.end()), successors.end());
-      successor_group_edge_count += successors.size();
-   }
-   const uint64_t portal_group_edge_count = portal_pairs.size();
-   const uint64_t group_edge_count = successor_group_edge_count + portal_group_edge_count;
-
-   _special_trie_regular_edges_by_point.assign(_num_points, {});
-   const IdxType edge_degree = std::max<IdxType>(
-       1, _build_config.special_block_num_cross_edges > 0
-              ? static_cast<IdxType>(_build_config.special_block_num_cross_edges)
-              : _num_cross_edges);
-   const IdxType dim = _base_storage->get_dim();
-   uint64_t vector_edge_count = 0;
-#pragma omp parallel for schedule(dynamic, 64) num_threads(_num_threads) reduction(+ : vector_edge_count)
-   for (IdxType source_group = 1; source_group <= _num_groups; ++source_group)
-   {
-      const auto &successors = group_successors[source_group];
-      if (successors.empty())
-         continue;
-      const auto &source_range = _group_id_to_range[source_group];
-      for (IdxType source = source_range.first; source < source_range.second; ++source)
-      {
-         auto &output = _special_trie_regular_edges_by_point[source];
-         output.reserve(successors.size() * static_cast<size_t>(edge_degree));
-         const char *source_vector = _base_storage->get_vector(source);
-         for (IdxType target_group : successors)
-         {
-            const auto &target_range = _group_id_to_range[target_group];
-            SearchQueue nearest;
-            nearest.reserve(edge_degree);
-            for (IdxType target = target_range.first; target < target_range.second; ++target)
-            {
-               nearest.insert(target,
-                              _distance_handler->compute(
-                                  source_vector, _base_storage->get_vector(target), dim));
-            }
-            for (int32_t rank = 0; rank < nearest.size(); ++rank)
-               output.push_back(nearest[rank].id);
-         }
-         std::sort(output.begin(), output.end());
-         output.erase(std::unique(output.begin(), output.end()), output.end());
-         vector_edge_count += output.size();
-      }
-   }
-
-   _special_trie_regular_edges_available = true;
-   _special_block_summary.trie_regular_group_edges = group_edge_count;
-   _special_block_summary.trie_regular_vector_edges = vector_edge_count;
-   _special_block_summary.trie_regular_portal_edges = portal_vector_edge_count;
-   _special_block_summary.trie_regular_edge_build_ms =
-       std::chrono::duration<double, std::milli>(
-           std::chrono::high_resolution_clock::now() - start)
-           .count();
-   std::cout << "[special_trie_regular] group_edges=" << group_edge_count
-             << " successor_group_edges=" << successor_group_edge_count
-             << " portal_group_edges=" << portal_group_edge_count
-             << " vector_edges=" << vector_edge_count
-             << " implicit_portal_vector_edges=" << portal_vector_edge_count
-             << " degree_per_group=" << edge_degree
-             << " build_ms=" << _special_block_summary.trie_regular_edge_build_ms
              << std::endl;
 }
 
@@ -3779,7 +3548,6 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
    double child_ms = 0.0;
    double edge_ms = 0.0;
    double trie_ms = 0.0;
-   double trie_regular_edge_ms = 0.0;
    size_t light_edge_rows = 0;
    size_t heavy_edge_rows = 0;
    const auto metadata_start = std::chrono::high_resolution_clock::now();
@@ -3847,20 +3615,6 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
                     std::chrono::high_resolution_clock::now() - trie_start)
                     .count();
    }
-   if (_special_trie_regular_edges_available)
-   {
-      const auto regular_edge_start = std::chrono::high_resolution_clock::now();
-      const std::string path = prefix + "special_trie_regular_edges.bin";
-      uint64_t count = 0;
-      std::string error;
-      if (!write_regular_edge_csr_file(
-              path, _special_trie_regular_edges_by_point, count, error))
-         throw std::runtime_error("cannot save special Trie regular CSR sidecar: " + error);
-      _special_block_summary.trie_regular_vector_edges = count;
-      trie_regular_edge_ms = std::chrono::duration<double, std::milli>(
-                                 std::chrono::high_resolution_clock::now() - regular_edge_start)
-                                 .count();
-   }
    const auto edge_start = std::chrono::high_resolution_clock::now();
    {
       const bool binary_only_sidecar = env_flag("UNG_SPECIAL_EDGE_BINARY_ONLY");
@@ -3915,8 +3669,7 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
                 edge.kind == SpecialEdgeKind::InterBlock)
             {
                const IdxType child_id = special_edge_target_owner(
-                   edge, _special_blocks, _point_to_special_block,
-                   _point_to_upper_special_block);
+                   edge, _special_blocks, _point_to_special_block_by_level);
                const unsigned long long key =
                    (static_cast<unsigned long long>(edge.special_block_id) << 32) |
                    static_cast<unsigned long long>(child_id);
@@ -3945,8 +3698,7 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
                 edge.kind != SpecialEdgeKind::InterBlock)
                return false;
             const IdxType child_id = special_edge_target_owner(
-                edge, _special_blocks, _point_to_special_block,
-                _point_to_upper_special_block);
+                edge, _special_blocks, _point_to_special_block_by_level);
             const unsigned long long key =
                 (static_cast<unsigned long long>(edge.special_block_id) << 32) |
                 static_cast<unsigned long long>(child_id);
@@ -3982,14 +3734,12 @@ void UniNavGraph::save_special_blocks(const std::string &prefix)
    _special_block_summary.save_members_ms = member_ms;
    _special_block_summary.save_children_ms = child_ms;
    _special_block_summary.save_edges_ms = edge_ms;
-   _special_block_summary.save_trie_regular_edges_ms = trie_regular_edge_ms;
    _special_block_summary.trie_save_ms = trie_ms;
    _special_block_summary.save_total_ms = total_ms;
    std::cout << "[special_blocks][save] metadata_ms=" << metadata_ms
              << " members_ms=" << member_ms
              << " children_ms=" << child_ms
              << " trie_ms=" << trie_ms
-             << " trie_regular_edges_ms=" << trie_regular_edge_ms
              << " edges_ms=" << edge_ms
              << " total_ms=" << total_ms
              << " light_edges=" << light_edge_rows
@@ -4005,11 +3755,8 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
    _special_block_trie_index.clear();
    _special_edges_by_point.clear();
    _special_heavy_edges_by_point.clear();
-   _special_trie_regular_edges_by_point.clear();
    _special_edges_csr.clear();
    _special_heavy_edges_csr.clear();
-   _special_trie_regular_edges_csr.clear();
-   _special_trie_regular_edges_available = false;
    _special_block_summary = {};
    auto meta_it = meta_data.find("special_blocks_enabled");
    if (meta_it == meta_data.end() || meta_it->second != "1")
@@ -4037,10 +3784,7 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
       };
       require_file("special_blocks.bin");
       if (trie_partition)
-      {
          require_file("special_block_trie.bin");
-         require_file("special_trie_regular_edges.bin");
-      }
       require_file("special_edges.bin");
    }
 
@@ -4051,6 +3795,19 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
    if (upper_threshold_it != meta_data.end())
       _special_block_summary.upper_threshold =
           static_cast<IdxType>(std::stoul(upper_threshold_it->second));
+   const auto hierarchy_layers_it = meta_data.find("hierarchy_layers");
+   if (hierarchy_layers_it != meta_data.end())
+   {
+      const GroupTopologyKind base_topology = parse_group_topology(
+          meta_data.count("base_group_topology") == 0
+              ? "lng"
+              : meta_data.at("base_group_topology"));
+      const HierarchyPlan persisted_plan = parse_hierarchy_plan(
+          hierarchy_layers_it->second, base_topology);
+      _special_block_summary.layer_thresholds.clear();
+      for (const HierarchyLayerSpec &layer : persisted_plan.layers)
+         _special_block_summary.layer_thresholds.push_back(layer.min_points);
+   }
 
    std::string binary_metadata_error;
    const bool loaded_binary_metadata = load_special_block_metadata_binary(
@@ -4192,69 +3949,6 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
       _special_block_summary.trie_serialized_bytes =
           _special_block_trie_index.serialized_size_bytes();
 
-      const auto regular_group_count_it = meta_data.find("special_trie_regular_group_edge_count");
-      _special_block_summary.trie_regular_group_edges =
-          regular_group_count_it == meta_data.end()
-              ? _special_block_trie_index.terminal_successor_pairs().size()
-              : std::stoull(regular_group_count_it->second);
-      const auto portal_edge_count_it = meta_data.find("special_trie_regular_portal_edge_count");
-      if (portal_edge_count_it != meta_data.end())
-         _special_block_summary.trie_regular_portal_edges =
-             std::stoull(portal_edge_count_it->second);
-      const std::string regular_edge_path = prefix + "special_trie_regular_edges.bin";
-      if (std::ifstream(regular_edge_path, std::ios::binary))
-      {
-         uint64_t loaded = 0;
-         std::string error;
-         bool invalid_record = false;
-         const auto validation = validate_special_edge_binary_file(regular_edge_path);
-         bool read_ok = false;
-         if (validation.valid && validation.format_version == 2)
-         {
-            read_ok = validation.regular_targets_only && validation.num_sources == _num_points &&
-                      read_regular_edge_csr_file(
-                          regular_edge_path, _special_trie_regular_edges_csr, error);
-            if (read_ok)
-            {
-               loaded = _special_trie_regular_edges_csr.targets.size();
-               invalid_record = std::any_of(
-                   _special_trie_regular_edges_csr.targets.begin(),
-                   _special_trie_regular_edges_csr.targets.end(),
-                   [&](IdxType target) { return target >= _num_points; });
-            }
-         }
-         else
-         {
-            _special_trie_regular_edges_by_point.assign(_num_points, {});
-            read_ok = for_each_special_edge_binary_record(
-                regular_edge_path,
-                [&](const SpecialEdgeBinaryRecord &record) {
-                   if (record.source >= _num_points || record.target >= _num_points ||
-                       record.block != 0 || record.kind != 0)
-                   {
-                      invalid_record = true;
-                      return;
-                   }
-                   _special_trie_regular_edges_by_point[record.source].push_back(record.target);
-                },
-                loaded, error);
-         }
-         if (!read_ok || invalid_record)
-            throw std::runtime_error(
-                "invalid special Trie regular edge sidecar: " +
-                (invalid_record ? std::string("record field is out of range") : error));
-         _special_trie_regular_edges_available = true;
-         _special_block_summary.trie_regular_vector_edges = loaded;
-      }
-      else
-      {
-         if (require_binary_sidecars)
-            throw std::runtime_error(
-                "required special Trie regular edge sidecar is missing: " +
-                regular_edge_path);
-         std::cerr << "[special_trie_regular] sidecar missing; rebuild the index before using the special_block_trie provider."
-                   << std::endl;
-      }
    }
 
    const unsigned long long heavy_pair_work_threshold =
@@ -4308,7 +4002,7 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
                std::string semantic_error;
                if (!validate_special_edge_semantics(
                        source, edge, _special_blocks,
-                       _point_to_special_block, _point_to_upper_special_block,
+                       _point_to_special_block_by_level,
                        semantic_error))
                   throw std::runtime_error(
                       "invalid special-edge CSR semantics: " + semantic_error);
@@ -4327,7 +4021,7 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
       legacy.assign(_num_points, {});
       const bool loaded = read_special_edge_binary_file(
           path, legacy, _special_block_summary, loaded_edges, _special_blocks,
-          _point_to_special_block, _point_to_upper_special_block);
+          _point_to_special_block_by_level);
       return loaded;
    };
 
@@ -4377,7 +4071,7 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
          std::string semantic_error;
          if (!validate_special_edge_semantics(
                  source, edge, _special_blocks,
-                 _point_to_special_block, _point_to_upper_special_block,
+                 _point_to_special_block_by_level,
                  semantic_error))
             throw std::runtime_error(
                 "invalid special-edge CSV semantics: " + semantic_error);
@@ -4385,8 +4079,7 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
          if (heavy_pair_work_threshold > 0 && edge.kind == SpecialEdgeKind::InterBlock)
          {
             const IdxType child_id = special_edge_target_owner(
-                edge, _special_blocks, _point_to_special_block,
-                _point_to_upper_special_block);
+                edge, _special_blocks, _point_to_special_block_by_level);
             if (child_id > 0)
             {
                const unsigned long long key =
@@ -4451,7 +4144,7 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
          std::string semantic_error;
          if (!validate_special_edge_semantics(
                  source, edge, _special_blocks,
-                 _point_to_special_block, _point_to_upper_special_block,
+                 _point_to_special_block_by_level,
                  semantic_error))
             throw std::runtime_error(
                 "invalid heavy special-edge CSV semantics: " + semantic_error);
@@ -4475,8 +4168,6 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
              << " trie_children=" << _special_block_summary.trie_child_count
              << " trie_bytes=" << _special_block_summary.trie_serialized_bytes
              << " trie_load_ms=" << _special_block_summary.trie_load_ms
-             << " trie_regular_group_edges=" << _special_block_summary.trie_regular_group_edges
-             << " trie_regular_vector_edges=" << _special_block_summary.trie_regular_vector_edges
              << " sidecar_edges=" << _special_block_summary.special_edges
              << " binary_light_edges=" << light_binary_edges_loaded
              << " heavy_edges=" << heavy_edges_loaded

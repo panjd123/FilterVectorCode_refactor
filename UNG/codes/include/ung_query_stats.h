@@ -57,7 +57,6 @@ namespace ANNS
       size_t special_trie_downward_nodes_visited = 0;
       size_t special_trie_branches_pruned = 0;
       size_t special_trie_terminal_candidates = 0;
-      size_t special_trie_block_frontier_candidates = 0;
       size_t special_trie_terminal_descendants_pruned = 0;
       size_t special_trie_final_entries = 0;
       size_t special_trie_final_block_entries = 0;
@@ -67,7 +66,6 @@ namespace ANNS
       bool special_free_use_regular = false;
       double special_cover_time_ms = 0.0;
       double special_entry_time_ms = 0.0;
-      double special_preexpand_time_ms = 0.0;
       double special_special_edges_time_ms = 0.0;
       double special_regular_edges_time_ms = 0.0;
       double special_result_time_ms = 0.0;
@@ -85,7 +83,6 @@ namespace ANNS
       size_t special_entry_regular_points = 0;
       size_t special_group_entry_free_points = 0;
       size_t special_group_entry_regular_points = 0;
-      size_t special_group_entry_points_policy_skipped = 0;
       size_t special_free_block_count = 0;
       size_t special_free_block_frontier_count = 0;
       // Multi-level diagnostics: level 1 is the middle (T1) overlay and
@@ -96,9 +93,6 @@ namespace ANNS
       bool special_query_upper_enabled = true;
       size_t special_block_seed_points = 0;
       size_t special_block_seed_points_retained = 0;
-      size_t special_block_seed_points_preexpanded = 0;
-      size_t special_preexpand_edges_scanned = 0;
-      size_t special_preexpand_edges_accepted = 0;
       size_t special_entry_blocks = 0;
       size_t special_retained_entry_blocks = 0;
       size_t special_middle_blocks_searched = 0;
@@ -112,16 +106,7 @@ namespace ANNS
       size_t special_blocks_searched = 0;
       size_t special_regular_candidates_inserted = 0;
       size_t special_free_candidates_inserted = 0;
-      size_t special_free_upgrades = 0;
-      size_t special_middle_activations = 0;
-      size_t special_upper_activations = 0;
       size_t special_regular_edges_scanned = 0;
-      bool special_trie_regular_search_enabled = false;
-      size_t special_trie_regular_edges_scanned = 0;
-      size_t special_trie_regular_edges_accepted = 0;
-      size_t special_trie_block_portals_scanned = 0;
-      size_t special_trie_block_portals_accepted = 0;
-      size_t special_lng_cross_edges_skipped = 0;
       size_t special_edges_scanned = 0;
       size_t special_intra_edges_scanned = 0;
       size_t special_inter_edges_scanned = 0;

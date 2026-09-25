@@ -117,22 +117,22 @@ int main()
    expect(source_bucket_result == std::vector<ANNS::IdxType>({1, 3, 5}),
           "scalar ELS must stop after smaller source buckets reduce candidates to the cap");
 
-   const ANNS::EntryGroupProviderImpl scalar_provider =
-       ANNS::parse_entry_group_provider_impl("cpu_bruteforce_els_scalar");
-   expect(scalar_provider == ANNS::EntryGroupProviderImpl::CpuBruteForceElsScalar,
-          "cpu_bruteforce_els_scalar must parse to the scalar provider");
-   expect(std::string(ANNS::entry_group_provider_impl_name(scalar_provider)) == "cpu_bruteforce_els_scalar",
-          "scalar provider must round-trip to its public name");
+   const ANNS::EntryGroupStrategy optimized =
+       ANNS::parse_entry_group_strategy("cpu_bruteforce_els");
+   expect(optimized == ANNS::EntryGroupStrategy::OptimizedLng,
+          "legacy CPU ELS name must map to optimized_lng");
+   expect(std::string(ANNS::entry_group_strategy_name(optimized)) == "optimized_lng",
+          "entry strategy must use its canonical public name");
 
    const std::string key_a = ANNS::make_entry_group_label_cache_key(
-       ANNS::EntryGroupProviderImpl::CpuBruteForceEls, {4, 2, 4}, false, false, 0);
+       ANNS::EntryGroupStrategy::OptimizedLng, {4, 2, 4}, false, false);
    const std::string key_b = ANNS::make_entry_group_label_cache_key(
-       ANNS::EntryGroupProviderImpl::CpuBruteForceEls, {4, 4, 2}, false, false, 0);
+       ANNS::EntryGroupStrategy::OptimizedLng, {4, 4, 2}, false, false);
    expect(key_a == key_b, "entry-group cache key must canonicalize equivalent query labels");
 
-   const std::string scalar_key = ANNS::make_entry_group_label_cache_key(
-       ANNS::EntryGroupProviderImpl::CpuBruteForceElsScalar, {4, 4, 2}, false, false, 0);
-   expect(key_a != scalar_key, "entry-group cache key must keep provider implementations separate");
+   const std::string original_key = ANNS::make_entry_group_label_cache_key(
+       ANNS::EntryGroupStrategy::Original, {4, 4, 2}, false, false);
+   expect(key_a != original_key, "entry-group cache key must keep strategies separate");
 
    expect(!ANNS::should_stop_special_block_search(false, 10, 10, 20.0f, 21.0f, 10.0f, 100, 10),
           "special block early-stop must be disabled when the runtime flag is off");

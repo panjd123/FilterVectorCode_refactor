@@ -25,11 +25,9 @@ struct SpecialBlock
    static constexpr IdxType kInvalidEntryPoint = std::numeric_limits<IdxType>::max();
 
    IdxType block_id = 0;
-   // This format currently supports exactly two block layers: zero is the
-   // historical/middle layer and one is the coarser upper layer. Keeping the
-   // old layer at zero makes legacy indexes and group-id ELS backward
-   // compatible. Values above one are invalid until ownership and visited
-   // state are generalized beyond the fixed middle/upper representation.
+   // Zero is the finest materialized layer; larger values are progressively
+   // coarser. Activation level is layer + 1 because zero denotes the ordinary
+   // graph during search.
    uint8_t level = 0;
    // Optional containing block in the next coarser layer. This relation is
    // diagnostic/navigation metadata; child_block_ids remains the direct
@@ -105,14 +103,14 @@ struct SpecialEdge
 inline IdxType special_edge_target_owner(
     const SpecialEdge &edge,
     const std::vector<SpecialBlock> &blocks,
-    const std::vector<IdxType> &point_to_middle_block,
-    const std::vector<IdxType> &point_to_upper_block)
+    const std::vector<std::vector<IdxType>> &point_to_block_by_level)
 {
    if (edge.special_block_id == 0 || edge.special_block_id > blocks.size())
       return 0;
    const SpecialBlock &owner = blocks[edge.special_block_id - 1];
-   const std::vector<IdxType> &point_owner =
-       owner.level == 0 ? point_to_middle_block : point_to_upper_block;
+   if (owner.level >= point_to_block_by_level.size())
+      return 0;
+   const std::vector<IdxType> &point_owner = point_to_block_by_level[owner.level];
    if (edge.target_point_id >= point_owner.size())
       return 0;
    return point_owner[edge.target_point_id];
@@ -127,23 +125,27 @@ inline bool validate_special_edge_semantics(
     IdxType source_point_id,
     const SpecialEdge &edge,
     const std::vector<SpecialBlock> &blocks,
-    const std::vector<IdxType> &point_to_middle_block,
-    const std::vector<IdxType> &point_to_upper_block,
+    const std::vector<std::vector<IdxType>> &point_to_block_by_level,
     std::string &error)
 {
-   if (source_point_id >= point_to_middle_block.size() ||
-       source_point_id >= point_to_upper_block.size() ||
-       edge.target_point_id >= point_to_middle_block.size() ||
-       edge.target_point_id >= point_to_upper_block.size() ||
-       edge.special_block_id == 0 || edge.special_block_id > blocks.size())
+   if (edge.special_block_id == 0 || edge.special_block_id > blocks.size())
    {
       error = "special edge source, target, or owner is out of range";
       return false;
    }
 
    const SpecialBlock &owner = blocks[edge.special_block_id - 1];
-   const std::vector<IdxType> &point_owner =
-       owner.level == 0 ? point_to_middle_block : point_to_upper_block;
+   if (owner.level >= point_to_block_by_level.size())
+   {
+      error = "special edge owner level has no ownership map";
+      return false;
+   }
+   const std::vector<IdxType> &point_owner = point_to_block_by_level[owner.level];
+   if (source_point_id >= point_owner.size() || edge.target_point_id >= point_owner.size())
+   {
+      error = "special edge source or target is out of range";
+      return false;
+   }
    if (point_owner[source_point_id] != owner.block_id)
    {
       error = "special edge source is not a direct member of its declared owner";
@@ -151,7 +153,7 @@ inline bool validate_special_edge_semantics(
    }
 
    const IdxType target_owner = special_edge_target_owner(
-       edge, blocks, point_to_middle_block, point_to_upper_block);
+       edge, blocks, point_to_block_by_level);
    if (edge.kind == SpecialEdgeKind::IntraBlock)
    {
       if (target_owner != owner.block_id)
@@ -182,6 +184,8 @@ inline bool validate_special_edge_semantics(
 
 struct SpecialBlockBuildSummary
 {
+   std::vector<IdxType> layer_thresholds;
+   std::vector<IdxType> layer_block_counts;
    IdxType threshold = 0;
    IdxType upper_threshold = 0;
    IdxType num_blocks = 0;
@@ -193,9 +197,6 @@ struct SpecialBlockBuildSummary
    IdxType special_edges = 0;
    IdxType intra_special_edges = 0;
    IdxType inter_special_edges = 0;
-   uint64_t trie_regular_group_edges = 0;
-   uint64_t trie_regular_vector_edges = 0;
-   uint64_t trie_regular_portal_edges = 0;
    IdxType group_graph_trivial_skipped_groups = 0;
    IdxType group_graph_trivial_skipped_points = 0;
    IdxType cross_trivial_skipped_pairs = 0;
@@ -219,12 +220,10 @@ struct SpecialBlockBuildSummary
    double block_indexes_prepare_ms = 0.0;
    double intra_edge_build_ms = 0.0;
    double inter_edge_build_ms = 0.0;
-   double trie_regular_edge_build_ms = 0.0;
    double save_metadata_ms = 0.0;
    double save_members_ms = 0.0;
    double save_children_ms = 0.0;
    double save_edges_ms = 0.0;
-   double save_trie_regular_edges_ms = 0.0;
    double save_total_ms = 0.0;
    double load_total_ms = 0.0;
    double compact_reload_ms = 0.0;

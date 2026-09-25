@@ -266,13 +266,15 @@ int main()
    edge_blocks[2].level = 1;
    const std::vector<ANNS::IdxType> point_middle_owner = {1, 1, 2, 2};
    const std::vector<ANNS::IdxType> point_upper_owner = {3, 3, 3, 3};
+   const std::vector<std::vector<ANNS::IdxType>> point_owner_by_level = {
+       point_middle_owner, point_upper_owner};
    auto expect_edge_semantics = [&](ANNS::IdxType source,
                                     const ANNS::SpecialEdge &edge,
                                     bool expected, const char *message) {
       std::string semantic_error;
       expect(ANNS::validate_special_edge_semantics(
-                 source, edge, edge_blocks, point_middle_owner,
-                 point_upper_owner, semantic_error) == expected,
+                 source, edge, edge_blocks, point_owner_by_level,
+                 semantic_error) == expected,
              message);
    };
    expect_edge_semantics(0, {1, 1, ANNS::SpecialEdgeKind::IntraBlock}, true,
@@ -281,11 +283,11 @@ int main()
                          "inter edge may target a direct child block");
    expect(ANNS::special_edge_target_owner(
               {2, 1, ANNS::SpecialEdgeKind::InterBlock}, edge_blocks,
-              point_middle_owner, point_upper_owner) == 2,
+              point_owner_by_level) == 2,
           "middle inter target owner must use middle ownership");
    expect(ANNS::special_edge_target_owner(
               {2, 3, ANNS::SpecialEdgeKind::InterBlock}, edge_blocks,
-              point_middle_owner, point_upper_owner) == 3,
+              point_owner_by_level) == 3,
           "upper inter target owner and per-target cap key must use upper ownership");
    expect_edge_semantics(2, {3, 1, ANNS::SpecialEdgeKind::IntraBlock}, false,
                          "intra edge source must belong to its declared owner");
@@ -461,8 +463,8 @@ int main()
    }
    auto missing_direct_child = semantic_blocks;
    missing_direct_child[0].child_block_ids.clear();
-   expect_graph_semantics(missing_direct_child, false,
-                          "same-layer topology must not omit its nearest block ancestor");
+   expect_graph_semantics(missing_direct_child, true,
+                          "same-layer topology may omit a Trie-prefix edge when another topology is selected");
 
    auto nested_upper = semantic_blocks;
    ANNS::SpecialBlock upper_child;
@@ -533,41 +535,27 @@ int main()
    unreachable_upper[2].point_count = 3;
    expect_graph_semantics(unreachable_upper, false,
                           "every upper block needs a middle-owned direct member activation point");
-   std::vector<ANNS::SpecialBlock> ancestor_only_activation(2);
-   ancestor_only_activation[0].block_id = 1;
-   ancestor_only_activation[0].level = 0;
-   ancestor_only_activation[0].root_group_id = 1;
-   ancestor_only_activation[0].entry_point_id = 0;
-   ancestor_only_activation[0].point_count = 2;
-   ancestor_only_activation[0].subtree_point_count = 5;
-   ancestor_only_activation[0].root_labels = {1};
-   ancestor_only_activation[0].common_labels = {1, 2};
-   ancestor_only_activation[0].member_group_ids = {1};
-   ancestor_only_activation[1].block_id = 2;
-   ancestor_only_activation[1].level = 1;
-   ancestor_only_activation[1].root_group_id = 1;
-   ancestor_only_activation[1].entry_point_id = 0;
-   ancestor_only_activation[1].point_count = 2;
-   ancestor_only_activation[1].subtree_point_count = 5;
-   ancestor_only_activation[1].root_labels = {1, 2};
-   ancestor_only_activation[1].common_labels = {1, 2};
-   ancestor_only_activation[1].member_group_ids = {1};
-   expect_graph_semantics(ancestor_only_activation, false,
-                          "an upper block cannot rely on a larger middle ancestor for activation");
    auto unrelated_child = semantic_blocks;
    unrelated_child[1].root_labels = {1, 4};
-   expect_graph_semantics(unrelated_child, false,
-                          "child root must be a strict descendant of its parent root");
+   {
+      std::string validation_error;
+      expect(!ANNS::validate_special_block_metadata(unrelated_child,
+                                                    validation_error) &&
+                 !validation_error.empty(),
+             "child root must be a strict descendant of its parent root");
+   }
    auto unrelated_upper = semantic_blocks;
    unrelated_upper[2].root_labels = {7};
    expect_graph_semantics(unrelated_upper, false,
                           "upper root must contain linked middle roots");
    auto false_root = semantic_blocks;
    false_root[0].root_labels = {1, 9};
+   false_root[0].child_block_ids.clear();
    expect_graph_semantics(false_root, false,
                           "block root labels must contain every direct member group");
    auto unsorted_root = semantic_blocks;
    unsorted_root[1].root_labels = {3, 2, 1};
+   unsorted_root[0].child_block_ids.clear();
    expect_graph_semantics(unsorted_root, false,
                           "block root label paths must remain canonical");
    auto wrong_common_labels = semantic_blocks;
@@ -678,15 +666,8 @@ int main()
       std::ofstream out(explicit_index / "special_edges.bin", std::ios::binary);
       out << "placeholder";
    }
-   std::string load_error = explicit_load_error();
-   expect(load_error.find("special_trie_regular_edges.bin") != std::string::npos,
-          "explicit bundle must report a missing regular-edge sidecar before parsing");
-   {
-      std::ofstream out(explicit_index / "special_trie_regular_edges.bin", std::ios::binary);
-      out << "placeholder";
-   }
    std::filesystem::remove(explicit_index / "special_edges.bin");
-   load_error = explicit_load_error();
+   std::string load_error = explicit_load_error();
    expect(load_error.find("special_edges.bin") != std::string::npos,
           "explicit bundle must report a missing special-edge sidecar before parsing");
 

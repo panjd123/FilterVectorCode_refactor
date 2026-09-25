@@ -8,10 +8,12 @@ Usage:
   DATASET=amazon_x1 DATA_DIR=/path/to/x1 QUERY_DIR_NAME=query_coverage_1000 \
   scripts/benchmarks/run_special_block_build_query_ab.sh
 
-This is a thin orchestrator over run_end_to_end_recall_ab.sh. It runs:
-  - baseline_plain: ordinary UNG, no special blocks
-  - special_T*_skip: special blocks + free-state search + trivial-source skip
-  - special_T*_noskip: special blocks + free-state search without trivial-source skip
+This is a legacy threshold sweep over run_end_to_end_recall_ab.sh. For new
+experiments set BASE_TOPOLOGY, LAYER_TOPOLOGY, and ENTRY_GROUP_STRATEGY
+explicitly. It runs:
+  - baseline_plain: zero materialized layers
+  - special_T*_skip: one materialized layer + trivial-source skip
+  - special_T*_noskip: one materialized layer without trivial-source skip
 
 Required:
   DATASET, DATA_DIR, QUERY_DIR_NAME as accepted by run_end_to_end_recall_ab.sh
@@ -25,6 +27,9 @@ Optional:
   THRESHOLDS              default: "50 100 200 400 800 1600"
   SPECIAL_VARIANTS        default: "special_skip special_noskip"
   BASELINE_VARIANTS       default: "cpu_vamana_group"
+  BASE_TOPOLOGY           default: "lng"
+  LAYER_TOPOLOGY          default: "trie"
+  ENTRY_GROUP_STRATEGY    default: "optimized_lng"
   OUTDIR                  output root
   All run_end_to_end_recall_ab.sh options are forwarded.
 EOF
@@ -78,7 +83,7 @@ run_case() {
     BUILD_SCENARIO SEARCH_SCENARIO GENERATE_GT GT_FILE GT_DIR BASE_BIN_FILE BASE_LABEL_FILE \
     BASE_LABEL_INFO_FILE BASE_TREE_ROOTS_FILE QUERY_BIN_FILE QUERY_LABEL_FILE QUERY_GROUP_ID_FILE \
     FORCE_USE_ALG IS_IDEA2_AVAILABLE IS_NEW_TRIE_METHOD IS_REC_MORE_START IS_UNG_MORE_ENTRY \
-    ENTRY_GROUP_PROVIDER SELECTOR_MODEL_PREFIX LSEARCH_START LSEARCH_STEP EFS_START \
+    ENTRY_GROUP_STRATEGY ENTRY_GROUP_PROVIDER SELECTOR_MODEL_PREFIX LSEARCH_START LSEARCH_STEP EFS_START \
     EFS_STEP_SLOW EFS_STEP_FAST LSEARCH_THRESHOLD UNG_CROSS_EDGE_IMPL UNG_ADDITIONAL_EDGES_IMPL \
     UNG_GPU_TOPK_IMPL UNG_CROSS_EDGE_GPU_STRICT; do
     if [[ -n "${!name:-}" ]]; then
@@ -91,9 +96,15 @@ run_case() {
       "UNG_SPECIAL_BLOCKS=1"
       "UNG_SPECIAL_BLOCK_DATA_MODE=x1"
       "UNG_SPECIAL_BLOCK_MIN_POINTS=$threshold"
+      "UNG_BASE_GROUP_TOPOLOGY=${BASE_TOPOLOGY:-lng}"
+      "UNG_HIERARCHY_LAYERS=$threshold:${LAYER_TOPOLOGY:-trie}"
       "UNG_SPECIAL_BLOCK_SEARCH=1"
-      "UNG_SPECIAL_BLOCK_FREE_USE_REGULAR=${UNG_SPECIAL_BLOCK_FREE_USE_REGULAR:-1}"
       "UNG_SPECIAL_BLOCK_SKIP_TRIVIAL=$skip_trivial"
+    )
+  else
+    env_args+=(
+      "UNG_BASE_GROUP_TOPOLOGY=${BASE_TOPOLOGY:-lng}"
+      "UNG_HIERARCHY_LAYERS="
     )
   fi
 

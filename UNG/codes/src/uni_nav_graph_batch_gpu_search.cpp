@@ -121,7 +121,7 @@ bool UniNavGraph::execute_special_batch_gpu_candidate_search(std::shared_ptr<ISt
             return false;
 
          const EntryGroupProviderRequest entry_request{
-             runtime.entry_group_provider,
+             runtime.entry_group_strategy,
              &query_labels,
              static_cast<IdxType>(qid),
              &decision,
@@ -129,8 +129,7 @@ bool UniNavGraph::execute_special_batch_gpu_candidate_search(std::shared_ptr<ISt
              runtime.ung_more_entry,
              &true_query_group_ids,
              &entry_group_ids,
-             runtime.scalar_els_cap,
-             true};
+             false};
          prepare_entry_groups_for_execution(entry_request, entry_group_ids, stats);
          populate_special_query_stats(query_labels, stats);
 
@@ -181,10 +180,11 @@ bool UniNavGraph::execute_special_batch_gpu_candidate_search(std::shared_ptr<ISt
             const auto &range = _group_id_to_range[group_id];
             if (range.second <= range.first)
                continue;
-            const bool covered_root = special_block_member_is_free(runtime.scenario,
-                                                                   _group_id_to_special_block,
-                                                                   group_id,
-                                                                   query_covers_block);
+            const bool covered_root =
+                !_group_to_special_block_by_level.empty() &&
+                special_block_member_is_free(
+                    runtime.scenario, _group_to_special_block_by_level.front(),
+                    group_id, query_covers_block);
             const IdxType take = std::min<IdxType>(effective_num_entry_points, range.second - range.first);
             for (IdxType local = 0; local < take; ++local)
             {

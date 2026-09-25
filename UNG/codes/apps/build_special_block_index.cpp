@@ -39,7 +39,7 @@ int main(int argc, char **argv)
           ("base_label_file", po::value<std::string>(&base_label_file),
            "Fallback base labels when the UNG index files are unavailable")
           ("block_index_path_prefix", po::value<std::string>(&block_index_path_prefix)->required(),
-           "Path prefix for the independent Trie block index")
+           "Path prefix for the independent hierarchy index")
           ("result_path_prefix", po::value<std::string>(&result_path_prefix)->required(),
            "Path prefix for block build results")
           ("data_type", po::value<std::string>(&data_type)->required(),
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
           ("max_degree", po::value<ANNS::IdxType>(&max_degree)->default_value(ANNS::default_paras::MAX_DEGREE),
            "Maximum block-local graph degree")
           ("num_cross_edges", po::value<ANNS::IdxType>(&num_cross_edges)->default_value(ANNS::default_paras::NUM_CROSS_EDGES),
-           "Edges per Trie successor or child block")
+           "Edges per same-layer topology relation")
           ("Lbuild", po::value<ANNS::IdxType>(&Lbuild)->default_value(ANNS::default_paras::L_BUILD),
            "Block-local Vamana build candidate size")
           ("alpha", po::value<float>(&alpha)->default_value(ANNS::default_paras::ALPHA),
@@ -79,6 +79,9 @@ int main(int argc, char **argv)
       if (std::getenv("UNG_SPECIAL_EDGE_BINARY_ONLY") == nullptr &&
           std::getenv("UNG_SPECIAL_EDGE_BINARY") == nullptr)
          setenv("UNG_SPECIAL_EDGE_BINARY_ONLY", "1", 0);
+      // This executable exists solely to build a hierarchy sidecar. Do not
+      // require callers to repeat the legacy feature-enable environment flag.
+      setenv("UNG_SPECIAL_BLOCKS", "1", 1);
       ANNS::SpecialBlockIndexBuildOptions options;
       options.ung_index_path_prefix = ung_index_path_prefix;
       options.base_bin_file = base_bin_file;
@@ -97,7 +100,7 @@ int main(int argc, char **argv)
       ANNS::SpecialBlockIndexBuilder builder;
       const auto start = std::chrono::high_resolution_clock::now();
       builder.build(options);
-      std::cout << "Independent Trie block index built in "
+      std::cout << "Independent hierarchy index built in "
                 << std::chrono::duration<double, std::milli>(
                        std::chrono::high_resolution_clock::now() - start)
                        .count()
@@ -105,7 +108,7 @@ int main(int argc, char **argv)
    }
    catch (const std::exception &ex)
    {
-      std::cerr << "Failed to build independent Trie block index: " << ex.what() << std::endl;
+      std::cerr << "Failed to build independent hierarchy index: " << ex.what() << std::endl;
       return 1;
    }
    return 0;

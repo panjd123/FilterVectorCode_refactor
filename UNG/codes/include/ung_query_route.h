@@ -99,18 +99,15 @@ struct SearchRuntimeConfig
    bool recursive_more_start = false;
    bool ung_more_entry = false;
    bool bfs_filter = false;
-   EntryGroupProviderImpl entry_group_provider = EntryGroupProviderImpl::CpuMinSuperSets;
+   EntryGroupStrategy entry_group_strategy = EntryGroupStrategy::OptimizedLng;
    SearchGraphBackendImpl graph_backend = SearchGraphBackendImpl::NeighborList;
-   size_t scalar_els_cap = 0;
    bool special_block_search = false;
    bool special_block_early_stop = false;
    bool special_block_prefetch = true;
    bool special_light_stats = false;
    SpecialSearchMode special_search_mode = SpecialSearchMode::FreeState;
-   bool special_block_free_use_regular = false;
-   // Highest Special Block activation level allowed for this query. The
-   // current fixed two-layer implementation uses 1 for the historical/middle
-   // overlay and 2 for the single upper overlay. UINT8_MAX enables both.
+   // Highest materialized activation level allowed for this query. Level zero
+   // is the base graph; materialized hierarchy layer i uses activation i + 1.
    uint8_t special_max_activation_level = std::numeric_limits<uint8_t>::max();
    // Suppress all upper overlays unless the query fully covers at least this
    // many direct member points across upper blocks. Zero disables the gate.
@@ -146,11 +143,10 @@ SearchRuntimeConfig make_search_runtime_config(uint32_t num_threads,
                                                 int efs_step_fast,
                                                 int lsearch_threshold,
                                                 int force_use_alg,
-                                                EntryGroupProviderImpl entry_group_provider =
-                                                    EntryGroupProviderImpl::CpuMinSuperSets,
+                                                EntryGroupStrategy entry_group_strategy =
+                                                    EntryGroupStrategy::OptimizedLng,
                                                 SearchGraphBackendImpl graph_backend =
-                                                    SearchGraphBackendImpl::NeighborList,
-                                                size_t scalar_els_cap = 0);
+                                                    SearchGraphBackendImpl::NeighborList);
 
 } // namespace ANNS
 

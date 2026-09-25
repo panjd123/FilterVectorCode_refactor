@@ -35,6 +35,31 @@ std::string env_string(const char *key, const std::string &fallback)
    return (s && *s) ? std::string(s) : fallback;
 }
 
+HierarchyPlan hierarchy_from_env(uint32_t legacy_min_points,
+                                 uint32_t legacy_upper_min_points,
+                                 UngSpecialBlockPartition legacy_partition)
+{
+   const GroupTopologyKind base = parse_group_topology(
+       env_string("UNG_BASE_GROUP_TOPOLOGY", "lng"));
+   const std::string explicit_layers = env_string("UNG_HIERARCHY_LAYERS", "");
+   if (!explicit_layers.empty())
+      return parse_hierarchy_plan(explicit_layers, base);
+
+   HierarchyPlan plan;
+   plan.base_topology = base;
+   // Preserve old special-block configs by translating T1/T2 into the new
+   // ordered layer list. New configs should set UNG_HIERARCHY_LAYERS.
+   const GroupTopologyKind topology =
+       legacy_partition == UngSpecialBlockPartition::Lng
+           ? GroupTopologyKind::Lng
+           : GroupTopologyKind::Trie;
+   plan.layers.push_back({static_cast<IdxType>(legacy_min_points), topology});
+   if (legacy_upper_min_points > 0)
+      plan.layers.push_back({static_cast<IdxType>(legacy_upper_min_points), topology});
+   plan.validate();
+   return plan;
+}
+
 uint64_t env_u64(const char *key, uint64_t fallback)
 {
    const char *s = std::getenv(key);
@@ -413,6 +438,11 @@ UngBuildConfig UngBuildConfig::from_env(
    if (cfg.special_block_tree_mode != "random" && cfg.special_block_tree_mode != "bfs")
       cfg.special_block_tree_mode = "random";
    cfg.special_block_tree_seed = env_u64("UNG_SPECIAL_BLOCK_TREE_SEED", 1);
+   cfg.hierarchy = hierarchy_from_env(
+       cfg.special_block_min_points, cfg.special_block_upper_min_points,
+       cfg.special_block_partition);
+   if (!cfg.special_blocks_enabled)
+      cfg.hierarchy.layers.clear();
    return cfg;
 }
 
@@ -427,6 +457,8 @@ void UngBuildConfig::print(std::ostream &os) const
       << "[UNG config] cross_edge_impl=" << to_string(cross_edge_impl) << '\n'
       << "[UNG config] additional_edges_impl=" << to_string(additional_edges_impl) << '\n'
       << "[UNG config] gpu_topk_impl=" << to_string(gpu_topk_impl) << '\n'
+      << "[UNG config] base_group_topology=" << to_string(hierarchy.base_topology) << '\n'
+      << "[UNG config] hierarchy_layers=" << hierarchy.encode() << '\n'
       << "[UNG config] gpu_strict=" << (gpu_strict ? 1 : 0) << '\n'
       << "[UNG config] coverage_threads=" << coverage_threads << '\n'
       << "[UNG config] tagore_min_group_size=" << tagore_min_group_size << '\n'

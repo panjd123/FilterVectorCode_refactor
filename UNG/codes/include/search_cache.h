@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include <deque>
+#include <memory>
 #include "visited_set.h"
 #include "search_queue.h"
 #include "ung_special_candidate_queue.h"
@@ -15,8 +16,7 @@ namespace ANNS
       SearchQueue search_queue;
       VisitedSet visited_set;
       VisitedSet special_visited_regular;
-      VisitedSet special_visited_free;
-      VisitedSet special_visited_upper;
+      std::vector<std::unique_ptr<VisitedSet>> special_visited_by_level;
       SpecialCandidateQueue special_candidate_queue;
       std::vector<Candidate> expanded_list;
       std::vector<float> occlude_factor;
@@ -35,8 +35,19 @@ namespace ANNS
          search_queue.reserve(search_queue_capacity);
          visited_set.init(visited_set_size);
          special_visited_regular.init(visited_set_size);
-         special_visited_free.init(visited_set_size);
-         special_visited_upper.init(visited_set_size);
+      }
+
+      VisitedSet &special_visited(size_t activation_level, IdxType visited_set_size)
+      {
+         if (activation_level == 0)
+            return special_visited_regular;
+         while (special_visited_by_level.size() < activation_level)
+         {
+            auto visited = std::make_unique<VisitedSet>();
+            visited->init(visited_set_size);
+            special_visited_by_level.push_back(std::move(visited));
+         }
+         return *special_visited_by_level[activation_level - 1];
       }
    };
 

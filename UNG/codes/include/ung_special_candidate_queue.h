@@ -15,9 +15,7 @@ struct SpecialSearchCandidate
 {
    IdxType id = 0;
    float distance = 0.0f;
-   // 0: ordinary graph, 1: historical/middle Special Block graph,
-   // 2: upper Special Block graph. The current index has exactly two block
-   // layers; activation levels above two are invalid.
+   // 0 is the base graph; level n > 0 is materialized hierarchy layer n.
    uint8_t activation_level = 0;
 
    bool free() const { return activation_level != 0; }
@@ -97,10 +95,10 @@ private:
    std::vector<uint32_t> result_heap_;
    std::vector<uint32_t> expansion_heap_;
    std::vector<float> kth_scratch_;
-   // A point may be reached through several overlay levels, but it must use
-   // only one result slot. Higher-level arrivals upgrade that slot and make
-   // it expandable again instead of consuming another unit of Lsearch.
-   std::unordered_map<IdxType, uint32_t> active_slot_by_id_;
+   // The graph state is (point, level): the same point reached in two layers
+   // must remain independently expandable because the layers own different
+   // edge sets. Final vector results are deduplicated after graph search.
+   std::unordered_map<uint64_t, uint32_t> active_slot_by_state_;
 };
 
 } // namespace ANNS

@@ -18,6 +18,7 @@
 #include "utils.h"
 #include "include/uni_nav_graph.h"
 #include "include/MethodSelector.h"
+#include "include/ung_group_topology.h"
 
 namespace fs = boost::filesystem;
 
@@ -197,6 +198,8 @@ namespace ANNS
       meta_data["group_graph_impl"] = to_string(_build_config.group_graph_impl);
       meta_data["get_min_super_sets_impl"] = to_string(_build_config.get_min_super_sets_impl);
       meta_data["lng_impl"] = to_string(_build_config.lng_impl);
+      meta_data["base_group_topology"] = to_string(_build_config.hierarchy.base_topology);
+      meta_data["hierarchy_layers"] = _build_config.hierarchy.encode();
       meta_data["descendants_impl"] = to_string(_build_config.descendants_impl);
       meta_data["coverage_impl"] = to_string(_build_config.coverage_impl);
       meta_data["cross_edge_impl"] = to_string(_build_config.cross_edge_impl);
@@ -527,6 +530,13 @@ namespace ANNS
       _num_points = std::stoi(meta_data["num_points"]);
       _num_groups = std::stoi(meta_data["num_groups"]);
       _label_nav_graph = std::make_shared<LabelNavGraph>(_num_groups + 1);
+      const auto base_topology_it = meta_data.find("base_group_topology");
+      const GroupTopologyKind base_topology = parse_group_topology(
+          base_topology_it == meta_data.end() ? "lng" : base_topology_it->second);
+      const auto hierarchy_layers_it = meta_data.find("hierarchy_layers");
+      _build_config.hierarchy = parse_hierarchy_plan(
+          hierarchy_layers_it == meta_data.end() ? "" : hierarchy_layers_it->second,
+          base_topology);
 
       // load vectors and label sets
       std::string bin_file = index_path_prefix + "vecs.bin";
@@ -537,6 +547,7 @@ namespace ANNS
       // load group id to label set
       std::string group_id_to_label_set_filename = index_path_prefix + "group_id_to_label_set";
       load_2d_vectors(group_id_to_label_set_filename, _group_id_to_label_set);
+      _group_trie_index.build(_group_id_to_label_set, _num_groups);
 
       // load group id to range
       std::string group_id_to_range_filename = index_path_prefix + "group_id_to_range";
@@ -624,6 +635,19 @@ namespace ANNS
 
       std::string lng_out_neighbors_filename = index_path_prefix + "lng_out_neighbors.dat";
       load_2d_vectors(lng_out_neighbors_filename, _label_nav_graph->out_neighbors);
+      _label_nav_graph->in_neighbors.assign(_num_groups + 1, {});
+      for (IdxType source_group_id = 1;
+           source_group_id < _label_nav_graph->out_neighbors.size(); ++source_group_id)
+      {
+         for (IdxType target_group_id : _label_nav_graph->out_neighbors[source_group_id])
+         {
+            if (target_group_id > 0 && target_group_id <= _num_groups)
+               _label_nav_graph->in_neighbors[target_group_id].push_back(source_group_id);
+         }
+      }
+      _group_topology_graph = build_group_topology(
+          _build_config.hierarchy.base_topology, _group_id_to_label_set,
+          _num_groups, _label_nav_graph);
       std::cout << "LNG out_neighbors loaded." << std::endl;
 
       // Optional legacy bitset caches; roaring caches are loaded below.
@@ -856,12 +880,12 @@ namespace ANNS
          special_block_size += block.member_group_ids.size() * sizeof(IdxType);
          special_block_size += block.child_block_ids.size() * sizeof(IdxType);
       }
-      special_block_size += _group_id_to_special_block.size() * sizeof(IdxType);
-      special_block_size += _group_id_to_upper_special_block.size() * sizeof(IdxType);
+      for (const auto &owners : _group_to_special_block_by_level)
+         special_block_size += owners.size() * sizeof(IdxType);
       special_block_size += _group_is_special_block_root.size() * sizeof(uint8_t);
       special_block_size += _group_is_trivial_special_block_root.size() * sizeof(uint8_t);
-      special_block_size += _point_to_special_block.size() * sizeof(IdxType);
-      special_block_size += _point_to_upper_special_block.size() * sizeof(IdxType);
+      for (const auto &owners : _point_to_special_block_by_level)
+         special_block_size += owners.size() * sizeof(IdxType);
       special_block_size += _point_is_special_block_root.size() * sizeof(uint8_t);
       special_block_size += _special_edges_by_point.size() * sizeof(std::vector<SpecialEdge>);
       for (const auto &edges : _special_edges_by_point)
@@ -869,15 +893,10 @@ namespace ANNS
       special_block_size += _special_heavy_edges_by_point.size() * sizeof(std::vector<SpecialEdge>);
       for (const auto &edges : _special_heavy_edges_by_point)
          special_block_size += edges.size() * sizeof(SpecialEdge);
-      special_block_size += _special_trie_regular_edges_by_point.size() * sizeof(std::vector<IdxType>);
-      for (const auto &edges : _special_trie_regular_edges_by_point)
-         special_block_size += edges.size() * sizeof(IdxType);
       special_block_size += _special_edges_csr.offsets.capacity() * sizeof(uint64_t);
       special_block_size += _special_edges_csr.edges.capacity() * sizeof(PackedSpecialEdge);
       special_block_size += _special_heavy_edges_csr.offsets.capacity() * sizeof(uint64_t);
       special_block_size += _special_heavy_edges_csr.edges.capacity() * sizeof(PackedSpecialEdge);
-      special_block_size += _special_trie_regular_edges_csr.offsets.capacity() * sizeof(uint64_t);
-      special_block_size += _special_trie_regular_edges_csr.targets.capacity() * sizeof(IdxType);
       special_block_size += static_cast<size_t>(_special_block_trie_index.memory_size_bytes());
       _special_block_summary.index_bytes = static_cast<uint64_t>(special_block_size);
       _index_size += special_block_size;

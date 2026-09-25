@@ -159,7 +159,7 @@ namespace
          for (IdxType group_id : candidate_groups)
          {
             bool is_topmost = true;
-            for (IdxType parent_id : _label_nav_graph->in_neighbors[group_id])
+            for (IdxType parent_id : _group_topology_graph->in_neighbors[group_id])
             {
                if (candidate_groups.count(parent_id))
                {
@@ -390,7 +390,7 @@ namespace
             for (const auto &cand : cand_list)
             {
                IdxType to_group = _new_vec_id_to_group_id[cand.to];
-               const auto &children = _label_nav_graph->out_neighbors[from_group];
+               const auto &children = _group_topology_graph->out_neighbors[from_group];
                bool is_hierarchical = false;
                for (const auto &true_child : children)
                {
@@ -477,7 +477,7 @@ namespace
          size_t total_required_hierarchical_links = 0;
          for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
          {
-            total_required_hierarchical_links += _label_nav_graph->out_neighbors[group_id].size();
+            total_required_hierarchical_links += _group_topology_graph->out_neighbors[group_id].size();
          }
          std::cout << "  - Total parent->child links in hierarchy: " << total_required_hierarchical_links << std::endl;
          std::cout << "  - ACORN edges created " << acorn_connected_group_pairs.size() << " unique group-to-group connections." << std::endl;
@@ -487,7 +487,7 @@ namespace
          {
             IdxType parent_group = group_pair.first;
             IdxType child_group = group_pair.second;
-            const auto &children = _label_nav_graph->out_neighbors[parent_group];
+            const auto &children = _group_topology_graph->out_neighbors[parent_group];
             bool is_hierarchical = false;
             for (const auto &true_child : children)
             {
@@ -539,7 +539,7 @@ namespace
          for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
          {
             const auto &cur_range = _group_id_to_range[group_id];
-            if (cur_range.first >= cur_range.second || _label_nav_graph->out_neighbors[group_id].empty())
+            if (cur_range.first >= cur_range.second || _group_topology_graph->out_neighbors[group_id].empty())
             {
                continue;
             }
@@ -551,7 +551,7 @@ namespace
                   connected_groups.insert(_new_vec_id_to_group_id[neighbor]);
             }
 
-            for (IdxType out_group_id : _label_nav_graph->out_neighbors[group_id])
+            for (IdxType out_group_id : _group_topology_graph->out_neighbors[group_id])
             {
                if (connected_groups.find(out_group_id) == connected_groups.end())
                {

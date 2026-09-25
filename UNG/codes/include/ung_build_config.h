@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <iosfwd>
 #include <string>
+#include <vector>
+
+#include "ung_hierarchy_config.h"
 
 namespace ANNS
 {
@@ -93,6 +96,10 @@ struct UngBuildConfig
    UngCrossEdgeImpl cross_edge_impl = UngCrossEdgeImpl::GpuBatched;
    UngAdditionalEdgesImpl additional_edges_impl = UngAdditionalEdgesImpl::CpuVamana;
    UngGpuTopkImpl gpu_topk_impl = UngGpuTopkImpl::Auto;
+   // Orthogonal hierarchy configuration. base_topology selects the ordinary
+   // (layer-0) group graph; layers describes any number of additional graph
+   // layers from fine to coarse.
+   HierarchyPlan hierarchy;
 
    bool gpu_strict = false;
    uint32_t coverage_threads = 0; // 0 means use build num_threads.

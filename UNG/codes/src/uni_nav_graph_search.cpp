@@ -51,7 +51,7 @@ namespace ANNS
                                                        entry_group_ids, stats);
 
       const EntryGroupProviderRequest entry_request{
-          runtime.entry_group_provider,
+          runtime.entry_group_strategy,
           &query_labels,
           static_cast<IdxType>(id),
           &decision,
@@ -59,10 +59,7 @@ namespace ANNS
           runtime.ung_more_entry,
           &true_query_group_ids,
           &entry_group_ids,
-          runtime.scalar_els_cap,
-          use_special_block_search &&
-              (runtime.entry_group_provider == EntryGroupProviderImpl::CpuBruteForceEls ||
-               runtime.entry_group_provider == EntryGroupProviderImpl::SpecialBlockTrie)};
+          false};
       prepare_entry_groups_for_execution(entry_request, entry_group_ids, stats);
       populate_special_query_stats(query_labels, stats);
 
@@ -158,21 +155,9 @@ namespace ANNS
    {
       if (execution_context.num_threads != runtime.num_threads)
          throw std::invalid_argument("SearchExecutionContext thread count does not match runtime");
-      if (runtime.entry_group_provider == EntryGroupProviderImpl::SpecialBlockTrie)
-      {
-         if (!runtime.special_block_search)
-            throw std::invalid_argument(
-                "special_block_trie entry provider requires UNG_SPECIAL_BLOCK_SEARCH=1");
-         if (_special_block_trie_index.empty())
-            throw std::runtime_error(
-                "special_block_trie entry provider requires a trie-partitioned index");
-         if (!_special_trie_regular_edges_available)
-            throw std::runtime_error(
-                "special_block_trie entry provider requires special_trie_regular_edges.bin; rebuild the index");
-         if (runtime.special_search_mode == SpecialSearchMode::FavorBlocks)
-            throw std::invalid_argument(
-                "special_block_trie entry provider does not support favor_blocks; use free_state");
-      }
+      if (runtime.entry_group_strategy == EntryGroupStrategy::Trie &&
+          _group_trie_index.empty())
+         throw std::runtime_error("trie entry strategy requires the group trie index");
       if (runtime.special_block_search && !_special_blocks.empty() &&
           runtime.special_search_mode == SpecialSearchMode::FavorBlocks &&
           !special_favor_block_search_is_allowed(
@@ -204,7 +189,6 @@ namespace ANNS
       const bool special_batch_gpu_requested =
           ung_env_flag_enabled("UNG_SPECIAL_BATCH_GPU_SEARCH");
       if (runtime.special_block_search && !_special_blocks.empty() &&
-          runtime.entry_group_provider != EntryGroupProviderImpl::SpecialBlockTrie &&
           special_batch_gpu_requested && _special_block_summary.upper_blocks > 0)
       {
          std::cerr << "[special_batch_gpu] disabled for multilevel indexes; "
@@ -212,7 +196,6 @@ namespace ANNS
                    << std::endl;
       }
       if (runtime.special_block_search && !_special_blocks.empty() &&
-          runtime.entry_group_provider != EntryGroupProviderImpl::SpecialBlockTrie &&
           special_batch_gpu_search_is_allowed(
               special_batch_gpu_requested, _special_block_summary.upper_blocks))
       {

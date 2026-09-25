@@ -50,32 +50,6 @@ inline bool special_block_member_is_free(const std::string &scenario,
           query_covers_block[block_id] != 0;
 }
 
-inline bool special_block_successor_is_free(bool current_is_free,
-                                            bool target_block_is_covered)
-{
-   return current_is_free || target_block_is_covered;
-}
-
-// Ordinary traversal may activate only the middle layer. Once a candidate is
-// already middle-active, arriving at any point directly owned by a covered
-// upper block promotes it to level two. This point-membership rule is needed
-// even when independently partitioned middle and upper blocks do not form a
-// strict refinement.
-inline uint8_t special_block_point_activation_level(
-    const std::string &scenario, uint8_t current_level, IdxType point_id,
-    const std::vector<IdxType> &point_to_upper_block,
-    const std::vector<uint8_t> &query_covers_block)
-{
-   if (current_level == 0 || scenario != "containment" ||
-       point_id >= point_to_upper_block.size())
-      return current_level;
-   const IdxType upper_block_id = point_to_upper_block[point_id];
-   if (upper_block_id == 0 || upper_block_id >= query_covers_block.size() ||
-       query_covers_block[upper_block_id] == 0)
-      return current_level;
-   return std::max<uint8_t>(current_level, 2);
-}
-
 inline uint8_t special_block_activation_level(const SpecialBlock &block)
 {
    return static_cast<uint8_t>(block.level + 1);
@@ -88,8 +62,7 @@ struct SpecialBlockEdgeTransition
 };
 
 // Authorize only the overlay owned by the candidate's current activation
-// level. Promotion is a point-state transition performed before the target is
-// queued, so one expansion never mixes edges from two overlay levels.
+// level. Search states never promote or fall through between levels.
 inline SpecialBlockEdgeTransition special_block_edge_transition(
     uint8_t current_level, const SpecialBlock &owner, bool query_covers_owner)
 {
@@ -162,40 +135,6 @@ inline SpecialBlockLevelGateResult special_block_apply_level_gate(
          query_free_block[block_id] = 0;
    }
    return result;
-}
-
-inline std::vector<uint8_t> special_block_lazy_seed_mask(
-    const std::vector<uint8_t> &free_frontier,
-    const std::vector<SpecialBlock> &blocks,
-    size_t descendant_depth)
-{
-   std::vector<uint8_t> selected(free_frontier.size(), 0);
-   std::vector<std::pair<IdxType, size_t>> pending;
-   pending.reserve(blocks.size());
-   for (IdxType block_id = 1; block_id < free_frontier.size(); ++block_id)
-   {
-      if (free_frontier[block_id] == 0)
-         continue;
-      selected[block_id] = 1;
-      pending.emplace_back(block_id, 0);
-   }
-
-   for (size_t cursor = 0; cursor < pending.size(); ++cursor)
-   {
-      const IdxType block_id = pending[cursor].first;
-      const size_t depth = pending[cursor].second;
-      if (depth >= descendant_depth || block_id == 0 || block_id > blocks.size())
-         continue;
-      for (IdxType child_block_id : blocks[block_id - 1].child_block_ids)
-      {
-         if (child_block_id == 0 || child_block_id >= selected.size() ||
-             selected[child_block_id] != 0)
-            continue;
-         selected[child_block_id] = 1;
-         pending.emplace_back(child_block_id, depth + 1);
-      }
-   }
-   return selected;
 }
 
 } // namespace ANNS

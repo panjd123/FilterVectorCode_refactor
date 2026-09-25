@@ -80,9 +80,8 @@ namespace ANNS
                                                    int efs_step_fast,
                                                    int lsearch_threshold,
                                                    int force_use_alg,
-                                                   EntryGroupProviderImpl entry_group_provider,
-                                                   SearchGraphBackendImpl graph_backend,
-                                                   size_t scalar_els_cap)
+                                                   EntryGroupStrategy entry_group_strategy,
+                                                   SearchGraphBackendImpl graph_backend)
    {
       SearchRuntimeConfig runtime;
       runtime.num_threads = num_threads;
@@ -95,9 +94,8 @@ namespace ANNS
       runtime.recursive_more_start = recursive_more_start;
       runtime.ung_more_entry = ung_more_entry;
       runtime.bfs_filter = bfs_filter;
-      runtime.entry_group_provider = entry_group_provider;
+      runtime.entry_group_strategy = entry_group_strategy;
       runtime.graph_backend = graph_backend;
-      runtime.scalar_els_cap = scalar_els_cap;
       runtime.special_block_search = ung_env_flag_enabled("UNG_SPECIAL_BLOCK_SEARCH");
       runtime.special_block_early_stop = ung_env_flag_enabled("UNG_SPECIAL_EARLY_STOP");
       runtime.special_light_stats = true;
@@ -122,7 +120,6 @@ namespace ANNS
             throw std::invalid_argument("Invalid UNG_SPECIAL_SEARCH_MODE: " + mode +
                                         " (expected free_state or favor_blocks)");
       }
-      runtime.special_block_free_use_regular = ung_env_flag_enabled("UNG_SPECIAL_BLOCK_FREE_USE_REGULAR");
       if (const char *value = std::getenv("UNG_SPECIAL_MAX_ACTIVE_LEVEL"))
       {
          const unsigned long configured_level = std::strtoul(value, nullptr, 10);

@@ -4,7 +4,6 @@
 #include "config.h"
 #include "ung_entry_group_cache.h"
 
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -20,38 +19,35 @@ enum class SelectionMode
    SizeAndDistance,
 };
 
-enum class EntryGroupProviderImpl : int
+// Entry discovery is independent from hierarchy depth and group topology.
+// Backend details such as bitsets or GPU kernels are implementation choices,
+// not additional public strategies.
+enum class EntryGroupStrategy : uint8_t
 {
-   CpuMinSuperSets = 0,
-   GpuCoverFrontier = 1,
-   CpuBruteForceEls = 2,
-   CpuBruteForceElsScalar = 3,
-   SpecialBlockTrie = 4,
+   Original = 0,
+   OptimizedLng = 1,
+   Trie = 2,
 };
 
 enum class EntryGroupProviderKind : int
 {
    Passthrough = 0,
-   CpuMinSuperSets = 1,
-   CpuExpanded = 2,
-   GpuCoverFrontier = 3,
-   CpuBruteForceEls = 4,
-   CpuBruteForceElsScalar = 5,
-   SpecialBlockTrie = 6,
+   Original = 1,
+   OptimizedLng = 2,
+   Trie = 3,
 };
 
-const char *entry_group_provider_impl_name(EntryGroupProviderImpl impl);
+const char *entry_group_strategy_name(EntryGroupStrategy strategy);
 const char *entry_group_provider_kind_name(EntryGroupProviderKind kind);
-EntryGroupProviderImpl parse_entry_group_provider_impl(const std::string &value);
-std::string make_entry_group_label_cache_key(EntryGroupProviderImpl impl,
+EntryGroupStrategy parse_entry_group_strategy(const std::string &value);
+std::string make_entry_group_label_cache_key(EntryGroupStrategy strategy,
                                              const std::vector<LabelType> &query_labels,
                                              bool recursive_more_start,
-                                             bool ung_more_entry,
-                                             size_t scalar_els_cap);
+                                             bool ung_more_entry);
 
 struct EntryGroupProviderRequest
 {
-   EntryGroupProviderImpl impl = EntryGroupProviderImpl::CpuMinSuperSets;
+   EntryGroupStrategy strategy = EntryGroupStrategy::OptimizedLng;
    const std::vector<LabelType> *query_labels = nullptr;
    IdxType query_id = 0;
    const QueryRouteDecision *decision = nullptr;
@@ -59,7 +55,6 @@ struct EntryGroupProviderRequest
    bool ung_more_entry = false;
    const std::vector<IdxType> *true_query_group_ids = nullptr;
    const std::vector<IdxType> *current_group_ids = nullptr;
-   size_t scalar_els_cap = 0;
    bool cache_query_label_results = false;
 
    void validate() const;
@@ -69,40 +64,18 @@ struct EntryGroupProviderRequest
 
 struct EntryGroupProviderResult
 {
-   EntryGroupProviderImpl requested_impl = EntryGroupProviderImpl::CpuMinSuperSets;
+   EntryGroupStrategy requested_strategy = EntryGroupStrategy::OptimizedLng;
    EntryGroupProviderKind provider = EntryGroupProviderKind::Passthrough;
    std::vector<IdxType> group_ids;
    EntryGroupRouteStats route_stats;
    bool coverage_correct = true;
    bool exact_minimal = false;
-   bool fallback_used = false;
-   std::string fallback_reason;
    double elapsed_ms = 0.0;
 
    const char *provider_name() const
    {
       return entry_group_provider_kind_name(provider);
    }
-
-   void mark_fallback(EntryGroupProviderImpl requested, std::string reason);
-};
-
-class SearchEntryProvider
-{
-public:
-   using CpuProviderFn = std::function<EntryGroupProviderResult(const EntryGroupProviderRequest &request,
-                                                                QueryStats &stats)>;
-   using GpuProviderFn = std::function<EntryGroupProviderResult(const EntryGroupProviderRequest &request,
-                                                                QueryStats &stats)>;
-
-   explicit SearchEntryProvider(CpuProviderFn cpu_provider);
-   SearchEntryProvider(CpuProviderFn cpu_provider, GpuProviderFn gpu_provider);
-
-   EntryGroupProviderResult run(const EntryGroupProviderRequest &request, QueryStats &stats) const;
-
-private:
-   CpuProviderFn cpu_provider_;
-   GpuProviderFn gpu_provider_;
 };
 
 } // namespace ANNS

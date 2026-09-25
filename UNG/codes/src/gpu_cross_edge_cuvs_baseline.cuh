@@ -28,7 +28,7 @@ bool ANNS::UniNavGraph::build_cross_edges_generate_cuvs_bruteforce(
     std::vector<IdxType> groups_to_process;
     groups_to_process.reserve(_num_groups);
     for (IdxType group_id = 1; group_id <= _num_groups; ++group_id) {
-        if (!_label_nav_graph->in_neighbors[group_id].empty()) {
+        if (!_group_topology_graph->in_neighbors[group_id].empty()) {
             groups_to_process.push_back(group_id);
         }
     }
@@ -68,7 +68,7 @@ bool ANNS::UniNavGraph::build_cross_edges_generate_cuvs_bruteforce(
         if (nx <= 0) continue;
 
         size_t nq_sz = 0;
-        for (auto in_gid : _label_nav_graph->in_neighbors[group_id]) {
+        for (auto in_gid : _group_topology_graph->in_neighbors[group_id]) {
             const auto& qrng = _group_id_to_range[in_gid];
             nq_sz += static_cast<size_t>(qrng.second - qrng.first);
         }
@@ -91,7 +91,7 @@ bool ANNS::UniNavGraph::build_cross_edges_generate_cuvs_bruteforce(
         qids.reserve(nq_sz);
         const auto t_pack0 = std::chrono::high_resolution_clock::now();
         size_t qi = 0;
-        for (auto in_gid : _label_nav_graph->in_neighbors[group_id]) {
+        for (auto in_gid : _group_topology_graph->in_neighbors[group_id]) {
             const auto& qrng = _group_id_to_range[in_gid];
             for (IdxType qid = qrng.first; qid < qrng.second; ++qid) {
                 const float* q = reinterpret_cast<const float*>(_base_storage->get_vector(qid));

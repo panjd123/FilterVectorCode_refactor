@@ -24,7 +24,8 @@ Optional inputs:
   LSEARCH_VALUES      default: "20 50 100 200"
   NUM_ENTRY_POINTS    default: 16
   IS_UNG_MORE_ENTRY   default: false
-  ENTRY_GROUP_PROVIDER default: cpu_min_super_sets
+  ENTRY_GROUP_STRATEGY default: optimized_lng
+                       one of original, optimized_lng, or trie
   BUILD_SCENARIO      default: general
   SEARCH_SCENARIO     default: containment
   UNG_ADDITIONAL_EDGES_IMPL
@@ -64,6 +65,7 @@ require_env QUERY_DIR_NAME
 
 build_dir="${BUILD_DIR:-$repo_root/build_mode_switch}"
 build_app="${BUILD_APP:-$build_dir/apps/build_UNG_index}"
+block_build_app="${BLOCK_BUILD_APP:-$build_dir/apps/build_special_block_index}"
 search_app="${SEARCH_APP:-$build_dir/apps/search_UNG_index}"
 gt_app="${GT_APP:-$build_dir/tools/compute_groundtruth}"
 auto_build="${AUTO_BUILD:-1}"
@@ -86,6 +88,10 @@ ensure_exe() {
 
 ensure_exe "$build_app" build_UNG_index
 ensure_exe "$search_app" search_UNG_index
+hierarchy_layers="${UNG_HIERARCHY_LAYERS:-}"
+if [[ -n "$hierarchy_layers" ]]; then
+  ensure_exe "$block_build_app" build_special_block_index
+fi
 
 k="${K:-10}"
 num_threads="${NUM_THREADS:-128}"
@@ -120,7 +126,7 @@ gt_file="${GT_FILE:-$gt_dir/${DATASET}_gt_labels_containment.bin}"
 summary_csv="$out/summary.csv"
 
 mkdir -p "$out" "$gt_dir"
-echo "variant,index_ms,group_ms,cross_ms,lsearch,avg_efs,avg_time_ms,avg_recall,search_summary,index_log" > "$summary_csv"
+echo "variant,base_topology,hierarchy_layers,entry_strategy,index_ms,group_ms,cross_ms,lsearch,avg_efs,avg_time_ms,avg_recall,search_summary,index_log" > "$summary_csv"
 
 check_file() {
   local path="$1"
@@ -253,8 +259,11 @@ optional_ung_env() {
     UNG_SPECIAL_BLOCKS \
     UNG_SPECIAL_BLOCK_DATA_MODE \
     UNG_SPECIAL_BLOCK_MIN_POINTS \
+    UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS \
+    UNG_BASE_GROUP_TOPOLOGY \
+    UNG_HIERARCHY_LAYERS \
     UNG_SPECIAL_BLOCK_SEARCH \
-    UNG_SPECIAL_BLOCK_FREE_USE_REGULAR; do
+    UNG_SPECIAL_BLOCK_SKIP_TRIVIAL; do
     if [[ -n "${!name:-}" ]]; then
       printf '%s=%s\n' "$name" "${!name}"
     fi
@@ -393,7 +402,10 @@ run_variant() {
   local vout="$out/$variant"
   local index_dir="$vout/index_files"
   local result_dir="$vout/results"
+  local block_index_dir="$vout/hierarchy_index"
+  local block_result_dir="$vout/hierarchy_results"
   local log="$vout/others/build.log"
+  local block_log="$vout/others/hierarchy_build.log"
   local search_log="$vout/others/search.log"
   mkdir -p "$index_dir" "$result_dir" "$vout/others"
 
@@ -416,6 +428,29 @@ run_variant() {
       --scenario "$build_scenario" > "$log" 2>&1
   fi
 
+  local -a block_search_args=()
+  if [[ -n "$hierarchy_layers" ]]; then
+    mkdir -p "$block_index_dir" "$block_result_dir"
+    local first_layer="${hierarchy_layers%%,*}"
+    local first_threshold="${first_layer%%:*}"
+    echo "[RUN] hierarchy variant=$variant layers=$hierarchy_layers"
+    if [[ "$dry_run" == "1" ]]; then
+      echo "[DRY_RUN] $block_build_app --ung_index_path_prefix $index_dir/ --block_index_path_prefix $block_index_dir/ ..." | tee "$block_log"
+    else
+      env $(tr '\n' ' ' < "$vout/others/env") "$block_build_app" \
+        --ung_index_path_prefix "$index_dir/" \
+        --block_index_path_prefix "$block_index_dir/" \
+        --result_path_prefix "$block_result_dir/" \
+        --base_bin_file "$base_bin" \
+        --base_label_file "$base_label" \
+        --data_type float --dist_fn L2 --num_threads "$num_threads" \
+        --min_points "$first_threshold" --max_degree "$max_degree" \
+        --num_cross_edges "$num_cross_edges" --Lbuild "$lbuild" \
+        --alpha "$alpha" > "$block_log" 2>&1
+    fi
+    block_search_args=(--block_index_path_prefix "$block_index_dir/")
+  fi
+
   echo "[RUN] search variant=$variant"
   if [[ "$dry_run" == "1" ]]; then
     echo "[DRY_RUN] $search_app ..." | tee "$search_log"
@@ -435,6 +470,7 @@ run_variant() {
       --query_group_id_file "$query_group_ids" \
       --gt_file "$gt_file" \
       --index_path_prefix "$index_dir/" \
+      "${block_search_args[@]}" \
       --result_path_prefix "$result_dir/" \
       --acorn_index_path "$index_dir/../acorn_output/acorn.index" \
       --acorn_1_index_path "$index_dir/../acorn_output/acorn1.index" \
@@ -448,7 +484,7 @@ run_variant() {
       --efs_step_slow "${EFS_STEP_SLOW:-50}" \
       --efs_step_fast "${EFS_STEP_FAST:-20}" \
       --lsearch_threshold "${LSEARCH_THRESHOLD:-100}" \
-      --entry_group_provider "${ENTRY_GROUP_PROVIDER:-cpu_min_super_sets}" > "$search_log" 2>&1
+      --entry_group_strategy "${ENTRY_GROUP_STRATEGY:-${ENTRY_GROUP_PROVIDER:-optimized_lng}}" > "$search_log" 2>&1
   fi
 
   local index_ms group_ms cross_ms summary_file build_csv
@@ -458,11 +494,11 @@ run_variant() {
   cross_ms="$(extract_build_metric "$log" "$build_csv" cross)"
   summary_file="$result_dir/search_time_summary.csv"
   if [[ -f "$summary_file" ]]; then
-    tail -n +2 "$summary_file" | while IFS=, read -r lsearch avg_efs avg_time avg_recall; do
-      echo "$variant,${index_ms:-NA},${group_ms:-NA},${cross_ms:-NA},$lsearch,$avg_efs,$avg_time,$avg_recall,$summary_file,$log" >> "$summary_csv"
+    tail -n +2 "$summary_file" | while IFS=, read -r lsearch avg_efs avg_time avg_recall _; do
+      echo "$variant,${UNG_BASE_GROUP_TOPOLOGY:-lng},\"${hierarchy_layers:-none}\",${ENTRY_GROUP_STRATEGY:-${ENTRY_GROUP_PROVIDER:-optimized_lng}},${index_ms:-NA},${group_ms:-NA},${cross_ms:-NA},$lsearch,$avg_efs,$avg_time,$avg_recall,$summary_file,$log" >> "$summary_csv"
     done
   else
-    echo "$variant,${index_ms:-NA},${group_ms:-NA},${cross_ms:-NA},NA,NA,NA,NA,$summary_file,$log" >> "$summary_csv"
+    echo "$variant,${UNG_BASE_GROUP_TOPOLOGY:-lng},\"${hierarchy_layers:-none}\",${ENTRY_GROUP_STRATEGY:-${ENTRY_GROUP_PROVIDER:-optimized_lng}},${index_ms:-NA},${group_ms:-NA},${cross_ms:-NA},NA,NA,NA,NA,$summary_file,$log" >> "$summary_csv"
   fi
 }
 

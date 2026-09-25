@@ -10,7 +10,7 @@
 #include "include/uni_nav_graph.h"
 #include "include/MethodSelector.h"
 #include "include/ung_build_settings.h"
-#include "include/ung_gpu_cover_frontier_provider.h"
+#include "include/ung_group_topology.h"
 #include "include/ung_prof_log.h"
 
 
@@ -85,6 +85,7 @@ void print_label_nav_graph_summary(const std::shared_ptr<LabelNavGraph> &label_n
       std::cout << "Dividing groups and building the trie tree index ..." << std::endl;
       auto start_time = std::chrono::high_resolution_clock::now();
       build_trie_and_divide_groups();
+      _group_trie_index.build(_group_id_to_label_set, _num_groups);
       _graph = std::make_shared<ANNS::Graph>(base_storage->get_num_points());
       _global_graph = std::make_shared<ANNS::Graph>(base_storage->get_num_points());
       std::cout << "begin prepare_group_storages_graphs" << std::endl;
@@ -109,6 +110,13 @@ void print_label_nav_graph_summary(const std::shared_ptr<LabelNavGraph> &label_n
          // build the label navigating graph
          if (!_label_nav_graph)
             build_label_nav_graph();
+         GroupTopologyStats topology_stats;
+         _group_topology_graph = build_group_topology(
+             _build_config.hierarchy.base_topology, _group_id_to_label_set,
+             _num_groups, _label_nav_graph, &topology_stats);
+         std::cout << "[group_topology] kind=" << to_string(topology_stats.kind)
+                   << " groups=" << topology_stats.group_count
+                   << " edges=" << topology_stats.edge_count << std::endl;
          if (!_build_config.is_original_cpu_pipeline())
          {
             get_descendants_info();

@@ -109,7 +109,7 @@ namespace ANNS
       size_t skipped_query_vectors = 0;
       for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
       {
-         if (_label_nav_graph->in_neighbors[group_id].empty())
+         if (_group_topology_graph->in_neighbors[group_id].empty())
             continue;
 
          auto index = _vamana_instances[group_id];
@@ -119,7 +119,7 @@ namespace ANNS
             exit(-1);
          }
 
-         for (auto in_group_id : _label_nav_graph->in_neighbors[group_id])
+         for (auto in_group_id : _group_topology_graph->in_neighbors[group_id])
          {
             if (_build_config.special_blocks_enabled && _build_config.special_block_skip_trivial &&
                 is_trivial_special_block_root_group(in_group_id))
@@ -164,7 +164,7 @@ namespace ANNS
 
       for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
       {
-         if (_label_nav_graph->in_neighbors[group_id].empty())
+         if (_group_topology_graph->in_neighbors[group_id].empty())
             continue;
 
          ++target_groups;
@@ -173,7 +173,7 @@ namespace ANNS
          if (nx == 0)
             continue;
 
-         for (auto in_group_id : _label_nav_graph->in_neighbors[group_id])
+         for (auto in_group_id : _group_topology_graph->in_neighbors[group_id])
          {
             if (_build_config.special_blocks_enabled && _build_config.special_block_skip_trivial &&
                 is_trivial_special_block_root_group(in_group_id))
@@ -238,7 +238,7 @@ namespace ANNS
 
       for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
       {
-         if (_label_nav_graph->in_neighbors[group_id].empty())
+         if (_group_topology_graph->in_neighbors[group_id].empty())
             continue;
 
          const auto &target_range = _group_id_to_range[group_id];
@@ -253,7 +253,7 @@ namespace ANNS
             exit(-1);
          }
 
-         for (auto in_group_id : _label_nav_graph->in_neighbors[group_id])
+         for (auto in_group_id : _group_topology_graph->in_neighbors[group_id])
          {
             if (_build_config.special_blocks_enabled && _build_config.special_block_skip_trivial &&
                 is_trivial_special_block_root_group(in_group_id))
@@ -356,7 +356,7 @@ namespace ANNS
       std::vector<IdxType> groups_to_process;
       groups_to_process.reserve(_num_groups);
       for (IdxType group_id = 1; group_id <= _num_groups; ++group_id)
-         if (!_label_nav_graph->in_neighbors[group_id].empty())
+         if (!_group_topology_graph->in_neighbors[group_id].empty())
             groups_to_process.push_back(group_id);
 
       std::cout << "[cross_edges] backend=GPU, target_groups=" << groups_to_process.size() << std::endl;
@@ -533,7 +533,7 @@ namespace ANNS
                }
             }
 
-            for (IdxType out_group_id : _label_nav_graph->out_neighbors[group_id])
+            for (IdxType out_group_id : _group_topology_graph->out_neighbors[group_id])
                if (out_group_id > _num_groups || connected_epoch[static_cast<size_t>(out_group_id)] != cur_epoch)
                {
                   additional_missing_group_edges += 1;
@@ -631,9 +631,9 @@ namespace ANNS
          size_t skipped_query_vectors = 0;
          for (IdxType target_group_id = 1; target_group_id <= _num_groups; ++target_group_id)
          {
-            if (_label_nav_graph->in_neighbors[target_group_id].empty())
+            if (_group_topology_graph->in_neighbors[target_group_id].empty())
                continue;
-            for (IdxType source_group_id : _label_nav_graph->in_neighbors[target_group_id])
+            for (IdxType source_group_id : _group_topology_graph->in_neighbors[target_group_id])
             {
                if (!is_trivial_special_block_root_group(source_group_id))
                   continue;
@@ -932,7 +932,7 @@ namespace ANNS
 
       for (auto group_id = 1; group_id <= _num_groups; ++group_id)
       {
-         if (_label_nav_graph->in_neighbors[group_id].size() > 0)
+         if (_group_topology_graph->in_neighbors[group_id].size() > 0)
          {
             if (group_id % 100 == 0)
                std::cout << "\r" << (100.0 * group_id) / _num_groups << "%" << std::flush;
@@ -947,7 +947,7 @@ namespace ANNS
                   exit(-1);
                }
 
-               for (auto in_group_id : _label_nav_graph->in_neighbors[group_id])
+               for (auto in_group_id : _group_topology_graph->in_neighbors[group_id])
                {
                   if (_build_config.special_blocks_enabled && _build_config.special_block_skip_trivial &&
                       is_trivial_special_block_root_group(in_group_id))
@@ -1004,7 +1004,7 @@ namespace ANNS
                      connected_epoch[static_cast<size_t>(neighbor_group)] = cur_epoch;
                }
 
-            for (IdxType out_group_id : _label_nav_graph->out_neighbors[group_id])
+            for (IdxType out_group_id : _group_topology_graph->out_neighbors[group_id])
                if (out_group_id > _num_groups || connected_epoch[static_cast<size_t>(out_group_id)] != cur_epoch)
                {
                   IdxType cnt = 0;

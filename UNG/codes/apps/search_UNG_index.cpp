@@ -195,12 +195,12 @@ int main(int argc, char **argv)
    std::string data_type, dist_fn, scenario;
    std::string base_bin_file, query_bin_file, base_label_file, query_label_file, gt_file, index_path_prefix, result_path_prefix, selector_model_prefix, selector_model_prefix_legacy, query_group_id_file;
    std::string acorn_index_path, acorn_1_index_path, block_index_path_prefix;
-   std::string entry_group_provider_arg = "cpu_min_super_sets";
+   std::string entry_group_strategy_arg = "optimized_lng";
+   std::string legacy_entry_group_provider_arg;
    std::string graph_search_backend_arg = "neighbor_list";
-   ANNS::EntryGroupProviderImpl entry_group_provider = ANNS::EntryGroupProviderImpl::CpuMinSuperSets;
+   ANNS::EntryGroupStrategy entry_group_strategy = ANNS::EntryGroupStrategy::OptimizedLng;
    ANNS::SearchGraphBackendImpl graph_search_backend = ANNS::SearchGraphBackendImpl::NeighborList;
    ANNS::IdxType K, num_entry_points;
-   size_t scalar_els_cap = 0;
    std::vector<ANNS::IdxType> Lsearch_list;
    uint32_t num_threads;
    bool is_new_method = false;                                 // true: use new method
@@ -288,14 +288,12 @@ int main(int argc, char **argv)
       desc.add_options()("efs_step_slow", po::value<int>(&efs_step_slow)->required(), "ACORN efs step value");
       desc.add_options()("efs_step_fast", po::value<int>(&efs_step_fast)->required(), "ACORN efs step value");
       desc.add_options()("lsearch_threshold", po::value<int>(&lsearch_threshold)->required(), "lsearch_threshold");
-      desc.add_options()("entry_group_provider", po::value<std::string>(&entry_group_provider_arg)->default_value("cpu_min_super_sets"),
-                         "Entry group provider: cpu_min_super_sets/cpu/0, gpu_cover_frontier/gpu/1, "
-                         "cpu_bruteforce_els/2, cpu_bruteforce_els_scalar/3, or special_block_trie/4. "
-                         "gpu_cover_frontier uses the production CUDA correct-cover provider when available.");
+      desc.add_options()("entry_group_strategy", po::value<std::string>(&entry_group_strategy_arg)->default_value("optimized_lng"),
+                         "Entry-group strategy: original, optimized_lng, or trie.");
+      desc.add_options()("entry_group_provider", po::value<std::string>(&legacy_entry_group_provider_arg),
+                         "Deprecated alias for entry_group_strategy.");
       desc.add_options()("graph_search_backend", po::value<std::string>(&graph_search_backend_arg)->default_value("neighbor_list"),
                          "UNG graph search backend: neighbor_list/graph/default/0 or csr/1.");
-      desc.add_options()("scalar_els_cap", po::value<size_t>(&scalar_els_cap)->default_value(0),
-                         "Maximum groups emitted by cpu_bruteforce_els_scalar; 0 means no cap.");
 
       po::variables_map vm;
       po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -305,6 +303,15 @@ int main(int argc, char **argv)
          return 0;
       }
       po::notify(vm);
+      if (!legacy_entry_group_provider_arg.empty())
+      {
+         if (!vm["entry_group_strategy"].defaulted() &&
+             ANNS::parse_entry_group_strategy(entry_group_strategy_arg) !=
+                 ANNS::parse_entry_group_strategy(legacy_entry_group_provider_arg))
+            throw std::invalid_argument(
+                "entry_group_strategy and deprecated entry_group_provider disagree");
+         entry_group_strategy_arg = legacy_entry_group_provider_arg;
+      }
       if (selector_model_prefix.empty())
          selector_model_prefix = selector_model_prefix_legacy;
       if (force_use_alg != 5 && selector_model_prefix.empty())
@@ -317,7 +324,7 @@ int main(int argc, char **argv)
          std::cerr << "Missing required option: query_group_id_file" << std::endl;
          return -1;
       }
-      entry_group_provider = ANNS::parse_entry_group_provider_impl(entry_group_provider_arg);
+      entry_group_strategy = ANNS::parse_entry_group_strategy(entry_group_strategy_arg);
       graph_search_backend = ANNS::parse_search_graph_backend_impl(graph_search_backend_arg);
    }
    catch (const std::exception &ex)
@@ -546,81 +553,10 @@ int main(int argc, char **argv)
       std::cout << "Skipping query feature CSV generation." << std::endl;
    }
 
-   // Warm-up selector and GPU entry provider outside measured search time.
+   // Warm up only the route selectors. Entry-group strategies are measured as
+   // part of the end-to-end query path.
    std::cout << "\n--- Starting Warm-up Phase ---" << std::endl;
    index.warmup_selectors(num_threads);
-   if (entry_group_provider == ANNS::EntryGroupProviderImpl::GpuCoverFrontier)
-   {
-      size_t max_query_labels = 0;
-      for (ANNS::IdxType qid = 0; qid < num_queries; ++qid)
-         max_query_labels = std::max(max_query_labels, query_storage->get_label_set(qid).size());
-      std::cout << "Warming up gpu_cover_frontier provider with " << num_threads
-                << " reusable workspaces." << std::endl;
-      try
-      {
-         index.initialize_gpu_cover_frontier_provider(num_threads, max_query_labels);
-         if (num_queries > 0)
-            index.warmup_gpu_cover_frontier_provider(query_storage->get_label_set(0));
-      }
-      catch (const std::exception &ex)
-      {
-         std::cerr << "GPU cover frontier warm-up failed: " << ex.what() << std::endl;
-         return -1;
-      }
-   }
-   else if (entry_group_provider == ANNS::EntryGroupProviderImpl::CpuBruteForceEls &&
-            !ANNS::ung_env_flag_enabled("UNG_DISABLE_ELS_REUSE") &&
-            !ANNS::ung_env_flag_enabled("UNG_DISABLE_CPU_ELS_WARMUP"))
-   {
-      try
-      {
-         const ANNS::CpuElsWarmupStats warmup = index.warmup_cpu_bruteforce_els(
-             query_storage, is_rec_more_start, is_ung_more_entry, scalar_els_cap);
-         std::cout << "CPU ELS warm-up: " << warmup.elapsed_ms << " ms, "
-                   << warmup.unique_query_keys << " unique query-label keys, "
-                   << warmup.prepared_labels << " prepared labels." << std::endl;
-      }
-      catch (const std::exception &ex)
-      {
-         std::cerr << "CPU ELS warm-up failed: " << ex.what() << std::endl;
-         return -1;
-      }
-   }
-   else if (entry_group_provider == ANNS::EntryGroupProviderImpl::CpuBruteForceEls &&
-            ANNS::ung_env_flag_enabled("UNG_DISABLE_ELS_REUSE"))
-   {
-      std::cout << "Skipping CPU ELS warm-up; ELS result reuse is disabled, "
-                   "so entry groups will be recomputed during every timed search."
-                << std::endl;
-   }
-   else if (entry_group_provider == ANNS::EntryGroupProviderImpl::SpecialBlockTrie &&
-            !ANNS::ung_env_flag_enabled("UNG_DISABLE_ELS_REUSE") &&
-            !ANNS::ung_env_flag_enabled("UNG_DISABLE_SPECIAL_BLOCK_TRIE_WARMUP"))
-   {
-      try
-      {
-         const ANNS::SpecialBlockTrieWarmupStats warmup =
-             index.warmup_special_block_trie(query_storage);
-         std::cout << "Special-block Trie warm-up: " << warmup.elapsed_ms << " ms, "
-                   << warmup.unique_query_keys << " unique query-label keys." << std::endl;
-      }
-      catch (const std::exception &ex)
-      {
-         std::cerr << "Special-block Trie warm-up failed: " << ex.what() << std::endl;
-         return -1;
-      }
-   }
-   else if (entry_group_provider == ANNS::EntryGroupProviderImpl::SpecialBlockTrie)
-   {
-      if (ANNS::ung_env_flag_enabled("UNG_DISABLE_ELS_REUSE"))
-         std::cout << "Skipping Special-block Trie warm-up; ELS result reuse is disabled, "
-                      "so entry groups will be recomputed during every timed search."
-                   << std::endl;
-      else
-         std::cout << "Skipping Special-block Trie warm-up; entry groups will be "
-                      "computed and cached during the first timed Lsearch."
-                   << std::endl;
-   }
    std::cout << "--- Warm-up Finished ---"<< std::endl;
 
    if (Lsearch_list.empty())
@@ -688,7 +624,7 @@ int main(int argc, char **argv)
                 is_idea2_available, is_new_trie_method, is_rec_more_start,
                 is_ung_more_entry, false, lsearch_start, lsearch_step,
                 efs_start, efs_step_slow, efs_step_fast, lsearch_threshold,
-                force_use_alg, entry_group_provider, graph_search_backend, scalar_els_cap);
+                force_use_alg, entry_group_strategy, graph_search_backend);
 
             if (search_execution_context)
             {
@@ -926,20 +862,17 @@ int main(int argc, char **argv)
               << "DistCalcs,NumNodeVisited,QuerySize,CandSize,NumEntries,EntryGroupMatchedPoints,"
               << "SpecialEntryFreePoints,SpecialEntryRegularPoints,"
               << "SpecialGroupEntryFreePoints,SpecialGroupEntryRegularPoints,"
-              << "SpecialGroupEntryPointsPolicySkipped,SpecialTriePivotPostings,"
+              << "SpecialTriePivotPostings,"
               << "SpecialTrieMatchingPivots,SpecialTrieUpwardNodes,SpecialTrieDownwardNodes,"
               << "SpecialTrieBranchesPruned,SpecialTrieTerminalCandidates,"
-              << "SpecialTrieBlockFrontierCandidates,SpecialTrieTerminalDescendantsPruned,"
+              << "SpecialTrieTerminalDescendantsPruned,"
               << "SpecialTrieFinalEntries,SpecialTrieFinalBlockEntries,"
-              << "SpecialTrieTime_ms,SpecialTrieRegularSearch,"
-              << "SpecialTrieRegularEdgesScanned,SpecialTrieRegularEdgesAccepted,"
-              << "SpecialTrieBlockPortalsScanned,SpecialTrieBlockPortalsAccepted,"
-              << "SpecialLngCrossEdgesSkipped,EntryGroupCount,SpecialCoveredBlockCount,"
+              << "SpecialTrieTime_ms,"
+              << "EntryGroupCount,SpecialCoveredBlockCount,"
               << "SpecialFreeBlockCount,SpecialFreeBlockFrontierCount,"
               << "SpecialQueryMiddleBlockCount,SpecialQueryUpperBlockCount,"
               << "SpecialQueryUpperCoveredPoints,SpecialQueryUpperEnabled,"
               << "SpecialBlockSeedPoints,SpecialBlockSeedPointsRetained,"
-              << "SpecialBlockSeedPointsPreexpanded,"
               << "SpecialEntryBlocks,SpecialRetainedEntryBlocks,"
               << "SpecialBlocksSearched,SpecialMiddleBlocksSearched,SpecialUpperBlocksSearched,"
               << "SpecialBlockSearchUsed,SpecialRegularNodesExpanded,"
@@ -949,14 +882,12 @@ int main(int argc, char **argv)
               << "SpecialMiddleEdgesScanned,SpecialUpperEdgesScanned,"
               << "SpecialRegularEdgeRatio,SpecialFreeEdgeRatio,"
               << "SpecialInterEdgesCoverageRejected,"
-              << "SpecialCoverTime_ms,SpecialEntryTime_ms,SpecialPreexpandTime_ms,"
+              << "SpecialCoverTime_ms,SpecialEntryTime_ms,"
               << "SpecialEdgesTime_ms,SpecialRegularEdgesTime_ms,SpecialResultTime_ms,"
               << "SpecialFreeDistanceCalcs,SpecialRegularDistanceCalcs,"
               << "SpecialEdgesAccepted,SpecialRegularEdgesAccepted,"
               << "SpecialFreeCandidatesInserted,SpecialRegularCandidatesInserted,"
-              << "SpecialFreeUpgrades,SpecialMiddleActivations,SpecialUpperActivations,"
-              << "SpecialPreexpandEdgesScanned,"
-              << "SpecialPreexpandEdgesAccepted,SpecialQueueInsertAttempts,"
+              << "SpecialQueueInsertAttempts,"
               << "SpecialQueueBoundRejections,SpecialQueueInsertions,"
               << "SpecialQueueShiftedCandidates,SpecialFreeNodeCapSkipped,"
               << "SpecialFreeEdgesCapSkipped,SpecialFreeInterEdgesCapSkipped\n";
@@ -1008,24 +939,16 @@ int main(int argc, char **argv)
                        << stats.special_entry_regular_points << ","
                        << stats.special_group_entry_free_points << ","
                        << stats.special_group_entry_regular_points << ","
-                       << stats.special_group_entry_points_policy_skipped << ","
                        << stats.special_trie_pivot_postings << ","
                        << stats.special_trie_matching_pivots << ","
                        << stats.special_trie_upward_nodes_visited << ","
                        << stats.special_trie_downward_nodes_visited << ","
                        << stats.special_trie_branches_pruned << ","
                        << stats.special_trie_terminal_candidates << ","
-                       << stats.special_trie_block_frontier_candidates << ","
                        << stats.special_trie_terminal_descendants_pruned << ","
                        << stats.special_trie_final_entries << ","
                        << stats.special_trie_final_block_entries << ","
                        << stats.special_trie_time_ms << ","
-                       << (stats.special_trie_regular_search_enabled ? 1 : 0) << ","
-                       << stats.special_trie_regular_edges_scanned << ","
-                       << stats.special_trie_regular_edges_accepted << ","
-                       << stats.special_trie_block_portals_scanned << ","
-                       << stats.special_trie_block_portals_accepted << ","
-                       << stats.special_lng_cross_edges_skipped << ","
                        << stats.num_entry_points << ","
                        << stats.special_query_block_count << ","
                        << stats.special_free_block_count << ","
@@ -1036,7 +959,6 @@ int main(int argc, char **argv)
                        << (stats.special_query_upper_enabled ? 1 : 0) << ","
                        << stats.special_block_seed_points << ","
                        << stats.special_block_seed_points_retained << ","
-                       << stats.special_block_seed_points_preexpanded << ","
                        << stats.special_entry_blocks << ","
                        << stats.special_retained_entry_blocks << ","
                        << stats.special_blocks_searched << ","
@@ -1058,7 +980,6 @@ int main(int argc, char **argv)
                        << stats.special_inter_edges_coverage_rejected << ","
                        << stats.special_cover_time_ms << ","
                        << stats.special_entry_time_ms << ","
-                       << stats.special_preexpand_time_ms << ","
                        << stats.special_special_edges_time_ms << ","
                        << stats.special_regular_edges_time_ms << ","
                        << stats.special_result_time_ms << ","
@@ -1068,11 +989,6 @@ int main(int argc, char **argv)
                        << stats.special_regular_edges_accepted << ","
                        << stats.special_free_candidates_inserted << ","
                        << stats.special_regular_candidates_inserted << ","
-                       << stats.special_free_upgrades << ","
-                       << stats.special_middle_activations << ","
-                       << stats.special_upper_activations << ","
-                       << stats.special_preexpand_edges_scanned << ","
-                       << stats.special_preexpand_edges_accepted << ","
                        << stats.special_queue_insert_attempts << ","
                        << stats.special_queue_bound_rejections << ","
                        << stats.special_queue_insertions << ","

@@ -4,12 +4,17 @@
 #include "include/uni_nav_graph.h"
 
 #include <memory>
+#include <stdexcept>
 
 namespace ANNS
 {
 
 void SpecialBlockIndexBuilder::build(const SpecialBlockIndexBuildOptions &options) const
 {
+   if (options.build_config.hierarchy.empty())
+      throw std::invalid_argument(
+          "independent hierarchy build requires at least one layer");
+   options.build_config.hierarchy.validate();
    validate_special_block_thresholds(
        options.build_config.special_block_min_points,
        options.build_config.special_block_upper_min_points);

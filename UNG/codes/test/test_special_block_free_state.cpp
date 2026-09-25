@@ -1,6 +1,5 @@
 #include "ung_special_block_activation.h"
 #include "ung_special_blocks.h"
-#include "ung_special_trie_regular_search.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -58,32 +57,6 @@ int main()
    expect(!ANNS::special_block_member_is_free("containment", group_to_block, 1,
                                               std::vector<uint8_t>{0, 0}),
           "an uncovered block must remain regular");
-
-   const std::vector<ANNS::IdxType> point_to_upper{0, 3, 0, 3};
-   const std::vector<uint8_t> covered_multilevel_blocks{0, 1, 0, 1};
-   expect(ANNS::special_block_point_activation_level(
-              "containment", 0, 1, point_to_upper, covered_multilevel_blocks) == 0,
-          "ordinary traversal must not activate an upper-owned point directly");
-   expect(ANNS::special_block_point_activation_level(
-              "containment", 1, 1, point_to_upper, covered_multilevel_blocks) == 2,
-          "middle traversal must activate a covered upper-owned point even across partition boundaries");
-   expect(ANNS::special_block_point_activation_level(
-              "containment", 1, 2, point_to_upper, covered_multilevel_blocks) == 1,
-          "a point outside upper ownership must retain middle activation");
-   expect(ANNS::special_block_point_activation_level(
-              "containment", 1, 1, point_to_upper,
-              std::vector<uint8_t>{0, 1, 0, 0}) == 1,
-          "an uncovered upper block must not activate");
-   expect(ANNS::special_block_point_activation_level(
-              "equality", 1, 1, point_to_upper, covered_multilevel_blocks) == 1,
-          "upper membership activation is containment-only");
-
-   expect(ANNS::special_block_successor_is_free(true, false),
-          "a child block must inherit free state from its parent block");
-   expect(ANNS::special_block_successor_is_free(false, true),
-          "a covered block must activate free state from regular search");
-   expect(!ANNS::special_block_successor_is_free(false, false),
-          "regular search must stay regular before reaching a covered block");
 
    ANNS::SpecialBlock middle_block;
    middle_block.level = 0;
@@ -166,24 +139,6 @@ int main()
               gated_coverage == std::vector<uint8_t>({0, 1, 0, 0}),
           "max activation level one must provide a strict same-index upper ablation");
 
-   std::vector<ANNS::SpecialBlock> activation_blocks(4);
-   activation_blocks[0].block_id = 1;
-   activation_blocks[0].child_block_ids = {2, 3};
-   activation_blocks[1].block_id = 2;
-   activation_blocks[1].child_block_ids = {4};
-   activation_blocks[2].block_id = 3;
-   activation_blocks[3].block_id = 4;
-   const std::vector<uint8_t> free_frontier{0, 1, 0, 0, 0};
-   expect(ANNS::special_block_lazy_seed_mask(free_frontier, activation_blocks, 0) ==
-              std::vector<uint8_t>({0, 1, 0, 0, 0}),
-          "lazy depth zero must seed only the free frontier");
-   expect(ANNS::special_block_lazy_seed_mask(free_frontier, activation_blocks, 1) ==
-              std::vector<uint8_t>({0, 1, 1, 1, 0}),
-          "lazy depth one must include direct child blocks");
-   expect(ANNS::special_block_lazy_seed_mask(free_frontier, activation_blocks, 2) ==
-              std::vector<uint8_t>({0, 1, 1, 1, 1}),
-          "lazy depth two must include the next descendant layer");
-
    const std::vector<std::vector<ANNS::LabelType>> group_labels{
        {}, {1, 3, 5}, {1, 2, 3, 5}, {1, 4}};
    expect(ANNS::compute_direct_member_common_labels({1, 2}, group_labels) ==
@@ -194,14 +149,6 @@ int main()
           "labels from an explicitly included group must participate in the intersection");
    expect(ANNS::compute_direct_member_common_labels({}, group_labels).empty(),
           "a block without direct member groups has no common labels");
-
-   const std::vector<ANNS::IdxType> point_to_group{1, 1, 2};
-   expect(ANNS::special_trie_regular_main_edge_allowed(point_to_group, 0, 1),
-          "Trie regular search must retain same-group main-graph edges");
-   expect(!ANNS::special_trie_regular_main_edge_allowed(point_to_group, 0, 2),
-          "Trie regular search must reject LNG cross-group main-graph edges");
-   expect(!ANNS::special_trie_regular_main_edge_allowed(point_to_group, 0, 3),
-          "Trie regular search must reject out-of-range main-graph edges");
 
    std::cout << "special-block free-state activation checks passed\n";
    return 0;

@@ -464,8 +464,8 @@ struct GpuCoverFrontierProvider::Impl
       ANNS_CUDA_CHECK(cudaMemcpy(workspace.host_bits.data(), workspace.d_out_bits, words_bytes, cudaMemcpyDeviceToHost));
 
       EntryGroupProviderResult result;
-      result.requested_impl = request.impl;
-      result.provider = EntryGroupProviderKind::GpuCoverFrontier;
+      result.requested_strategy = request.strategy;
+      result.provider = EntryGroupProviderKind::OptimizedLng;
       result.coverage_correct = true;
       result.exact_minimal = false;
       for (DeviceId word = 0; word < words_per_query; ++word)

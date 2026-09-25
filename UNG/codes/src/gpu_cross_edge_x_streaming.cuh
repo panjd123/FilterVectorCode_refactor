@@ -62,7 +62,7 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_x_streaming(
         }
         target_nx[gi] = (uint32_t)nx;
         size_t nq = 0;
-        for (IdxType in_gid : _label_nav_graph->in_neighbors[tgt_gid]) {
+        for (IdxType in_gid : _group_topology_graph->in_neighbors[tgt_gid]) {
             const auto& qrng = _group_id_to_range[in_gid];
             nq += (size_t)(qrng.second - qrng.first);
         }
@@ -203,7 +203,7 @@ void ANNS::UniNavGraph::gpu_cross_groups_search_x_streaming(
             for (size_t gii = base_group; gii < group_end; ++gii) {
                 const StreamGroup& g = groups[gii];
                 const size_t q_start = qpos;
-                for (IdxType in_gid : _label_nav_graph->in_neighbors[g.gid]) {
+                for (IdxType in_gid : _group_topology_graph->in_neighbors[g.gid]) {
                     const auto& qrng = _group_id_to_range[in_gid];
                     for (IdxType qid = qrng.first; qid < qrng.second; ++qid) {
                         const float* src = reinterpret_cast<const float*>(_base_storage->get_vector(qid));

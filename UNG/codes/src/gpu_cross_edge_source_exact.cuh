@@ -52,7 +52,7 @@ bool ANNS::UniNavGraph::build_cross_edges_generate_gpu_source_exact(
         unsigned long long dim_ops = 0;
         const auto t_pack0 = std::chrono::high_resolution_clock::now();
         for (IdxType src_gid = 1; src_gid <= _num_groups; ++src_gid) {
-            const auto& outs = _label_nav_graph->out_neighbors[src_gid];
+            const auto& outs = _group_topology_graph->out_neighbors[src_gid];
             const auto& q_range = _group_id_to_range[src_gid];
             if (outs.empty() || q_range.first >= q_range.second) continue;
 

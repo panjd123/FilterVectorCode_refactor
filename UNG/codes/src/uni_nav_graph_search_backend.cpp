@@ -1,6 +1,5 @@
 #include "include/uni_nav_graph.h"
 #include "include/ung_special_block_activation.h"
-#include "include/ung_special_trie_regular_search.h"
 #include "include/ung_favor_block_search.h"
 #include "include/ung_gpu_l2_batch.h"
 
@@ -339,13 +338,10 @@ namespace ANNS
 
       auto search_time_start_ms = std::chrono::high_resolution_clock::now();
       stats.special_search_enabled = true;
-      stats.special_free_use_regular = runtime.special_block_free_use_regular;
-      const bool trie_regular_search =
-          runtime.entry_group_provider == EntryGroupProviderImpl::SpecialBlockTrie &&
-          !ung_env_flag_enabled("UNG_SPECIAL_TRIE_LEGACY_LNG_REGULAR");
-      const bool lazy_block_activation =
-          trie_regular_search && ung_env_flag_enabled("UNG_SPECIAL_TRIE_LAZY_BLOCK_ACTIVATION");
-      stats.special_trie_regular_search_enabled = trie_regular_search;
+      // Each candidate belongs to exactly one graph layer. Layer-zero
+      // candidates use the persisted base graph; materialized-layer candidates
+      // use only edges owned by that layer.
+      stats.special_free_use_regular = false;
       const bool heavy_query_size_ok =
           runtime.special_heavy_edge_min_query_size == 0 ||
           stats.query_length >= runtime.special_heavy_edge_min_query_size;
@@ -409,14 +405,6 @@ namespace ANNS
       size_t free_block_stall_limit = 0;
       if (const char *value = std::getenv("UNG_SPECIAL_BLOCK_STALL_NO_UPDATE_LIMIT"))
          free_block_stall_limit = static_cast<size_t>(std::strtoull(value, nullptr, 10));
-      size_t trie_block_portal_min_lsearch = 0;
-      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_BLOCK_PORTAL_MIN_LSEARCH"))
-         trie_block_portal_min_lsearch = static_cast<size_t>(std::strtoull(value, nullptr, 10));
-      const bool trie_block_portals =
-          trie_regular_search &&
-          !ung_env_flag_enabled("UNG_SPECIAL_TRIE_DISABLE_BLOCK_PORTALS") &&
-          (lazy_block_activation ||
-           static_cast<size_t>(capacity) >= trie_block_portal_min_lsearch);
       IdxType approx_dims = 0;
       if (const char *value = std::getenv("UNG_SPECIAL_APPROX_DIMS"))
          approx_dims = static_cast<IdxType>(std::strtoull(value, nullptr, 10));
@@ -519,8 +507,7 @@ namespace ANNS
       std::vector<uint8_t> query_free_block_frontier(query_free_block.size(), 0);
       std::vector<IdxType> special_block_parent(query_free_block.size(), 0);
       for (IdxType block_id = 1;
-           (detail_stats || lazy_block_activation) && block_id < query_free_block.size();
-           ++block_id)
+           detail_stats && block_id < query_free_block.size(); ++block_id)
       {
          for (IdxType child_block_id : _special_blocks[block_id - 1].child_block_ids)
          {
@@ -529,8 +516,7 @@ namespace ANNS
          }
       }
       for (IdxType block_id = 1;
-           (detail_stats || lazy_block_activation) && block_id < query_free_block.size();
-           ++block_id)
+           detail_stats && block_id < query_free_block.size(); ++block_id)
       {
          if (query_free_block[block_id] == 0)
             continue;
@@ -560,14 +546,7 @@ namespace ANNS
             }
          }
       }
-      size_t lazy_seed_depth = 0;
-      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_LAZY_SEED_DEPTH"))
-         lazy_seed_depth = static_cast<size_t>(std::strtoull(value, nullptr, 10));
-      const std::vector<uint8_t> query_seed_block =
-          lazy_block_activation
-              ? special_block_lazy_seed_mask(query_free_block_frontier,
-                                             _special_blocks, lazy_seed_depth)
-              : query_free_block;
+      const std::vector<uint8_t> &query_seed_block = query_free_block;
       stats.special_cover_time_ms = elapsed_ms(cover_time_start);
       std::vector<uint8_t> searched_blocks(_special_blocks.size() + 1, 0);
       std::vector<size_t> free_nodes_expanded_by_block(
@@ -591,48 +570,22 @@ namespace ANNS
 
       auto core_search_start_time = std::chrono::high_resolution_clock::now();
       const auto entry_time_start = core_search_start_time;
-      auto &visited_regular = search_cache->special_visited_regular;
-      auto &visited_free = search_cache->special_visited_free;
-      auto &visited_upper = search_cache->special_visited_upper;
+      auto &visited_regular = search_cache->special_visited(0, _num_points);
       visited_regular.clear();
-      visited_free.clear();
-      visited_upper.clear();
-      auto &free_state_cache = search_cache->special_free_state_cache;
-      auto &free_state_touched = search_cache->special_free_state_touched;
-      if (free_state_cache.size() < _num_points)
-         free_state_cache.assign(_num_points, 0);
-      for (IdxType point_id : free_state_touched)
-      {
-         if (point_id < free_state_cache.size())
-            free_state_cache[point_id] = 0;
-      }
-      free_state_touched.clear();
-
-      auto cached_point_activation_level = [&](IdxType point_id) -> uint8_t {
-         uint8_t &state = free_state_cache[point_id];
-         if (state == 0)
-         {
-            const bool middle_is_covered = special_block_member_is_free(
-                runtime.scenario, _point_to_special_block, point_id,
-                query_free_block);
-            // Cache uses 1 for ordinary and 2 for middle activation so zero
-            // remains the uncached sentinel. Upper activation is deliberately
-            // not reachable directly from ordinary graph traversal.
-            state = middle_is_covered ? 2 : 1;
-            free_state_touched.push_back(point_id);
-         }
-         return state == 2 ? uint8_t{1} : uint8_t{0};
-      };
-      auto point_upper_activation_level = [&](IdxType point_id,
-                                              uint8_t current_level) -> uint8_t {
-         return special_block_point_activation_level(
-             runtime.scenario, current_level, point_id,
-             _point_to_upper_special_block, query_free_block);
-      };
       auto visited_for_level = [&](uint8_t level) -> VisitedSet & {
-         if (level >= 2)
-            return visited_upper;
-         return level == 1 ? visited_free : visited_regular;
+         return search_cache->special_visited(level, _num_points);
+      };
+      for (size_t level = 1;
+           level <= _point_to_special_block_by_level.size(); ++level)
+         visited_for_level(static_cast<uint8_t>(level)).clear();
+      auto point_owner = [&](IdxType point_id, uint8_t activation_level) {
+         if (activation_level == 0)
+            return IdxType{0};
+         const size_t level = static_cast<size_t>(activation_level - 1);
+         if (level >= _point_to_special_block_by_level.size() ||
+             point_id >= _point_to_special_block_by_level[level].size())
+            return IdxType{0};
+         return _point_to_special_block_by_level[level][point_id];
       };
 
       auto prefetch_point = [&](IdxType point_id) {
@@ -640,8 +593,6 @@ namespace ANNS
             return;
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
          visited_regular.prefetch(point_id);
-         visited_free.prefetch(point_id);
-         visited_upper.prefetch(point_id);
          _mm_prefetch(_base_storage->get_vector(point_id), _MM_HINT_T0);
 #endif
       };
@@ -667,8 +618,6 @@ namespace ANNS
 
       auto add_entry_point = [&](IdxType point_id, uint8_t activation_level,
                                  bool is_block_seed = false) {
-         activation_level =
-             point_upper_activation_level(point_id, activation_level);
          VisitedSet &visited = visited_for_level(activation_level);
          if (visited.check(point_id))
             return false;
@@ -697,8 +646,6 @@ namespace ANNS
             stats.special_block_seed_points++;
          return true;
       };
-      const bool seed_free_blocks =
-          trie_regular_search && ung_env_flag_enabled("UNG_SPECIAL_TRIE_SEED_FREE_BLOCKS");
       size_t block_seed_cap = std::numeric_limits<size_t>::max();
       if (const char *value = std::getenv("UNG_SPECIAL_TRIE_BLOCK_SEED_CAP"))
       {
@@ -706,175 +653,59 @@ namespace ANNS
          if (configured_cap > 0)
             block_seed_cap = configured_cap;
       }
-      size_t block_seeds_per_block = 1;
-      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_BLOCK_SEEDS_PER_BLOCK"))
-      {
-         const size_t configured_count = static_cast<size_t>(std::strtoull(value, nullptr, 10));
-         if (configured_count > 0)
-            block_seeds_per_block = configured_count;
-      }
-      size_t block_seeds_retained_per_block = block_seeds_per_block;
-      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_BLOCK_SEEDS_RETAIN_PER_BLOCK"))
-      {
-         const size_t configured_count = static_cast<size_t>(std::strtoull(value, nullptr, 10));
-         if (configured_count > 0)
-            block_seeds_retained_per_block = configured_count;
-      }
-      size_t frontier_block_seeds_retained_per_block = block_seeds_retained_per_block;
-      if (const char *value =
-              std::getenv("UNG_SPECIAL_TRIE_FRONTIER_BLOCK_SEEDS_RETAIN_PER_BLOCK"))
-      {
-         const size_t configured_count = static_cast<size_t>(std::strtoull(value, nullptr, 10));
-         if (configured_count > 0)
-            frontier_block_seeds_retained_per_block = configured_count;
-      }
-      if (seed_free_blocks)
-      {
-         // Candidate landmarks are structurally spread across each block's direct members.
-         for (IdxType block_id = 1; block_id < query_free_block.size(); ++block_id)
-         {
-            if (query_seed_block[block_id] == 0 ||
-                _special_blocks[block_id - 1].level != 0)
-               continue;
-            const IdxType entry_point = _special_blocks[block_id - 1].entry_point_id;
-            if (entry_point == SpecialBlock::kInvalidEntryPoint || entry_point >= _num_points)
-               continue;
-            add_entry_point(entry_point, 1, true);
-
-            const std::vector<IdxType> &member_group_ids =
-                _special_blocks[block_id - 1].member_group_ids;
-            for (size_t seed_idx = 1;
-                 seed_idx < block_seeds_per_block && !member_group_ids.empty();
-                 ++seed_idx)
-            {
-               const size_t member_idx = std::min(
-                   member_group_ids.size() - 1,
-                   (seed_idx * member_group_ids.size()) / block_seeds_per_block);
-               const IdxType group_id = member_group_ids[member_idx];
-               if (group_id >= _group_id_to_range.size())
-                  continue;
-               const auto &range = _group_id_to_range[group_id];
-               if (range.second <= range.first)
-                  continue;
-               const IdxType landmark =
-                   group_id < _group_entry_points.size() &&
-                           _group_entry_points[group_id] >= range.first &&
-                           _group_entry_points[group_id] < range.second
-                       ? _group_entry_points[group_id]
-                       : range.first;
-               add_entry_point(landmark, 1, true);
-            }
-         }
-      }
-      // A covered upper block is a legal search space in its own right. Seed
-      // its portal directly at the upper activation level; otherwise exact
-      // level gating would make upper reachability depend on accidentally
-      // encountering a cross-partition member through middle traversal. The
-      // shared bounded queue still decides whether this portal survives.
+      // Every authorized layer is an independent search space. Seed its
+      // portal directly; traversal never promotes or falls through between
+      // layers, so adding a layer cannot change lower-layer edge semantics.
       for (IdxType block_id = 1; block_id < query_seed_block.size(); ++block_id)
       {
          if (query_seed_block[block_id] == 0 ||
              block_id > _special_blocks.size())
             continue;
          const SpecialBlock &block = _special_blocks[block_id - 1];
-         if (block.level == 0)
-            continue;
          const IdxType entry_point = block.entry_point_id;
          if (entry_point == SpecialBlock::kInvalidEntryPoint ||
              entry_point >= _num_points)
             continue;
          add_entry_point(entry_point, special_block_activation_level(block), true);
       }
-      const char *free_group_entry_cap_value =
-          std::getenv("UNG_SPECIAL_TRIE_FREE_GROUP_ENTRY_CAP");
-      const bool free_group_entry_cap_enabled = free_group_entry_cap_value != nullptr;
-      const size_t free_group_entry_cap = free_group_entry_cap_enabled
-                                              ? static_cast<size_t>(std::strtoull(
-                                                    free_group_entry_cap_value, nullptr, 10))
-                                              : std::numeric_limits<size_t>::max();
-      size_t exact_group_entry_cap = 16;
-      if (const char *value = std::getenv("UNG_SPECIAL_TRIE_EXACT_GROUP_ENTRY_CAP"))
-         exact_group_entry_cap = static_cast<size_t>(std::strtoull(value, nullptr, 10));
-      std::vector<size_t> free_group_entries_by_block(
-          free_group_entry_cap_enabled ? _special_blocks.size() + 1 : 0, 0);
-      size_t exact_group_entries = 0;
-      std::vector<uint8_t> entry_portal_seen(
-          trie_block_portals ? _special_blocks.size() + 1 : 0, 0);
       for (IdxType group_id : entry_group_ids)
       {
          if (group_id >= _group_id_to_range.size())
             continue;
-         const bool covered_root = special_block_member_is_free(runtime.scenario,
-                                                                _group_id_to_special_block,
-                                                                group_id,
-                                                                query_free_block);
          const auto &range = _group_id_to_range[group_id];
          if (range.second <= range.first)
             continue;
-         const bool exact_query_group =
-             covered_root && group_id < _group_id_to_label_set.size() &&
-             _group_id_to_label_set[group_id] == query_labels;
-         const IdxType block_id =
-             covered_root && group_id < _group_id_to_special_block.size()
-                 ? _group_id_to_special_block[group_id]
-                 : 0;
-         const IdxType take = std::min<IdxType>(effective_num_entry_points, range.second - range.first);
-         if (lazy_block_activation && covered_root && !exact_query_group &&
-             (block_id == 0 || block_id >= query_seed_block.size() ||
-              query_seed_block[block_id] == 0))
+         IdxType block_id = 0;
+         uint8_t activation_level = 0;
+         for (size_t level = 0; level < _group_to_special_block_by_level.size(); ++level)
          {
-            stats.special_group_entry_points_policy_skipped += take;
-            continue;
+            const auto &owners = _group_to_special_block_by_level[level];
+            if (group_id >= owners.size())
+               continue;
+            const IdxType candidate_block = owners[group_id];
+            if (candidate_block > 0 && candidate_block < query_free_block.size() &&
+                query_free_block[candidate_block] != 0)
+            {
+               block_id = candidate_block;
+               activation_level = static_cast<uint8_t>(level + 1);
+               break;
+            }
          }
+         const bool covered_root = block_id != 0;
+         const IdxType take = std::min<IdxType>(effective_num_entry_points, range.second - range.first);
          for (IdxType local = 0; local < take; ++local)
          {
-            size_t *policy_count = nullptr;
-            size_t policy_cap = std::numeric_limits<size_t>::max();
-            if (seed_free_blocks && exact_query_group)
-            {
-               policy_count = &exact_group_entries;
-               policy_cap = exact_group_entry_cap;
-            }
-            else if (seed_free_blocks && covered_root && free_group_entry_cap_enabled &&
-                     block_id > 0 && block_id < free_group_entries_by_block.size())
-            {
-               policy_count = &free_group_entries_by_block[block_id];
-               policy_cap = free_group_entry_cap;
-            }
-            if (policy_count != nullptr && *policy_count >= policy_cap)
-            {
-               stats.special_group_entry_points_policy_skipped++;
-               continue;
-            }
             const IdxType point_id =
                 (local == 0 && group_id < _group_entry_points.size() &&
                  _group_entry_points[group_id] >= range.first && _group_entry_points[group_id] < range.second)
                     ? _group_entry_points[group_id]
                     : range.first + local;
-            if (add_entry_point(point_id, covered_root ? uint8_t{1} : uint8_t{0}))
+            if (add_entry_point(point_id, activation_level))
             {
-               if (policy_count != nullptr)
-                  ++(*policy_count);
                if (covered_root)
                   stats.special_group_entry_free_points++;
                else
                   stats.special_group_entry_regular_points++;
-            }
-         }
-         if (trie_block_portals && covered_root &&
-             group_id < _group_id_to_special_block.size())
-         {
-            const IdxType block_id = _group_id_to_special_block[group_id];
-            if (block_id > 0 && block_id <= _special_blocks.size() &&
-                (!lazy_block_activation || query_seed_block[block_id] != 0) &&
-                entry_portal_seen[block_id] == 0)
-            {
-               entry_portal_seen[block_id] = 1;
-               stats.special_trie_block_portals_scanned++;
-               const IdxType entry_point = _special_blocks[block_id - 1].entry_point_id;
-               if (entry_point != SpecialBlock::kInvalidEntryPoint &&
-                   entry_point < _num_points && add_entry_point(entry_point, 1))
-                  stats.special_trie_block_portals_accepted++;
             }
          }
       }
@@ -882,12 +713,6 @@ namespace ANNS
       if (entry_point_ids.empty())
       {
          stats.num_distance_calcs = 0;
-         for (IdxType point_id : free_state_touched)
-         {
-            if (point_id < free_state_cache.size())
-               free_state_cache[point_id] = 0;
-         }
-         free_state_touched.clear();
          return false;
       }
 
@@ -914,33 +739,6 @@ namespace ANNS
          std::nth_element(candidates.begin(), keep_end, candidates.end(), special_candidate_less);
          candidates.resize(keep);
       };
-      if (block_seeds_retained_per_block < block_seeds_per_block &&
-          !block_seed_candidates.empty())
-      {
-         // Route each block through its query-nearest landmark without widening the search beam.
-         std::vector<std::vector<SpecialSearchCandidate>> candidates_by_block(
-             _special_blocks.size() + 1);
-         for (const SpecialSearchCandidate &candidate : block_seed_candidates)
-         {
-            const IdxType block_id =
-                candidate.id < _point_to_special_block.size()
-                    ? _point_to_special_block[candidate.id]
-                    : 0;
-            if (block_id > 0 && block_id < candidates_by_block.size())
-               candidates_by_block[block_id].push_back(candidate);
-         }
-         block_seed_candidates.clear();
-         for (IdxType block_id = 1; block_id < candidates_by_block.size(); ++block_id)
-         {
-            std::vector<SpecialSearchCandidate> &block_candidates = candidates_by_block[block_id];
-            const size_t keep = query_free_block_frontier[block_id] != 0
-                                    ? frontier_block_seeds_retained_per_block
-                                    : block_seeds_retained_per_block;
-            retain_closest(block_candidates, keep);
-            block_seed_candidates.insert(block_seed_candidates.end(),
-                                         block_candidates.begin(), block_candidates.end());
-         }
-      }
       const size_t entry_capacity = static_cast<size_t>(capacity);
       const size_t seed_capacity = std::min(entry_capacity, block_seed_cap);
       retain_closest(block_seed_candidates, seed_capacity);
@@ -960,19 +758,17 @@ namespace ANNS
 
       std::vector<uint8_t> entry_blocks(_special_blocks.size() + 1, 0);
       std::vector<uint8_t> retained_entry_blocks(_special_blocks.size() + 1, 0);
-      for (IdxType point_id : entry_point_ids)
+      for (size_t entry_index = 0; entry_index < entry_point_ids.size(); ++entry_index)
       {
-         if (point_id >= _point_to_special_block.size())
-            continue;
-         const IdxType block_id = _point_to_special_block[point_id];
+         const IdxType point_id = entry_point_ids[entry_index];
+         const IdxType block_id = point_owner(
+             point_id, entry_activation_level[entry_index]);
          if (block_id > 0 && block_id < entry_blocks.size())
             entry_blocks[block_id] = 1;
       }
       for (const SpecialSearchCandidate &candidate : retained_initial_candidates)
       {
-         if (candidate.id >= _point_to_special_block.size())
-            continue;
-         const IdxType block_id = _point_to_special_block[candidate.id];
+         const IdxType block_id = point_owner(candidate.id, candidate.activation_level);
          if (block_id > 0 && block_id < retained_entry_blocks.size())
             retained_entry_blocks[block_id] = 1;
       }
@@ -1014,9 +810,6 @@ namespace ANNS
                                 uint8_t from_level) {
          if (neighbor >= _num_points)
             return false;
-         // Promotion happens before deduplication and queue insertion. The
-         // target's later expansion therefore consumes only its new level.
-         next_level = point_upper_activation_level(neighbor, next_level);
          VisitedSet &visited = visited_for_level(next_level);
          if (visited.check(neighbor))
             return false;
@@ -1026,14 +819,6 @@ namespace ANNS
             if (detail_stats)
             {
                stats.special_free_candidates_inserted++;
-               if (next_level > from_level)
-               {
-                  stats.special_free_upgrades++;
-                  if (from_level == 0)
-                     stats.special_middle_activations++;
-                  if (from_level < 2 && next_level >= 2)
-                     stats.special_upper_activations++;
-               }
             }
          }
          else
@@ -1054,133 +839,6 @@ namespace ANNS
          return true;
       };
 
-      const bool preexpand_block_seeds =
-          seed_free_blocks && ung_env_flag_enabled("UNG_SPECIAL_TRIE_PREEXPAND_BLOCK_SEEDS");
-      if (preexpand_block_seeds)
-      {
-         std::chrono::high_resolution_clock::time_point preexpand_time_start;
-         if (profile_timing)
-            preexpand_time_start = std::chrono::high_resolution_clock::now();
-         const char *preexpand_per_block_value =
-             std::getenv("UNG_SPECIAL_TRIE_BLOCK_SEEDS_PREEXPAND_PER_BLOCK");
-         const bool preexpand_per_block_enabled = preexpand_per_block_value != nullptr;
-         const size_t preexpand_per_block = preexpand_per_block_enabled
-                                                ? static_cast<size_t>(std::strtoull(
-                                                      preexpand_per_block_value, nullptr, 10))
-                                                : std::numeric_limits<size_t>::max();
-         // Give every routed block one navigation step before global distance competition.
-         auto preexpand_edges = [&](SpecialEdgeView edges, bool heavy,
-                                    size_t &inter_edges_seen,
-                                    uint8_t source_level) {
-            for (const SpecialEdge edge : edges)
-            {
-               if (edge.special_block_id == 0 ||
-                   edge.special_block_id > _special_blocks.size())
-                  continue;
-               const SpecialBlock &edge_owner =
-                   _special_blocks[edge.special_block_id - 1];
-               const bool query_covers_owner =
-                   edge.special_block_id < query_free_block.size() &&
-                   query_free_block[edge.special_block_id] != 0;
-               const SpecialBlockEdgeTransition transition =
-                   special_block_edge_transition(source_level, edge_owner,
-                                                 query_covers_owner);
-               if (!transition.allowed)
-                  continue;
-               const uint8_t edge_level = special_block_activation_level(edge_owner);
-               if (edge.kind == SpecialEdgeKind::InterBlock &&
-                   inter_edges_seen >= free_inter_edge_scan_cap)
-               {
-                  if (detail_stats)
-                     stats.special_free_inter_edges_cap_skipped++;
-                  continue;
-               }
-               if (edge.kind == SpecialEdgeKind::InterBlock)
-                  ++inter_edges_seen;
-               if (detail_stats)
-               {
-                  stats.special_preexpand_edges_scanned++;
-                  stats.special_edges_scanned++;
-                  if (edge_level >= 2)
-                     stats.special_upper_edges_scanned++;
-                  else
-                     stats.special_middle_edges_scanned++;
-                  if (heavy)
-                     stats.special_heavy_edges_scanned++;
-                  if (edge.kind == SpecialEdgeKind::InterBlock)
-                     stats.special_inter_edges_scanned++;
-                  else
-                     stats.special_intra_edges_scanned++;
-               }
-               if (visit_neighbor(edge.target_point_id,
-                                  transition.successor_activation_level,
-                                  source_level) && detail_stats)
-               {
-                  stats.special_preexpand_edges_accepted++;
-                  stats.special_edges_accepted++;
-                  if (heavy)
-                     stats.special_heavy_edges_accepted++;
-               }
-            }
-         };
-
-         std::vector<IdxType> preexpanded_seed_ids;
-         preexpanded_seed_ids.reserve(block_seed_candidates.size());
-         std::vector<SpecialSearchCandidate> preexpand_candidates = block_seed_candidates;
-         std::sort(preexpand_candidates.begin(), preexpand_candidates.end(), special_candidate_less);
-         std::vector<size_t> preexpanded_by_block(
-             preexpand_per_block_enabled ? _special_blocks.size() + 1 : 0, 0);
-         for (const SpecialSearchCandidate &seed : preexpand_candidates)
-         {
-            const IdxType block_id =
-                seed.id < _point_to_special_block.size()
-                    ? _point_to_special_block[seed.id]
-                    : 0;
-            if (preexpand_per_block_enabled && block_id > 0 &&
-                block_id < preexpanded_by_block.size())
-            {
-               if (preexpanded_by_block[block_id] >= preexpand_per_block)
-                  continue;
-               preexpanded_by_block[block_id]++;
-            }
-            preexpanded_seed_ids.push_back(seed.id);
-            stats.special_block_seed_points_preexpanded++;
-            if (block_id > 0)
-            {
-               if (block_id < searched_blocks.size() &&
-                   searched_blocks[block_id] == 0)
-               {
-                  searched_blocks[block_id] = 1;
-                  stats.special_blocks_searched++;
-                  if (detail_stats)
-                  {
-                     if (_special_blocks[block_id - 1].level == 0)
-                        stats.special_middle_blocks_searched++;
-                     else
-                        stats.special_upper_blocks_searched++;
-                  }
-               }
-            }
-            if (detail_stats)
-            {
-               stats.special_free_nodes_expanded++;
-               if (seed.activation_level >= 2)
-                  stats.special_upper_nodes_expanded++;
-               else
-                  stats.special_middle_nodes_expanded++;
-            }
-            size_t preexpand_inter_edges_seen = 0;
-            preexpand_edges(special_edges_for_point(seed.id), false,
-                            preexpand_inter_edges_seen, seed.activation_level);
-            if (stats.special_heavy_edges_enabled)
-               preexpand_edges(special_heavy_edges_for_point(seed.id), true,
-                               preexpand_inter_edges_seen, seed.activation_level);
-         }
-         std::sort(preexpanded_seed_ids.begin(), preexpanded_seed_ids.end());
-         candidate_queue.mark_expanded_ids(preexpanded_seed_ids);
-         if (profile_timing)
-            stats.special_preexpand_time_ms = elapsed_ms(preexpand_time_start);
-      }
       const size_t early_stop_min_nodes = static_cast<size_t>(std::max<IdxType>(runtime.K, runtime.Lsearch));
       while (candidate_queue.has_unexpanded())
       {
@@ -1204,12 +862,9 @@ namespace ANNS
          if (!candidate_queue.pop_closest_unexpanded(cur))
             break;
 
-         if (cur.free() && cur.id < _point_to_special_block.size())
+         if (cur.free())
          {
-            const IdxType block_id = cur.activation_level >= 2 &&
-                                             cur.id < _point_to_upper_special_block.size()
-                                         ? _point_to_upper_special_block[cur.id]
-                                         : _point_to_special_block[cur.id];
+            const IdxType block_id = point_owner(cur.id, cur.activation_level);
             if (block_id > 0 && block_id < searched_blocks.size() &&
                 searched_blocks[block_id] == 0)
             {
@@ -1224,23 +879,6 @@ namespace ANNS
                }
             }
          }
-
-         auto activate_trie_block_portal = [&](IdxType member_point) {
-            if (!trie_block_portals || member_point >= _point_to_special_block.size())
-               return;
-            stats.special_trie_block_portals_scanned++;
-            const IdxType block_id = _point_to_special_block[member_point];
-            if (block_id == 0 || block_id > _special_blocks.size() ||
-                block_id >= query_free_block.size() || query_free_block[block_id] == 0)
-               return;
-            const IdxType entry_point = _special_blocks[block_id - 1].entry_point_id;
-            if (entry_point != SpecialBlock::kInvalidEntryPoint &&
-                entry_point < _num_points &&
-                visit_neighbor(entry_point,
-                               std::max<uint8_t>(cur.activation_level, 1),
-                               cur.activation_level))
-               stats.special_trie_block_portals_accepted++;
-         };
 
          if (detail_stats)
          {
@@ -1259,13 +897,8 @@ namespace ANNS
          if (cur.free())
          {
             bool scan_free_edges = true;
-            IdxType current_free_block = 0;
+            IdxType current_free_block = point_owner(cur.id, cur.activation_level);
             size_t block_insertions_before = queue_insertions_total;
-            if (cur.activation_level >= 2 &&
-                cur.id < _point_to_upper_special_block.size())
-               current_free_block = _point_to_upper_special_block[cur.id];
-            else if (cur.id < _point_to_special_block.size())
-               current_free_block = _point_to_special_block[cur.id];
             if (free_block_stall_limit > 0 && current_free_block > 0 &&
                 current_free_block < free_block_paused.size() &&
                 free_block_paused[current_free_block] != 0)
@@ -1358,8 +991,8 @@ namespace ANNS
                             !inter_edges_seen_by_target_block.empty())
                         {
                            const IdxType target_block = special_edge_target_owner(
-                               edge, _special_blocks, _point_to_special_block,
-                               _point_to_upper_special_block);
+                               edge, _special_blocks,
+                               _point_to_special_block_by_level);
                            if (target_block > 0 &&
                                target_block < inter_edges_seen_by_target_block.size())
                            {
@@ -1487,8 +1120,7 @@ namespace ANNS
                   free_block_stall_counts[current_free_block] = 0;
                }
             }
-            if (!runtime.special_block_free_use_regular)
-               continue;
+            continue;
          }
 
          std::chrono::high_resolution_clock::time_point regular_edges_time_start;
@@ -1499,14 +1131,8 @@ namespace ANNS
             if (detail_stats)
                stats.special_regular_edges_scanned++;
             uint8_t next_level = cur.activation_level;
-            if (next_level == 0)
-               next_level = cached_point_activation_level(neighbor);
-            else
-               next_level = point_upper_activation_level(neighbor, next_level);
             const bool accepted = visit_neighbor(neighbor, next_level,
                                                  cur.activation_level);
-            if (accepted && cur.activation_level == 0 && next_level > 0)
-               activate_trie_block_portal(neighbor);
             if (accepted)
                if (detail_stats)
                   stats.special_regular_edges_accepted++;
@@ -1521,36 +1147,14 @@ namespace ANNS
                prefetch_point(neighbors.ids[i + 2]);
             const IdxType first = neighbors.ids[i];
             const IdxType second = neighbors.ids[i + 1];
-            if (!trie_regular_search ||
-                special_trie_regular_main_edge_allowed(_new_vec_id_to_group_id, cur.id, first))
-               process_regular_neighbor(first);
-            else if (detail_stats)
-               stats.special_lng_cross_edges_skipped++;
-            if (!trie_regular_search ||
-                special_trie_regular_main_edge_allowed(_new_vec_id_to_group_id, cur.id, second))
-               process_regular_neighbor(second);
-            else if (detail_stats)
-               stats.special_lng_cross_edges_skipped++;
+            process_regular_neighbor(first);
+            process_regular_neighbor(second);
          }
          for (; i < neighbors.size; ++i)
          {
             prefetch_point(neighbors.ids[i]);
             const IdxType neighbor = neighbors.ids[i];
-            if (!trie_regular_search ||
-                special_trie_regular_main_edge_allowed(_new_vec_id_to_group_id, cur.id, neighbor))
-               process_regular_neighbor(neighbor);
-            else if (detail_stats)
-               stats.special_lng_cross_edges_skipped++;
-         }
-         if (trie_regular_search)
-         {
-            for (IdxType neighbor : special_regular_edges_for_point(cur.id))
-            {
-               if (detail_stats)
-                  stats.special_trie_regular_edges_scanned++;
-               if (process_regular_neighbor(neighbor) && detail_stats)
-                  stats.special_trie_regular_edges_accepted++;
-            }
+            process_regular_neighbor(neighbor);
          }
          if (profile_timing)
             stats.special_regular_edges_time_ms += elapsed_ms(regular_edges_time_start);
@@ -1568,10 +1172,12 @@ namespace ANNS
       std::vector<SpecialSearchCandidate> final_candidates = candidate_queue.sorted_results();
       if (approx_dims == 0)
       {
-         const size_t result_count = std::min<size_t>(static_cast<size_t>(runtime.K),
-                                                      final_candidates.size());
-         for (size_t i = 0; i < result_count; ++i)
-            cur_result.insert(final_candidates[i].id, final_candidates[i].distance);
+         for (const SpecialSearchCandidate &candidate : final_candidates)
+         {
+            cur_result.insert(candidate.id, candidate.distance);
+            if (cur_result.size() >= static_cast<int32_t>(runtime.K))
+               break;
+         }
       }
       else
       {
@@ -1581,17 +1187,13 @@ namespace ANNS
             exact_candidates.push_back(
                 SpecialSearchCandidate{candidate.id, exact_distance(candidate.id),
                                        candidate.activation_level});
-         const size_t result_count = std::min<size_t>(static_cast<size_t>(runtime.K), exact_candidates.size());
-         if (result_count < exact_candidates.size())
-         {
-            auto kth = exact_candidates.begin() + static_cast<std::ptrdiff_t>(result_count);
-            std::nth_element(exact_candidates.begin(), kth, exact_candidates.end(),
-                             special_candidate_less);
-            exact_candidates.resize(result_count);
-         }
          std::sort(exact_candidates.begin(), exact_candidates.end(), special_candidate_less);
          for (const SpecialSearchCandidate &candidate : exact_candidates)
+         {
             cur_result.insert(candidate.id, candidate.distance);
+            if (cur_result.size() >= static_cast<int32_t>(runtime.K))
+               break;
+         }
       }
       if (profile_timing)
          stats.special_result_time_ms = elapsed_ms(result_time_start);
@@ -1603,12 +1205,6 @@ namespace ANNS
               .count();
       stats.regular_edges_scanned = stats.special_regular_edges_scanned;
       stats.free_edges_scanned = stats.special_edges_scanned;
-      for (IdxType point_id : free_state_touched)
-      {
-         if (point_id < free_state_cache.size())
-            free_state_cache[point_id] = 0;
-      }
-      free_state_touched.clear();
       return true;
    }
 
@@ -1723,8 +1319,9 @@ namespace ANNS
       };
       for (IdxType group_id : entry_group_ids)
       {
-         if (group_id < _group_id_to_special_block.size())
-            add_block(_group_id_to_special_block[group_id], 1);
+         if (!_group_to_special_block_by_level.empty() &&
+             group_id < _group_to_special_block_by_level.front().size())
+            add_block(_group_to_special_block_by_level.front()[group_id], 1);
       }
       for (uint32_t depth = 0; depth < block_depth; ++depth)
       {
@@ -1787,9 +1384,10 @@ namespace ANNS
       auto point_in_selected_space = [&](IdxType id) {
          if (!has_block_space)
             return true;
-         if (id >= _point_to_special_block.size())
+         if (_point_to_special_block_by_level.empty() ||
+             id >= _point_to_special_block_by_level.front().size())
             return target_map[id] != 0;
-         const IdxType block_id = _point_to_special_block[id];
+         const IdxType block_id = _point_to_special_block_by_level.front()[id];
          return target_map[id] != 0 ||
                 (block_id > 0 && block_id < selected_block.size() && selected_block[block_id] != 0);
       };
@@ -1868,7 +1466,11 @@ namespace ANNS
          else
             stats.special_free_nodes_expanded++;
 
-         const IdxType block_id = cur.id < _point_to_special_block.size() ? _point_to_special_block[cur.id] : 0;
+         const IdxType block_id =
+             !_point_to_special_block_by_level.empty() &&
+                     cur.id < _point_to_special_block_by_level.front().size()
+                 ? _point_to_special_block_by_level.front()[cur.id]
+                 : 0;
          if (has_block_space && block_id > 0 && block_id < selected_block.size() &&
              selected_block[block_id] != 0)
          {

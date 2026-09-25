@@ -176,12 +176,16 @@ int main()
    expect(load_throws(binary, 4, 8), "group-count mismatch must be rejected");
    expect(load_throws(binary, 5, 7), "unknown block-root metadata must be rejected");
 
-   const ANNS::EntryGroupProviderImpl provider =
-       ANNS::parse_entry_group_provider_impl("special_block_trie");
-   expect(provider == ANNS::EntryGroupProviderImpl::SpecialBlockTrie,
-          "special_block_trie must parse to the dedicated provider");
-   expect(std::string(ANNS::entry_group_provider_impl_name(provider)) == "special_block_trie",
-          "special-block trie provider must round-trip to its public name");
+   const ANNS::EntryGroupStrategy trie =
+       ANNS::parse_entry_group_strategy("special_block_trie");
+   expect(trie == ANNS::EntryGroupStrategy::Trie,
+          "legacy special_block_trie name must map to trie");
+   expect(std::string(ANNS::entry_group_strategy_name(trie)) == "trie",
+          "Trie strategy must use its canonical public name");
+   const ANNS::EntryGroupStrategy optimized_lng =
+       ANNS::parse_entry_group_strategy("optimized_trie_exact");
+   expect(optimized_lng == ANNS::EntryGroupStrategy::OptimizedLng,
+          "legacy misnamed optimized_trie_exact must map to optimized_lng");
 
    std::filesystem::remove_all(root);
    std::cout << "special-block trie index checks passed\n";
