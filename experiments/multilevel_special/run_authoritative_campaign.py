@@ -37,6 +37,16 @@ def finalize_outputs(screen_config: Path, formal_config: Path) -> None:
     """Generate final tables and figures only after all query phases pass."""
     screen_summary = pass_summary_root(screen_config)
     formal_summary = pass_summary_root(formal_config)
+    # The screen may have been launched directly and only summarized while it
+    # was partial. Rebuild both aggregate inputs from completed raw artifacts.
+    run(
+        "summarize_selection_sweep.py", str(screen_config),
+        "--baseline", "l0_lng_entry_optimized_lng", "--targets", "0.9",
+    )
+    run(
+        "summarize_selection_sweep.py", str(formal_config),
+        "--baseline", "l0_lng_entry_optimized_lng", "--targets", "0.9",
+    )
     run(
         "plot_authoritative_recall_qps.py", str(screen_config),
         str(screen_summary / "all_points.csv"),

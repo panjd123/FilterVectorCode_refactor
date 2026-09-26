@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import run_authoritative_campaign
 import summarize_depth_ablation as depth
@@ -18,6 +19,29 @@ class DepthAblationTest(unittest.TestCase):
             self.assertEqual(
                 run_authoritative_campaign.pass_summary_root(config),
                 Path("/runs/formal/summary/performance"))
+
+    def test_campaign_finalization_rebuilds_aggregates_before_figures(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            screen = root / "screen.json"
+            formal = root / "formal.json"
+            screen.write_text(json.dumps({
+                "output_root": str(root / "screen"), "pass_subdirs": True,
+                "measurement_pass": "performance",
+            }))
+            formal.write_text(json.dumps({
+                "output_root": str(root / "formal"), "pass_subdirs": True,
+                "measurement_pass": "performance",
+            }))
+            with mock.patch.object(run_authoritative_campaign, "run") as run:
+                run_authoritative_campaign.finalize_outputs(screen, formal)
+            commands = [call.args for call in run.call_args_list]
+            self.assertEqual(commands[0][0], "summarize_selection_sweep.py")
+            self.assertEqual(commands[0][1], str(screen))
+            self.assertEqual(commands[1][0], "summarize_selection_sweep.py")
+            self.assertEqual(commands[1][1], str(formal))
+            self.assertEqual(commands[2][0], "plot_authoritative_recall_qps.py")
+            self.assertEqual(commands[3][0], "summarize_depth_ablation.py")
 
     def test_crossing_oracles_use_minimum_l_then_fastest_method(self):
         rows = [
