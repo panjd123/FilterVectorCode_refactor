@@ -1,0 +1,506 @@
+{
+  "schema_version": 1,
+  "purpose": "End-to-end zero-layer base-build backend comparison.",
+  "build_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/build_UNG_index",
+  "data_root": "/home/graphdb/FilterVectorData/Amazon",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/build_study/base_timing",
+  "dataset": "Amazon",
+  "expected_num_points": 602453,
+  "expected_base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+  "num_threads": 100,
+  "max_degree": 32,
+  "Lbuild": 100,
+  "alpha": 1.2,
+  "num_cross_edges": 4,
+  "scenario": "general",
+  "resource_profile": false,
+  "resource_sample_interval_seconds": 0.2,
+  "cases": [
+    {
+      "name": "original_cpu_cold_r0",
+      "base_topology": "lng",
+      "benchmark_profile": "original_cpu",
+      "timing_role": "cold",
+      "repeat": 0,
+      "env": {
+        "UNG_BUILD_PROFILE": "original_cpu"
+      }
+    },
+    {
+      "name": "current_cpu_cold_r0",
+      "base_topology": "lng",
+      "benchmark_profile": "current_cpu",
+      "timing_role": "cold",
+      "repeat": 0,
+      "env": {
+        "UNG_BUILD_PROFILE": "current_cpu"
+      }
+    },
+    {
+      "name": "naive_gpu_cold_r0",
+      "base_topology": "lng",
+      "benchmark_profile": "naive_gpu",
+      "timing_role": "cold",
+      "repeat": 0,
+      "env": {
+        "UNG_BUILD_PROFILE": "naive_gpu",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "paper_fused_cold_r0",
+      "base_topology": "lng",
+      "benchmark_profile": "paper_fused",
+      "timing_role": "cold",
+      "repeat": 0,
+      "env": {
+        "UNG_BUILD_PROFILE": "paper_fused",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "accelerated_gpu_cold_r0",
+      "base_topology": "lng",
+      "benchmark_profile": "accelerated_gpu",
+      "timing_role": "cold",
+      "repeat": 0,
+      "env": {
+        "UNG_BUILD_PROFILE": "custom",
+        "UNG_GROUP_GRAPH_IMPL": "3",
+        "UNG_TAGORE_MIN_GROUP_SIZE": "128",
+        "UNG_TAGORE_K": "64",
+        "UNG_TAGORE_ITER": "4",
+        "UNG_TAGORE_M": "64",
+        "UNG_FAST_GRNND_LIGHT_PRUNE_NX": "256",
+        "UNG_FAST_GRNND_LIGHT_HEAD": "16",
+        "UNG_FAST_GRNND_REPAIR_DEGREE": "1",
+        "UNG_FAST_GRNND_BATCH_EXACT_NX": "4096",
+        "UNG_FAST_EXACT_DIRECT_H2D": "1",
+        "UNG_FAST_EXACT_DEVICE_LOOKUP": "1",
+        "UNG_FAST_EXACT_ANCHOR_TAIL": "1",
+        "UNG_FAST_EXACT_ANCHOR_SLOTS": "4",
+        "UNG_FAST_EXACT_BIDIR_ANCHOR": "1",
+        "UNG_FAST_EXACT_REVERSE_CAP": "4",
+        "UNG_FAST_EXACT_REVERSE_SLOTS": "4",
+        "UNG_FAST_EXACT_REVERSE_FORWARD_CAP": "16",
+        "UNG_GET_MIN_SUPER_SETS_IMPL": "0",
+        "UNG_LNG_IMPL": "0",
+        "UNG_DESCENDANTS_IMPL": "0",
+        "UNG_COVERAGE_IMPL": "1",
+        "UNG_COVERAGE_THREADS": "128",
+        "UNG_CROSS_EDGE_IMPL": "1",
+        "UNG_ADDITIONAL_EDGES_IMPL": "2",
+        "UNG_ADDITIONAL_DIRECT_APPEND": "0",
+        "UNG_GPU_TOPK_IMPL": "3",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1",
+        "UNG_TAGORE_COMPACT_D2H": "1",
+        "UNG_TAGORE_FILL_THREADS": "16"
+      }
+    },
+    {
+      "name": "original_cpu_measured_r0",
+      "base_topology": "lng",
+      "benchmark_profile": "original_cpu",
+      "timing_role": "measured",
+      "repeat": 0,
+      "env": {
+        "UNG_BUILD_PROFILE": "original_cpu"
+      }
+    },
+    {
+      "name": "current_cpu_measured_r0",
+      "base_topology": "lng",
+      "benchmark_profile": "current_cpu",
+      "timing_role": "measured",
+      "repeat": 0,
+      "env": {
+        "UNG_BUILD_PROFILE": "current_cpu"
+      }
+    },
+    {
+      "name": "naive_gpu_measured_r0",
+      "base_topology": "lng",
+      "benchmark_profile": "naive_gpu",
+      "timing_role": "measured",
+      "repeat": 0,
+      "env": {
+        "UNG_BUILD_PROFILE": "naive_gpu",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "paper_fused_measured_r0",
+      "base_topology": "lng",
+      "benchmark_profile": "paper_fused",
+      "timing_role": "measured",
+      "repeat": 0,
+      "env": {
+        "UNG_BUILD_PROFILE": "paper_fused",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "accelerated_gpu_measured_r0",
+      "base_topology": "lng",
+      "benchmark_profile": "accelerated_gpu",
+      "timing_role": "measured",
+      "repeat": 0,
+      "env": {
+        "UNG_BUILD_PROFILE": "custom",
+        "UNG_GROUP_GRAPH_IMPL": "3",
+        "UNG_TAGORE_MIN_GROUP_SIZE": "128",
+        "UNG_TAGORE_K": "64",
+        "UNG_TAGORE_ITER": "4",
+        "UNG_TAGORE_M": "64",
+        "UNG_FAST_GRNND_LIGHT_PRUNE_NX": "256",
+        "UNG_FAST_GRNND_LIGHT_HEAD": "16",
+        "UNG_FAST_GRNND_REPAIR_DEGREE": "1",
+        "UNG_FAST_GRNND_BATCH_EXACT_NX": "4096",
+        "UNG_FAST_EXACT_DIRECT_H2D": "1",
+        "UNG_FAST_EXACT_DEVICE_LOOKUP": "1",
+        "UNG_FAST_EXACT_ANCHOR_TAIL": "1",
+        "UNG_FAST_EXACT_ANCHOR_SLOTS": "4",
+        "UNG_FAST_EXACT_BIDIR_ANCHOR": "1",
+        "UNG_FAST_EXACT_REVERSE_CAP": "4",
+        "UNG_FAST_EXACT_REVERSE_SLOTS": "4",
+        "UNG_FAST_EXACT_REVERSE_FORWARD_CAP": "16",
+        "UNG_GET_MIN_SUPER_SETS_IMPL": "0",
+        "UNG_LNG_IMPL": "0",
+        "UNG_DESCENDANTS_IMPL": "0",
+        "UNG_COVERAGE_IMPL": "1",
+        "UNG_COVERAGE_THREADS": "128",
+        "UNG_CROSS_EDGE_IMPL": "1",
+        "UNG_ADDITIONAL_EDGES_IMPL": "2",
+        "UNG_ADDITIONAL_DIRECT_APPEND": "0",
+        "UNG_GPU_TOPK_IMPL": "3",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1",
+        "UNG_TAGORE_COMPACT_D2H": "1",
+        "UNG_TAGORE_FILL_THREADS": "16"
+      }
+    },
+    {
+      "name": "original_cpu_measured_r1",
+      "base_topology": "lng",
+      "benchmark_profile": "original_cpu",
+      "timing_role": "measured",
+      "repeat": 1,
+      "env": {
+        "UNG_BUILD_PROFILE": "original_cpu"
+      }
+    },
+    {
+      "name": "current_cpu_measured_r1",
+      "base_topology": "lng",
+      "benchmark_profile": "current_cpu",
+      "timing_role": "measured",
+      "repeat": 1,
+      "env": {
+        "UNG_BUILD_PROFILE": "current_cpu"
+      }
+    },
+    {
+      "name": "naive_gpu_measured_r1",
+      "base_topology": "lng",
+      "benchmark_profile": "naive_gpu",
+      "timing_role": "measured",
+      "repeat": 1,
+      "env": {
+        "UNG_BUILD_PROFILE": "naive_gpu",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "paper_fused_measured_r1",
+      "base_topology": "lng",
+      "benchmark_profile": "paper_fused",
+      "timing_role": "measured",
+      "repeat": 1,
+      "env": {
+        "UNG_BUILD_PROFILE": "paper_fused",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "accelerated_gpu_measured_r1",
+      "base_topology": "lng",
+      "benchmark_profile": "accelerated_gpu",
+      "timing_role": "measured",
+      "repeat": 1,
+      "env": {
+        "UNG_BUILD_PROFILE": "custom",
+        "UNG_GROUP_GRAPH_IMPL": "3",
+        "UNG_TAGORE_MIN_GROUP_SIZE": "128",
+        "UNG_TAGORE_K": "64",
+        "UNG_TAGORE_ITER": "4",
+        "UNG_TAGORE_M": "64",
+        "UNG_FAST_GRNND_LIGHT_PRUNE_NX": "256",
+        "UNG_FAST_GRNND_LIGHT_HEAD": "16",
+        "UNG_FAST_GRNND_REPAIR_DEGREE": "1",
+        "UNG_FAST_GRNND_BATCH_EXACT_NX": "4096",
+        "UNG_FAST_EXACT_DIRECT_H2D": "1",
+        "UNG_FAST_EXACT_DEVICE_LOOKUP": "1",
+        "UNG_FAST_EXACT_ANCHOR_TAIL": "1",
+        "UNG_FAST_EXACT_ANCHOR_SLOTS": "4",
+        "UNG_FAST_EXACT_BIDIR_ANCHOR": "1",
+        "UNG_FAST_EXACT_REVERSE_CAP": "4",
+        "UNG_FAST_EXACT_REVERSE_SLOTS": "4",
+        "UNG_FAST_EXACT_REVERSE_FORWARD_CAP": "16",
+        "UNG_GET_MIN_SUPER_SETS_IMPL": "0",
+        "UNG_LNG_IMPL": "0",
+        "UNG_DESCENDANTS_IMPL": "0",
+        "UNG_COVERAGE_IMPL": "1",
+        "UNG_COVERAGE_THREADS": "128",
+        "UNG_CROSS_EDGE_IMPL": "1",
+        "UNG_ADDITIONAL_EDGES_IMPL": "2",
+        "UNG_ADDITIONAL_DIRECT_APPEND": "0",
+        "UNG_GPU_TOPK_IMPL": "3",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1",
+        "UNG_TAGORE_COMPACT_D2H": "1",
+        "UNG_TAGORE_FILL_THREADS": "16"
+      }
+    },
+    {
+      "name": "original_cpu_measured_r2",
+      "base_topology": "lng",
+      "benchmark_profile": "original_cpu",
+      "timing_role": "measured",
+      "repeat": 2,
+      "env": {
+        "UNG_BUILD_PROFILE": "original_cpu"
+      }
+    },
+    {
+      "name": "current_cpu_measured_r2",
+      "base_topology": "lng",
+      "benchmark_profile": "current_cpu",
+      "timing_role": "measured",
+      "repeat": 2,
+      "env": {
+        "UNG_BUILD_PROFILE": "current_cpu"
+      }
+    },
+    {
+      "name": "naive_gpu_measured_r2",
+      "base_topology": "lng",
+      "benchmark_profile": "naive_gpu",
+      "timing_role": "measured",
+      "repeat": 2,
+      "env": {
+        "UNG_BUILD_PROFILE": "naive_gpu",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "paper_fused_measured_r2",
+      "base_topology": "lng",
+      "benchmark_profile": "paper_fused",
+      "timing_role": "measured",
+      "repeat": 2,
+      "env": {
+        "UNG_BUILD_PROFILE": "paper_fused",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "accelerated_gpu_measured_r2",
+      "base_topology": "lng",
+      "benchmark_profile": "accelerated_gpu",
+      "timing_role": "measured",
+      "repeat": 2,
+      "env": {
+        "UNG_BUILD_PROFILE": "custom",
+        "UNG_GROUP_GRAPH_IMPL": "3",
+        "UNG_TAGORE_MIN_GROUP_SIZE": "128",
+        "UNG_TAGORE_K": "64",
+        "UNG_TAGORE_ITER": "4",
+        "UNG_TAGORE_M": "64",
+        "UNG_FAST_GRNND_LIGHT_PRUNE_NX": "256",
+        "UNG_FAST_GRNND_LIGHT_HEAD": "16",
+        "UNG_FAST_GRNND_REPAIR_DEGREE": "1",
+        "UNG_FAST_GRNND_BATCH_EXACT_NX": "4096",
+        "UNG_FAST_EXACT_DIRECT_H2D": "1",
+        "UNG_FAST_EXACT_DEVICE_LOOKUP": "1",
+        "UNG_FAST_EXACT_ANCHOR_TAIL": "1",
+        "UNG_FAST_EXACT_ANCHOR_SLOTS": "4",
+        "UNG_FAST_EXACT_BIDIR_ANCHOR": "1",
+        "UNG_FAST_EXACT_REVERSE_CAP": "4",
+        "UNG_FAST_EXACT_REVERSE_SLOTS": "4",
+        "UNG_FAST_EXACT_REVERSE_FORWARD_CAP": "16",
+        "UNG_GET_MIN_SUPER_SETS_IMPL": "0",
+        "UNG_LNG_IMPL": "0",
+        "UNG_DESCENDANTS_IMPL": "0",
+        "UNG_COVERAGE_IMPL": "1",
+        "UNG_COVERAGE_THREADS": "128",
+        "UNG_CROSS_EDGE_IMPL": "1",
+        "UNG_ADDITIONAL_EDGES_IMPL": "2",
+        "UNG_ADDITIONAL_DIRECT_APPEND": "0",
+        "UNG_GPU_TOPK_IMPL": "3",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1",
+        "UNG_TAGORE_COMPACT_D2H": "1",
+        "UNG_TAGORE_FILL_THREADS": "16"
+      }
+    },
+    {
+      "name": "original_cpu_measured_r3",
+      "base_topology": "lng",
+      "benchmark_profile": "original_cpu",
+      "timing_role": "measured",
+      "repeat": 3,
+      "env": {
+        "UNG_BUILD_PROFILE": "original_cpu"
+      }
+    },
+    {
+      "name": "current_cpu_measured_r3",
+      "base_topology": "lng",
+      "benchmark_profile": "current_cpu",
+      "timing_role": "measured",
+      "repeat": 3,
+      "env": {
+        "UNG_BUILD_PROFILE": "current_cpu"
+      }
+    },
+    {
+      "name": "naive_gpu_measured_r3",
+      "base_topology": "lng",
+      "benchmark_profile": "naive_gpu",
+      "timing_role": "measured",
+      "repeat": 3,
+      "env": {
+        "UNG_BUILD_PROFILE": "naive_gpu",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "paper_fused_measured_r3",
+      "base_topology": "lng",
+      "benchmark_profile": "paper_fused",
+      "timing_role": "measured",
+      "repeat": 3,
+      "env": {
+        "UNG_BUILD_PROFILE": "paper_fused",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "accelerated_gpu_measured_r3",
+      "base_topology": "lng",
+      "benchmark_profile": "accelerated_gpu",
+      "timing_role": "measured",
+      "repeat": 3,
+      "env": {
+        "UNG_BUILD_PROFILE": "custom",
+        "UNG_GROUP_GRAPH_IMPL": "3",
+        "UNG_TAGORE_MIN_GROUP_SIZE": "128",
+        "UNG_TAGORE_K": "64",
+        "UNG_TAGORE_ITER": "4",
+        "UNG_TAGORE_M": "64",
+        "UNG_FAST_GRNND_LIGHT_PRUNE_NX": "256",
+        "UNG_FAST_GRNND_LIGHT_HEAD": "16",
+        "UNG_FAST_GRNND_REPAIR_DEGREE": "1",
+        "UNG_FAST_GRNND_BATCH_EXACT_NX": "4096",
+        "UNG_FAST_EXACT_DIRECT_H2D": "1",
+        "UNG_FAST_EXACT_DEVICE_LOOKUP": "1",
+        "UNG_FAST_EXACT_ANCHOR_TAIL": "1",
+        "UNG_FAST_EXACT_ANCHOR_SLOTS": "4",
+        "UNG_FAST_EXACT_BIDIR_ANCHOR": "1",
+        "UNG_FAST_EXACT_REVERSE_CAP": "4",
+        "UNG_FAST_EXACT_REVERSE_SLOTS": "4",
+        "UNG_FAST_EXACT_REVERSE_FORWARD_CAP": "16",
+        "UNG_GET_MIN_SUPER_SETS_IMPL": "0",
+        "UNG_LNG_IMPL": "0",
+        "UNG_DESCENDANTS_IMPL": "0",
+        "UNG_COVERAGE_IMPL": "1",
+        "UNG_COVERAGE_THREADS": "128",
+        "UNG_CROSS_EDGE_IMPL": "1",
+        "UNG_ADDITIONAL_EDGES_IMPL": "2",
+        "UNG_ADDITIONAL_DIRECT_APPEND": "0",
+        "UNG_GPU_TOPK_IMPL": "3",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1",
+        "UNG_TAGORE_COMPACT_D2H": "1",
+        "UNG_TAGORE_FILL_THREADS": "16"
+      }
+    },
+    {
+      "name": "original_cpu_measured_r4",
+      "base_topology": "lng",
+      "benchmark_profile": "original_cpu",
+      "timing_role": "measured",
+      "repeat": 4,
+      "env": {
+        "UNG_BUILD_PROFILE": "original_cpu"
+      }
+    },
+    {
+      "name": "current_cpu_measured_r4",
+      "base_topology": "lng",
+      "benchmark_profile": "current_cpu",
+      "timing_role": "measured",
+      "repeat": 4,
+      "env": {
+        "UNG_BUILD_PROFILE": "current_cpu"
+      }
+    },
+    {
+      "name": "naive_gpu_measured_r4",
+      "base_topology": "lng",
+      "benchmark_profile": "naive_gpu",
+      "timing_role": "measured",
+      "repeat": 4,
+      "env": {
+        "UNG_BUILD_PROFILE": "naive_gpu",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "paper_fused_measured_r4",
+      "base_topology": "lng",
+      "benchmark_profile": "paper_fused",
+      "timing_role": "measured",
+      "repeat": 4,
+      "env": {
+        "UNG_BUILD_PROFILE": "paper_fused",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1"
+      }
+    },
+    {
+      "name": "accelerated_gpu_measured_r4",
+      "base_topology": "lng",
+      "benchmark_profile": "accelerated_gpu",
+      "timing_role": "measured",
+      "repeat": 4,
+      "env": {
+        "UNG_BUILD_PROFILE": "custom",
+        "UNG_GROUP_GRAPH_IMPL": "3",
+        "UNG_TAGORE_MIN_GROUP_SIZE": "128",
+        "UNG_TAGORE_K": "64",
+        "UNG_TAGORE_ITER": "4",
+        "UNG_TAGORE_M": "64",
+        "UNG_FAST_GRNND_LIGHT_PRUNE_NX": "256",
+        "UNG_FAST_GRNND_LIGHT_HEAD": "16",
+        "UNG_FAST_GRNND_REPAIR_DEGREE": "1",
+        "UNG_FAST_GRNND_BATCH_EXACT_NX": "4096",
+        "UNG_FAST_EXACT_DIRECT_H2D": "1",
+        "UNG_FAST_EXACT_DEVICE_LOOKUP": "1",
+        "UNG_FAST_EXACT_ANCHOR_TAIL": "1",
+        "UNG_FAST_EXACT_ANCHOR_SLOTS": "4",
+        "UNG_FAST_EXACT_BIDIR_ANCHOR": "1",
+        "UNG_FAST_EXACT_REVERSE_CAP": "4",
+        "UNG_FAST_EXACT_REVERSE_SLOTS": "4",
+        "UNG_FAST_EXACT_REVERSE_FORWARD_CAP": "16",
+        "UNG_GET_MIN_SUPER_SETS_IMPL": "0",
+        "UNG_LNG_IMPL": "0",
+        "UNG_DESCENDANTS_IMPL": "0",
+        "UNG_COVERAGE_IMPL": "1",
+        "UNG_COVERAGE_THREADS": "128",
+        "UNG_CROSS_EDGE_IMPL": "1",
+        "UNG_ADDITIONAL_EDGES_IMPL": "2",
+        "UNG_ADDITIONAL_DIRECT_APPEND": "0",
+        "UNG_GPU_TOPK_IMPL": "3",
+        "UNG_CROSS_EDGE_GPU_STRICT": "1",
+        "UNG_TAGORE_COMPACT_D2H": "1",
+        "UNG_TAGORE_FILL_THREADS": "16"
+      }
+    }
+  ]
+}

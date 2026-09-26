@@ -20,13 +20,16 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Sequence
 
 
-ENTRY_PROVIDERS = {
+LEGACY_ENTRY_PROVIDERS = {
     "cpu_min_super_sets",
     "cpu_bruteforce_els",
     "cpu_bruteforce_els_scalar",
     "gpu_cover_frontier",
     "special_block_trie",
 }
+ENTRY_STRATEGIES = {"original", "optimized_lng", "trie"}
+GROUP_TOPOLOGIES = {"lng", "trie"}
+MEASUREMENT_PASSES = {"performance", "profile"}
 PROTOCOL_PHASES = {"smoke", "screen", "crossing", "formal", "critical"}
 
 
@@ -73,9 +76,50 @@ def protocol_for(config: dict[str, Any]) -> Protocol:
     )
 
 
+def uses_orthogonal_method_schema(config: dict[str, Any]) -> bool:
+    return config.get("method_schema") == "orthogonal_v2"
+
+
+def method_main_index(config: dict[str, Any], method: dict[str, Any]) -> str:
+    value = method.get("main_index", config.get("main_index"))
+    if not value:
+        raise ExperimentConfigError(
+            f"{method.get('name', '<unnamed>')}: main_index is required")
+    return str(value)
+
+
+def hierarchy_layers(method: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return canonical arbitrary-depth layer declarations.
+
+    Legacy configs are accepted for reproducing old evidence, but every new
+    experiment must use the orthogonal_v2 schema and explicit layer topology.
+    """
+    declared = method.get("hierarchy_layers")
+    if declared is not None:
+        return [
+            {"min_points": int(layer["min_points"]),
+             "topology": str(layer["topology"])}
+            for layer in declared
+        ]
+    count = int(method.get("layer_count", 0))
+    layers: list[dict[str, Any]] = []
+    if count >= 1:
+        layers.append({"min_points": int(method["t1"]), "topology": "trie"})
+    if count >= 2:
+        layers.append({"min_points": int(method["t2"]), "topology": "trie"})
+    return layers
+
+
+def encode_hierarchy_layers(method: dict[str, Any]) -> str:
+    return ",".join(
+        f"{layer['min_points']}:{layer['topology']}"
+        for layer in hierarchy_layers(method)
+    )
+
+
 def validate_config(config: dict[str, Any]) -> None:
     required = {
-        "search_app", "main_index", "data_root", "gt_root", "output_root",
+        "search_app", "data_root", "gt_root", "output_root",
         "K", "num_threads", "num_entry_points", "num_repeats",
         "lsearch_values", "methods", "workloads",
     }
@@ -96,6 +140,10 @@ def validate_config(config: dict[str, Any]) -> None:
     if protocol.paired_repeats and not config.get("execution_blocks"):
         raise ExperimentConfigError(
             "paired_repeats requires declared execution_blocks; sequential method runs are not paired")
+    measurement_pass = str(config.get("measurement_pass", "performance"))
+    if measurement_pass not in MEASUREMENT_PASSES:
+        raise ExperimentConfigError(
+            f"measurement_pass must be one of {sorted(MEASUREMENT_PASSES)}")
 
     method_names: set[str] = set()
     for method in config["methods"]:
@@ -103,21 +151,45 @@ def validate_config(config: dict[str, Any]) -> None:
         if not name or name in method_names:
             raise ExperimentConfigError(f"missing or duplicate method name: {name!r}")
         method_names.add(name)
-        provider = str(method.get("entry_group_provider", "cpu_bruteforce_els"))
-        if provider not in ENTRY_PROVIDERS:
-            raise ExperimentConfigError(f"{name}: unknown entry_group_provider {provider}")
-        layers = int(method.get("layer_count", 0))
-        special = bool(method.get("special_block_search", False))
-        if layers < 0 or layers > 2:
-            raise ExperimentConfigError(f"{name}: layer_count must be 0, 1, or 2")
-        if layers == 0 and special:
-            raise ExperimentConfigError(f"{name}: layer_count=0 cannot enable Special Block search")
-        if layers > 0 and (not special or not method.get("block_index")):
-            raise ExperimentConfigError(f"{name}: layered search requires block_index and special_block_search")
-        if layers == 2 and int(method.get("t2", 0)) <= int(method.get("t1", 0)):
-            raise ExperimentConfigError(f"{name}: two-level method requires t2 > t1")
-        if provider == "special_block_trie" and not special:
-            raise ExperimentConfigError(f"{name}: special_block_trie requires Special Block search")
+        method_main_index(config, method)
+        layers = hierarchy_layers(method)
+        special = bool(method.get("special_block_search", bool(layers)))
+        if len(layers) > 254:
+            raise ExperimentConfigError(f"{name}: at most 254 materialized layers are supported")
+        previous = 0
+        for layer in layers:
+            threshold = int(layer["min_points"])
+            topology = str(layer["topology"])
+            if threshold <= previous:
+                raise ExperimentConfigError(
+                    f"{name}: hierarchy thresholds must be positive and strictly increasing")
+            if topology not in GROUP_TOPOLOGIES:
+                raise ExperimentConfigError(f"{name}: unknown layer topology {topology}")
+            previous = threshold
+        if bool(layers) != special:
+            raise ExperimentConfigError(
+                f"{name}: special_block_search must equal whether hierarchy_layers is non-empty")
+        if layers and not method.get("block_index"):
+            raise ExperimentConfigError(f"{name}: layered search requires block_index")
+        if not layers and method.get("block_index"):
+            raise ExperimentConfigError(f"{name}: zero-layer search cannot load block_index")
+        if uses_orthogonal_method_schema(config):
+            topology = str(method.get("base_topology", ""))
+            if topology not in GROUP_TOPOLOGIES:
+                raise ExperimentConfigError(f"{name}: base_topology must be lng or trie")
+            strategy = str(method.get("entry_strategy", ""))
+            if strategy not in ENTRY_STRATEGIES:
+                raise ExperimentConfigError(
+                    f"{name}: entry_strategy must be original, optimized_lng, or trie")
+            if "entry_group_provider" in method:
+                raise ExperimentConfigError(
+                    f"{name}: orthogonal_v2 uses entry_strategy, not entry_group_provider")
+        else:
+            provider = str(method.get("entry_group_provider", "cpu_bruteforce_els"))
+            if provider not in LEGACY_ENTRY_PROVIDERS:
+                raise ExperimentConfigError(f"{name}: unknown entry_group_provider {provider}")
+            if provider == "special_block_trie" and not special:
+                raise ExperimentConfigError(f"{name}: special_block_trie requires Special Block search")
 
     workload_names = [str(item.get("name", "")) for item in config["workloads"]]
     if not all(workload_names) or len(set(workload_names)) != len(workload_names):
@@ -138,6 +210,20 @@ def iter_cases(config: dict[str, Any]) -> Iterator[tuple[dict[str, Any], dict[st
 
 def method_semantics(config: dict[str, Any], method: dict[str, Any]) -> dict[str, Any]:
     """Return orthogonal method dimensions instead of relying on a nickname."""
+    if uses_orthogonal_method_schema(config):
+        layers = hierarchy_layers(method)
+        return {
+            "method": method["name"],
+            "main_index": method_main_index(config, method),
+            "base_topology": method["base_topology"],
+            "entry_strategy": method["entry_strategy"],
+            "hierarchy_plan": encode_hierarchy_layers(method) or "none",
+            "layer_count": len(layers),
+            "layer_topologies": ",".join(layer["topology"] for layer in layers) or "none",
+            "special_search": bool(layers),
+            "routing_policy": method.get("routing_policy", "always_layered"),
+            "measurement_pass": config.get("measurement_pass", "performance"),
+        }
     provider = str(method.get("entry_group_provider", "cpu_bruteforce_els"))
     if provider == "cpu_min_super_sets":
         entry_structure = "label trie; exact minimal supersets"
@@ -154,7 +240,7 @@ def method_semantics(config: dict[str, Any], method: dict[str, Any]) -> dict[str
     else:
         entry_structure = "GPU label-bitset frontier"
         coverage_structure = "LNG descendants"
-    layers = int(method.get("layer_count", 0))
+    layers = len(hierarchy_layers(method))
     return {
         "method": method["name"],
         "main_index": config["main_index"],
@@ -311,6 +397,8 @@ def summarize_experiment(
     rows: list[dict[str, Any]] = []
     samples: dict[tuple[str, str], list[float]] = {}
     output_root = Path(config["output_root"])
+    if config.get("pass_subdirs", False):
+        output_root /= str(config.get("measurement_pass", "performance"))
     for method, workload in iter_cases(config):
         workload_name = workload["name"]
         if workload_name not in thresholds:
@@ -336,11 +424,17 @@ def summarize_experiment(
             "workload": workload_name,
             "mean_selectivity": workload.get("mean_selectivity"),
             "target_recall": float(thresholds[workload_name]),
-            "layer_count": int(method.get("layer_count", 0)),
-            "entry_group_provider": method.get("entry_group_provider", "cpu_bruteforce_els"),
-            "t1": method.get("t1"), "t2": method.get("t2"),
+            "layer_count": len(hierarchy_layers(method)),
+            "base_topology": method.get("base_topology"),
+            "entry_strategy": method.get("entry_strategy",
+                                          method.get("entry_group_provider", "cpu_bruteforce_els")),
+            "hierarchy_plan": encode_hierarchy_layers(method) or "none",
+            "measurement_pass": config.get("measurement_pass", "performance"),
             "status": "complete",
         })
+        num_queries = int(workload.get("num_queries", config.get("expected_num_queries", 0)))
+        if num_queries > 0:
+            summary["warm_median_qps"] = 1000.0 * num_queries / summary["warm_median_ms"]
         rows.append(summary)
         samples[(method["name"], workload_name)] = warm
 
@@ -382,3 +476,40 @@ def write_csv(path: Path, rows: Sequence[dict[str, Any]]) -> None:
         writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
+
+
+def existing_manifest_record(path: Path, identity: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the prior record matching all identity fields, if present."""
+    if not path.exists():
+        return None
+    state = json.loads(path.read_text())
+    return next((row for row in state.get("runs", [])
+                 if all(row.get(key) == value for key, value in identity.items())), None)
+
+
+def recovered_artifact_elapsed_seconds(run_dir: Path, command_name: str,
+                                       log_name: str) -> float | None:
+    """Approximate duration for legacy artifacts that predate elapsed ledgers."""
+    command = run_dir / command_name
+    log = run_dir / log_name
+    if not command.is_file() or not log.is_file():
+        return None
+    return max(0.0, log.stat().st_mtime - command.stat().st_mtime)
+
+
+def retain_elapsed_evidence(record: dict[str, Any], existing: dict[str, Any] | None,
+                            run_dir: Path, command_name: str,
+                            log_name: str) -> None:
+    """Keep measured child wall time across resume without overstating legacy data."""
+    if existing and existing.get("elapsed_seconds") is not None:
+        for key in ("started_at", "finished_at", "elapsed_seconds",
+                    "elapsed_source", "returncode"):
+            if key in existing:
+                record[key] = existing[key]
+        record.setdefault("elapsed_source", "monotonic_child_wall")
+        return
+    recovered = recovered_artifact_elapsed_seconds(
+        run_dir, command_name, log_name)
+    if recovered is not None:
+        record["elapsed_seconds"] = recovered
+        record["elapsed_source"] = "artifact_mtime_approximation"

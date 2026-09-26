@@ -87,7 +87,17 @@ int main()
    expect(sorted(index.find_entry_groups({3}, nullptr)) ==
               std::vector<ANNS::IdxType>({1, 3, 4}),
           "every matching pivot branch must emit its first terminal");
-   expect(index.find_entry_groups({}, nullptr).empty(), "empty query must not scan the whole trie");
+   const std::vector<ANNS::IdxType> root_frontier({1, 3, 4, 5});
+   expect(sorted(index.find_entry_groups({}, &stats)) == root_frontier,
+          "empty containment query must return the minimal root terminal frontier");
+   expect(stats.pivot_postings == 5 && stats.matching_pivots == 5 &&
+              stats.terminal_candidates == 4 && stats.final_entries == 4,
+          "empty query statistics must describe the universal candidate set and cached frontier");
+   expect(sorted(index.find_entry_groups_bitset({}, &stats)) == root_frontier,
+          "empty bitset query must return the same cached root terminal frontier");
+   expect(stats.pivot_postings == 5 && stats.matching_pivots == 5 &&
+              stats.terminal_candidates == 4 && stats.final_entries == 4,
+          "empty bitset query statistics must describe the cached frontier");
    expect(index.find_entry_groups({99}, nullptr).empty(), "unknown pivot label must return no entries");
 
    const std::vector<std::vector<ANNS::LabelType>> terminal_at_query_labels{
@@ -160,6 +170,8 @@ int main()
           "block-root metadata must survive binary I/O");
    expect(loaded.find_entry_groups({1, 3}, nullptr) == index.find_entry_groups({1, 3}, nullptr),
           "loaded trie query results must equal constructed results");
+   expect(sorted(loaded.find_entry_groups_bitset({}, nullptr)) == root_frontier,
+          "loaded trie must rebuild the empty-query root terminal frontier");
    expect(loaded.terminal_block_portal_pairs() == index.terminal_block_portal_pairs(),
           "loaded trie portal topology must equal constructed topology");
    block_frontier.clear();

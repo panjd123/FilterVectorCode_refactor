@@ -1,0 +1,4450 @@
+{
+  "schema_version": 2,
+  "method_schema": "orthogonal_v2",
+  "purpose": "Post-fcb74ad broad Recall-QPS screen across topology and hierarchy dimensions.",
+  "measurement_pass": "performance",
+  "pass_subdirs": true,
+  "search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
+  "data_root": "/home/graphdb/FilterVectorData/Amazon",
+  "gt_root": "/home/graphdb/FilterVectorResult/Amazon/GroundTruth",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/search/amazon_screen",
+  "dataset": "Amazon",
+  "expected_num_points": 602453,
+  "expected_source_fingerprint": "91d78580ae29f468",
+  "expected_base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+  "expected_main_index_labels_sha256": "ddb3f616c27626afe6b20bf633aca5e9a1efd31d82bd505b163f59fc79f4dd56",
+  "K": 10,
+  "expected_num_queries": 1000,
+  "num_threads": 100,
+  "num_entry_points": 16,
+  "num_repeats": 3,
+  "minimum_successful_child_seconds": 43200,
+  "lsearch_values": [
+    100
+  ],
+  "require_stage_breakdown": true,
+  "require_work_breakdown": false,
+  "protocol": {
+    "phase": "screen",
+    "cold_repeats": 1,
+    "measured_repeats": 2,
+    "recall_rule": "all_repeats",
+    "bootstrap_samples": 10000,
+    "paired_repeats": false
+  },
+  "recall_thresholds": {
+    "sel_0p5": 0.9,
+    "sel_1": 0.9,
+    "sel_5": 0.9,
+    "sel_10": 0.9,
+    "sel_30": 0.9,
+    "sel_60": 0.9,
+    "sel_80": 0.9,
+    "sel_95": 0.9,
+    "sel_99": 0.9
+  },
+  "workloads": [
+    {
+      "name": "sel_0p5",
+      "query_dir": "query_minlen5_avgsel05pct",
+      "mean_selectivity": 0.0049924907,
+      "num_queries": 1000
+    },
+    {
+      "name": "sel_1",
+      "query_dir": "query_minlen5_avgsel1pct",
+      "mean_selectivity": 0.0090305484,
+      "num_queries": 1000
+    },
+    {
+      "name": "sel_5",
+      "query_dir": "query_nested_avgsel5pct",
+      "mean_selectivity": 0.0503811667,
+      "num_queries": 1000
+    },
+    {
+      "name": "sel_10",
+      "query_dir": "query_minlen3_avgsel10pct",
+      "mean_selectivity": 0.0990661529,
+      "num_queries": 1000
+    },
+    {
+      "name": "sel_30",
+      "query_dir": "query_nested_avgsel30pct",
+      "mean_selectivity": 0.3002724229,
+      "num_queries": 1000
+    },
+    {
+      "name": "sel_60",
+      "query_dir": "query_nested_avgsel60pct",
+      "mean_selectivity": 0.6004749068,
+      "num_queries": 1000
+    },
+    {
+      "name": "sel_80",
+      "query_dir": "query_minlen1_nested_avgsel80pct",
+      "mean_selectivity": 0.8002369928,
+      "num_queries": 1000
+    },
+    {
+      "name": "sel_95",
+      "query_dir": "query_minlen1_nested_avgsel95pct",
+      "mean_selectivity": 0.9501978063,
+      "num_queries": 1000
+    },
+    {
+      "name": "sel_99",
+      "query_dir": "query_label1_empty_avgsel99pct",
+      "mean_selectivity": 0.9900060038,
+      "num_queries": 1000
+    }
+  ],
+  "methods": [
+    {
+      "name": "l0_lng_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [],
+      "special_block_search": false,
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1200,
+          1400,
+          1600,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1400,
+          1600,
+          1800,
+          2200
+        ],
+        "sel_5": [
+          800,
+          1200,
+          1600,
+          2000,
+          2500,
+          3200
+        ],
+        "sel_10": [
+          4000,
+          6000,
+          8000,
+          10000,
+          12000,
+          15000,
+          18000,
+          22000,
+          26000,
+          32000
+        ],
+        "sel_30": [
+          1000,
+          3000,
+          5000,
+          7000,
+          9000,
+          13000,
+          17000,
+          22000,
+          32000,
+          45000,
+          60000,
+          90000,
+          120000,
+          150000
+        ],
+        "sel_60": [
+          250,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          90000,
+          120000,
+          180000,
+          260000
+        ],
+        "sel_80": [
+          120000,
+          220000,
+          320000
+        ],
+        "sel_95": [
+          150000,
+          220000,
+          320000
+        ],
+        "sel_99": [
+          150000,
+          280000,
+          400000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l0_trie_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_trie/index_files",
+      "base_topology": "trie",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [],
+      "special_block_search": false,
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1200,
+          1400,
+          1600,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1400,
+          1600,
+          1800,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1200,
+          1600,
+          2000,
+          2500,
+          3200,
+          5000
+        ],
+        "sel_10": [
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          18000,
+          32000,
+          64000
+        ],
+        "sel_30": [
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          150000
+        ],
+        "sel_60": [
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          320000
+        ],
+        "sel_80": [
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          602453
+        ],
+        "sel_95": [
+          50,
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          602453
+        ],
+        "sel_99": [
+          40,
+          60,
+          80,
+          120,
+          250,
+          500,
+          1000,
+          5000,
+          25000,
+          30000,
+          602453
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_lt_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_lt/block_index",
+      "selection_role": "predeclared_degree_ratio_hierarchy_v1",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1200,
+          1400,
+          1600,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1400,
+          1600,
+          1800,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1200,
+          1600,
+          2000,
+          2500,
+          3200,
+          5000
+        ],
+        "sel_10": [
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          50,
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          25,
+          50,
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          20,
+          40,
+          80,
+          160,
+          320,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          20,
+          40,
+          60,
+          80,
+          120,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          20,
+          40,
+          60,
+          80,
+          120,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_lt_entry_optimized_lng_upper_routed",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_lt/block_index",
+      "selection_role": "predeclared_degree_ratio_hierarchy_v1_upper_authorization_control",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
+      },
+      "routing_policy": "require_upper_authorization"
+    },
+    {
+      "name": "l2_t8192_131072_lt_entry_optimized_lng_upper_routed",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        },
+        {
+          "min_points": 131072,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_lt/block_index",
+      "selection_role": "manual_grid_upper_authorization_control",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
+      },
+      "routing_policy": "require_upper_authorization"
+    },
+    {
+      "name": "l1_t1024_lng_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t1024_lng/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t1024_trie_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t1024_trie/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t8192_lng_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t8192_lng/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t8192_trie_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t8192_trie/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l0_trie_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_trie/index_files",
+      "base_topology": "trie",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [],
+      "special_block_search": false,
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1200,
+          1400,
+          1600,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1400,
+          1600,
+          1800,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1200,
+          1600,
+          2000,
+          2500,
+          3200,
+          5000
+        ],
+        "sel_10": [
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          18000,
+          32000,
+          64000
+        ],
+        "sel_30": [
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          150000
+        ],
+        "sel_60": [
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          320000
+        ],
+        "sel_80": [
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          602453
+        ],
+        "sel_95": [
+          50,
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          602453
+        ],
+        "sel_99": [
+          40,
+          60,
+          80,
+          120,
+          250,
+          500,
+          1000,
+          5000,
+          25000,
+          30000,
+          602453
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_ll_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_ll/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_tl_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_tl/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_tt_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_tt/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_ll_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        },
+        {
+          "min_points": 131072,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_ll/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_lt_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        },
+        {
+          "min_points": 131072,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_lt/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_tl_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        },
+        {
+          "min_points": 131072,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_tl/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_tt_entry_optimized_lng",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        },
+        {
+          "min_points": 131072,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_tt/block_index",
+      "selection_role": "preexisting_query_free_mass_ladder_v1",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l0_lng_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [],
+      "special_block_search": false,
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1200,
+          1400,
+          1600,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1400,
+          1600,
+          1800,
+          2200
+        ],
+        "sel_5": [
+          800,
+          1200,
+          1600,
+          2000,
+          2500,
+          3200
+        ],
+        "sel_10": [
+          4000,
+          6000,
+          8000,
+          10000,
+          12000,
+          15000,
+          18000,
+          22000,
+          26000,
+          32000
+        ],
+        "sel_30": [
+          1000,
+          3000,
+          5000,
+          7000,
+          9000,
+          13000,
+          17000,
+          22000,
+          32000,
+          45000,
+          60000,
+          90000,
+          120000,
+          150000
+        ],
+        "sel_60": [
+          250,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          90000,
+          120000,
+          180000,
+          260000
+        ],
+        "sel_80": [
+          120000,
+          220000,
+          320000
+        ],
+        "sel_95": [
+          150000,
+          220000,
+          320000
+        ],
+        "sel_99": [
+          150000,
+          280000,
+          400000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l0_lng_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [],
+      "special_block_search": false,
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1200,
+          1400,
+          1600,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1400,
+          1600,
+          1800,
+          2200
+        ],
+        "sel_5": [
+          800,
+          1200,
+          1600,
+          2000,
+          2500,
+          3200
+        ],
+        "sel_10": [
+          4000,
+          6000,
+          8000,
+          10000,
+          12000,
+          15000,
+          18000,
+          22000,
+          26000,
+          32000
+        ],
+        "sel_30": [
+          1000,
+          3000,
+          5000,
+          7000,
+          9000,
+          13000,
+          17000,
+          22000,
+          32000,
+          45000,
+          60000,
+          90000,
+          120000,
+          150000
+        ],
+        "sel_60": [
+          250,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          90000,
+          120000,
+          180000,
+          260000
+        ],
+        "sel_80": [
+          120000,
+          220000,
+          320000
+        ],
+        "sel_95": [
+          150000,
+          220000,
+          320000
+        ],
+        "sel_99": [
+          150000,
+          280000,
+          400000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l0_trie_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_trie/index_files",
+      "base_topology": "trie",
+      "entry_strategy": "original",
+      "hierarchy_layers": [],
+      "special_block_search": false,
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1200,
+          1400,
+          1600,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1400,
+          1600,
+          1800,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1200,
+          1600,
+          2000,
+          2500,
+          3200,
+          5000
+        ],
+        "sel_10": [
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          18000,
+          32000,
+          64000
+        ],
+        "sel_30": [
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          150000
+        ],
+        "sel_60": [
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          320000
+        ],
+        "sel_80": [
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          602453
+        ],
+        "sel_95": [
+          50,
+          100,
+          250,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          602453
+        ],
+        "sel_99": [
+          40,
+          60,
+          80,
+          120,
+          250,
+          500,
+          1000,
+          5000,
+          25000,
+          30000,
+          602453
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t1024_lng_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t1024_lng/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t1024_lng_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t1024_lng/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t1024_trie_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t1024_trie/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t1024_trie_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t1024_trie/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t8192_lng_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t8192_lng/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t8192_lng_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t8192_lng/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t8192_trie_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t8192_trie/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l1_t8192_trie_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l1_t8192_trie/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_ll_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_ll/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_ll_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_ll/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_lt_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_lt/block_index",
+      "selection_role": "predeclared_degree_ratio_hierarchy_v1",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_lt_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_lt/block_index",
+      "selection_role": "predeclared_degree_ratio_hierarchy_v1",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_tl_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_tl/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_tl_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_tl/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_tt_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_tt/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_tt_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t1024_16384_tt/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_ll_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        },
+        {
+          "min_points": 131072,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_ll/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_ll_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        },
+        {
+          "min_points": 131072,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_ll/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_lt_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        },
+        {
+          "min_points": 131072,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_lt/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_lt_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        },
+        {
+          "min_points": 131072,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_lt/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_tl_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        },
+        {
+          "min_points": 131072,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_tl/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_tl_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        },
+        {
+          "min_points": 131072,
+          "topology": "lng"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_tl/block_index",
+      "selection_role": "manual_grid",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_tt_entry_original",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "original",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        },
+        {
+          "min_points": 131072,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_tt/block_index",
+      "selection_role": "preexisting_query_free_mass_ladder_v1",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
+      "name": "l2_t8192_131072_tt_entry_trie",
+      "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/base/amazon/base_lng/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "trie",
+      "hierarchy_layers": [
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        },
+        {
+          "min_points": 131072,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/l2_t8192_131072_tt/block_index",
+      "selection_role": "preexisting_query_free_mass_ladder_v1",
+      "lsearch_values_by_workload": {
+        "sel_0p5": [
+          1000,
+          1400,
+          2000
+        ],
+        "sel_1": [
+          1200,
+          1600,
+          2200
+        ],
+        "sel_5": [
+          400,
+          800,
+          1600,
+          2500,
+          5000
+        ],
+        "sel_10": [
+          500,
+          2500,
+          10000,
+          18000,
+          32000
+        ],
+        "sel_30": [
+          100,
+          500,
+          2500,
+          5000,
+          10000,
+          22000,
+          45000
+        ],
+        "sel_60": [
+          100,
+          500,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000,
+          90000
+        ],
+        "sel_80": [
+          40,
+          160,
+          640,
+          1250,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_95": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ],
+        "sel_99": [
+          40,
+          80,
+          250,
+          1000,
+          2500,
+          5000,
+          10000,
+          30000
+        ]
+      },
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    }
+  ]
+}

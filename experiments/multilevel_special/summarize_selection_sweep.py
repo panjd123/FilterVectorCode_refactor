@@ -10,18 +10,83 @@ import statistics
 from pathlib import Path
 from typing import Any
 
+import experiment_core
 import run_selection_sweep
+
+
+WORK_FIELDS = {
+    "nodes_visited_warm_median": "AverageNodesVisited",
+    "regular_nodes_expanded_warm_median": "AverageRegularNodesExpanded",
+    "special_nodes_expanded_warm_median": "AverageSpecialNodesExpanded",
+    "regular_edges_scanned_warm_median": "AverageRegularEdgesScanned",
+    "special_edges_scanned_warm_median": "AverageSpecialEdgesScanned",
+    "special_intra_edges_scanned_warm_median": "AverageSpecialIntraEdgesScanned",
+    "special_inter_edges_scanned_warm_median": "AverageSpecialInterEdgesScanned",
+    "total_edges_scanned_warm_median": "AverageTotalEdgesScanned",
+    "total_distance_calcs_warm_median": "AverageTotalDistanceCalcs",
+    "entry_point_distance_calcs_warm_median": "AverageEntryPointDistanceCalcs",
+    "graph_search_distance_calcs_warm_median": "AverageGraphSearchDistanceCalcs",
+    "num_entries_warm_median": "AverageNumEntries",
+    "entry_group_matched_points_warm_median": "AverageEntryGroupMatchedPoints",
+}
+
+
+def measurement_root(config: dict[str, Any]) -> Path:
+    root = Path(config["output_root"])
+    if config.get("pass_subdirs", False):
+        root /= str(config.get("measurement_pass", "performance"))
+    return root
+
+
+def summary_root(config: dict[str, Any]) -> Path:
+    root = Path(config["output_root"]) / "summary"
+    if config.get("pass_subdirs", False):
+        root /= str(config.get("measurement_pass", "performance"))
+    return root
+
+
+def method_summary_fields(config: dict[str, Any],
+                          method: dict[str, Any]) -> dict[str, Any]:
+    """Expose every independent method dimension in result tables."""
+    layers = experiment_core.hierarchy_layers(method)
+    if experiment_core.uses_orthogonal_method_schema(config):
+        semantics = experiment_core.method_semantics(config, method)
+    else:
+        semantics = {
+            "base_topology": method.get("base_topology", "unspecified"),
+            "layer_topologies": (
+                ",".join(layer["topology"] for layer in layers) or "none"),
+            "entry_strategy": method.get(
+                "entry_strategy",
+                method.get("entry_group_provider", "unspecified")),
+            "routing_policy": method.get("routing_policy", "legacy"),
+        }
+    thresholds = [layer["min_points"] for layer in layers]
+    return {
+        "layer_count": len(layers),
+        "thresholds": ",".join(str(value) for value in thresholds) or "none",
+        "t1": thresholds[0] if thresholds else "",
+        "t2": thresholds[1] if len(thresholds) > 1 else "",
+        "base_topology": semantics["base_topology"],
+        "layer_topologies": semantics["layer_topologies"],
+        "entry_strategy": semantics["entry_strategy"],
+        "routing_policy": semantics.get("routing_policy", "always_layered"),
+        "selection_role": method.get("selection_role", "unspecified"),
+    }
 
 
 def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    root = Path(config["output_root"])
+    root = measurement_root(config)
+    protocol = experiment_core.protocol_for(config)
     workload_by_name = {item["name"]: item for item in config["workloads"]}
     for method in config["methods"]:
         for workload_name, workload in workload_by_name.items():
             if not run_selection_sweep.method_enabled_for_workload(method, workload):
                 continue
             run_dir = root / method["name"] / workload_name
+            num_queries = int(workload.get(
+                "num_queries", config.get("expected_num_queries", 0)))
             summary_path = run_dir / "search_time_summary.csv"
             detail_path = run_dir / "search_time_details.csv"
             if not summary_path.exists():
@@ -37,20 +102,33 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                 with stage_path.open(newline="") as stream:
                     for stage in csv.DictReader(stream):
                         stage_by_l.setdefault(int(stage["Lsearch"]), []).append(stage)
+            work_by_l: dict[int, list[dict[str, str]]] = {}
+            work_path = run_dir / "search_work_details.csv"
+            if work_path.exists():
+                with work_path.open(newline="") as stream:
+                    for work in csv.DictReader(stream):
+                        work_by_l.setdefault(int(work["Lsearch"]), []).append(work)
             with summary_path.open(newline="") as stream:
                 for source in csv.DictReader(stream):
                     lsearch = int(source["Lsearch"])
+                    method_fields = method_summary_fields(config, method)
                     detail = detail_by_l.get(lsearch, [])
-                    warm = [float(item["Time_ms"]) for item in detail if int(item["Repeat"]) > 0]
+                    warm_detail = [
+                        item for item in detail
+                        if int(item["Repeat"]) >= protocol.cold_repeats
+                    ]
+                    warm = [float(item["Time_ms"]) for item in warm_detail]
                     all_times = [float(item["Time_ms"]) for item in detail]
-                    all_recall = [float(item["Avg_Recall"]) for item in detail]
+                    warm_recall = [float(item["Avg_Recall"]) for item in warm_detail]
                     warm_stage = [item for item in stage_by_l.get(lsearch, [])
-                                  if int(item["Repeat"]) > 0]
+                                  if int(item["Repeat"]) >= protocol.cold_repeats]
+                    warm_work = [item for item in work_by_l.get(lsearch, [])
+                                 if int(item["Repeat"]) >= protocol.cold_repeats]
                     def stage_median(field: str) -> float | str:
                         values = [float(item[field]) for item in warm_stage]
                         return statistics.median(values) if values else ""
                     ordered_warm = sorted(
-                        (item for item in detail if int(item["Repeat"]) > 0),
+                        warm_detail,
                         key=lambda item: float(item["Time_ms"]))
                     middle_repeats: set[int] = set()
                     if ordered_warm:
@@ -61,27 +139,37 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                     def aligned_stage_mean(field: str) -> float | str:
                         values = [float(item[field]) for item in aligned_stage]
                         return statistics.mean(values) if values else ""
+                    def work_median(field: str) -> float | str:
+                        values = [float(item[field]) for item in warm_work
+                                  if item.get(field) not in (None, "")]
+                        return statistics.median(values) if values else ""
                     warm_mean = (statistics.mean(warm) if warm
                                  else float(source["Average_Time_ms"]))
+                    warm_median = statistics.median(warm) if warm else warm_mean
                     rows.append({
                         "workload": workload_name,
                         "query_dir": workload["query_dir"],
                         "mean_selectivity": float(workload["mean_selectivity"]),
                         "method": method["name"],
-                        "layer_count": int(method.get("layer_count", 0)),
-                        "t1": method.get("t1", ""),
-                        "t2": method.get("t2", ""),
+                        **method_fields,
                         "lsearch": lsearch,
-                        "recall": float(source["Average_Recall"]),
+                        "recall": (statistics.mean(warm_recall) if warm_recall
+                                   else float(source["Average_Recall"])),
+                        "num_queries": num_queries or "",
                         "batch_ms_all": float(source["Average_Time_ms"]),
                         "batch_ms_warm": warm_mean,
-                        "batch_ms_warm_median": statistics.median(warm) if warm else warm_mean,
+                        "batch_ms_warm_median": warm_median,
+                        "qps_warm_median": (
+                            1000.0 * num_queries / warm_median
+                            if num_queries > 0 and warm_median > 0 else ""),
                         "batch_ms_warm_cv": (statistics.stdev(warm) / warm_mean
                                              if len(warm) > 1 and warm_mean > 0 else 0.0),
                         "batch_ms_min": min(all_times) if all_times else float(source["Average_Time_ms"]),
                         "batch_ms_max": max(all_times) if all_times else float(source["Average_Time_ms"]),
-                        "recall_min": min(all_recall) if all_recall else float(source["Average_Recall"]),
-                        "recall_max": max(all_recall) if all_recall else float(source["Average_Recall"]),
+                        "recall_min": (min(warm_recall) if warm_recall
+                                       else float(source["Average_Recall"])),
+                        "recall_max": (max(warm_recall) if warm_recall
+                                       else float(source["Average_Recall"])),
                         "query_total_ms_warm_median": stage_median("AverageQueryTotal_ms"),
                         "els_ms_warm_median": stage_median("AverageELS_ms"),
                         "entry_ms_warm_median": stage_median("AverageEntryPointSetup_ms"),
@@ -99,6 +187,8 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                             max((abs(float(item["ClosureError_ms"])) for item in warm_stage),
                                 default="")
                         ),
+                        **{output: work_median(source_field)
+                           for output, source_field in WORK_FIELDS.items()},
                         "summary_path": str(summary_path),
                     })
     return rows
@@ -133,7 +223,7 @@ def equal_recall_rows(rows: list[dict[str, Any]], baseline: str, targets: list[f
                 feasible = [row for row in candidates
                             if row["method"] == method and row[recall_field] >= target]
                 if feasible:
-                    selected[method] = min(feasible, key=lambda row: row["batch_ms_warm"])
+                    selected[method] = min(feasible, key=lambda row: row["lsearch"])
             base = selected.get(baseline)
             for method, row in selected.items():
                 enriched = dict(row)
@@ -214,36 +304,47 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def write_markdown(path: Path, equal_rows: list[dict[str, Any]], baseline: str,
                    maximum_rows: list[dict[str, Any]]) -> None:
     lines = ["# 多层 Special Block 选择率实验", "",
-             "主表使用 warm repeats 的离散实测点；每种方法选择达到目标 Recall 的最快配置，不做插值。", ""]
+             "主表使用 warm repeats 的离散实测点；每种方法选择所有 warm repeats "
+             "均达到目标 Recall 的最小实测 Lsearch，不做插值。", ""]
     for workload in sorted({row["workload"] for row in equal_rows}):
         subset = [row for row in equal_rows if row["workload"] == workload]
         if not subset:
             continue
         lines.extend([f"## {workload}（平均选择率 {subset[0]['mean_selectivity']:.3%}）", "",
                       f"Baseline: `{baseline}`", "",
-                      "| Recall target | 方法 | 实测 Recall | margin | L | warm mean ms | warm median ms | CV | mean 加速 | median 加速 |",
-                      "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|"] )
+                      "| Recall target | 方法 | hierarchy | entry | routing | warm mean Recall | warm min Recall | min-target margin | L | QPS | warm median ms | CV | median 加速 |",
+                      "|---:|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|"] )
         for row in sorted(subset, key=lambda item: (item["target_recall"], item["method"])):
-            speedup = row["speedup_vs_baseline"]
-            speedup_text = f"{speedup:.3f}x" if isinstance(speedup, float) else "NA"
             median_speedup = row["speedup_vs_baseline_median"]
             median_speedup_text = (f"{median_speedup:.3f}x"
                                    if isinstance(median_speedup, float) else "NA")
+            qps = row.get("qps_warm_median")
+            qps_text = f"{qps:.3f}" if isinstance(qps, float) else "NA"
+            hierarchy = (
+                "none" if row["layer_count"] == 0 else
+                f"{row['thresholds']}:{row['layer_topologies']}")
             lines.append(
-                f"| {row['target_recall']:.3f} | {row['method']} | {row['recall']:.6f} | "
-                f"{row['recall_margin']:+.6f} | {row['lsearch']} | "
-                f"{row['batch_ms_warm']:.3f} | {row['batch_ms_warm_median']:.3f} | "
-                f"{row['batch_ms_warm_cv']:.3f} | {speedup_text} | {median_speedup_text} |"
+                f"| {row['target_recall']:.3f} | {row['method']} | {hierarchy} | "
+                f"{row['entry_strategy']} | {row['routing_policy']} | {row['recall']:.6f} | "
+                f"{row['recall_min']:.6f} | {row['recall_margin']:+.6f} | {row['lsearch']} | "
+                f"{qps_text} | {row['batch_ms_warm_median']:.3f} | "
+                f"{row['batch_ms_warm_cv']:.3f} | {median_speedup_text} |"
             )
         lines.append("")
     lines.extend(["## 扫描范围内最大 Recall", "",
                   "此表用于识别共同可达质量上限，不代表最大 L 是性能最优点。", "",
-                  "| workload | 方法 | 最大 Recall | L | warm batch ms |",
-                  "|---|---|---:|---:|---:|"])
+                  "| workload | 方法 | hierarchy | 最大 Recall | L | QPS | warm batch ms |",
+                  "|---|---|---|---:|---:|---:|---:|"])
     for row in maximum_rows:
+        qps = row.get("qps_warm_median")
+        qps_text = f"{qps:.3f}" if isinstance(qps, float) else "NA"
+        hierarchy = (
+            "none" if row["layer_count"] == 0 else
+            f"{row['thresholds']}:{row['layer_topologies']}")
         lines.append(
-            f"| {row['workload']} | {row['method']} | {row['recall']:.6f} | "
-            f"{row['lsearch']} | {row['batch_ms_warm']:.3f} |"
+            f"| {row['workload']} | {row['method']} | {hierarchy} | "
+            f"{row['recall']:.6f} | {row['lsearch']} | {qps_text} | "
+            f"{row['batch_ms_warm_median']:.3f} |"
         )
     lines.append("")
     path.write_text("\n".join(lines) + "\n")
@@ -258,7 +359,7 @@ def main() -> int:
                         default=[500, 1000, 2000, 5000, 10000, 20000])
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
-    root = Path(config["output_root"]) / "summary"
+    root = summary_root(config)
     rows = read_rows(config)
     write_csv(root / "all_points.csv", rows)
     write_csv(root / "pareto_points.csv", pareto_rows(rows))
@@ -268,14 +369,18 @@ def main() -> int:
     else:
         equal = equal_recall_rows(rows, args.baseline, args.targets)
     write_csv(root / "equal_recall.csv", equal)
-    conservative_targets = baseline_l_targets(
-        rows, args.baseline, args.target_lsearch, recall_field="recall_min")
-    conservative_equal = equal_recall_rows_by_workload(
-        rows, args.baseline, conservative_targets, recall_field="recall_min")
+    if args.targets is None:
+        conservative_targets = baseline_l_targets(
+            rows, args.baseline, args.target_lsearch, recall_field="recall_min")
+        conservative_equal = equal_recall_rows_by_workload(
+            rows, args.baseline, conservative_targets, recall_field="recall_min")
+    else:
+        conservative_equal = equal_recall_rows(
+            rows, args.baseline, args.targets, recall_field="recall_min")
     write_csv(root / "equal_recall_conservative.csv", conservative_equal)
     maximum = max_recall_rows(rows)
     write_csv(root / "max_recall.csv", maximum)
-    write_markdown(root / "results.md", equal, args.baseline, maximum)
+    write_markdown(root / "results.md", conservative_equal, args.baseline, maximum)
     print(f"wrote {len(rows)} points to {root}")
     return 0
 

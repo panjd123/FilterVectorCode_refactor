@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import experiment_cli
 import run_selection_sweep
 import run_build_sweep
 import generate_layer_tuning_config
@@ -556,9 +557,10 @@ class SelectionSweepTest(unittest.TestCase):
         env = run_selection_sweep.clean_method_env(
             {"PATH": "/bin", "UNG_SPECIAL_BLOCK_SEARCH": "1",
              "UNG_SPECIAL_OLD": "x", "UNG_DISABLE_ELS_REUSE": "1"},
+            {},
             {"special_block_search": False, "env": {"UNG_SPECIAL_LIGHT_STATS": "1"}},
         )
-        self.assertNotIn("UNG_SPECIAL_BLOCK_SEARCH", env)
+        self.assertEqual(env["UNG_SPECIAL_BLOCK_SEARCH"], "0")
         self.assertNotIn("UNG_SPECIAL_OLD", env)
         self.assertNotIn("UNG_DISABLE_ELS_REUSE", env)
         self.assertEqual(env["UNG_SPECIAL_LIGHT_STATS"], "1")
@@ -616,7 +618,7 @@ class SelectionSweepTest(unittest.TestCase):
                 "Lsearch,Average_Time_ms,Average_Recall\n100,20,0.9\n")
             (run / "search_time_details.csv").write_text(
                 "Repeat,Lsearch,Time_ms,Avg_Recall\n"
-                "0,100,30,0.9\n1,100,20,0.9\n2,100,22,0.9\n")
+                "0,100,30,0.5\n1,100,20,0.91\n2,100,22,0.92\n")
             (run / "search_stage_details.csv").write_text(
                 "Repeat,Lsearch,AverageQueryTotal_ms,AverageELS_ms,"
                 "AverageEntryPointSetup_ms,AverageBlockAuthorization_ms,"
@@ -624,21 +626,67 @@ class SelectionSweepTest(unittest.TestCase):
                 "0,100,3,0.3,0.3,0.3,1.8,0.3,0\n"
                 "1,100,2,0.2,0.2,0.2,1.2,0.2,0\n"
                 "2,100,2.2,0.4,0.2,0.2,1.2,0.2,0\n")
+            (run / "search_work_details.csv").write_text(
+                "Repeat,Lsearch,AverageNodesVisited,AverageTotalEdgesScanned,"
+                "AverageTotalDistanceCalcs\n"
+                "0,100,30,300,330\n"
+                "1,100,20,200,220\n"
+                "2,100,22,240,262\n")
             rows = summarize_selection_sweep.read_rows({
                 "output_root": str(root),
+                "num_repeats": 3,
+                "protocol": {"cold_repeats": 1, "measured_repeats": 2},
                 "methods": [{"name": "method"}],
                 "workloads": [{"name": "workload", "query_dir": "q",
-                               "mean_selectivity": 0.5}],
+                               "mean_selectivity": 0.5, "num_queries": 3}],
             })
             self.assertEqual(len(rows), 1)
+            self.assertAlmostEqual(rows[0]["qps_warm_median"], 1000.0 * 3 / 21)
             self.assertAlmostEqual(rows[0]["els_ms_warm_median"], 0.3)
             self.assertAlmostEqual(rows[0]["graph_ms_warm_median"], 1.2)
             self.assertAlmostEqual(rows[0]["closure_error_ms_max_abs"], 0.0)
             self.assertAlmostEqual(rows[0]["query_total_ms_at_batch_median"], 2.1)
             self.assertAlmostEqual(rows[0]["els_ms_at_batch_median"], 0.3)
+            self.assertAlmostEqual(rows[0]["nodes_visited_warm_median"], 21)
+            self.assertAlmostEqual(rows[0]["total_edges_scanned_warm_median"], 220)
+            self.assertAlmostEqual(rows[0]["total_distance_calcs_warm_median"], 241)
+            self.assertAlmostEqual(rows[0]["recall"], 0.915)
+            self.assertAlmostEqual(rows[0]["recall_min"], 0.91)
+            self.assertAlmostEqual(rows[0]["recall_max"], 0.92)
             self.assertAlmostEqual(
                 sum(rows[0][field] for field, _ in generate_layer_tuning_report.STAGES),
                 rows[0]["query_total_ms_at_batch_median"])
+            report = root / "results.md"
+            selected = summarize_selection_sweep.equal_recall_rows(
+                rows, "method", [0.9])
+            summarize_selection_sweep.write_markdown(
+                report, selected, "method",
+                summarize_selection_sweep.max_recall_rows(rows))
+            text = report.read_text()
+            self.assertIn("| QPS |", text)
+            self.assertIn("142.857", text)
+            self.assertIn("| none |", text)
+            self.assertIn("所有 warm repeats", text)
+            self.assertIn("warm min Recall", text)
+            self.assertIn("0.910000", text)
+
+    def test_summary_root_separates_performance_and_profile_passes(self):
+        common = {"output_root": "/tmp/run", "pass_subdirs": True}
+        self.assertEqual(
+            summarize_selection_sweep.summary_root(
+                {**common, "measurement_pass": "performance"}),
+            Path("/tmp/run/summary/performance"),
+        )
+        self.assertEqual(
+            summarize_selection_sweep.summary_root(
+                {**common, "measurement_pass": "profile"}),
+            Path("/tmp/run/summary/profile"),
+        )
+        self.assertEqual(
+            experiment_cli.default_summary_path(
+                {**common, "measurement_pass": "profile"}),
+            Path("/tmp/run/summary/profile/results.csv"),
+        )
 
     def test_search_binary_snapshot_is_content_addressed_and_read_only(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -778,10 +826,17 @@ class SelectionSweepTest(unittest.TestCase):
                 "special_block_upper_count=2\n"
             )
             (results / "build_time.csv").write_text("Metric,Value\ntotal_time,1\n")
+            (root / "build.log").write_text(
+                "[special_edges] gpu_intra_enabled=0 gpu_intra_blocks=0 "
+                "gpu_intra_points=0 gpu_intra_fallback_blocks=0\n"
+                "[special_edges] gpu_inter_enabled=0 gpu_inter_used=0 "
+                "gpu_inter_ms=0\n"
+            )
             config = {"expected_source_fingerprint": "abc", "expected_num_points": 10,
                       "expected_num_groups": 8, "min_points": 1000,
                       "max_degree": 64, "num_cross_edges": 4}
-            case = {"name": "t2_10000", "upper_min_points": 10000}
+            case = {"name": "t2_10000", "upper_min_points": 10000,
+                    "benchmark_profile": "cpu"}
             self.assertEqual(run_build_sweep.validate_case(config, case, root)["special_block_upper_count"], "2")
             case["upper_min_points"] = 25000
             with self.assertRaisesRegex(ValueError, "metadata mismatch"):
@@ -842,14 +897,14 @@ class SelectionSweepTest(unittest.TestCase):
                 run_build_sweep.sha256_file(build_app),
             )
 
-    def test_equal_recall_uses_fastest_observed_feasible_point(self):
+    def test_equal_recall_uses_smallest_observed_feasible_lsearch(self):
         rows = [
             {"workload": "w", "method": "single", "lsearch": 1000,
              "recall": 0.91, "batch_ms_warm": 10.0, "batch_ms_warm_median": 9.0},
             {"workload": "w", "method": "multi", "lsearch": 500,
              "recall": 0.90, "batch_ms_warm": 7.0, "batch_ms_warm_median": 6.0},
             {"workload": "w", "method": "multi", "lsearch": 700,
-             "recall": 0.93, "batch_ms_warm": 8.0, "batch_ms_warm_median": 7.0},
+             "recall": 0.93, "batch_ms_warm": 3.0, "batch_ms_warm_median": 2.5},
         ]
         result = summarize_selection_sweep.equal_recall_rows(rows, "single", [0.9])
         selected = {row["method"]: row for row in result}

@@ -13,6 +13,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import shlex
 import shutil
 import struct
@@ -21,13 +22,15 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+import experiment_core
+import process_resource_probe
+
 
 REQUIRED_INDEX_FILES = (
     "meta",
     "special_blocks.bin",
     "special_block_trie.bin",
     "special_edges.bin",
-    "special_trie_regular_edges.bin",
 )
 
 
@@ -132,6 +135,9 @@ def acquire_lock(output_root: Path):
 
 
 def case_min_points(config: dict[str, Any], case: dict[str, Any]) -> int:
+    layers = experiment_core.hierarchy_layers(case)
+    if layers:
+        return int(layers[0]["min_points"])
     return int(case.get("min_points", config["min_points"]))
 
 
@@ -139,9 +145,17 @@ def clean_build_env(base: dict[str, str], config: dict[str, Any], case: dict[str
                     upper: Optional[int]) -> dict[str, str]:
     env = {key: value for key, value in base.items() if not key.startswith("UNG_")}
     env.update({str(key): str(value) for key, value in config.get("env", {}).items()})
-    env["UNG_SPECIAL_BLOCK_MIN_POINTS"] = str(case_min_points(config, case))
-    if upper is not None:
-        env["UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS"] = str(upper)
+    env.update({str(key): str(value) for key, value in case.get("env", {}).items()})
+    layers = experiment_core.hierarchy_layers(case)
+    if layers:
+        env["UNG_SPECIAL_BLOCKS"] = "1"
+        env["UNG_BASE_GROUP_TOPOLOGY"] = str(
+            case.get("base_topology", config.get("base_topology", "lng")))
+        env["UNG_HIERARCHY_LAYERS"] = experiment_core.encode_hierarchy_layers(case)
+    else:
+        env["UNG_SPECIAL_BLOCK_MIN_POINTS"] = str(case_min_points(config, case))
+        if upper is not None:
+            env["UNG_SPECIAL_BLOCK_UPPER_MIN_POINTS"] = str(upper)
     return env
 
 
@@ -177,11 +191,20 @@ def validate_case(config: dict[str, Any], case: dict[str, Any], case_root: Path)
     timing = case_root / "results" / "build_time.csv"
     if not timing.is_file() or timing.stat().st_size == 0:
         raise ValueError(f"missing build timing: {timing}")
+    if config.get("resource_profile", False):
+        resource_path = case_root / "resource_usage.json"
+        if not resource_path.is_file() or resource_path.stat().st_size == 0:
+            raise ValueError(f"missing resource profile: {resource_path}")
+        resource = json.loads(resource_path.read_text())
+        if int(resource.get("num_samples", 0)) <= 0:
+            raise ValueError(f"empty resource profile: {resource_path}")
     meta = parse_meta(block_dir / "meta")
     upper_value = case.get("upper_min_points")
     upper = int(upper_value) if upper_value is not None else None
+    layers = experiment_core.hierarchy_layers(case)
+    is_multilevel = len(layers) > 1 or upper is not None
     expected = {
-        "index_format": "special_block_trie_multilevel_v1" if upper is not None
+        "index_format": "special_block_trie_multilevel_v1" if is_multilevel
                         else "special_block_trie_v2",
         "source_input": "ung_index",
         "source_ung_fingerprint": str(config["expected_source_fingerprint"]),
@@ -191,17 +214,67 @@ def validate_case(config: dict[str, Any], case: dict[str, Any], case_root: Path)
         "special_block_max_degree": str(int(config["max_degree"])),
         "special_block_num_cross_edges": str(int(config["num_cross_edges"])),
     }
+    if layers:
+        expected["hierarchy_layers"] = experiment_core.encode_hierarchy_layers(case)
+        expected["base_group_topology"] = str(
+            case.get("base_topology", config.get("base_topology", "lng")))
     if upper is not None:
         expected["special_block_upper_min_points"] = str(upper)
     mismatches = {key: (meta.get(key), value) for key, value in expected.items()
                   if meta.get(key) != value}
     if mismatches:
         raise ValueError(f"metadata mismatch for {case['name']}: {mismatches}")
-    if upper is not None and int(meta.get("special_block_upper_count", "0")) <= 0:
+    if layers and len(layers) > 1 and int(meta.get("special_block_upper_count", "0")) <= 0:
+        raise ValueError(f"case {case['name']} produced no blocks above level 1")
+    if not layers and upper is not None and int(meta.get("special_block_upper_count", "0")) <= 0:
         raise ValueError(f"case {case['name']} produced no upper blocks")
-    if upper is None and int(meta.get("special_block_upper_count", "0")) != 0:
+    if not layers and upper is None and int(meta.get("special_block_upper_count", "0")) != 0:
         raise ValueError(f"single-level case {case['name']} unexpectedly produced upper blocks")
+    validate_backend_evidence(case, case_root, meta)
     return meta
+
+
+def validate_backend_evidence(case: dict[str, Any], case_root: Path,
+                              meta: dict[str, str]) -> None:
+    log_path = case_root / "build.log"
+    if not log_path.is_file():
+        raise ValueError(f"missing hierarchy backend evidence: {log_path}")
+    text = log_path.read_text(errors="replace")
+    intra_matches = re.findall(
+        r"\[special_edges\] gpu_intra_enabled=(\d+) gpu_intra_blocks=(\d+) "
+        r"gpu_intra_points=(\d+) gpu_intra_fallback_blocks=(\d+)", text)
+    inter_matches = re.findall(
+        r"\[special_edges\] gpu_inter_enabled=(\d+) gpu_inter_used=(\d+) "
+        r"gpu_inter_ms=([0-9.eE+-]+)", text)
+    if not intra_matches or not inter_matches:
+        raise ValueError(f"incomplete hierarchy backend evidence: {log_path}")
+    intra_enabled, intra_blocks, intra_points, intra_fallbacks = (
+        int(value) for value in intra_matches[-1])
+    inter_enabled = int(inter_matches[-1][0])
+    inter_used = int(inter_matches[-1][1])
+    profile = str(case["benchmark_profile"])
+    requires_intra = profile != "cpu"
+    requires_inter = profile in {
+        "hybrid_gpu_intra_inter", "full_gpu", "full_gpu_wmma"}
+    if profile == "cpu" and any((intra_enabled, intra_blocks, inter_enabled, inter_used)):
+        raise ValueError(f"CPU hierarchy case used a GPU backend: {case['name']}")
+    if requires_intra and (intra_blocks <= 0 or intra_points <= 0):
+        raise ValueError(f"GPU intra-block work was not observed for {case['name']}")
+    if requires_intra and intra_fallbacks != 0:
+        raise ValueError(f"GPU intra-block fallback was observed for {case['name']}")
+    if requires_inter and (inter_enabled != 1 or inter_used != 1):
+        raise ValueError(f"GPU inter-block work was not observed for {case['name']}")
+    if not requires_inter and inter_used != 0:
+        raise ValueError(f"unexpected GPU inter-block work for {case['name']}")
+    if profile == "full_gpu_wmma" and "mode=tf32_wmma" not in text:
+        raise ValueError(f"WMMA inter-block execution was not observed for {case['name']}")
+    meta.update({
+        "verified_gpu_intra_blocks": str(intra_blocks),
+        "verified_gpu_intra_points": str(intra_points),
+        "verified_gpu_intra_fallback_blocks": str(intra_fallbacks),
+        "verified_gpu_inter_used": str(inter_used),
+        "verified_wmma_inter": str(int("mode=tf32_wmma" in text)),
+    })
 
 
 def build_command(config: dict[str, Any], case: dict[str, Any], case_root: Path,
@@ -268,7 +341,8 @@ def main() -> int:
     for case in config["cases"]:
         if selected and case["name"] not in selected:
             continue
-        upper_value = case.get("upper_min_points")
+        layers = experiment_core.hierarchy_layers(case)
+        upper_value = case.get("upper_min_points") if not layers else None
         upper = int(upper_value) if upper_value is not None else None
         minimum = case_min_points(config, case)
         if upper is not None and upper <= minimum:
@@ -278,13 +352,19 @@ def main() -> int:
             meta = validate_case(config, case, final_root)
             if not args.force:
                 print(f"[SKIP] {case['name']} validated at {final_root}", flush=True)
-                update_manifest(manifest, {
+                reused_record = {
                     "name": case["name"], "min_points": minimum,
                     "upper_min_points": upper,
                     "status": "complete", "case_root": str(final_root),
                     "reused_existing": True, "metadata": meta,
                     "source_provenance": source_provenance,
-                })
+                }
+                experiment_core.retain_elapsed_evidence(
+                    reused_record,
+                    experiment_core.existing_manifest_record(
+                        manifest, {"name": case["name"]}),
+                    final_root, "command.txt", "build.log")
+                update_manifest(manifest, reused_record)
                 continue
         except (FileNotFoundError, ValueError):
             if final_root.exists() and not case.get("existing_path"):
@@ -311,18 +391,33 @@ def main() -> int:
                   "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                   "source_provenance": source_provenance}
         update_manifest(manifest, record)
-        level_text = f"T2={upper}" if upper is not None else "single-level"
+        level_text = (experiment_core.encode_hierarchy_layers(case)
+                      if layers else (f"T2={upper}" if upper is not None else "single-level"))
         print(f"[BUILD] {case['name']} T1={minimum} {level_text}", flush=True)
         print(shlex.join(cmd), flush=True)
         if args.dry_run:
             continue
-        start = time.monotonic()
         with (staging / "build.log").open("w") as log:
-            result = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT, text=True)
-        record.update({"elapsed_seconds": time.monotonic() - start,
-                       "returncode": result.returncode,
+            if config.get("resource_profile", False):
+                resource_usage = process_resource_probe.run_profiled(
+                    cmd, env, log,
+                    float(config.get("resource_sample_interval_seconds", 0.2)))
+                (staging / "resource_usage.json").write_text(
+                    json.dumps(resource_usage, indent=2) + "\n")
+                elapsed_seconds = float(resource_usage["elapsed_seconds"])
+                returncode = int(resource_usage["returncode"])
+            else:
+                start = time.monotonic()
+                result = subprocess.run(
+                    cmd, env=env, stdout=log,
+                    stderr=subprocess.STDOUT, text=True)
+                elapsed_seconds = time.monotonic() - start
+                returncode = result.returncode
+        record.update({"elapsed_seconds": elapsed_seconds,
+                       "elapsed_source": "monotonic_child_wall",
+                       "returncode": returncode,
                        "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")})
-        if result.returncode != 0:
+        if returncode != 0:
             record["status"] = "failed"
             update_manifest(manifest, record)
             raise RuntimeError(f"build failed for {case['name']}; see {staging / 'build.log'}")

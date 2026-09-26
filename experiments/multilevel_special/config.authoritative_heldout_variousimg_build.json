@@ -1,0 +1,831 @@
+{
+  "schema_version": 2,
+  "purpose": "Held-out DRH-v1 versus predeclared manual hierarchy grid.",
+  "build_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/build_special_block_index",
+  "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
+  "base_bin_file": "/home/graphdb/FilterVectorData/VariousImg/VariousImg_base.bin",
+  "base_label_file": "/home/graphdb/FilterVectorData/VariousImg/VariousImg_base_labels.txt",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy",
+  "expected_num_points": 758935,
+  "expected_num_groups": 293903,
+  "expected_source_fingerprint": "31332117e049fea8",
+  "expected_base_labels_sha256": "c82e1457ca1660c7b792c1a3d986c000640fcf24f83753ea2a36d34a59bf7f88",
+  "base_topology": "lng",
+  "num_threads": 100,
+  "min_points": 1024,
+  "max_degree": 64,
+  "num_cross_edges": 4,
+  "Lbuild": 100,
+  "alpha": 1.2,
+  "env": {
+    "UNG_SPECIAL_BLOCK_DATA_MODE": "x1",
+    "UNG_SPECIAL_BLOCK_PARTITION": "trie",
+    "UNG_SPECIAL_INTRA_SMALL_NX": "2048",
+    "UNG_SPECIAL_INTRA_LARGE_NX": "8192",
+    "UNG_SPECIAL_INTRA_MID_SAMPLE_CANDIDATES": "256",
+    "UNG_SPECIAL_INTRA_SAMPLE_MODE": "vamana_prune",
+    "UNG_SPECIAL_INTRA_SAMPLE_CANDIDATES": "256",
+    "UNG_SPECIAL_INTRA_SAMPLE_MIN_N": "257",
+    "UNG_TAGORE_K": "128",
+    "UNG_TAGORE_ITER": "4",
+    "UNG_TAGORE_M": "64",
+    "UNG_SPECIAL_INTER_FORCE_GRAPH_PAIR_WORK": "10000",
+    "UNG_SPECIAL_INTER_SEARCH_EF": "32",
+    "UNG_SPECIAL_INTER_ROUTE_PROFILE": "1",
+    "UNG_SPECIAL_EDGE_BINARY_ONLY": "1"
+  },
+  "cases": [
+    {
+      "name": "l1_t512_l",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 512,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l1_t512_t",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 512,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l1_t1024_l",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l1_t1024_t",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l1_t2048_l",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 2048,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l1_t2048_t",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 2048,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l1_t16384_l",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l1_t16384_t",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t512_8192_ll",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 512,
+          "topology": "lng"
+        },
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t512_8192_lt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 512,
+          "topology": "lng"
+        },
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t512_8192_tl",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 512,
+          "topology": "trie"
+        },
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t512_8192_tt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 512,
+          "topology": "trie"
+        },
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t1024_8192_ll",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t1024_8192_lt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t1024_8192_tl",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 8192,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t1024_8192_tt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 8192,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_ll",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_lt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_degree_ratio_hierarchy_v1",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_tl",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t1024_16384_tt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t2048_16384_ll",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 2048,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t2048_16384_lt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 2048,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t2048_16384_tl",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 2048,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t2048_16384_tt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 2048,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t2048_32768_ll",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 2048,
+          "topology": "lng"
+        },
+        {
+          "min_points": 32768,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t2048_32768_lt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 2048,
+          "topology": "lng"
+        },
+        {
+          "min_points": 32768,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t2048_32768_tl",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 2048,
+          "topology": "trie"
+        },
+        {
+          "min_points": 32768,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l2_t2048_32768_tt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 2048,
+          "topology": "trie"
+        },
+        {
+          "min_points": 32768,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l3_t1024_16384_262144_lll",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        },
+        {
+          "min_points": 262144,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l3_t1024_16384_262144_llt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        },
+        {
+          "min_points": 262144,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l3_t1024_16384_262144_ltl",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        },
+        {
+          "min_points": 262144,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l3_t1024_16384_262144_ltt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        },
+        {
+          "min_points": 262144,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l3_t1024_16384_262144_tll",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        },
+        {
+          "min_points": 262144,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l3_t1024_16384_262144_tlt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "lng"
+        },
+        {
+          "min_points": 262144,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l3_t1024_16384_262144_ttl",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        },
+        {
+          "min_points": 262144,
+          "topology": "lng"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    },
+    {
+      "name": "l3_t1024_16384_262144_ttt",
+      "base_topology": "lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "trie"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        },
+        {
+          "min_points": 262144,
+          "topology": "trie"
+        }
+      ],
+      "selection_role": "predeclared_manual_oracle_grid",
+      "benchmark_profile": "hybrid_gpu_intra",
+      "env": {
+        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
+        "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+        "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
+      }
+    }
+  ]
+}

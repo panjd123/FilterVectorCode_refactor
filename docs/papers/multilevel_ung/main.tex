@@ -1,0 +1,460 @@
+\documentclass[sigconf,review,anonymous]{acmart}
+
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{xcolor}
+
+\newcommand{\system}{\textsc{ML-UNG}}
+\newcommand{\pending}[1]{\textcolor{red}{[pending: #1]}}
+\newcommand{\dataset}{\mathcal{D}}
+\newcommand{\labels}{\mathcal{A}}
+\newcommand{\eligible}{\mathcal{E}}
+
+\title{Structure-Adaptive Multilevel Graphs for Filtered Approximate Nearest-Neighbor Search}
+
+\begin{document}
+
+\begin{abstract}
+Filtered approximate nearest-neighbor search must reconcile two structures:
+vector proximity and set containment over attributes.  Unified Navigating
+Graphs (UNG)~\cite{cai2024ung} expose this tension by first grouping vectors with identical label
+sets and then connecting groups through a label navigation graph.  A single
+group graph, however, pays the full navigation cost at every filter
+selectivity.  We present \system, a modular extension that separates three
+previously entangled choices: the number and scale of hierarchy layers, the
+group-to-group topology within each layer, and entry-group discovery.  Each
+query authorizes blocks by exact label containment, seeds every authorized
+layer, and tags candidates with an activation level.  A candidate scans only
+edges owned by that level, which prevents implicit promotion or cross-level
+edge mixing.  We further propose Degree-Ratio Hierarchy (DRH), a
+query-calibration-free rule that derives both layer count and block thresholds
+from the dataset size and the graph's existing degree budgets.  Finally, we
+describe a GPU construction pipeline for the irregular intra-group and
+cross-group workloads and retain end-to-end quality checks at the index
+boundary.  Our evaluation uses measured Recall@10 crossings rather than curve
+interpolation and reports latency, throughput, phase time, search work, build
+time, memory, and index size.  \pending{Insert formal multi-dataset speedup and
+oracle-regret results after the authoritative campaign.}
+\end{abstract}
+
+\maketitle
+
+\section{Introduction}
+Filtered vector search returns the nearest vectors satisfying a predicate over
+metadata.  For a containment query, the query supplies a set of labels and a
+vector is eligible only if its label set contains every query label.  Graph
+indexes for this problem must provide both geometric navigation and predicate
+reachability.  UNG addresses the latter by grouping identical label sets,
+building a proximity graph inside each group, and adding cross-group edges
+along a directed label navigation graph (LNG).
+
+The original flat organization is deliberately general, but its cost can be
+poorly matched to the query's eligible mass.  Fine groups preserve selective
+structure but require many entry groups and long cross-group walks for broad
+queries.  Coarse blocks shorten broad-query navigation, but should not perturb
+queries for which no coarse block is valid.  This motivates a hierarchy, but a
+useful hierarchy must answer four questions rigorously: how blocks are formed,
+how blocks are connected, how a query selects a layer, and how the hierarchy is
+parameterized without workload-specific tuning.
+
+\system makes these choices explicit and orthogonal.  A hierarchy plan is a
+sequence of increasing point-mass thresholds.  Each layer independently
+partitions the label trie, and each layer chooses either LNG or prefix-Trie
+topology.  Entry discovery is independently selected from the original LNG
+routine, an optimized LNG routine, or an exact Trie routine.  Search states
+carry their layer, and no state silently changes layers.  This definition is
+important: a deeper index is not assumed to be monotonically faster, because
+all authorized layers contribute seeds to one bounded queue and can compete
+for capacity.
+
+This paper makes the following contributions.
+\begin{itemize}
+  \item We define a modular multilevel filtered graph index in which hierarchy,
+  per-layer topology, and entry discovery can be independently composed.
+  \item We give level-isolated search semantics with exact containment
+  authorization and an optional structural fallback that leaves the base-only
+  search unchanged when no upper block is authorized.
+  \item We introduce DRH, a deterministic rule that chooses the first scale,
+  scale ratio, stopping depth, and topology without query traces, latency
+  measurements, or Recall calibration.
+  \item We adapt GPU group-graph and grouped top-$k$ construction to the
+  hierarchy sidecar and define an end-to-end measurement protocol that does not
+  confuse kernel time with index construction time.
+  \item We evaluate all methods at the smallest measured search budget whose
+  every warm repeat reaches the target Recall, and compare the automatic plan
+  with both a fixed zero-layer baseline and a manually enumerated oracle.
+\end{itemize}
+
+\section{Problem Definition}
+Let $\dataset=\{(x_i,A_i)\}_{i=1}^{N}$, where $x_i\in\mathbb{R}^d$ and
+$A_i\subseteq\labels$ is a finite label set.  For a query vector $q$, query
+labels $Q$, and result count $K$, containment filtering defines
+\begin{equation}
+  \eligible(Q)=\{i\mid Q\subseteq A_i\}.
+\end{equation}
+The exact answer is the $K$ points in $\eligible(Q)$ with minimum distance to
+$q$.  We report
+\begin{equation}
+  \mathrm{Recall@}K = \frac{|R_K(q,Q)\cap R^*_K(q,Q)|}{K},
+\end{equation}
+where $R_K$ is the approximate result and $R^*_K$ is exact filtered ground
+truth.
+
+The empty label set is a valid predicate rather than a missing value:
+$\eligible(\varnothing)=\dataset$.  Trie entry discovery therefore returns the
+minimal terminal frontier reachable from the root.  We precompute this
+frontier when the Trie is built or loaded, so an empty predicate costs
+$O(|F_{\mathrm{root}}|)$ rather than a full Trie scan.  Returning no entries for
+this case would change containment semantics and can silently corrupt broad
+selectivity workloads.
+
+Vectors with the same label set form a group $G_S=\{i\mid A_i=S\}$.  The
+group partition is exact and disjoint.  A group topology is a directed graph
+over observed label sets.  The base vector graph contains intra-group
+proximity edges and vector-level realizations of the group-topology edges.
+
+\section{Background and Design Requirements}
+\subsection{UNG}
+UNG's LNG contains an edge $S\rightarrow S'$ when $S\subset S'$ and no
+observed label set lies strictly between them.  Entry-group selection finds
+minimal observed supersets of $Q$.  Search begins in those groups and follows
+the unified vector graph toward more specific label sets.  This preserves the
+direction required by containment, but graph cost depends strongly on the
+number and size distribution of matching groups.
+
+\subsection{Why the Three Axes Must Be Separated}
+The hierarchy determines which vectors may share an overlay; topology
+determines which overlay blocks are adjacent; entry discovery determines only
+where search starts.  Treating a Trie entry provider as a Trie graph, or
+changing block size while claiming to isolate layer count, confounds these
+effects.  Our method schema therefore records
+\begin{equation}
+  M=(H,\tau_0,\tau_1,\ldots,\tau_L,e,r),
+\end{equation}
+where $H$ is the threshold sequence, $\tau_0$ is the base topology,
+$\tau_\ell$ is layer $\ell$'s topology, $e$ is the entry strategy, and $r$ is
+the routing policy.
+
+\section{Multilevel Index}
+\subsection{Independent Trie Partitions}
+We build a canonical prefix trie over sorted group label sets.  Each terminal
+stores one exact group and its point mass.  For a threshold $T_\ell$, a
+bottom-up pass maintains uncovered mass.  When a non-root trie node has
+uncovered mass greater than $T_\ell$, it becomes a block root and its uncovered
+mass is reset before propagating upward.  The block owns terminal groups in its
+subtree until another root at the same layer is encountered.  Each layer runs
+this partition independently; adding a coarse layer therefore does not change
+the blocks or identifiers of any finer layer.
+
+\begin{algorithm}[t]
+\caption{Independent block partition at threshold $T$}
+\label{alg:partition}
+\begin{algorithmic}[1]
+\Require Canonical label trie $\mathcal{T}$ with terminal masses $w(v)$
+\Ensure Disjoint direct-member blocks at one layer
+\State $u(v)\gets w(v)$ for every trie node $v$
+\For{nodes $v$ in reverse topological order}
+  \State $u(v)\gets w(v)+\sum_{c\in\mathrm{child}(v)}u(c)$
+  \If{$v$ is not the root and $u(v)>T$}
+    \State emit a block rooted at $v$
+    \State $u(v)\gets 0$
+  \EndIf
+\EndFor
+\For{each emitted root $b$}
+  \State assign terminals below $b$ until another emitted root is reached
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+The build stores direct point count, full source-subtree count, common labels,
+an entry point, and a nearest containing parent in the next coarser layer.  The
+parent relation is metadata for inspection; query traversal does not use it to
+promote candidates across layers.
+
+\subsection{Layer-Local Topologies}
+For each materialized layer, we support two group-to-group topologies.
+\textbf{LNG} connects every block root to its minimal strict label supersets
+within that layer.  \textbf{Trie} connects a terminal block to the nearest
+terminal descendants along canonical prefix-trie branches.  Both point from a
+less specific label set to a more specific one, but Trie is a strict sparsifier
+and need not preserve every LNG reachability path.  We therefore treat its
+quality as an empirical property, not a semantic equivalence.
+
+Each block owns a local vector graph and vector-level inter-block edges.  Edges
+are serialized with their owner block and activation level.  The base topology
+is built independently and remains available for exact fallback.
+
+\subsection{Exact Query Authorization}
+A query authorizes block $b$ precisely when
+\begin{equation}
+  Q\subseteq R_b,
+\end{equation}
+where $R_b$ is the block root's sorted label set.  This test is independent of
+estimated selectivity and observed latency.  The optional
+\emph{upper-authorization router} executes the unchanged base-only algorithm
+when no block above the first overlay layer is authorized.  Otherwise all
+authorized layers are eligible to seed the multilevel search.
+
+\subsection{Level-Isolated Bounded Search}
+Each candidate is a tuple $(i,d,\ell)$ containing a vector identifier, its
+distance, and an activation level.  Level zero denotes the base graph; level
+$\ell>0$ denotes one materialized overlay.  Every authorized block contributes
+its stored entry point, and entry groups contribute vector entry points tagged
+with the level that owns them.  All seeds share one queue of capacity
+$L_{search}$.
+
+\begin{algorithm}[t]
+\caption{Level-isolated multilevel query}
+\label{alg:query}
+\begin{algorithmic}[1]
+\Require Query $(q,Q)$, entry provider $e$, hierarchy $H$, budget $L$
+\State $B_Q\gets\{b\in H:Q\subseteq R_b\}$
+\If{upper authorization is required and $B_Q$ has no upper block}
+  \State \Return \Call{BaseSearch}{$q,Q,e,L$}
+\EndIf
+\State initialize a capacity-$L$ queue with block and entry-group seeds
+\While{the queue has an unexpanded candidate $(i,d,\ell)$}
+  \State pop the closest unexpanded candidate
+  \If{$\ell=0$}
+    \State $E\gets$ base edges of $i$
+  \Else
+    \State $E\gets$ edges of $i$ owned by level $\ell$
+  \EndIf
+  \For{$(i,j)\in E$}
+    \If{the edge owner is authorized and $j$ is unseen at level $\ell$}
+      \State insert $(j,\mathrm{dist}(q,x_j),\ell)$ into the bounded queue
+    \EndIf
+  \EndFor
+\EndWhile
+\State filter queue results by $Q$ and return the closest $K$
+\end{algorithmic}
+\end{algorithm}
+
+There is no edge fallthrough, implicit promotion, or mixed-level expansion.
+This provides a clean attribution of work to a layer.  It does not imply that
+adding a layer is free: additional seeds can displace lower-layer candidates in
+the shared bounded queue.
+
+\section{Calibration-Free Hierarchy Selection}
+\subsection{Degree-Ratio Hierarchy}
+DRH uses only values already required by index construction: $N$, maximum
+within-layer degree $R$, and cross-block edge budget $C$.  We approximate the
+cost of a first scale $T$ by
+\begin{equation}
+  \Phi(T)=T+\frac{N}{T},
+\end{equation}
+whose continuous minimizer is $\sqrt{N}$.  To stabilize discrete index layouts,
+we round to the nearest power of two:
+\begin{equation}
+  T_1=2^{\left\lfloor \log_2\sqrt{N}+\frac{1}{2}\right\rfloor}.
+\end{equation}
+Successive thresholds use the existing degree ratio
+\begin{equation}
+  \rho=\max\left(2,\mathrm{round}\left(\frac{R}{C}\right)\right),
+  \qquad T_{\ell+1}=\rho T_\ell.
+\end{equation}
+A scale is materialized while $N/T_\ell\ge C$.  Thus the depth is derived, not
+configured separately.  The predeclared topology rule is LNG while the
+estimated number of blocks exceeds one full local neighborhood and Trie near
+the top:
+\begin{equation}
+  \tau_\ell=\begin{cases}
+    \mathrm{LNG}, & N/T_\ell>R,\\
+    \mathrm{Trie}, & \text{otherwise.}
+  \end{cases}
+\end{equation}
+For the authoritative Amazon setup, $N=602{,}453$, $R=64$, and $C=4$, so DRH
+selects $1024{:}\mathrm{LNG},16384{:}\mathrm{Trie}$ before examining query
+performance.
+
+\begin{algorithm}[t]
+\caption{Degree-Ratio Hierarchy (DRH)}
+\label{alg:drh}
+\begin{algorithmic}[1]
+\Require $N$, local degree $R$, cross-block degree $C$
+\State $T\gets$ nearest power of two to $\sqrt{N}$
+\State $\rho\gets\max(2,\mathrm{round}(R/C))$
+\While{$N/T\ge C$}
+  \State $\tau\gets\mathrm{LNG}$ if $N/T>R$, else $\mathrm{Trie}$
+  \State append $(T,\tau)$ to the hierarchy plan
+  \State $T\gets\rho T$
+\EndWhile
+\State \Return hierarchy plan
+\end{algorithmic}
+\end{algorithm}
+
+DRH is intentionally not trained on query selectivity.  Its evaluation must
+therefore separate the development dataset from held-out datasets and compare
+it with both the best per-workload method and the best single manual
+configuration used unchanged across workloads.
+
+\section{GPU-Assisted Construction}
+\subsection{Irregular Construction Workload}
+Index construction contains two different irregular workloads.  Intra-group
+construction operates on many groups with a long-tailed size distribution.
+Cross-group construction performs many $(n_q,n_x,d)\rightarrow\mathrm{topK}$
+tasks induced by topology edges.  Launching a general GPU library once per
+group or group pair repeats packing, transfer, launch, and writeback overhead.
+
+\subsection{Intra-Group Graphs}
+The accelerated backend routes very small groups to bounded complete graphs,
+medium groups to packed exact-anchor batches, and large groups to GPU
+GNN-Descent candidate generation.  The latter uses a fixed-budget local
+RNG-style pruning pass, optional sampled reverse-tail candidates, and degree
+repair.  Routing is static by group size; it does not inspect downstream Recall.
+GPU output is compacted before device-to-host transfer, but the current system
+still materializes CPU-compatible adjacency lists.  We report that conversion
+as an output-boundary cost rather than kernel work.
+
+\subsection{Grouped Fused Cross-Block Top-$k$}
+For every topology edge, source vectors need nearest target vectors.  The GPU
+path groups descriptors across irregular tasks, keeps base vectors resident
+when capacity permits, addresses queries by global vector identifier, fuses
+distance and top-$k$ selection, and writes identifiers only when distances are
+not consumed downstream.  Large workloads use bounded streaming rather than
+assuming that the full vector array fits device memory.  CPU fallback remains
+explicit and is recorded in build logs.
+
+The hierarchy uses the same construction backend for layer-local and
+inter-block edges.  Because the hierarchy is an independent sidecar, its total
+build time satisfies
+\begin{equation}
+  T_{\mathrm{multilevel}}=T_{\mathrm{base}}+T_{\mathrm{sidecar}}.
+\end{equation}
+We therefore compare total multilevel build against the original CPU build,
+and report sidecar overhead against the same accelerated base separately.
+
+\section{Complexity Analysis}
+Let $G$ be the number of exact groups, $B_\ell$ the number of blocks at layer
+$\ell$, $M_\ell$ the number of direct member points represented at that layer,
+$E_\ell$ its block-topology edges, and $D_\ell$ the number of materialized
+vector edges.  Building the label trie costs $O(\sum_g |S_g|)$ time and space.
+Each independent partition is linear in the trie plus emitted membership, so
+all partitions cost
+\begin{equation}
+  O\left(L|\mathcal{T}|+\sum_{\ell=1}^{L}G_\ell\right).
+\end{equation}
+The stored hierarchy costs $O(\sum_\ell(B_\ell+G_\ell+D_\ell))$ excluding the
+base index.  Trie topology uses at most one nearest-terminal parent per
+non-root terminal, whereas explicit LNG construction can require pairwise
+containment checks in the worst case.  Actual LNG edge count is reported.
+
+For one query, exact block authorization by direct comparison is
+$O(\sum_b |R_b|)$; indexed Trie search can reduce the examined frontier, but we
+report measured authorization time rather than assuming a distribution.
+Bounded graph search stores $O(L_{search})$ candidates.  Its dominant time is
+\begin{equation}
+  O\left(D_q d + I_q\log L_{search}\right),
+\end{equation}
+where $D_q$ is the measured number of distance computations and $I_q$ is the
+number of successful queue insertions.  Since multiple authorized layers share
+the queue, neither quantity is guaranteed to decrease with depth.
+
+\section{Experimental Methodology}
+\subsection{Questions}
+We ask: (Q1) When do zero-, one-, and two-layer indexes improve QPS at equal
+Recall? (Q2) Which effects come from topology, entry discovery, and hierarchy?
+(Q3) How close is DRH to manual tuning on development and held-out datasets?
+(Q4) Can GPU assistance keep total multilevel construction competitive with the
+original CPU pipeline? (Q5) Which phase and work counters explain each result?
+
+\subsection{Datasets and Workloads}
+The development dataset is Amazon with $602{,}453$ vectors of dimension 768 and
+$482{,}387$ observed label groups.  Each workload contains 1,000 queries, uses
+$K=10$, and has exact containment ground truth.  The measured mean
+selectivities are 0.499249\%, 0.903055\%, 5.038117\%, 9.906615\%, 30.027242\%,
+60.047491\%, 80.023699\%, 95.019781\%, and 99.000600\%.  Genome, Reviews, and
+VariousImg are held out for the automatic-policy study; their exact workload
+directories and fingerprints are recorded in the artifact manifest.
+The 99\% Amazon workload contains 697 empty predicates and 303 singleton
+predicates $\{1\}$.  We retain this mixture because both are legal containment
+queries, and validate the empty-predicate path separately before timing.
+
+\subsection{Methods and Fairness}
+The zero-layer principal comparison is LNG topology with optimized-LNG entry
+discovery versus Trie topology with Trie entry discovery.  The factorial
+ablation independently varies zero/one/two layers, thresholds, LNG/Trie at each
+layer, and the three legal entry strategies: original LNG, optimized LNG, and
+Trie.  Routed controls are outside the factorial because routing changes which
+search algorithm executes.
+
+All query methods use the same data, query vectors, labels, exact ground truth,
+$K$, thread count, immutable search binary, graph backend, and Recall protocol.
+We select the smallest \emph{measured} $L_{search}$ for which every warm repeat
+reaches Recall@10 $\ge0.90$; there is no interpolation or extrapolation.  The
+screen pass locates crossings, a bounded crossing pass refines them, a formal
+pass uses one discarded cold repeat and 15 warm repeats, and a separate profile
+pass collects expensive counters.
+
+\subsection{Metrics}
+Primary query metrics are warm-median batch latency and QPS with bootstrap 95\%
+confidence intervals.  We additionally report entry-group search, entry-point
+setup, block authorization, graph search, residual time, visited nodes, scanned
+base/special edges, and distance computations.  Build results use process wall
+time through validated files on disk, one cold build followed by at least five
+measured builds, interleaved CPU/GPU order, peak host/device memory in a separate
+pass, index bytes, and paired bootstrap intervals.  GPU kernel timings are
+never substituted for end-to-end build time.
+
+\section{Results}
+\input{generated_results}
+
+\section{Discussion}
+\subsection{Why More Layers Are Not Monotone}
+Level isolation prevents an upper candidate from scanning lower-level edges,
+but does not make an extra layer cost-free.  Authorized block seeds enter the
+same bounded queue as base or finer-layer seeds.  They consume distance
+computations and can displace candidates before useful regions are expanded.
+The upper-authorization router removes this overhead only for queries that
+authorize no upper block; it cannot predict whether an authorized overlay will
+be profitable.
+
+\subsection{Trie Topology Is a Sparsifier, Not an LNG Alias}
+Canonical prefix adjacency is cheaper and can be highly effective when query
+entries align with its branches.  It omits non-prefix subset relations,
+however, so large $L_{search}$ cannot recover vectors in unreachable graph
+regions.  We therefore report no-crossing outcomes explicitly and pair Recall
+with visited-node and scanned-edge counts.
+
+\subsection{Limitations}
+DRH's first version uses a symmetric static cost proxy and existing degree
+budgets; it does not yet use a learned cost model or query frequencies.  The
+held-out study is required to distinguish genuine structural generalization
+from an Amazon-specific coincidence.  The GPU pipeline retains a host
+adjacency materialization boundary, and full device-resident construction is
+future work.  Finally, the current evaluation covers containment predicates;
+other predicate semantics require a new authorization proof.
+
+\section{Related Work}
+Graph-based ANN systems such as HNSW~\cite{malkov2020hnsw} and
+DiskANN~\cite{subramanya2019diskann} use navigable proximity graphs to obtain
+high-recall search with bounded expansion.  Filtered-DiskANN~\cite{gollapudi2023filtereddiskann}
+and ACORN~\cite{patel2024acorn} integrate metadata constraints through
+filter-aware construction or predicate-agnostic graph expansion.  UNG instead represents exact label sets as
+groups and encodes containment navigation explicitly.  Our contribution is
+orthogonal: we expose multiple independently authorized group-graph scales,
+separate topology from entry discovery, and address the irregular construction
+workload with a hybrid GPU backend.
+
+GPU graph construction and brute-force top-$k$ libraries provide strong dense
+primitives, but per-group invocation can be dominated by packing and launch
+overhead.  Our grouped execution strategy follows the general principle of
+amortizing irregular workloads while preserving the filtered graph's output
+semantics and measuring quality end to end.
+
+\section{Conclusion}
+\system turns a fixed filtered navigation graph into an explicit composition
+of independent hierarchy, topology, entry, and routing modules.  Exact
+authorization and level-isolated edges make the semantics auditable, while DRH
+removes separate depth and threshold tuning knobs.  The accompanying protocol
+evaluates only measured Recall crossings and separates kernel, sidecar, and
+end-to-end construction costs.  \pending{Replace this sentence with the final
+cross-dataset conclusions after all formal and build campaigns pass validation.}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+
+\end{document}

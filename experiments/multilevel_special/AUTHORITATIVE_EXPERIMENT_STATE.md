@@ -1,0 +1,101 @@
+# 权威多层消融实验状态
+
+本文档用于维护 `fcb74ad` 之后的实验协议、问题状态、假设和证据。只有本轮固定
+binary、固定数据 provenance、完整 manifest 产生的结果可以进入最终主表。
+
+## 当前状态
+
+目标指标：在相同 Recall 门槛下比较 batch wall-time/QPS，并独立解释 entry-group、
+entry-point setup、block authorization、graph search 以及点/边/距离计算工作量。
+
+当前主要问题：修复后 Amazon broad screen 尚未覆盖全部 44 个方法；完成后还需要
+bounded crossing、正式重复和独立 profile。修复前 campaign 使用的 Trie entry
+错误地把空标签集解释为“无结果”，其 99% 结果只保留作缺陷诊断。详细计数会给主
+吞吐测量增加分支和计数开销，因此不能把 profile wall time 混入主 QPS。
+
+当前最佳方法：每个结构使用同一个不可变 search binary；先做轻量 performance
+pass，再对选中的 Recall crossing 做独立 profile pass。主结论使用 performance
+pass 的 wall time，profile pass 只用于机制解释。
+
+## 公平性协议
+
+- 数据、query、GT、K、线程数、entry-point 数、graph backend 和 Recall 判定规则
+  在同一对比中保持一致。
+- 零层 LNG：base topology=`lng`，entry strategy=`optimized_lng`。
+- 零层 Trie：base topology=`trie`，entry strategy=`trie`。
+- topology 消融按完整方法比较，也追加 crossed combinations 以分离 topology 与
+  entry strategy 的贡献。
+- 每个方法先用 coarse/fine Lsearch 找到满足 Recall 的最小实测 crossing；正式
+  结果不得用插值代替实测点。
+- warm-up 与 measured repeats 分离；正式结果至少 1 次 cold + 9 次 measured，
+  关键点采用 1 + 15 次，并报告 median、CV、p95 与 bootstrap 95% CI。
+- 主 QPS pass 设置轻量统计；profile pass 开启详细计数和 timing，不把 profile
+  pass 的 wall time 混入主 QPS。
+- 12 小时门槛按 manifest 中成功完成的 build/search 子进程 active seconds 求和，
+  不计等待、排队或人为 sleep。
+- 原始 CSV、命令、环境、binary hash、index meta/hash、主机与 GPU 快照全部保留。
+
+## Issue Ledger
+
+| ID | 类型 | 状态 | 描述 | 判定/下一步 |
+|---|---|---|---|---|
+| M1 | measurement | RESOLVED | 旧 runner 使用五种历史 provider 名且限制两层 | 已迁移到 original/optimized_lng/trie 与任意 hierarchy plan；103 个 Python tests 通过 |
+| M2 | measurement | RESOLVED | detail counters 会污染主吞吐 | 已分离 performance/profile pass，并在 manifest 标注用途 |
+| M3 | measurement | ACTIVE | 旧 QF-SSL 数据与新 binary/语义不一致 | 所有主表继续只采用 `fcb74ad` 后重测结果 |
+| M4 | correctness | RESOLVED | Trie entry 将合法空 containment 谓词返回为空，污染含空谓词的 99% workload | build/load 时预计算 root terminal frontier；C++ 15/15、Python 103/103，真实空谓词 `L=N` Recall@10=1.0；修复前 campaign 标记无效并以新 hash 重跑 |
+| M5 | measurement | RESOLVED | 通用汇总器的 `recall_min` 曾包含 cold repeat，与 crossing 协议不一致 | `recall`/`recall_min`/`recall_max` 和 warm timing 统一按声明的 `cold_repeats` 切分；增加冷启动 Recall 不影响 crossing 的回归测试 |
+| M6 | measurement | RESOLVED | 旧辅助汇总在多个达标点中按最快时间选点，可能受噪声影响而偏离 crossing 定义 | 改为每个方法选择所有 warm repeat 达标的最小实测 `Lsearch`；禁止插值或按延迟回选更大 L |
+| M7 | measurement | RESOLVED | formal performance 与 profile 共享 output root 时，旧汇总路径可能互相覆盖 | `pass_subdirs` 配置下将汇总隔离到 `summary/performance` 与 `summary/profile` |
+| M8 | output schema | CONTAINED | 当前 snapshot 的 `search_time_summary.csv` 数据行含 `AverageNodesVisited`，但表头漏写该列，导致后续工作量列错位 | 主 Recall/latency 前四列不受影响；论文工作量只读取列宽正确的 `search_work_details.csv`。源码表头已修复，但为保持 screen/crossing/formal binary hash 一致，在本轮 campaign 完成前不重编译 |
+| M9 | reporting | RESOLVED | `results.md` 曾使用 mean-Recall crossing，而严格协议要求所有 warm repeat 均达标 | Markdown 主表改用 conservative crossing，同时显示 warm mean、warm min 和 `min-target` margin；CSV 仍同时保留 mean 与 conservative 版本 |
+| H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
+| H2 | hypothesis | UNKNOWN | Trie 与 LNG topology 的优劣由标签包含结构而非选择率单独决定 | 固定其他维度，比较 topology 与 crossed entry combinations |
+| H3 | hypothesis | UNKNOWN | query-free DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology | 三个 held-out 数据集上与查询前冻结的 36-case 人工网格 oracle 比较 |
+
+## 实验阶段
+
+| 阶段 | 目的 | 完成条件 | 状态 |
+|---|---|---|---|
+| E0 | runner 与统计 smoke | provenance、Recall、stage closure、work counters 全通过 | 完成 |
+| E1 | Amazon broad screen | 九档、零/一/多层、Trie/LNG、coarse L 完整 | 进行中 |
+| E2 | Amazon crossing/formal | 每方法每档最小实测 crossing，正式重复完成 | 未开始 |
+| E3 | 多数据集验证 | Reviews/Genome/VariousImg 至少各一个低档和一个较高档或可用代表档 | 配置和预检完成，待运行 |
+| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | DRH-v1 与 oracle 协议冻结，待结果 |
+| E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | 未开始 |
+
+## 已知数据
+
+- Amazon：602,453 points，九档实测平均选择率约 0.499%、0.903%、5.038%、
+  9.907%、30.027%、60.047%、80.024%、95.020%、99.001%，每档 1,000 queries。
+- Genome：108,077 points，DRH-v1=`256:lng,4096:trie`，3.365% 和 6.292%。
+- Reviews：288,065 points，DRH-v1=`512:lng,8192:trie`，0.200% 和 4.115%。
+- VariousImg：758,935 points，DRH-v1=`1024:lng,16384:trie`，10.252%。
+- 三个 held-out 数据集均固定 36 个 hierarchy case 和 38 个查询方法；该网格在读取
+  held-out Recall/latency 前生成，自动方案不读取 query distribution。
+- 机器：2 x Intel Xeon Platinum 8360Y，144 logical CPUs；NVIDIA L20 46,068 MiB。
+
+## 修复前仅作诊断的 screen 观测
+
+以下数字来自修复前 binary，只能说明候选结构和运行成本，不能进入最终主表或与
+修复后结果组成同一公平比较。尤其是所有 `entry_strategy=trie` 且 workload 含空
+谓词的结果无效。
+
+- 固定 binary SHA256：
+  `3ae4fe9afe7bea7dd7ee382e86c5de6dd77abc5a31e5e569c1126fe8cc63ce4a`。
+- DRH-v1 `1024:lng,16384:trie` 在 60%、80%、95%、99% 的最小已测
+  Recall@10>=0.90 点分别为 `L=5000/5000/2500/2500`；对应 warm batch 中位数
+  约为 `17.390/22.087/25.102/59.646 s`。这些是 3-repeat screen 数据，不替代
+  后续正式重复。
+- 同一无 router 结构在 0.5%、1%、5%、10%、30% 当前网格上的最大 Recall 分别为
+  `0.8878/0.8567/0.8928/0.8492/0.8393`，因此尚不能在 Recall=0.90 下比较速度。
+  这反驳了“增加层后低选择率天然不变”的强假设，但不能预判结构授权 router 的结果。
+- LNG-zero 的 Recall=0.90 screen crossing 在 60%、80%、95%、99% 的 warm batch
+  中位数约为 `246.812/551.695/672.675/1272.810 s`；相对该 screen baseline，
+  DRH-v1 暂时对应 `14.19x/24.98x/26.80x/21.34x`。最终结论必须使用 formal pass
+  和 bootstrap 区间。
+
+## 下一最小实验
+
+以修复后内容寻址 binary 完整重跑 Amazon 44-method screen，优先取得两个
+query-independent routed controls；随后生成 bounded crossing 配置，并只对合格
+crossing 做正式重复和独立 profile。

@@ -440,7 +440,7 @@ int main(int argc, char **argv)
                   << "Average_GraphSearchTime_ms,Average_OtherTime_ms,"
                   << "Average_RegularEdgesScanned,Average_FreeEdgesScanned,"
                   << "Average_SpecialIntraEdgesScanned,Average_SpecialInterEdgesScanned,"
-                  << "Average_TotalEdgesScanned,Average_TotalDistanceCalcs,"
+                  << "Average_TotalEdgesScanned,Average_NodesVisited,Average_TotalDistanceCalcs,"
                   << "Average_EntryPointDistanceCalcs,Average_GraphSearchDistanceCalcs\n";
       for (size_t LsearchId = 0; LsearchId < Lsearch_list.size(); ++LsearchId)
       {
@@ -727,7 +727,7 @@ int main(int argc, char **argv)
                   << "Average_ResidualTime_ms,"
                   << "Average_RegularEdgesScanned,Average_FreeEdgesScanned,"
                   << "Average_SpecialIntraEdgesScanned,Average_SpecialInterEdgesScanned,"
-                  << "Average_TotalEdgesScanned,Average_TotalDistanceCalcs,"
+                  << "Average_TotalEdgesScanned,Average_NodesVisited,Average_TotalDistanceCalcs,"
                   << "Average_EntryPointDistanceCalcs,Average_GraphSearchDistanceCalcs\n";
       for (size_t LsearchId = 0; LsearchId < Lsearch_list.size(); ++LsearchId)
       {
@@ -758,6 +758,7 @@ int main(int argc, char **argv)
             double free_edges = 0.0;
             double special_intra_edges = 0.0;
             double special_inter_edges = 0.0;
+            double nodes_visited = 0.0;
             double total_distance_calcs = 0.0;
             double entry_point_distance_calcs = 0.0;
             double graph_search_distance_calcs = 0.0;
@@ -776,6 +777,7 @@ int main(int argc, char **argv)
                   free_edges += stats.free_edges_scanned;
                   special_intra_edges += stats.special_intra_edges_scanned;
                   special_inter_edges += stats.special_inter_edges_scanned;
+                  nodes_visited += stats.num_nodes_visited;
                   total_distance_calcs += stats.num_distance_calcs;
                   entry_point_distance_calcs += query_entry_point_distance_calcs(stats);
                   graph_search_distance_calcs += query_graph_search_distance_calcs(stats);
@@ -794,6 +796,7 @@ int main(int argc, char **argv)
                         << special_intra_edges / divisor << ","
                         << special_inter_edges / divisor << ","
                         << (regular_edges + free_edges) / divisor << ","
+                        << nodes_visited / divisor << ","
                         << total_distance_calcs / divisor << ","
                         << entry_point_distance_calcs / divisor << ","
                         << graph_search_distance_calcs / divisor << "\n";
@@ -846,6 +849,67 @@ int main(int argc, char **argv)
          }
       }
       stage_out.close();
+
+      // Keep work counters per repeat so mechanism analysis can report
+      // medians and dispersion without parsing the much larger per-query CSV.
+      std::ofstream work_out(result_path_prefix + "search_work_details.csv");
+      work_out << "Repeat,Lsearch,AverageNodesVisited,"
+               << "AverageRegularNodesExpanded,AverageSpecialNodesExpanded,"
+               << "AverageRegularEdgesScanned,AverageSpecialEdgesScanned,"
+               << "AverageSpecialIntraEdgesScanned,AverageSpecialInterEdgesScanned,"
+               << "AverageTotalEdgesScanned,AverageTotalDistanceCalcs,"
+               << "AverageEntryPointDistanceCalcs,AverageGraphSearchDistanceCalcs,"
+               << "AverageNumEntries,AverageEntryGroupMatchedPoints\n";
+      for (int repeat = 0; repeat < num_repeats; ++repeat)
+      {
+         for (size_t LsearchId = 0; LsearchId < Lsearch_list.size(); ++LsearchId)
+         {
+            double nodes = 0.0;
+            double regular_nodes = 0.0;
+            double special_nodes = 0.0;
+            double regular_edges = 0.0;
+            double special_edges = 0.0;
+            double intra_edges = 0.0;
+            double inter_edges = 0.0;
+            double distance_calcs = 0.0;
+            double entry_distance_calcs = 0.0;
+            double graph_distance_calcs = 0.0;
+            double entries = 0.0;
+            double matched_points = 0.0;
+            for (ANNS::IdxType query_id = 0; query_id < num_queries; ++query_id)
+            {
+               const auto &stats = query_stats[repeat][LsearchId][query_id];
+               nodes += stats.num_nodes_visited;
+               regular_nodes += stats.special_regular_nodes_expanded;
+               special_nodes += stats.special_free_nodes_expanded;
+               regular_edges += stats.regular_edges_scanned;
+               special_edges += stats.free_edges_scanned;
+               intra_edges += stats.special_intra_edges_scanned;
+               inter_edges += stats.special_inter_edges_scanned;
+               distance_calcs += stats.num_distance_calcs;
+               entry_distance_calcs += query_entry_point_distance_calcs(stats);
+               graph_distance_calcs += query_graph_search_distance_calcs(stats);
+               entries += stats.num_entry_points;
+               matched_points += stats.entry_group_matched_points;
+            }
+            const double divisor = num_queries > 0 ? static_cast<double>(num_queries) : 1.0;
+            work_out << repeat << "," << Lsearch_list[LsearchId] << ","
+                     << nodes / divisor << ","
+                     << regular_nodes / divisor << ","
+                     << special_nodes / divisor << ","
+                     << regular_edges / divisor << ","
+                     << special_edges / divisor << ","
+                     << intra_edges / divisor << ","
+                     << inter_edges / divisor << ","
+                     << (regular_edges + special_edges) / divisor << ","
+                     << distance_calcs / divisor << ","
+                     << entry_distance_calcs / divisor << ","
+                     << graph_distance_calcs / divisor << ","
+                     << entries / divisor << ","
+                     << matched_points / divisor << "\n";
+         }
+      }
+      work_out.close();
    }
    else
    {
@@ -854,7 +918,7 @@ int main(int argc, char **argv)
 
    // save query details
    std::ofstream detail_out(result_path_prefix + "query_details_repeat" + std::to_string(num_repeats) + ".csv");
-   detail_out << "Lsearch,QueryID,Time_ms,EntryGroupSearchTime_ms,EntryPointSetupTime_ms,"
+   detail_out << "Repeat,Lsearch,QueryID,Time_ms,EntryGroupSearchTime_ms,EntryPointSetupTime_ms,"
               << "BlockAuthorizationTime_ms,GraphSearchTime_ms,ResidualTime_ms,"
               << "RegularEdgesScanned,FreeEdgesScanned,"
               << "TotalEdgesScanned,TotalDistanceCalcs,EntryPointDistanceCalcs,"
@@ -911,7 +975,8 @@ int main(int argc, char **argv)
                                                : 0.0;
             const size_t graph_search_distance_calcs =
                 query_graph_search_distance_calcs(stats);
-            detail_out << Lsearch_list[LsearchId] << ","
+            detail_out << repeat << ","
+                       << Lsearch_list[LsearchId] << ","
                        << i << ","
                        << stats.time_ms << ","
                        << stats.get_min_super_sets_time_ms << ","

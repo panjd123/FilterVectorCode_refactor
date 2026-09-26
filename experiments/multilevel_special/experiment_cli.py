@@ -16,9 +16,14 @@ HERE = Path(__file__).resolve().parent
 
 
 def print_matrix(config: dict) -> None:
-    fields = ["method", "main_graph", "entry_group_provider", "entry_structure",
-              "coverage_structure", "special_overlay", "layer_count",
-              "block_partition", "t1", "t2"]
+    if experiment_core.uses_orthogonal_method_schema(config):
+        fields = ["method", "main_index", "base_topology", "entry_strategy",
+                  "hierarchy_plan", "layer_count", "layer_topologies",
+                  "special_search", "measurement_pass"]
+    else:
+        fields = ["method", "main_graph", "entry_group_provider", "entry_structure",
+                  "coverage_structure", "special_overlay", "layer_count",
+                  "block_partition", "t1", "t2"]
     print("| " + " | ".join(fields) + " |")
     print("|" + "|".join("---" for _ in fields) + "|")
     for method in config["methods"]:
@@ -28,6 +33,13 @@ def print_matrix(config: dict) -> None:
 
 def delegate(script: str, args: list[str]) -> int:
     return subprocess.run([sys.executable, str(HERE / script), *args]).returncode
+
+
+def default_summary_path(config: dict) -> Path:
+    root = Path(config["output_root"]) / "summary"
+    if config.get("pass_subdirs", False):
+        root /= str(config.get("measurement_pass", "performance"))
+    return root / "results.csv"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -81,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
     rows = experiment_core.summarize_experiment(
         config, args.baseline, bootstrap_samples=args.bootstrap_samples,
         allow_partial=args.allow_partial)
-    output = args.output or Path(config["output_root"]) / "summary" / "results.csv"
+    output = args.output or default_summary_path(config)
     experiment_core.write_csv(output, rows)
     print(output)
     return 0

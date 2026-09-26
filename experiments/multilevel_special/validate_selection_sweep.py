@@ -44,6 +44,9 @@ def main() -> int:
     config = experiment_core.load_config(args.config)
     protocol = experiment_core.protocol_for(config)
     root = Path(config["output_root"])
+    pass_name = str(config.get("measurement_pass", "performance"))
+    if config.get("pass_subdirs", False):
+        root /= pass_name
     expected_repeats = int(config["num_repeats"])
     problems: list[str] = []
     expected_case_keys = {
@@ -74,7 +77,8 @@ def main() -> int:
                 "--num_threads": [str(int(config["num_threads"]))],
                 "--K": [str(int(config["K"]))],
                 "--num_repeats": [str(expected_repeats)],
-                "--entry_group_provider": [method["entry_group_provider"]],
+                "--entry_group_strategy": [str(method.get(
+                    "entry_strategy", method.get("entry_group_provider", "cpu_bruteforce_els")))],
                 "--Lsearch": [str(value) for value in
                               run_selection_sweep.lsearch_values_for(
                                   config, method, workload)],
@@ -86,9 +90,18 @@ def main() -> int:
             environment = json.loads(environment_path.read_text())
             if environment.get("UNG_DISABLE_ELS_REUSE") != "1":
                 problems.append(f"{name}: executed with ELS query-result reuse enabled")
-            if int(method.get("layer_count", 0)) > 0 and \
+            if len(experiment_core.hierarchy_layers(method)) > 0 and \
                     environment.get("UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE") != "1":
                 problems.append(f"{name}: Special search did not use root-label coverage")
+            if experiment_core.uses_orthogonal_method_schema(config):
+                if environment.get("UNG_BASE_GROUP_TOPOLOGY") != method["base_topology"]:
+                    problems.append(f"{name}: base topology environment mismatch")
+                if environment.get("UNG_HIERARCHY_LAYERS", "") != \
+                        experiment_core.encode_hierarchy_layers(method):
+                    problems.append(f"{name}: hierarchy environment mismatch")
+            expected_light = "0" if pass_name == "profile" else "1"
+            if environment.get("UNG_SPECIAL_LIGHT_STATS") != expected_light:
+                problems.append(f"{name}: statistics mode does not match {pass_name} pass")
             with summary_path.open(newline="") as stream:
                 summary = list(csv.DictReader(stream))
             with detail_path.open(newline="") as stream:
@@ -151,7 +164,7 @@ def main() -> int:
                                   default=float("inf"))
                 if max_closure > 1e-6:
                     problems.append(f"{name}: stage closure error {max_closure} ms/query")
-                if int(method.get("layer_count", 0)) == 0:
+                if len(experiment_core.hierarchy_layers(method)) == 0:
                     max_authorization = max(
                         (abs(float(row["AverageBlockAuthorization_ms"])) for row in stages),
                         default=float("inf"),
@@ -159,8 +172,25 @@ def main() -> int:
                     if max_authorization > 1e-9:
                         problems.append(
                             f"{name}: layer-0 authorization time is {max_authorization}")
+            if config.get("require_work_breakdown", False) or pass_name == "profile":
+                work_path = run_dir / "search_work_details.csv"
+                if not work_path.is_file():
+                    problems.append(f"{name}: missing work details")
+                else:
+                    with work_path.open(newline="") as stream:
+                        work = list(csv.DictReader(stream))
+                    work_counts = {
+                        value: sum(int(row["Lsearch"]) == value for row in work)
+                        for value in expected_l
+                    }
+                    bad_work_counts = {key: value for key, value in work_counts.items()
+                                       if value != expected_repeats}
+                    if bad_work_counts:
+                        problems.append(f"{name}: work repeat counts {bad_work_counts}")
 
-    manifest_path = root / "manifest.json"
+    manifest_path = Path(config["output_root"]) / (
+        f"manifest_{pass_name}.json" if config.get("pass_subdirs", False)
+        else "manifest.json")
     if not manifest_path.is_file():
         problems.append("missing manifest")
     else:
@@ -177,6 +207,29 @@ def main() -> int:
         binary_hashes = {row.get("search_binary_sha256") for row in current.values()}
         if len(binary_hashes) != 1 or None in binary_hashes:
             problems.append(f"search binary hash mismatch: {sorted(str(x) for x in binary_hashes)}")
+        elapsed_rows = [row for row in current.values()
+                        if row.get("status") == "complete"]
+        missing_elapsed = [key for key, row in current.items()
+                           if row.get("status") == "complete"
+                           and float(row.get("elapsed_seconds", 0)) <= 0]
+        if missing_elapsed:
+            problems.append(f"completed cases missing elapsed evidence: {missing_elapsed}")
+        exact_seconds = sum(float(row.get("elapsed_seconds", 0))
+                            for row in elapsed_rows
+                            if row.get("elapsed_source") == "monotonic_child_wall")
+        approximate_seconds = sum(float(row.get("elapsed_seconds", 0))
+                                  for row in elapsed_rows
+                                  if row.get("elapsed_source") ==
+                                  "artifact_mtime_approximation")
+        successful_seconds = exact_seconds + approximate_seconds
+        print("successful_child_wall_seconds="
+              f"{successful_seconds:.3f} exact={exact_seconds:.3f} "
+              f"recovered_approximate={approximate_seconds:.3f}")
+        required_seconds = float(config.get("minimum_successful_child_seconds", 0))
+        if successful_seconds < required_seconds:
+            problems.append(
+                "successful child wall-time budget not met: "
+                f"{successful_seconds:.3f} < {required_seconds:.3f} seconds")
         for key, row in current.items():
             method = next(item for item in config["methods"]
                           if item["name"] == key[0])
@@ -190,7 +243,10 @@ def main() -> int:
             provenance = row.get("provenance", {})
             if provenance.get("base_labels_sha256") != config.get("expected_base_labels_sha256"):
                 problems.append(f"{key}: base labels hash mismatch")
-            if provenance.get("main_index_labels_sha256") != config.get("expected_main_index_labels_sha256"):
+            expected_main_hash = method.get(
+                "expected_main_index_labels_sha256",
+                config.get("expected_main_index_labels_sha256"))
+            if expected_main_hash and provenance.get("main_index_labels_sha256") != expected_main_hash:
                 problems.append(f"{key}: main-index labels hash mismatch")
             if provenance.get("expected_source_fingerprint") != config.get("expected_source_fingerprint"):
                 problems.append(f"{key}: source fingerprint mismatch")
@@ -199,6 +255,8 @@ def main() -> int:
                     problems.append(f"{key}: ELS query-result reuse was not disabled")
                 if not row.get("require_stage_breakdown"):
                     problems.append(f"{key}: stage breakdown was not required by runner")
+            if row.get("measurement_pass", "performance") != pass_name:
+                problems.append(f"{key}: measurement pass mismatch")
             if "protocol" not in config:
                 continue
             if row.get("protocol_phase") != protocol.phase:

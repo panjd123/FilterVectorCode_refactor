@@ -90,6 +90,7 @@ void SpecialBlockTrieIndex::clear()
    group_terminal_nodes_.clear();
    terminal_ancestor_offsets_.clear();
    terminal_ancestor_groups_.clear();
+   root_entry_groups_.clear();
 }
 
 void SpecialBlockTrieIndex::build(
@@ -175,6 +176,7 @@ uint64_t SpecialBlockTrieIndex::memory_size_bytes() const
    bytes += group_terminal_nodes_.capacity() * sizeof(NodeId);
    bytes += terminal_ancestor_offsets_.capacity() * sizeof(uint64_t);
    bytes += terminal_ancestor_groups_.capacity() * sizeof(IdxType);
+   bytes += root_entry_groups_.capacity() * sizeof(IdxType);
    bytes += label_group_bitsets_.bucket_count() * sizeof(void *);
    for (const auto &posting : label_group_bitsets_)
       bytes += sizeof(posting) + posting.second.getSizeInBytes();
@@ -193,6 +195,7 @@ uint64_t SpecialBlockTrieIndex::logical_memory_size_bytes() const
    bytes += group_terminal_nodes_.size() * sizeof(NodeId);
    bytes += terminal_ancestor_offsets_.size() * sizeof(uint64_t);
    bytes += terminal_ancestor_groups_.size() * sizeof(IdxType);
+   bytes += root_entry_groups_.size() * sizeof(IdxType);
    bytes += label_group_bitsets_.size() * sizeof(decltype(label_group_bitsets_)::value_type);
    for (const auto &posting : label_group_bitsets_)
       bytes += posting.second.getSizeInBytes();
@@ -344,8 +347,72 @@ std::vector<IdxType> SpecialBlockTrieIndex::find_entry_groups(
    if (entry_block_ids != nullptr)
       entry_block_ids->clear();
    const std::vector<LabelType> &query = query_labels;
-   if (nodes_.empty() || query.empty())
+   if (nodes_.empty())
    {
+      local_stats.elapsed_ms = std::chrono::duration<double, std::milli>(
+                                   std::chrono::high_resolution_clock::now() - start)
+                                   .count();
+      if (stats != nullptr)
+         *stats = local_stats;
+      return entries;
+   }
+   if (query.empty())
+   {
+      entries = root_entry_groups_;
+      local_stats.pivot_postings = num_groups_;
+      local_stats.matching_pivots = num_groups_;
+      local_stats.terminal_candidates = entries.size();
+
+      // Block-aware callers also need the first block below each root entry.
+      // The production Trie entry provider does not request this path.
+      if (include_block_frontier && entry_block_ids != nullptr)
+      {
+         struct PendingNode
+         {
+            NodeId node_id = 0;
+            bool terminal_seen = false;
+         };
+         std::vector<PendingNode> queue;
+         queue.reserve(nodes_[0].child_count);
+         for (size_t offset = 0; offset < nodes_[0].child_count; ++offset)
+            queue.push_back(PendingNode{
+                child_ids_[static_cast<size_t>(nodes_[0].first_child) + offset], false});
+
+         size_t head = 0;
+         while (head < queue.size())
+         {
+            const PendingNode pending = queue[head++];
+            const SpecialBlockTrieNode &trie_node = nodes_[pending.node_id];
+            ++local_stats.downward_nodes_visited;
+            if (pending.terminal_seen && trie_node.block_id != 0)
+            {
+               ++local_stats.block_frontier_candidates;
+               entry_block_ids->push_back(trie_node.block_id);
+               continue;
+            }
+
+            const bool terminal_seen = pending.terminal_seen ||
+                                       trie_node.terminal_group_id != 0;
+            for (size_t child_offset = 0; child_offset < trie_node.child_count;
+                 ++child_offset)
+            {
+               const NodeId child =
+                   child_ids_[static_cast<size_t>(trie_node.first_child) + child_offset];
+               if (terminal_seen &&
+                   (subtree_has_block_.size() != nodes_.size() ||
+                    subtree_has_block_[child] == 0))
+               {
+                  ++local_stats.terminal_descendants_pruned;
+                  continue;
+               }
+               queue.push_back(PendingNode{child, terminal_seen});
+            }
+         }
+      }
+
+      local_stats.final_entries = entries.size();
+      local_stats.final_block_entries =
+          entry_block_ids == nullptr ? 0 : entry_block_ids->size();
       local_stats.elapsed_ms = std::chrono::duration<double, std::milli>(
                                    std::chrono::high_resolution_clock::now() - start)
                                    .count();
@@ -520,7 +587,7 @@ std::vector<IdxType> SpecialBlockTrieIndex::find_entry_groups_bitset(
 {
    const auto start = std::chrono::high_resolution_clock::now();
    SpecialBlockTrieSearchStats local;
-   if (nodes_.empty() || query_labels.empty())
+   if (nodes_.empty())
    {
       local.elapsed_ms = std::chrono::duration<double, std::milli>(
                              std::chrono::high_resolution_clock::now() - start)
@@ -528,6 +595,19 @@ std::vector<IdxType> SpecialBlockTrieIndex::find_entry_groups_bitset(
       if (stats != nullptr)
          *stats = local;
       return {};
+   }
+   if (query_labels.empty())
+   {
+      local.pivot_postings = num_groups_;
+      local.matching_pivots = num_groups_;
+      local.terminal_candidates = root_entry_groups_.size();
+      local.final_entries = root_entry_groups_.size();
+      local.elapsed_ms = std::chrono::duration<double, std::milli>(
+                             std::chrono::high_resolution_clock::now() - start)
+                             .count();
+      if (stats != nullptr)
+         *stats = local;
+      return root_entry_groups_;
    }
 
    // Intersect the smallest postings first.  This minimizes roaring work and
@@ -698,6 +778,8 @@ void SpecialBlockTrieIndex::rebuild_terminal_ancestor_cache()
    terminal_ancestor_offsets_.assign(static_cast<size_t>(num_groups_) + 2, 0);
    terminal_ancestor_groups_.clear();
    terminal_ancestor_groups_.reserve(num_groups_);
+   root_entry_groups_.clear();
+   root_entry_groups_.reserve(num_groups_);
    for (IdxType gid = 1; gid <= num_groups_; ++gid)
    {
       terminal_ancestor_offsets_[gid] = terminal_ancestor_groups_.size();
@@ -705,13 +787,19 @@ void SpecialBlockTrieIndex::rebuild_terminal_ancestor_cache()
           group_terminal_nodes_[gid] == kInvalidNodeId)
          continue;
       NodeId current = nodes_[group_terminal_nodes_[gid]].parent_id;
+      bool has_terminal_ancestor = false;
       while (current != 0)
       {
          const IdxType ancestor_gid = nodes_[current].terminal_group_id;
          if (ancestor_gid != 0)
+         {
             terminal_ancestor_groups_.push_back(ancestor_gid);
+            has_terminal_ancestor = true;
+         }
          current = nodes_[current].parent_id;
       }
+      if (!has_terminal_ancestor)
+         root_entry_groups_.push_back(gid);
    }
    terminal_ancestor_offsets_[num_groups_ + 1] = terminal_ancestor_groups_.size();
 }

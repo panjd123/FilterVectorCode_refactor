@@ -81,7 +81,8 @@ public:
    // Fast path for queries whose label->group bitsets have already been
    // materialized.  The returned groups are the minimal candidate terminals
    // on the trie branches (i.e. no returned group has a candidate terminal
-   // ancestor).
+   // ancestor).  An empty query is the universal containment predicate and
+   // returns the precomputed root terminal frontier.
    std::vector<IdxType> find_entry_groups_bitset(
        const std::vector<LabelType> &query_labels,
        SpecialBlockTrieSearchStats *stats = nullptr) const;
@@ -116,6 +117,10 @@ private:
    // avoids one allocation/indirection per group on the query hot path.
    std::vector<uint64_t> terminal_ancestor_offsets_;
    std::vector<IdxType> terminal_ancestor_groups_;
+   // Minimal terminal groups reachable from the trie root.  This makes the
+   // universal empty predicate proportional to its entry frontier rather than
+   // to the number of groups or trie nodes.
+   std::vector<IdxType> root_entry_groups_;
 };
 
 } // namespace ANNS

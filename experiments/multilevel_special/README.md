@@ -1,15 +1,16 @@
 # Multilevel Special Block experiments
 
-Use `experiment_cli.py` as the stable front door. The older `generate_*` and
-`summarize_*` scripts remain as reproducibility adapters for already published
-experiment families; new experiments should declare methods and protocol in one
-JSON config and reuse the shared core.
+Use `experiment_cli.py` as the stable front door. New experiments use the
+`orthogonal_v2` schema and declare three independent dimensions: the base and
+per-layer group topology, the hierarchy thresholds, and the entry-group
+strategy. The older `generate_*` and `summarize_*` scripts remain only as
+reproducibility adapters for historical experiment families.
 
 ```bash
 # Fail fast on method/protocol inconsistencies.
 python3 experiment_cli.py check config.json
 
-# Print orthogonal method semantics (main graph, entry provider, overlay).
+# Print orthogonal method semantics (base topology, layers, entry strategy).
 python3 experiment_cli.py matrix config.json
 
 # Execute or inspect commands without executing them.
@@ -50,10 +51,124 @@ samples and must not be described as paired.
 Both performance statistics and the configured Recall rule apply only to
 measured repeats; declared cold repeats are retained for audit but excluded.
 
-Methods must explicitly name `entry_group_provider`, `layer_count`, and
-`special_block_search`. Layered methods additionally require `block_index` and
-legal `t1`/`t2` values. Do not infer method semantics from names such as
-`plain`, `UNG`, or `Trie`: use `experiment_cli.py matrix` in reports and audits.
+An `orthogonal_v2` method must explicitly name `main_index`, `base_topology`,
+`entry_strategy`, `hierarchy_layers`, and `special_block_search`. Each hierarchy
+layer has a positive, strictly increasing `min_points` threshold and an
+independent `lng` or `trie` topology. The only legal entry strategies are
+`original`, `optimized_lng`, and `trie`. Do not infer semantics from names such
+as `plain`, `UNG`, or `Trie`; use `experiment_cli.py matrix` in reports and
+audits.
+
+The search invariant is per candidate state: a base candidate scans only base
+edges, and a candidate activated at materialized layer `i` scans only edges
+owned by layer `i`. There is no edge fallthrough or implicit promotion. All
+query-authorized layers are seeded independently into one bounded candidate
+queue, so this invariant does not imply that adding a layer is latency-neutral.
+
+## Authoritative Amazon campaign
+
+Build the two zero-layer base topologies and the declared hierarchy grid first.
+The campaign driver then runs a broad Recall screen, measured crossing
+refinement, a 1-cold plus 15-warm formal pass, and an independent instrumented
+profile pass. Every stage is resumable and validated before the next begins.
+
+```bash
+python3 run_base_topology_build.py config.authoritative_amazon_base_topologies.json
+python3 run_build_sweep.py config.authoritative_amazon_hierarchy_grid.json
+python3 run_authoritative_campaign.py
+```
+
+If a screen was intentionally launched with `--stop-after screen`, run
+`continue_after_screen.py` as a detached guard. It waits for that tmux session
+to exit, validates the complete screen, refuses to continue while any campaign
+process remains, and only then starts crossing through profile in a fresh
+session. This avoids injecting a command into a pane that disappears when its
+original non-interactive shell exits.
+
+Campaign config paths are explicit overrides on both the driver and watcher.
+Use `generate_authoritative_campaign.py --output-root ...` to start a clean
+evidence directory while reusing immutable base and hierarchy indexes; pass the
+matching `--screen-config`, `--crossing-config`, `--formal-config`, and
+`--profile-config` paths to continuation jobs. This prevents a corrected binary
+from silently resuming results captured by an older executable.
+
+The generated screen contains all six zero-layer combinations of two base
+topologies and three entry strategies. Each declared hierarchy plan is also
+crossed with all three entry strategies. Two additional, separately labelled
+controls apply the query-independent `require_upper_authorization` route to
+the DRH-v1 and mass-ladder plans; they are not counted as factorial cells.
+Performance runs set
+`UNG_SPECIAL_LIGHT_STATS=1`; profile runs set `UNG_SPECIAL_LIGHT_STATS=0` and
+`UNG_SPECIAL_PROFILE_TIMING=1`. Profile timing explains mechanism and is not
+mixed into the primary QPS table. With `pass_subdirs=true`, derived tables are
+also isolated under `summary/performance` and `summary/profile` so the profile
+pass cannot overwrite the primary performance summary.
+
+Crossing performs one declared measured refinement (or one bounded upper-grid
+extension). A method/workload that still has no all-repeat Recall crossing is
+excluded from formal timing and recorded with its maximum measured L and
+Recall; results are never interpolated or extrapolated. Selected zero-layer
+Trie high-selectivity guards reach `L=N`, allowing those cases to distinguish
+a genuinely exhausted full-search budget from an ordinary bounded screen.
+
+## Query-free held-out hierarchy study
+
+`generate_auto_policy_cross_dataset_configs.py` derives DRH-v1 only from
+`N`, `R`, and `C`, then freezes a 36-case one/two/three-layer manual grid before
+reading held-out query results. It emits build, screen, and policy files for
+Genome, Reviews, and VariousImg. Build commands can be preflighted without
+starting construction:
+
+```bash
+python3 generate_auto_policy_cross_dataset_configs.py
+python3 run_build_sweep.py config.authoritative_heldout_genome_build.json --dry-run
+python3 run_heldout_campaign.py
+```
+
+After the held-out screen/crossing/formal pipeline completes, compare DRH with
+the fastest predeclared manual hierarchy at each workload and with the best
+single hierarchy used across all workloads:
+
+```bash
+python3 summarize_heldout_oracle.py \
+  config.authoritative_heldout_genome_formal.json \
+  config.authoritative_heldout_reviews_formal.json \
+  config.authoritative_heldout_variousimg_formal.json \
+  --output-dir results_summary/heldout_oracle
+```
+
+The summarizer selects the smallest measured `Lsearch` whose every warm repeat
+meets the target, uses independent-sample bootstrap intervals for sequential
+method runs, and never interpolates a crossing.
+
+## Authoritative build campaign
+
+Run this only after the query campaign has frozen the automatic and manual
+structures. `AUTHORITATIVE_BUILD_PROTOCOL.md` defines the claim boundary and
+required quality checks. The generator creates separate unmonitored timing and
+monitored resource passes; backend variants are interleaved by repeat.
+Hierarchy cases consume measured repeat 0 from this campaign's
+`accelerated_gpu` base build rather than an unrelated pre-existing index.
+
+```bash
+python3 generate_authoritative_build_configs.py --repeats 5
+python3 run_authoritative_build_campaign.py --repeats 5
+```
+
+The base matrix compares `original_cpu`, `current_cpu`, the named GPU profiles,
+and the exact accelerated profile used to build the query baseline. The
+hierarchy matrix holds thresholds and topology fixed while changing only
+layer-local and inter-block construction backends. The runner rejects a GPU
+case if its persisted profile differs, a requested GPU stage is not observed,
+or a CPU fallback is observed. `process_resource_probe.py` samples process-tree
+RSS and per-process GPU memory only in the resource pass.
+
+After timing and resource measurement, the driver searches representative
+repeat-0 CPU/GPU outputs through `quality_screen`, `quality_crossing`, and
+`quality_formal`. These checks use the same Amazon query/GT and measured
+Recall-crossing rule as the main query study. `summarize_authoritative_build.py`
+reports component times and paired base-plus-hierarchy totals; it never
+substitutes a CUDA kernel timer for full process wall time.
 
 ## UNG versus plain provider study
 
