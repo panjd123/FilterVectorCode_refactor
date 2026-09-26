@@ -6,6 +6,7 @@ import unittest
 from analyze_auto_layer_policy import derive_mass_ladder, next_power_of_two, partition_row
 from derive_static_hierarchy import derive_plan
 from generate_auto_policy_cross_dataset_configs import declared_candidate_plans
+import gpu_isolation
 from summarize_heldout_oracle import first_crossings, geometric_mean
 
 
@@ -91,6 +92,12 @@ class DegreeRatioHeldoutProtocolTest(unittest.TestCase):
             for case in cases
         }
         self.assertEqual(len(signatures), len(cases))
+
+    def test_heldout_builds_declare_gpu_isolation_policy(self):
+        # Full config generation needs dataset files; the policy itself must
+        # remain query-independent and common to all held-out datasets.
+        self.assertNotIn("query", gpu_isolation.DEFAULT_POLICY)
+        self.assertEqual(gpu_isolation.DEFAULT_POLICY["device"], 0)
 
     def test_first_crossing_uses_smallest_l_and_all_repeat_recall(self):
         rows = [

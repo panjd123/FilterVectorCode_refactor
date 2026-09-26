@@ -231,13 +231,21 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
+    selected = set(args.case)
+    selected_cases = [
+        case for case in config["cases"]
+        if not selected or case["name"] in selected
+    ]
+    if not args.dry_run and any(
+            gpu_isolation.profile_uses_gpu(case) for case in selected_cases):
+        device = int(gpu_isolation.policy_for(config)["device"])
+        gpu_isolation.reexec_under_perf_lock(device)
     output_root = Path(config["output_root"])
     output_root.mkdir(parents=True, exist_ok=True)
     lock = acquire_lock(output_root)
     provenance = validate_inputs(config)
     executable, binary_hash = snapshot_binary(Path(config["build_app"]), output_root)
     provenance["build_binary_sha256"] = binary_hash
-    selected = set(args.case)
     manifest = output_root / "manifest.json"
 
     for case in config["cases"]:

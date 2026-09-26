@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import experiment_core
+import gpu_isolation
 from derive_static_hierarchy import derive_plan
 
 
@@ -205,6 +206,7 @@ def make_dataset_configs(
         "num_cross_edges": cross_edges,
         "Lbuild": 100,
         "alpha": 1.2,
+        "gpu_isolation": dict(gpu_isolation.DEFAULT_POLICY),
         "env": common_build_env(),
         "cases": cases,
     }
