@@ -125,6 +125,7 @@ def evaluate(
     rows = summarize_selection_sweep.read_rows(config)
     crossings = first_crossings(rows, config["recall_thresholds"])
     groups = method_groups(config, baseline)
+    methods_by_name = {method["name"]: method for method in config["methods"]}
     workloads = [item["name"] for item in sorted(
         config["workloads"], key=lambda item: float(item["mean_selectivity"]))]
     workload_meta = {item["name"]: item for item in config["workloads"]}
@@ -175,10 +176,21 @@ def evaluate(
         raise ValueError("plain baseline is not globally feasible")
     for category, methods in groups.items():
         selected = global_method(crossings, methods, workloads)
+        selected_method = methods_by_name[selected[0]] if selected else None
+        selected_layers = (experiment_core.hierarchy_layers(selected_method)
+                           if selected_method else [])
         global_rows.append({
             "dataset": config["dataset"], "category": category,
             "status": "complete" if selected else "no_global_crossing",
             "method": selected[0] if selected else "",
+            "hierarchy": (",".join(
+                f"{layer['min_points']}:{layer['topology']}"
+                for layer in selected_layers) or "none") if selected else "",
+            "entry_strategy": (selected_method.get(
+                "entry_strategy", selected_method.get("entry_group_provider", ""))
+                if selected_method else ""),
+            "routing_policy": (selected_method.get("routing_policy", "always_layered")
+                               if selected_method else ""),
             "geomean_qps": selected[1] if selected else "",
             "speedup_vs_plain": (selected[1] / plain_global[1] if selected else ""),
             "workload_count": len(workloads),
@@ -215,14 +227,17 @@ def write_markdown(path: Path, rows: list[dict[str, Any]], global_rows: list[dic
             f"{row['qps']:.3f} | {row['speedup_vs_plain']:.3f}x | "
             f"[{row['speedup_ci95_low']:.3f}, {row['speedup_ci95_high']:.3f}] |")
     lines.extend(["", "## One global configuration", "",
-                  "| Category | Method | Geomean QPS | vs plain |",
-                  "|---|---|---:|---:|"])
+                  "| Category | Method | Hierarchy | Entry | Routing | Geomean QPS | vs plain |",
+                  "|---|---|---|---|---|---:|---:|"])
     for row in global_rows:
         if row["status"] != "complete":
-            lines.append(f"| {row['category']} | no global crossing | NA | NA |")
+            lines.append(
+                f"| {row['category']} | no global crossing | NA | NA | NA | NA | NA |")
         else:
             lines.append(
-                f"| {row['category']} | {row['method']} | {row['geomean_qps']:.3f} | "
+                f"| {row['category']} | {row['method']} | {row['hierarchy']} | "
+                f"{row['entry_strategy']} | {row['routing_policy']} | "
+                f"{row['geomean_qps']:.3f} | "
                 f"{row['speedup_vs_plain']:.3f}x |")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
