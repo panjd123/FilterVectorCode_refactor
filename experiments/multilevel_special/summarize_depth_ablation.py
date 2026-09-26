@@ -151,10 +151,14 @@ def evaluate(
             if selected is not None:
                 selected_times = warm_times(
                     config, selected["method"], workload, int(selected["lsearch"]))
-                ci = experiment_core.bootstrap_median_ratio(
-                    plain_times, selected_times,
-                    seed=stable_seed(config["dataset"], workload, category),
-                    samples=bootstrap_samples, paired=False)
+                if (selected["method"] == plain["method"]
+                        and int(selected["lsearch"]) == int(plain["lsearch"])):
+                    ci = (1.0, 1.0)
+                else:
+                    ci = experiment_core.bootstrap_median_ratio(
+                        plain_times, selected_times,
+                        seed=stable_seed(config["dataset"], workload, category),
+                        samples=bootstrap_samples, paired=False)
                 record.update({
                     "method": selected["method"], "hierarchy": hierarchy(selected),
                     "entry_strategy": selected["entry_strategy"],
