@@ -1,9 +1,24 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
+import run_authoritative_campaign
 import summarize_depth_ablation as depth
 
 
 class DepthAblationTest(unittest.TestCase):
+    def test_campaign_summary_root_respects_measurement_pass(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            config = Path(temporary) / "config.json"
+            config.write_text(json.dumps({
+                "output_root": "/runs/formal", "pass_subdirs": True,
+                "measurement_pass": "performance",
+            }))
+            self.assertEqual(
+                run_authoritative_campaign.pass_summary_root(config),
+                Path("/runs/formal/summary/performance"))
+
     def test_crossing_oracles_use_minimum_l_then_fastest_method(self):
         rows = [
             {"method": "a", "workload": "w", "lsearch": 100,

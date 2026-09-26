@@ -25,6 +25,29 @@ def run(*args: str) -> None:
     subprocess.run(command, cwd=HERE, check=True)
 
 
+def pass_summary_root(config_path: Path) -> Path:
+    config = json.loads(config_path.read_text())
+    root = Path(config["output_root"]) / "summary"
+    if config.get("pass_subdirs", False):
+        root /= str(config.get("measurement_pass", "performance"))
+    return root
+
+
+def finalize_outputs(screen_config: Path, formal_config: Path) -> None:
+    """Generate final tables and figures only after all query phases pass."""
+    screen_summary = pass_summary_root(screen_config)
+    formal_summary = pass_summary_root(formal_config)
+    run(
+        "plot_authoritative_recall_qps.py", str(screen_config),
+        str(screen_summary / "all_points.csv"),
+        str(screen_summary / "figures"),
+    )
+    run(
+        "summarize_depth_ablation.py", str(formal_config),
+        "--output-dir", str(formal_summary / "depth_ablation"),
+    )
+
+
 def validate_hierarchy(hierarchy_config: Path) -> None:
     config = json.loads(hierarchy_config.read_text())
     manifest_path = Path(config["output_root"]) / "manifest.json"
@@ -116,6 +139,8 @@ def main() -> int:
         print(f"\n=== authoritative phase: {phase} ===", flush=True)
         execute_phase(phase, args.hierarchy_config, configs,
                       args.screen_output_root)
+    if args.stop_after == "profile":
+        finalize_outputs(args.screen_config, args.formal_config)
     return 0
 
 
