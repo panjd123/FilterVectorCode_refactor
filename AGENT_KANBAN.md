@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-26 19:56 Asia/Shanghai`
+最后更新：`2026-09-26 21:00 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`531691d`（push：`不执行，origin 指向用户工作树`）
+检查点：`193079b`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 - 总体：`进行中`
 - 摘要：新结构已在 `fcb74ad` 完成；Trie entry 对空 containment 谓词的历史错误
-  已修复，并通过 15/15 CTest、108/108 Python tests 和 Amazon 单查询端到端验证。实验框架已
+  已修复，并通过 15/15 CTest、113/113 Python tests 和 Amazon 单查询端到端验证。实验框架已
   迁移到 `orthogonal_v2`，明确分离 hierarchy、逐层 topology 和三种 entry
   strategy，并采用轻量 performance pass 与独立 profile pass。旧 QF-SSL 数据仅作
   候选假设，不能作为本轮结论。
@@ -28,6 +28,11 @@
   `search_work_details.csv`。
 - 修复后 screen 已完成 7/396 个 method-workload case：零层 LNG 的
   0.5%/1%/5%/10%/30%/60%/80%；当前在运行 95% 高 L 网格。
+- profile 证据现显式使用 `measurement_pass=profile` 和
+  `protocol.phase=profile`；两者不一致时配置校验直接失败。
+- screen 接续 watcher PID 为 `25189`；query 完成后串行启动
+  held-out 与 build 的 watcher PID 为 `46105`，目标 tmux 为
+  `fv_heldout_then_build_20260926`。
 
 ## 进行中
 
@@ -58,7 +63,7 @@
   输出为 `1024:lng,16384:trie`。
 - 查询/建图 runner 的 provenance、binary snapshot、resume elapsed ledger、GPU
   backend/fallback 校验和 build-quality 再搜索链已实现；汇总表显式记录完整阈值、
-  逐层 topology、entry strategy 与 routing policy；Python 实验测试 108/108 通过。
+  逐层 topology、entry strategy 与 routing policy；Python 实验测试 113/113 通过。
 - held-out 汇总器严格使用 warm-repeat Recall 最小值的首个实测 crossing，并输出
   DRH/plain、DRH/per-workload oracle 和 DRH/global-configuration oracle；顺序运行
   的方法采用独立样本 bootstrap。
@@ -75,9 +80,9 @@
 
 ## 下一步
 
-完成 Amazon screen/crossing/formal/profile，再运行 Reviews/Genome/VariousImg 留出
-验证，最后生成自动方案、人工 oracle、零/一/二层及逐阶段查询对比。本轮先闭合
-用户当前要求的查询证据；建图 timing/resource 不作为本轮完成门槛。
+完成 Amazon screen/crossing/formal/profile，再串行运行
+Reviews/Genome/VariousImg 留出验证和 GPU 建图 timing/resource/quality 矩阵，
+最后生成自动方案、人工 oracle、零/一/二层、逐阶段查询与建图对比。
 
 ## 阻塞与问题
 
@@ -89,7 +94,7 @@
 
 - `cmake --build build_ung_rel --clean-first -j16` — `通过`：`fcb74ad` 前最终构建。
 - `env LC_ALL=C LANG=C ctest --output-on-failure` — `通过`：15/15。
-- 新实验框架测试 — `通过`：Python unittest 108/108，`git diff --check` 通过。
+- 新实验框架测试 — `通过`：Python unittest 113/113，`git diff --check` 通过。
 - Trie 空谓词回归 — `通过`：root frontier 单元测试覆盖 build/load 两条路径；Amazon
   空谓词单查询 `L=N` 得到 Recall@10=1.0。
 - 12 小时有效 build/search 采集 — `进行中`；manifest 会分别标记单调时钟实测值
