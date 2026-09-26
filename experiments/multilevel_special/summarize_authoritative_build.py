@@ -56,6 +56,17 @@ def load_rows(config_path: Path, component: str) -> list[dict]:
             "index_bytes": directory_bytes(index_dir),
             "case_root": str(case_root),
         }
+        isolation_path = case_root / "gpu_isolation.json"
+        isolation = (json.loads(isolation_path.read_text())
+                     if isolation_path.is_file()
+                     else {"mode": "not_recorded", "gpu_required": False})
+        row.update({
+            "gpu_required": bool(isolation.get("gpu_required", False)),
+            "gpu_isolation_mode": str(isolation.get("mode", "not_recorded")),
+            "gpu_exclusive_lock": bool(isolation.get("exclusive_lock", False))
+            or isolation.get("mode") == "gpulock_perf",
+            "gpu_idle_samples": len(isolation.get("accepted_snapshots", [])),
+        })
         for key, value in timing.items():
             row[f"stage_{key}"] = value
         resource_path = case_root / "resource_usage.json"
@@ -84,6 +95,10 @@ def summarize(rows: list[dict]) -> list[dict]:
         internal = [row["internal_seconds"] for row in values]
         resource = resources.get(key, [])
         mean = statistics.mean(wall)
+        gpu_required = any(row.get("gpu_required", False) for row in values)
+        isolation_modes = sorted({
+            str(row.get("gpu_isolation_mode", "not_recorded")) for row in values
+        })
         result.append({
             "component": key[0],
             "structure": key[1],
@@ -101,6 +116,14 @@ def summarize(rows: list[dict]) -> list[dict]:
                 row["peak_rss_mib"] for row in resource) if resource else "",
             "peak_gpu_memory_mib": statistics.median(
                 row["peak_gpu_memory_mib"] for row in resource) if resource else "",
+            "gpu_required": gpu_required,
+            "gpu_isolation_mode": ",".join(isolation_modes),
+            "gpu_exclusive_lock": (
+                all(row.get("gpu_exclusive_lock", False) for row in values)
+                if gpu_required else ""),
+            "gpu_idle_samples_min": (
+                min(int(row.get("gpu_idle_samples", 0)) for row in values)
+                if gpu_required else ""),
         })
 
     by_key = {(row["component"], row["structure"], row["profile"]): row

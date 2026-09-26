@@ -218,6 +218,26 @@ class OrthogonalExperimentTest(unittest.TestCase):
         self.assertEqual(summary[0]["speedup_vs_original_cpu"], 2.0)
         self.assertTrue(summary[0]["no_slower_supported"])
 
+    def test_build_summary_preserves_gpu_isolation_limit(self):
+        rows = [{
+            "component": "hierarchy",
+            "structure": "auto_drh_v1",
+            "profile": "full_gpu",
+            "timing_role": "measured",
+            "wall_seconds": 2.0,
+            "internal_seconds": 1.8,
+            "index_bytes": 1024,
+            "gpu_required": True,
+            "gpu_isolation_mode": "idle_preflight_no_lock",
+            "gpu_exclusive_lock": False,
+            "gpu_idle_samples": 3,
+        }]
+        summary = summarize_authoritative_build.summarize(rows)
+        self.assertEqual(summary[0]["gpu_isolation_mode"],
+                         "idle_preflight_no_lock")
+        self.assertFalse(summary[0]["gpu_exclusive_lock"])
+        self.assertEqual(summary[0]["gpu_idle_samples_min"], 3)
+
     def test_zero_layer_cannot_load_block_index(self):
         config = orthogonal_config()
         method = config["methods"][0]
