@@ -174,6 +174,20 @@ The summarizer selects the smallest measured `Lsearch` whose every warm repeat
 meets the target, uses independent-sample bootstrap intervals for sequential
 method runs, and never interpolates a crossing.
 
+For unattended serial execution, `continue_after_query.py` waits until the
+Amazon profile config exists and its full validator passes, then waits for all
+query processes to exit before starting held-out work. The optional build step
+is joined with `&&`, so it starts only if every held-out dataset and oracle
+summary succeeds:
+
+```bash
+python3 continue_after_query.py --run-build-after-heldout
+```
+
+This supervisor gates on the profile manifest and validator rather than a tmux
+session transition, preventing an accidental launch during the brief
+screen-to-crossing handoff.
+
 ## Authoritative build campaign
 
 Run this only after the query campaign has frozen the automatic and manual

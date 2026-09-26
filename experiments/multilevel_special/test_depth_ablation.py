@@ -7,9 +7,31 @@ from unittest import mock
 import run_authoritative_campaign
 import run_authoritative_build_campaign
 import summarize_depth_ablation as depth
+import continue_after_query
 
 
 class DepthAblationTest(unittest.TestCase):
+    def test_post_query_supervisor_uses_profile_manifest_and_serial_pipeline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config = root / "profile.json"
+            config.write_text(json.dumps({
+                "output_root": str(root / "formal"), "pass_subdirs": True,
+                "measurement_pass": "profile",
+            }))
+            self.assertEqual(
+                continue_after_query.profile_manifest_path(config),
+                root / "formal/manifest_profile.json")
+            command = continue_after_query.pipeline_command(
+                root / "heldout.log", root / "build.log", True)
+            self.assertIn("run_heldout_campaign.py", command)
+            self.assertIn("--skip-generate", command)
+            self.assertIn("run_authoritative_build_campaign.py", command)
+            self.assertLess(
+                command.index("run_heldout_campaign.py"),
+                command.index("run_authoritative_build_campaign.py"))
+            self.assertIn(" && ", command)
+
     def test_build_campaign_requires_completed_query_profile_gate(self):
         with tempfile.TemporaryDirectory() as temporary:
             missing = Path(temporary) / "missing.json"
