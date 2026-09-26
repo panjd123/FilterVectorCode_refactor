@@ -111,6 +111,25 @@ Recall; results are never interpolated or extrapolated. Selected zero-layer
 Trie high-selectivity guards reach `L=N`, allowing those cases to distinguish
 a genuinely exhausted full-search budget from an ordinary bounded screen.
 
+`summarize_selection_sweep.py` writes both machine-readable CSVs and a Markdown
+report. The Markdown operating-point table uses the conservative crossing and
+includes stage timing plus visited-point, scanned-edge, distance-calculation,
+and entry-count breakdowns. Recall/QPS figures are generated only from measured
+screen points:
+
+```bash
+python3 plot_authoritative_recall_qps.py \
+  config.authoritative_amazon_screen_emptyfix.json \
+  ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv \
+  ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/figures
+```
+
+The plotter produces PDF and PNG panels for the principal zero-layer
+comparison, fixed-entry topology, depth, two-layer topology, entry strategy,
+and upper-authorization ablations. It fails closed on missing
+method/workload results unless `--allow-partial` is explicitly supplied and
+records input hashes and missing cases in `plot_manifest.json`.
+
 ## Query-free held-out hierarchy study
 
 `generate_auto_policy_cross_dataset_configs.py` derives DRH-v1 only from
