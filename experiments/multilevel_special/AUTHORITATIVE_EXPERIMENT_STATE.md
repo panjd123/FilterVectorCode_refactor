@@ -12,6 +12,9 @@ entry-point setup、block authorization、graph search 以及点/边/距离计�
 bounded crossing、正式重复和独立 profile。修复前 campaign 使用的 Trie entry
 错误地把空标签集解释为“无结果”，其 99% 结果只保留作缺陷诊断。详细计数会给主
 吞吐测量增加分支和计数开销，因此不能把 profile wall time 混入主 QPS。
+当前已完成 7/396 个 case，正在运行零层 LNG 95%。零层 LNG 80%
+的 conservative crossing 为 $L=320000$，warm Recall 最小值 0.9257，warm-median
+QPS 1.8029，该 case 子进程 wall time 为 2560.93 s。
 
 当前最佳方法：每个结构使用同一个不可变 search binary；先做轻量 performance
 pass，再对选中的 Recall crossing 做独立 profile pass。主结论使用 performance
