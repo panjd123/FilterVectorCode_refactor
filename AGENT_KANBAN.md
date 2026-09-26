@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-26 19:56 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`fcb74ad`（push：`不执行，origin 指向用户工作树`）
+检查点：`c3edeef`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
