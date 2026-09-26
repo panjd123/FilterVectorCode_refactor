@@ -44,17 +44,17 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 
 | ID | 类型 | 状态 | 描述 | 判定/下一步 |
 |---|---|---|---|---|
-| M1 | measurement | RESOLVED | 旧 runner 使用五种历史 provider 名且限制两层 | 已迁移到 original/optimized_lng/trie 与任意 hierarchy plan；117 个 Python tests 通过 |
+| M1 | measurement | RESOLVED | 旧 runner 使用五种历史 provider 名且限制两层 | 已迁移到 original/optimized_lng/trie 与任意 hierarchy plan；118 个 Python tests 通过 |
 | M2 | measurement | RESOLVED | detail counters 会污染主吞吐 | 已分离 performance/profile pass，并在 manifest 标注用途 |
 | M3 | measurement | ACTIVE | 旧 QF-SSL 数据与新 binary/语义不一致 | 所有主表继续只采用 `fcb74ad` 后重测结果 |
-| M4 | correctness | RESOLVED | Trie entry 将合法空 containment 谓词返回为空，污染含空谓词的 99% workload | build/load 时预计算 root terminal frontier；C++ 15/15、Python 117/117，真实空谓词 `L=N` Recall@10=1.0；修复前 campaign 标记无效并以新 hash 重跑 |
+| M4 | correctness | RESOLVED | Trie entry 将合法空 containment 谓词返回为空，污染含空谓词的 99% workload | build/load 时预计算 root terminal frontier；C++ 15/15、Python 118/118，真实空谓词 `L=N` Recall@10=1.0；修复前 campaign 标记无效并以新 hash 重跑 |
 | M5 | measurement | RESOLVED | 通用汇总器的 `recall_min` 曾包含 cold repeat，与 crossing 协议不一致 | `recall`/`recall_min`/`recall_max` 和 warm timing 统一按声明的 `cold_repeats` 切分；增加冷启动 Recall 不影响 crossing 的回归测试 |
 | M6 | measurement | RESOLVED | 旧辅助汇总在多个达标点中按最快时间选点，可能受噪声影响而偏离 crossing 定义 | 改为每个方法选择所有 warm repeat 达标的最小实测 `Lsearch`；禁止插值或按延迟回选更大 L |
 | M7 | measurement | RESOLVED | formal performance 与 profile 共享 output root 时，旧汇总路径可能互相覆盖 | `pass_subdirs` 配置下将汇总隔离到 `summary/performance` 与 `summary/profile` |
 | M8 | output schema | CONTAINED | 当前 snapshot 的 `search_time_summary.csv` 数据行含 `AverageNodesVisited`，但表头漏写该列，导致后续工作量列错位 | 主 Recall/latency 前四列不受影响；论文工作量只读取列宽正确的 `search_work_details.csv`。源码表头已修复，但为保持 screen/crossing/formal binary hash 一致，在本轮 campaign 完成前不重编译 |
 | M9 | reporting | RESOLVED | `results.md` 曾使用 mean-Recall crossing，而严格协议要求所有 warm repeat 均达标 | Markdown 主表改用 conservative crossing，同时显示 warm mean、warm min 和 `min-target` margin；CSV 仍同时保留 mean 与 conservative 版本 |
 | M10 | reporting | RESOLVED | 通用 Markdown 只展示 Recall/QPS，用户要求的阶段和工作量证据需另行解析 CSV | 每个 conservative crossing 现自动报告五段 timing、visited points、base/special edges、entry/graph/total distance calculations 和 entry 数；profile pass 使用同一格式 |
-| M11 | provenance | RESOLVED | profile 的 measurement pass 曾被记为 formal protocol phase，证据语义含混 | 新增显式 `profile` phase，并强制 measurement pass 与 protocol phase 成对；117/117 Python tests 通过 |
+| M11 | provenance | RESOLVED | profile 的 measurement pass 曾被记为 formal protocol phase，证据语义含混 | 新增显式 `profile` phase，并强制 measurement pass 与 protocol phase 成对；118/118 Python tests 通过 |
 | M12 | measurement | RESOLVED | GPU build 无外部锁时只有一次手工空闲检查，不足以支撑权威 timing | runner 优先在 `gpulock perf` 下重执行；当前主机无 `gpulock` 时，每个 GPU case 强制三次连续空闲预检并在 manifest 明示 no-lock 限制，缺证据的 artifact 校验失败 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | UNKNOWN | Trie 与 LNG topology 的优劣由标签包含结构而非选择率单独决定 | 固定其他维度，比较 topology 与 crossed entry combinations |
