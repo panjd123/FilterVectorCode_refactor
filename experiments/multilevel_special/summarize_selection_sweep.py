@@ -303,10 +303,19 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 def write_markdown(path: Path, equal_rows: list[dict[str, Any]], baseline: str,
                    maximum_rows: list[dict[str, Any]]) -> None:
+    def metric(row: dict[str, Any], field: str, digits: int = 3) -> str:
+        value = row.get(field, "")
+        return f"{float(value):.{digits}f}" if value not in (None, "") else "NA"
+
     lines = ["# 多层 Special Block 选择率实验", "",
              "主表使用 warm repeats 的离散实测点；每种方法选择所有 warm repeats "
              "均达到目标 Recall 的最小实测 Lsearch，不做插值。", ""]
-    for workload in sorted({row["workload"] for row in equal_rows}):
+    workload_order = sorted(
+        {row["workload"] for row in equal_rows},
+        key=lambda name: min(float(row["mean_selectivity"])
+                             for row in equal_rows if row["workload"] == name),
+    )
+    for workload in workload_order:
         subset = [row for row in equal_rows if row["workload"] == workload]
         if not subset:
             continue
@@ -331,11 +340,58 @@ def write_markdown(path: Path, equal_rows: list[dict[str, Any]], baseline: str,
                 f"{row['batch_ms_warm_cv']:.3f} | {median_speedup_text} |"
             )
         lines.append("")
+    breakdown_rows = [
+        row for row in equal_rows
+        if row.get("query_total_ms_warm_median", "") not in (None, "")
+        or row.get("nodes_visited_warm_median", "") not in (None, "")
+    ]
+    if breakdown_rows:
+        lines.extend([
+            "## 达标点阶段耗时", "",
+            "每个数值是先在一次 warm repeat 内对 query 取平均，再在 warm repeats "
+            "间取中位数；单位为 ms/query。", "",
+            "| workload | 方法 | L | total | entry-group | entry-point setup | authorization | graph search | residual |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|",
+        ])
+        for row in sorted(breakdown_rows, key=lambda item: (
+                float(item["mean_selectivity"]), item["target_recall"], item["method"])):
+            lines.append(
+                f"| {row['workload']} | {row['method']} | {row['lsearch']} | "
+                f"{metric(row, 'query_total_ms_warm_median')} | "
+                f"{metric(row, 'els_ms_warm_median')} | "
+                f"{metric(row, 'entry_ms_warm_median')} | "
+                f"{metric(row, 'block_authorization_ms_warm_median')} | "
+                f"{metric(row, 'graph_ms_warm_median')} | "
+                f"{metric(row, 'residual_ms_warm_median')} |"
+            )
+        lines.extend([
+            "", "## 达标点搜索工作量", "",
+            "工作量同样是 warm-repeat 中位数；base/special 边计数与总边数分开报告，"
+            "距离计算分为入口点与图搜索两部分。", "",
+            "| workload | 方法 | L | visited points | base edges | special intra edges | special inter edges | total edges | entry distances | graph distances | total distances | entries |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        ])
+        for row in sorted(breakdown_rows, key=lambda item: (
+                float(item["mean_selectivity"]), item["target_recall"], item["method"])):
+            lines.append(
+                f"| {row['workload']} | {row['method']} | {row['lsearch']} | "
+                f"{metric(row, 'nodes_visited_warm_median', 1)} | "
+                f"{metric(row, 'regular_edges_scanned_warm_median', 1)} | "
+                f"{metric(row, 'special_intra_edges_scanned_warm_median', 1)} | "
+                f"{metric(row, 'special_inter_edges_scanned_warm_median', 1)} | "
+                f"{metric(row, 'total_edges_scanned_warm_median', 1)} | "
+                f"{metric(row, 'entry_point_distance_calcs_warm_median', 1)} | "
+                f"{metric(row, 'graph_search_distance_calcs_warm_median', 1)} | "
+                f"{metric(row, 'total_distance_calcs_warm_median', 1)} | "
+                f"{metric(row, 'num_entries_warm_median', 1)} |"
+            )
+        lines.append("")
     lines.extend(["## 扫描范围内最大 Recall", "",
                   "此表用于识别共同可达质量上限，不代表最大 L 是性能最优点。", "",
                   "| workload | 方法 | hierarchy | 最大 Recall | L | QPS | warm batch ms |",
                   "|---|---|---|---:|---:|---:|---:|"])
-    for row in maximum_rows:
+    for row in sorted(maximum_rows, key=lambda item: (
+            float(item["mean_selectivity"]), item["method"])):
         qps = row.get("qps_warm_median")
         qps_text = f"{qps:.3f}" if isinstance(qps, float) else "NA"
         hierarchy = (

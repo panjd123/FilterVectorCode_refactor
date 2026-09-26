@@ -669,6 +669,10 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertIn("所有 warm repeats", text)
             self.assertIn("warm min Recall", text)
             self.assertIn("0.910000", text)
+            self.assertIn("达标点阶段耗时", text)
+            self.assertIn("entry-point setup", text)
+            self.assertIn("达标点搜索工作量", text)
+            self.assertIn("visited points", text)
 
     def test_summary_root_separates_performance_and_profile_passes(self):
         common = {"output_root": "/tmp/run", "pass_subdirs": True}
