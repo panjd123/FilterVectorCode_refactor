@@ -12,9 +12,9 @@ entry-point setup、block authorization、graph search 以及点/边/距离计�
 bounded crossing、正式重复和独立 profile。修复前 campaign 使用的 Trie entry
 错误地把空标签集解释为“无结果”，其 99% 结果只保留作缺陷诊断。详细计数会给主
 吞吐测量增加分支和计数开销，因此不能把 profile wall time 混入主 QPS。
-截至 2026-09-27 02:32 已完成 17/396 个 case：零层 LNG 九档完整，
-零层 Trie 已完成 0.5%/1%/5%/10%/30%/60%/80%/95% 并进入
-99%。
+截至 2026-09-27 04:27，零层 LNG/Trie 共 18 个 case 已完成；manifest
+已完成至少 20/396，runner 已进入首个两层
+`1024:lng,16384:trie + optimized_lng entry`。
 零层 LNG 95% 的
 conservative crossing 为 $L=320000$，warm Recall 最小值 0.9134，
 warm-median QPS 1.50268；99% crossing 为 $L=400000$，两次 warm Recall
@@ -34,6 +34,26 @@ visited points、3158390 条 scanned edges 和 485108 次 distance calculations�
 0.48866。该点 warm-median 每查询 entry-group、entry-point setup 和 graph
 search 时间分别为 13.6413、90.7394 和 201565 ms；工作量为 552827 个
 visited points、3759560 条 scanned edges 和 575137 次 distance calculations。
+零层 Trie 99% 也仅在 $L=N$ 达标，两次 warm Recall 均为
+0.9656，batch wall time 为 2262.49/2263.96 s，warm-median QPS 为
+0.44185。该点 warm-median 每查询 entry-group、entry-point setup 和 graph
+search 时间分别为 4.4373、187.277 和 222941 ms；工作量为 566231 个
+visited points、3858770 条 scanned edges 和 600306 次 distance calculations。
+
+零层 screen 的 conservative crossing 对比如下。`Trie/LNG` 小于 1 表示
+Trie 较慢；这些是 1 cold + 2 warm 的 screen 数据，不替代 formal pass。
+
+| 选择率 | LNG-0 L | LNG-0 QPS | Trie-0 L | Trie-0 QPS | Trie/LNG |
+|---:|---:|---:|---:|---:|---:|
+| 0.5% | 2000 | 2476.351 | 1000 | 14921.900 | 6.026x |
+| 1% | 2200 | 4191.045 | 1200 | 11591.420 | 2.766x |
+| 5% | 3200 | 544.932 | 800 | 10044.230 | 18.432x |
+| 10% | 26000 | 450.171 | 64000 | 270.630 | 0.601x |
+| 30% | 120000 | 52.769 | no crossing ($L\le150000$) | -- | -- |
+| 60% | 260000 | 4.069 | 320000 | 2.511 | 0.617x |
+| 80% | 320000 | 1.803 | 602453 | 0.586 | 0.325x |
+| 95% | 320000 | 1.503 | 602453 | 0.489 | 0.325x |
+| 99% | 400000 | 0.787 | 602453 | 0.442 | 0.561x |
 
 当前最佳方法：每个结构使用同一个不可变 search binary；先做轻量 performance
 pass，再对选中的 Recall crossing 做独立 profile pass。主结论使用 performance
