@@ -1,6 +1,6 @@
 # Agent 看板
 
-最后更新：`2026-09-27 04:30 Asia/Shanghai`
+最后更新：`2026-09-27 06:25 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
 检查点：`2951062`（push：`不执行，origin 指向用户工作树`）
 
@@ -27,8 +27,8 @@
   不得重编译 `build_ung_rel/apps/search_UNG_index`。工作量主表读取未错位的
   `search_work_details.csv`。
 - 截至 `2026-09-27 04:27`，零层 LNG/Trie 共 18 个 method-workload
-  case 已全部完成；manifest 已完成至少 20/396，runner 正在串行
-  执行首个两层 `1024:lng,16384:trie + optimized_lng entry`。LNG-0 的 95%
+  case 已全部完成；manifest 已完成至少 41/396，runner 已进入
+  `8192:lng,131072:trie` 两层设置。LNG-0 的 95%
   conservative crossing 为 `L=320000`，warm Recall min/max 为
   `0.9134/0.9136`，warm-median QPS 为 `1.50268`；99% crossing 为
   `L=400000`，warm Recall min/max 均为 `0.9408`，warm-median QPS 为
@@ -48,6 +48,12 @@
   为 `0.44185`。该点 warm-median 每查询 entry-group/entry-point/graph-search
   时间为 `4.4373/187.277/222941 ms`，工作量为 `566231` 个 visited
   points、`3858770` 条 scanned edges 和 `600306` 次 distance calculations。
+- 两层 `1024:lng,16384:trie + optimized_lng entry` 的无路由与 routed
+  control 九档均已完成。无路由版在 0.5%--30% 未达 Recall 0.90，
+  但在 60%/80%/95%/99% 为 `61.40/49.70/39.75/16.79 QPS`；
+  routed 版在 0.5%--10% 恢复 crossing，但相对 LNG-0 仍有约
+  `14%/1%/15%/36%` 开销，30% 在 `L<=45000` 未 crossing。这些数据
+  反驳“增层天然不损低选择率”，也说明 router 成本必须显式报告。
 - profile 证据现显式使用 `measurement_pass=profile` 和
   `protocol.phase=profile`；两者不一致时配置校验直接失败。
 - screen 接续 watcher PID 为 `25189`；query 完成后串行启动
