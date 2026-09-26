@@ -318,6 +318,45 @@ not consumed downstream.  Large workloads use bounded streaming rather than
 assuming that the full vector array fits device memory.  CPU fallback remains
 explicit and is recorded in build logs.
 
+Algorithm~\ref{alg:gpu-build} gives the end-to-end sidecar path.  The routing
+decision depends only on block cardinality and declared memory limits.  In
+particular, a GPU-labelled result is invalid when a requested GPU stage falls
+back silently; our validator checks the effective backend counters persisted
+by the builder.
+
+\begin{algorithm}[t]
+\caption{Hybrid GPU construction of a multilevel sidecar}
+\label{alg:gpu-build}
+\begin{algorithmic}[1]
+\Require base vectors $X$, label trie $\mathcal{T}$, layer plan
+  $\{(T_\ell,\tau_\ell)\}$, degree $R$, cross-edge budget $C$, device budget $M$
+\Ensure validated CPU-compatible sidecar and backend evidence
+\For{each layer $\ell$ independently}
+  \State $\mathcal{B}_\ell\gets\Call{PartitionTrie}{\mathcal{T},T_\ell}$
+  \State $\mathcal{E}_\ell\gets\Call{BuildTopology}{\mathcal{B}_\ell,\tau_\ell}$
+  \For{each block $b\in\mathcal{B}_\ell$}
+    \If{$|b|\le n_{\mathrm{small}}$}
+      \State $A_b\gets\Call{BoundedCompleteCPU}{X_b,R}$
+    \ElsIf{$|b|<n_{\mathrm{large}}$}
+      \State append $b$ to a packed exact-anchor batch bounded by $M$
+    \Else
+      \State $C_b\gets\Call{GPUCandidateGraph}{X_b,M}$
+      \State $A_b\gets\Call{RNGPruneAndRepair}{C_b,R}$
+    \EndIf
+  \EndFor
+  \State flush packed anchor batches and materialize their $A_b$
+  \State $\mathcal{P}\gets\{(u,v):(u,v)\in\mathcal{E}_\ell\}$
+  \For{each memory-bounded descriptor batch $P\subseteq\mathcal{P}$}
+    \State $A_P\gets\Call{FusedDistanceTopK}{X,P,C,M}$
+    \State compact identifiers and append $A_P$ to layer-local adjacency
+  \EndFor
+  \State record GPU work, explicit CPU fallbacks, phase times, and edge counts
+\EndFor
+\State serialize, reload, and structurally validate every declared layer
+\State \Return sidecar and effective-backend evidence
+\end{algorithmic}
+\end{algorithm}
+
 The hierarchy uses the same construction backend for layer-local and
 inter-block edges.  Because the hierarchy is an independent sidecar, its total
 build time satisfies
