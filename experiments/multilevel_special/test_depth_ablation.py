@@ -1,0 +1,61 @@
+import unittest
+
+import summarize_depth_ablation as depth
+
+
+class DepthAblationTest(unittest.TestCase):
+    def test_crossing_oracles_use_minimum_l_then_fastest_method(self):
+        rows = [
+            {"method": "a", "workload": "w", "lsearch": 100,
+             "recall_min": 0.89, "batch_ms_warm_median": 8.0,
+             "qps_warm_median": 125.0},
+            {"method": "a", "workload": "w", "lsearch": 200,
+             "recall_min": 0.91, "batch_ms_warm_median": 10.0,
+             "qps_warm_median": 100.0},
+            {"method": "a", "workload": "w", "lsearch": 300,
+             "recall_min": 0.94, "batch_ms_warm_median": 5.0,
+             "qps_warm_median": 200.0},
+            {"method": "b", "workload": "w", "lsearch": 150,
+             "recall_min": 0.90, "batch_ms_warm_median": 7.0,
+             "qps_warm_median": 140.0},
+        ]
+        crossings = depth.first_crossings(rows, {"w": 0.9})
+        self.assertEqual(crossings[("a", "w")]["lsearch"], 200)
+        self.assertEqual(
+            depth.fastest_crossing(crossings, ["a", "b"], "w")["method"], "b")
+
+    def test_global_method_requires_one_method_on_every_workload(self):
+        crossings = {
+            ("a", "x"): {"qps_warm_median": 10.0},
+            ("a", "y"): {"qps_warm_median": 40.0},
+            ("b", "x"): {"qps_warm_median": 30.0},
+        }
+        method, score = depth.global_method(crossings, ["a", "b"], ["x", "y"])
+        self.assertEqual(method, "a")
+        self.assertAlmostEqual(score, 20.0)
+
+    def test_method_groups_keep_routing_separate(self):
+        config = {"methods": [
+            {"name": "plain", "hierarchy_layers": []},
+            {"name": "one", "hierarchy_layers": [
+                {"min_points": 1, "topology": "lng"}]},
+            {"name": "drh", "hierarchy_layers": [
+                {"min_points": 1, "topology": "lng"},
+                {"min_points": 2, "topology": "trie"}],
+             "selection_role": "predeclared_degree_ratio_hierarchy_v1",
+             "entry_strategy": "optimized_lng"},
+            {"name": "l2_t1024_16384_drh_upper", "hierarchy_layers": [
+                {"min_points": 1, "topology": "lng"},
+                {"min_points": 2, "topology": "trie"}],
+             "selection_role": "automatic_upper_authorization_control",
+             "entry_strategy": "optimized_lng", "routing_policy": "upper_authorized"},
+        ]}
+        groups = depth.method_groups(config, "plain")
+        self.assertEqual(groups["best_one_layer"], ["one"])
+        self.assertEqual(groups["best_two_layer"], ["drh"])
+        self.assertEqual(groups["automatic_drh"], ["drh"])
+        self.assertEqual(groups["automatic_routed"], ["l2_t1024_16384_drh_upper"])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -130,6 +130,20 @@ and upper-authorization ablations. It fails closed on missing
 method/workload results unless `--allow-partial` is explicitly supplied and
 records input hashes and missing cases in `plot_manifest.json`.
 
+After the formal pass, generate the requested plain versus best one-layer
+versus best two-layer table with conservative crossings and bootstrap
+intervals:
+
+```bash
+python3 summarize_depth_ablation.py \
+  config.authoritative_amazon_formal_emptyfix.json \
+  --output-dir results_summary/authoritative_depth
+```
+
+Per-workload best rows are measured oracles. The companion global table only
+accepts a single unchanged method that crosses on every workload; routed DRH
+is reported separately from the always-layered two-layer factorial.
+
 ## Query-free held-out hierarchy study
 
 `generate_auto_policy_cross_dataset_configs.py` derives DRH-v1 only from
