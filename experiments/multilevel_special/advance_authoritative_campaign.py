@@ -220,7 +220,7 @@ def make_profile(formal: dict) -> dict:
     config["minimum_successful_child_seconds"] = 0
     config["require_work_breakdown"] = True
     config["protocol"] = {
-        "phase": "formal", "cold_repeats": 1, "measured_repeats": 3,
+        "phase": "profile", "cold_repeats": 1, "measured_repeats": 3,
         "recall_rule": "all_repeats", "bootstrap_samples": 10000,
         "paired_repeats": False,
     }

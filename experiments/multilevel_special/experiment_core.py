@@ -30,7 +30,9 @@ LEGACY_ENTRY_PROVIDERS = {
 ENTRY_STRATEGIES = {"original", "optimized_lng", "trie"}
 GROUP_TOPOLOGIES = {"lng", "trie"}
 MEASUREMENT_PASSES = {"performance", "profile"}
-PROTOCOL_PHASES = {"smoke", "screen", "crossing", "formal", "critical"}
+PROTOCOL_PHASES = {
+    "smoke", "screen", "crossing", "formal", "profile", "critical",
+}
 
 
 class ExperimentConfigError(ValueError):
@@ -144,6 +146,9 @@ def validate_config(config: dict[str, Any]) -> None:
     if measurement_pass not in MEASUREMENT_PASSES:
         raise ExperimentConfigError(
             f"measurement_pass must be one of {sorted(MEASUREMENT_PASSES)}")
+    if (measurement_pass == "profile") != (protocol.phase == "profile"):
+        raise ExperimentConfigError(
+            "measurement_pass=profile and protocol.phase=profile must be declared together")
 
     method_names: set[str] = set()
     for method in config["methods"]:

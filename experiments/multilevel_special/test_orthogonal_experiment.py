@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import advance_authoritative_campaign
 import derive_static_hierarchy
 import experiment_core
 import generate_authoritative_campaign
@@ -91,6 +92,21 @@ class OrthogonalExperimentTest(unittest.TestCase):
         profile = run_selection_sweep.clean_method_env({}, config, method)
         self.assertEqual(profile["UNG_SPECIAL_LIGHT_STATS"], "0")
         self.assertEqual(profile["UNG_SPECIAL_PROFILE_TIMING"], "1")
+
+    def test_profile_pass_has_an_explicit_profile_protocol_phase(self):
+        formal = orthogonal_config()
+        formal["protocol"]["phase"] = "formal"
+        profile = advance_authoritative_campaign.make_profile(formal)
+        experiment_core.validate_config(profile)
+        self.assertEqual(profile["measurement_pass"], "profile")
+        self.assertEqual(profile["protocol"]["phase"], "profile")
+
+    def test_rejects_profile_pass_and_protocol_phase_mismatch(self):
+        config = orthogonal_config()
+        config["measurement_pass"] = "profile"
+        with self.assertRaisesRegex(
+                experiment_core.ExperimentConfigError, "must be declared together"):
+            experiment_core.validate_config(config)
 
     def test_summary_exposes_arbitrary_hierarchy_dimensions(self):
         config = orthogonal_config()
