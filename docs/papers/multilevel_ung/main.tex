@@ -443,7 +443,12 @@ base/special edges, and distance computations.  Build results use process wall
 time through validated files on disk, one cold build followed by at least five
 measured builds, interleaved CPU/GPU order, peak host/device memory in a separate
 pass, index bytes, and paired bootstrap intervals.  GPU kernel timings are
-never substituted for end-to-end build time.
+never substituted for end-to-end build time.  GPU runs use an external
+exclusive lock when the host provides one.  On the current host, where that
+tool is unavailable, each GPU case instead requires three consecutive idle
+device snapshots before timing; we retain those snapshots and label the
+result as an idle-preflight measurement rather than claiming lock-level
+exclusivity.
 
 \section{Results}
 \input{generated_results}
