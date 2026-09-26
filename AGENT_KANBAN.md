@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-26 19:56 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`c3edeef`（push：`不执行，origin 指向用户工作树`）
+检查点：`a083232`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -64,6 +64,9 @@
   的方法采用独立样本 bootstrap。
 - 通用 `results.md` 现在使用 conservative crossing，并分别报告 warm mean Recall、
   warm min Recall 和 min-target margin；避免将均值达标误解为所有重复均达标。
+- `results.md` 的每个达标点自动输出 entry-group、entry-point setup、
+  authorization、graph search 阶段耗时，以及 visited points、base/special edges、
+  entry/graph distance calculations 和 entry 数；选择率按数值升序展示。
 - Trie empty-predicate root terminal frontier 改为 build/load 时预计算；Amazon
   真实空谓词在 `L=N=602453` 的单查询 Recall@10 为 1.0，而旧实现为 0。
 
