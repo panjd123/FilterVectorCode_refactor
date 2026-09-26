@@ -1,6 +1,6 @@
 # Agent 看板
 
-最后更新：`2026-09-27 00:55 Asia/Shanghai`
+最后更新：`2026-09-27 02:35 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
 检查点：`2951062`（push：`不执行，origin 指向用户工作树`）
 
@@ -26,9 +26,9 @@
   漏失的 `AverageNodesVisited` 表头，但在 screen/crossing/formal/profile 全部结束前
   不得重编译 `build_ung_rel/apps/search_UNG_index`。工作量主表读取未错位的
   `search_work_details.csv`。
-- 截至 `2026-09-27 00:49` screen 已完成 16/396 个 method-workload case：
+- 截至 `2026-09-27 02:32` screen 已完成 17/396 个 method-workload case：
   零层 LNG 九个选择率全部完成，零层 Trie 已完成
-  0.5%/1%/5%/10%/30%/60%/80%，正在运行 95%。LNG-0 的 95%
+  0.5%/1%/5%/10%/30%/60%/80%/95%，正在运行 99%。LNG-0 的 95%
   conservative crossing 为 `L=320000`，warm Recall min/max 为
   `0.9134/0.9136`，warm-median QPS 为 `1.50268`；99% crossing 为
   `L=400000`，warm Recall min/max 均为 `0.9408`，warm-median QPS 为
@@ -38,6 +38,11 @@
   为 `0.58608`。该点 warm-median 每查询 entry-group/entry-point/graph-search
   时间为 `12.3657/83.3588/167524 ms`，工作量为 `464337` 个 visited
   points、`3158390` 条 scanned edges 和 `485108` 次 distance calculations。
+- Trie-0 的 95% 同样只在 `L=N` 达标，两次 warm Recall 均为
+  `0.9666`，batch wall time 为 `2044.47/2048.38 s`，warm-median QPS
+  为 `0.48866`。该点 warm-median 每查询 entry-group/entry-point/graph-search
+  时间为 `13.6413/90.7394/201565 ms`，工作量为 `552827` 个 visited
+  points、`3759560` 条 scanned edges 和 `575137` 次 distance calculations。
 - profile 证据现显式使用 `measurement_pass=profile` 和
   `protocol.phase=profile`；两者不一致时配置校验直接失败。
 - screen 接续 watcher PID 为 `25189`；query 完成后串行启动
