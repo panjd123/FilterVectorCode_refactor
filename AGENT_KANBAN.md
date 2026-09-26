@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-26 21:00 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`193079b`（push：`不执行，origin 指向用户工作树`）
+检查点：`26f4e3a`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -60,7 +60,8 @@
   `4c99a51c0f74b187d37f7070f73017b6230935126275560fff1061fa90830a81`。
 - DRH-v1 已在观察本轮 layered 结果前冻结：`T1=nearestPow2(sqrt(N))`、
   `rho=max(2,round(R/C))`、`N/T<C` 停止、按 `N/T>R` 选择 LNG/Trie；Amazon
-  输出为 `1024:lng,16384:trie`。
+  输出为 `1024:lng,16384:trie`。层数已在论文中写成闭式
+  `max(0, 1 + floor(log_rho(N/(C*T1))))`，并明确该代价仅是静态代理而非最优性定理。
 - 查询/建图 runner 的 provenance、binary snapshot、resume elapsed ledger、GPU
   backend/fallback 校验和 build-quality 再搜索链已实现；汇总表显式记录完整阈值、
   逐层 topology、entry strategy 与 routing policy；Python 实验测试 113/113 通过。
