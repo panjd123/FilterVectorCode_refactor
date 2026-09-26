@@ -25,16 +25,22 @@ estimate below 1.0 alone is not sufficient.
 - `B0-current-cpu`: zero-layer LNG base index using `current_cpu`.
 - `B0-paper-gpu`: zero-layer LNG base index using the frozen accelerated GPU
   profile used by the search comparison.
-- `H1-cpu`: the best one-layer structure selected by the query experiment,
-  built with CPU layer-local and CPU inter-block edge construction.
-- `H1-gpu`: the same one-layer structure with GPU-assisted construction.
+- `H1-cpu`: the representative one-layer prefix of DRH-v1
+  (`1024:lng` on Amazon), built with CPU layer-local and CPU inter-block edge
+  construction.
+- `H1-gpu`: the same representative one-layer structure with GPU-assisted
+  construction.
 - `Hauto-cpu`: the query-independent DRH-v1 hierarchy with CPU construction.
 - `Hauto-hybrid`: the same DRH-v1 hierarchy using CPU small blocks, sampled
   middle blocks, and GPU large blocks.
 - `Hauto-full-gpu`: the same DRH-v1 hierarchy with GPU layer-local and GPU
   inter-block construction enabled.
-- `Horacle-gpu`: the single manual hierarchy that maximizes the geometric mean
-  QPS across the frozen Amazon workloads, built with the selected GPU profile.
+
+The manual query oracle is deliberately not a separate construction row. Its
+purpose is to quantify query-time tuning regret; building its winning structure
+would not change the CPU/GPU backend comparison and could silently make the
+construction study conditional on query measurements. The automatic and
+manual-oracle query results remain reported together in the query section.
 
 The hierarchy thresholds and per-layer topology must be identical between the
 CPU/GPU rows.  Backend changes may change graph edges, so their output is not
