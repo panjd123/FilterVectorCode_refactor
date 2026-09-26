@@ -23,13 +23,20 @@ budget `C`.
 2. Set the scale ratio to `rho = max(2, round(R/C))` and
    `T[i+1] = rho * T[i]`.
 3. Materialize a scale while `N/T[i] >= C`; the first scale below that bound
-   is omitted. This chooses the layer count without a separate depth knob.
+   is omitted. Equivalently, absent the implementation depth cap, the number
+   of layers is
+   `L = max(0, 1 + floor(log_rho(N / (C * T1))))`.
+   This chooses the layer count without a separate depth knob.
 4. Use LNG topology when `N/T[i] > R`, otherwise Trie topology. The rule uses
    LNG while the estimated block population exceeds one graph neighborhood
    and switches to the sparse hierarchy near the top.
 
 With `N=602453`, `R=64`, and `C=4`, DRH-v1 is fixed before examining the new
 search results as `1024:lng,16384:trie`.
+
+`T + N/T` is a static structural cost proxy, not an analytical guarantee of
+query latency or Recall optimality. The held-out oracle-regret experiment is
+the empirical test of whether the query-independent rule transfers.
 
 ## Static comparator
 

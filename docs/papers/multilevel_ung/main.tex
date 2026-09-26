@@ -256,8 +256,13 @@ Successive thresholds use the existing degree ratio
   \rho=\max\left(2,\mathrm{round}\left(\frac{R}{C}\right)\right),
   \qquad T_{\ell+1}=\rho T_\ell.
 \end{equation}
-A scale is materialized while $N/T_\ell\ge C$.  Thus the depth is derived, not
-configured separately.  The predeclared topology rule is LNG while the
+A scale is materialized while $N/T_\ell\ge C$.  Ignoring only the implementation
+depth cap, the resulting number of layers is therefore
+\begin{equation}
+  L=\max\left(0,
+    1+\left\lfloor\log_\rho\frac{N}{C T_1}\right\rfloor\right).
+\end{equation}
+Thus the depth is derived, not configured separately.  The predeclared topology rule is LNG while the
 estimated number of blocks exceeds one full local neighborhood and Trie near
 the top:
 \begin{equation}
@@ -268,7 +273,9 @@ the top:
 \end{equation}
 For the authoritative Amazon setup, $N=602{,}453$, $R=64$, and $C=4$, so DRH
 selects $1024{:}\mathrm{LNG},16384{:}\mathrm{Trie}$ before examining query
-performance.
+performance.  We emphasize that $\Phi$ is a query-independent structural cost
+proxy, not a proof of runtime optimality; held-out oracle regret tests whether
+the proxy transfers without query calibration.
 
 \begin{algorithm}[t]
 \caption{Degree-Ratio Hierarchy (DRH)}
