@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import experiment_core
+import gpu_isolation
 import process_resource_probe
 
 
@@ -231,6 +232,7 @@ def validate_case(config: dict[str, Any], case: dict[str, Any], case_root: Path)
     if not layers and upper is None and int(meta.get("special_block_upper_count", "0")) != 0:
         raise ValueError(f"single-level case {case['name']} unexpectedly produced upper blocks")
     validate_backend_evidence(case, case_root, meta)
+    gpu_isolation.validate_case_evidence(case, case_root)
     return meta
 
 
@@ -397,6 +399,20 @@ def main() -> int:
         print(shlex.join(cmd), flush=True)
         if args.dry_run:
             continue
+        try:
+            isolation = gpu_isolation.prepare_case(config, case)
+        except RuntimeError as error:
+            record.update({
+                "status": "blocked_gpu_isolation",
+                "gpu_isolation_error": str(error),
+                "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            })
+            update_manifest(manifest, record)
+            raise
+        (staging / "gpu_isolation.json").write_text(
+            json.dumps(isolation, indent=2) + "\n")
+        record["gpu_isolation"] = isolation
+        update_manifest(manifest, record)
         with (staging / "build.log").open("w") as log:
             if config.get("resource_profile", False):
                 resource_usage = process_resource_probe.run_profiled(

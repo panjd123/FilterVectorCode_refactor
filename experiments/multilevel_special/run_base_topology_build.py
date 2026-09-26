@@ -16,6 +16,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import experiment_core
+import gpu_isolation
 import process_resource_probe
 
 
@@ -217,6 +219,7 @@ def validate_case(config: dict[str, Any], case: dict[str, Any], root: Path) -> d
             raise ValueError(f"GPU build fell back to CPU for {case['name']}")
         if "[GPU GEMM]" not in log_text:
             raise ValueError(f"GPU cross-edge execution was not observed for {case['name']}")
+    gpu_isolation.validate_case_evidence(case, root)
     return meta
 
 
@@ -291,6 +294,20 @@ def main() -> int:
         print(shlex.join(cmd), flush=True)
         if args.dry_run:
             continue
+        try:
+            isolation = gpu_isolation.prepare_case(config, case)
+        except RuntimeError as error:
+            record.update({
+                "status": "blocked_gpu_isolation",
+                "gpu_isolation_error": str(error),
+                "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            })
+            update_manifest(manifest, record)
+            raise
+        (staging / "gpu_isolation.json").write_text(
+            json.dumps(isolation, indent=2) + "\n")
+        record["gpu_isolation"] = isolation
+        update_manifest(manifest, record)
         with (staging / "build.log").open("w") as log:
             if config.get("resource_profile", False):
                 resource_usage = process_resource_probe.run_profiled(

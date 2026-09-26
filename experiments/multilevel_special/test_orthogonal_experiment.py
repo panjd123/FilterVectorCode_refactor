@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import advance_authoritative_campaign
 import derive_static_hierarchy
@@ -9,6 +10,7 @@ import experiment_core
 import generate_authoritative_campaign
 import generate_authoritative_build_configs
 import generate_authoritative_build_quality
+import gpu_isolation
 import run_base_topology_build
 import run_selection_sweep
 import summarize_authoritative_build
@@ -162,6 +164,40 @@ class OrthogonalExperimentTest(unittest.TestCase):
             {"min_points": 1024, "topology": "lng"},
             {"min_points": 16384, "topology": "trie"},
         ] for case in auto))
+        self.assertEqual(timing["gpu_isolation"]["device"], 0)
+        self.assertEqual(
+            timing["gpu_isolation"]["idle_consecutive_samples"], 3)
+
+    def test_gpu_idle_policy_is_fail_closed(self):
+        policy = dict(gpu_isolation.DEFAULT_POLICY)
+        idle = {
+            "utilization_percent": 0,
+            "used_memory_mib": 3,
+            "compute_applications": [],
+        }
+        self.assertTrue(gpu_isolation.snapshot_is_idle(idle, policy))
+        self.assertFalse(gpu_isolation.snapshot_is_idle(
+            {**idle, "utilization_percent": 1}, policy))
+        self.assertFalse(gpu_isolation.snapshot_is_idle(
+            {**idle, "compute_applications": [{"pid": 123}]}, policy))
+
+    def test_gpu_profiles_require_isolation_evidence(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            case = {"benchmark_profile": "full_gpu"}
+            with self.assertRaisesRegex(ValueError, "isolation evidence"):
+                gpu_isolation.validate_case_evidence(case, root)
+            (root / "gpu_isolation.json").write_text(
+                '{"mode": "idle_preflight_no_lock"}\n')
+            gpu_isolation.validate_case_evidence(case, root)
+
+    def test_gpu_perf_lock_requires_the_declared_device(self):
+        with mock.patch.dict(os.environ, {
+                "GPULOCK_LOCK_MODE": "perf",
+                "GPULOCK_LOCKED_DEVICES": "1",
+        }, clear=False):
+            self.assertFalse(gpu_isolation.has_perf_lock(0))
+            self.assertTrue(gpu_isolation.has_perf_lock(1))
 
     def test_end_to_end_build_claim_uses_speedup_lower_bound(self):
         rows = []

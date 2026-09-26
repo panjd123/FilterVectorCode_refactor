@@ -19,6 +19,14 @@
   "alpha": 1.2,
   "resource_profile": true,
   "resource_sample_interval_seconds": 0.2,
+  "gpu_isolation": {
+    "device": 0,
+    "idle_consecutive_samples": 3,
+    "idle_sample_interval_seconds": 1.0,
+    "idle_wait_timeout_seconds": 900.0,
+    "max_idle_utilization_percent": 0,
+    "max_idle_memory_mib": 16
+  },
   "env": {
     "UNG_SPECIAL_BLOCK_DATA_MODE": "x1",
     "UNG_SPECIAL_BLOCK_PARTITION": "trie",

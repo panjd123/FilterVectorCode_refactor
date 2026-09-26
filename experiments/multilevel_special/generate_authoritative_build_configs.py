@@ -15,6 +15,15 @@ DATA_ROOT = Path("/home/graphdb/FilterVectorData/Amazon")
 SOURCE_INDEX = (
     RUN_ROOT / "base_timing/accelerated_gpu_measured_r0/index_files")
 
+GPU_ISOLATION = {
+    "device": 0,
+    "idle_consecutive_samples": 3,
+    "idle_sample_interval_seconds": 1.0,
+    "idle_wait_timeout_seconds": 900.0,
+    "max_idle_utilization_percent": 0,
+    "max_idle_memory_mib": 16,
+}
+
 ACCELERATED_BASE_ENV = {
     "UNG_BUILD_PROFILE": "custom",
     "UNG_GROUP_GRAPH_IMPL": "3",
@@ -162,6 +171,7 @@ def make_base_config(repeats: int, resource_profile: bool) -> dict:
         "scenario": "general",
         "resource_profile": resource_profile,
         "resource_sample_interval_seconds": 0.2,
+        "gpu_isolation": deepcopy(GPU_ISOLATION),
         "cases": cases,
     }
 
@@ -205,6 +215,7 @@ def make_hierarchy_config(repeats: int, resource_profile: bool) -> dict:
         "alpha": 1.2,
         "resource_profile": resource_profile,
         "resource_sample_interval_seconds": 0.2,
+        "gpu_isolation": deepcopy(GPU_ISOLATION),
         "env": COMMON_HIERARCHY_ENV,
         "cases": cases,
     }

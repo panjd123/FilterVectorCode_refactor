@@ -48,6 +48,20 @@ treated as byte-identical and must pass the downstream quality checks below.
 
 ## Timing protocol
 
+GPU timing uses an external `gpulock perf 0 -- ...` lock when that host tool is
+available. The current host does not provide `gpulock`; in that environment,
+every GPU case must instead pass three consecutive `nvidia-smi` samples with
+no compute process, 0% utilization, and at most 16 MiB of driver memory. The
+accepted snapshots are stored in `gpu_isolation.json` and copied into the
+manifest. This fallback is fail closed but is reported as
+`idle_preflight_no_lock`: it verifies pre-run idleness and does not claim the
+race-free exclusivity of a lock.
+
+The isolation check is outside the timed region. End-to-end build time starts
+immediately before the builder child process and includes its complete CPU/GPU
+pipeline. CUDA kernel microbenchmarks remain separate evidence and are never
+substituted for end-to-end wall time.
+
 - Use one immutable snapshot of each build executable and record SHA-256.
 - Run builds serially on the same host with the same thread count, graph degree,
   `Lbuild`, alpha, input data, and source index.

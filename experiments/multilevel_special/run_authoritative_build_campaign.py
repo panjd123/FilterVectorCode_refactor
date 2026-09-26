@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import gpu_isolation
+
 
 HERE = Path(__file__).resolve().parent
 QUERY_PROFILE_CONFIG = HERE / "config.authoritative_amazon_profile_emptyfix.json"
@@ -57,6 +59,13 @@ def main() -> int:
         parser.error("--stop-after must not precede --start-at")
     if not args.skip_query_gate:
         validate_query_gate(args.query_profile_config.resolve())
+    if not gpu_isolation.reexec_under_perf_lock(0):
+        if not gpu_isolation.has_perf_lock(0):
+            print(
+                "[WARN] gpulock is unavailable; GPU cases will use a "
+                "fail-closed idle preflight and record the no-lock limitation",
+                flush=True,
+            )
     run("generate_authoritative_build_configs.py", "--repeats", str(args.repeats))
     for phase in PHASES[start:stop + 1]:
         print(f"\n=== authoritative build phase: {phase} ===", flush=True)
