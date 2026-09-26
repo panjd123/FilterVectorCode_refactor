@@ -3,7 +3,7 @@
   "purpose": "End-to-end zero-layer base-build backend comparison.",
   "build_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/build_UNG_index",
   "data_root": "/home/graphdb/FilterVectorData/Amazon",
-  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/build_study/base_timing",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/build_study/base_timing",
   "dataset": "Amazon",
   "expected_num_points": 602453,
   "expected_base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
