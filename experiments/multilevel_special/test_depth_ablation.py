@@ -5,10 +5,22 @@ from pathlib import Path
 from unittest import mock
 
 import run_authoritative_campaign
+import run_authoritative_build_campaign
 import summarize_depth_ablation as depth
 
 
 class DepthAblationTest(unittest.TestCase):
+    def test_build_campaign_requires_completed_query_profile_gate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            missing = Path(temporary) / "missing.json"
+            with self.assertRaisesRegex(RuntimeError, "query profile"):
+                run_authoritative_build_campaign.validate_query_gate(missing)
+            profile = Path(temporary) / "profile.json"
+            profile.write_text("{}")
+            with mock.patch.object(run_authoritative_build_campaign, "run") as run:
+                run_authoritative_build_campaign.validate_query_gate(profile)
+            run.assert_called_once_with("validate_selection_sweep.py", str(profile))
+
     def test_campaign_summary_root_respects_measurement_pass(self):
         with tempfile.TemporaryDirectory() as temporary:
             config = Path(temporary) / "config.json"

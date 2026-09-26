@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 HERE = Path(__file__).resolve().parent
+QUERY_PROFILE_CONFIG = HERE / "config.authoritative_amazon_profile_emptyfix.json"
 PHASES = ("base_timing", "hierarchy_timing", "base_resource",
           "hierarchy_resource", "quality_screen", "quality_crossing",
           "quality_formal", "summarize")
@@ -31,16 +32,31 @@ def run(*args: str) -> None:
     subprocess.run(command, cwd=HERE, check=True)
 
 
+def validate_query_gate(profile_config: Path) -> None:
+    if not profile_config.is_file():
+        raise RuntimeError(
+            "authoritative query profile is not complete: missing config "
+            f"{profile_config}")
+    run("validate_selection_sweep.py", str(profile_config))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--start-at", choices=PHASES, default="base_timing")
     parser.add_argument("--stop-after", choices=PHASES, default="summarize")
     parser.add_argument("--repeats", type=int, default=5)
+    parser.add_argument("--query-profile-config", type=Path,
+                        default=QUERY_PROFILE_CONFIG)
+    parser.add_argument(
+        "--skip-query-gate", action="store_true",
+        help="development-only override; never use for authoritative build results")
     args = parser.parse_args()
     start = PHASES.index(args.start_at)
     stop = PHASES.index(args.stop_after)
     if stop < start:
         parser.error("--stop-after must not precede --start-at")
+    if not args.skip_query_gate:
+        validate_query_gate(args.query_profile_config.resolve())
     run("generate_authoritative_build_configs.py", "--repeats", str(args.repeats))
     for phase in PHASES[start:stop + 1]:
         print(f"\n=== authoritative build phase: {phase} ===", flush=True)
