@@ -349,16 +349,68 @@ Cross-group construction performs many $(n_q,n_x,d)\rightarrow\mathrm{topK}$
 tasks induced by topology edges.  Launching a general GPU library once per
 group or group pair repeats packing, transfer, launch, and writeback overhead.
 
-\subsection{Intra-Group Graphs}
-The hybrid backend routes small blocks to CPU exact top-$k$ (or bounded
+\subsection{Base-Graph Pipeline}
+The base index is constructed before any hierarchy sidecar.  Its pipeline has
+four semantic stages: build a vector graph inside every exact-label group,
+construct the group-to-group LNG, derive descendants and coverage, and
+materialize vector-level cross-group edges.  Our optimization changes the
+implementation of these stages, not their ownership: group topology and
+metadata remain host structures, and the final vector adjacency is written in
+the CPU-compatible index format used by search.
+
+The accelerated group-graph path batches irregular exact-label groups and uses
+the FastGrnnd CUDA candidate generator, followed by
+relative-neighborhood-style pruning and configured degree repair.  The
+cross-edge path converts host topology edges into descriptors for many
+$(n_q,n_x,d)$ tasks.  A conventional GPU baseline computes similarity tiles
+with SGEMM and performs top-$k$ as a separate stage.  Our fused path consumes
+the descriptors directly, combines distance evaluation with group-local
+top-$k$, and returns identifiers only because cross-edge distances are not
+stored.  It keeps the base-vector array and norms resident when they fit the
+declared device budget; otherwise, bounded vector and query chunks are
+streamed.  Thus the optimization removes repeated per-pair invocation and
+unnecessary score writeback without claiming a fully device-resident index
+builder: host adjacency materialization remains an explicit measured
+boundary.
+
+Table~\ref{tab:base-build-profiles} freezes the five base-build profiles used
+in the evaluation.  In particular, \texttt{naive\_gpu} and
+\texttt{paper\_fused} retain CPU Vamana for intra-group graphs, isolating the
+cross-edge kernel change; \texttt{accelerated\_\allowbreak gpu} additionally selects the
+CUDA group-graph implementation, optimized metadata, and the configured CPU
+exact-scan additional-edge path.
+
+\begin{table*}[t]
+\caption{Frozen base-graph construction profiles.  ``Optimized metadata''
+denotes bucketed minimal-superset discovery, optimized LNG construction,
+epoch-based descendants, and direct descendant coverage.}
+\label{tab:base-build-profiles}
+\centering
+\scriptsize
+\begin{tabular}{p{0.13\textwidth}p{0.19\textwidth}p{0.25\textwidth}p{0.32\textwidth}}
+\toprule
+Profile & Intra-group graph & Group metadata & Vector cross-group edges \\
+\midrule
+\texttt{original\_cpu} & CPU Vamana & Original sort/LNG, hash-BFS descendants, topological coverage & Original CPU builder \\
+\texttt{current\_cpu} & CPU Vamana & Optimized metadata & CPU Vamana cross-edge builder \\
+\texttt{naive\_gpu} & CPU Vamana & Optimized metadata & Batched GPU SGEMM plus separate top-$k$ \\
+\texttt{paper\_fused} & CPU Vamana & Optimized metadata & Descriptor-grouped fused distance/top-$k$ with identifier-only writeback \\
+\texttt{accelerated\_gpu} & FastGrnnd CUDA path & Optimized metadata & Fused GPU cross edges plus CPU exact-scan additional edges \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Hierarchy Intra-Block Graphs}
+For each hierarchy layer, the intra-block router sends small blocks to CPU
+exact top-$k$ (or bounded
 complete) graphs, medium blocks to sampled CPU Vamana
 construction~\cite{subramanya2019diskann}, and large blocks to a GPU adaptation
 of NN-Descent candidate generation~\cite{dong2011nndescent} followed by
 relative-neighborhood-style pruning~\cite{toussaint1980rng} and degree repair.
 The authoritative configurations use
 $n_{\mathrm{small}}=2048$, $n_{\mathrm{large}}=8192$, and 256 sampled
-candidates for the middle route; these are fixed construction-backend settings
-shared by the compared hierarchy structures, not inputs to DRH.  A separate
+candidates for the middle route.  These fixed construction settings are shared
+by the compared hierarchy structures and are not inputs to DRH.  A separate
 full-GPU profile disables this three-way router and sends every block above the
 small-block completion threshold to the CUDA path.  Routing is determined by
 block cardinality and does not inspect downstream Recall.  GPU output is
@@ -383,6 +435,34 @@ decision depends only on block cardinality and declared memory limits.  In
 particular, a GPU-labelled result is invalid when a requested GPU stage falls
 back silently; our validator checks the effective backend counters persisted
 by the builder.
+
+Intra-block and inter-block execution are independently controlled.  We
+therefore freeze the five hierarchy profiles in
+Table~\ref{tab:hierarchy-build-profiles}, rather than describing a sidecar with
+one undifferentiated GPU switch.  The \texttt{full\_gpu} profiles disable the
+three-way intra router and send every block above the bounded-complete
+threshold to CUDA.  The WMMA variant changes the inter-block fused top-$k$ to
+TF32 tensor-core execution; it does not redefine the hierarchy or the
+intra-block graph algorithm.
+
+\begin{table*}[t]
+\caption{Frozen hierarchy-sidecar construction profiles.  CPU completion is
+retained below the declared small-block threshold in every profile.}
+\label{tab:hierarchy-build-profiles}
+\centering
+\scriptsize
+\begin{tabular}{p{0.18\textwidth}p{0.35\textwidth}p{0.34\textwidth}}
+\toprule
+Profile & Intra-block route & Inter-block route \\
+\midrule
+\texttt{cpu} & Small exact/complete, medium sampled Vamana, large CPU Vamana & CPU \\
+\texttt{hybrid\_gpu\_intra} & Small exact/complete, medium sampled Vamana, large FastGrnnd-style CUDA & CPU \\
+\texttt{hybrid\_gpu\_intra\_inter} & Same hybrid intra route & Fused CUDA top-$k$ \\
+\texttt{full\_gpu} & Bounded completion, then CUDA & Fused CUDA-core top-$k$ \\
+\texttt{full\_gpu\_wmma} & Bounded completion, then CUDA & Fused TF32-WMMA top-$k$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \begin{algorithm}[t]
 \caption{Hybrid GPU construction of a multilevel sidecar}
@@ -416,9 +496,19 @@ by the builder.
 \end{algorithmic}
 \end{algorithm}
 
-The hierarchy uses the same construction backend for layer-local and
-inter-block edges.  Because the hierarchy is an independent sidecar, its total
-build time satisfies
+Layer-local and inter-block edges have independent backend choices, while all
+layers within a named profile use the same declared routing policy.  A case is
+accepted only if its log proves the requested GPU work occurred, reports zero
+GPU intra-block fallback, proves GPU inter-block use when requested, and, for
+\texttt{full\_gpu\_wmma}, contains an observed \texttt{mode=tf32\_wmma}
+execution.  We then serialize and reload every declared layer and validate its
+structure.  A predeclared quality cohort additionally re-queries the original
+and accelerated base indexes and the CPU, full-GPU, and full-GPU-WMMA
+sidecars for both studied hierarchy structures under the same formal
+equal-Recall protocol as the query study.  Backend evidence is therefore
+necessary but not sufficient for a claimed construction result.
+
+Because the hierarchy is an independent sidecar, its total build time satisfies
 \begin{equation}
   T_{\mathrm{multilevel}}=T_{\mathrm{base}}+T_{\mathrm{sidecar}}.
 \end{equation}
