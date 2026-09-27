@@ -31,7 +31,7 @@
 | held-out 自动方案 vs 手工 oracle | Genome、Reviews、VariousImg；manual grid 在看结果前冻结；自动与 35 个 manual candidates 使用同一 gate；报告逐 workload 和单一配置 oracle gap | **配置/预检完成，查询待运行**：summarize_heldout_oracle.py |
 | GPU 建图 | kernel 与端到端 wall time 分开；1 cold + 至少 5 measured；CPU/GPU 交错；RSS/GPU memory/index bytes；下游 Recall 复验 | **runner 完成，权威 timing/resource/quality 待运行** |
 | 完整可展示报告 | 方法、baseline、数据集、Recall crossing、QPS/CI、适用区间、负结果、机制解释和限制均由当前证据生成 | **正文框架完成，数字待 validator** |
-| SIGMOD/VLDB LaTeX | 算法定义、正确性、复杂度、伪代码、实验方法、表图、讨论、限制、引用完整；无 pending；可编译 | **正文与原子结果接口完成；最终数字及编译验收待完成** |
+| SIGMOD/VLDB LaTeX | 算法定义、正确性、复杂度、伪代码、实验方法、表图、讨论、限制、引用完整；无 pending；可编译 | **正文与原子结果接口完成；placeholder 骨架已通过 Tectonic 0.15.0 musl 编译，最终数字版验收待完成** |
 
 ## 必须通过的最终门禁
 
@@ -72,6 +72,9 @@
   会在所有实验进程退出后使用独立 build 目录执行。
 - 论文结果：generated_results.tex 保持 fail-closed placeholder；摘要、结论和
   Results 由同一生成文件统一更新。
+- 论文编译：2026-09-27 使用 Tectonic 0.15.0 musl 对当前 placeholder 骨架执行
+  `tectonic main.tex --keep-logs --keep-intermediates` 成功并生成 PDF；这仅证明
+  LaTeX 工程可编译，不替代最终 `generated_results.tex` 生成后的再次验收。
 
 ## 完成判定
 
