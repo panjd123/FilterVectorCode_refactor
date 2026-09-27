@@ -55,6 +55,17 @@ DEPTH_CATEGORIES = (
 BASELINE_METHOD = "l0_lng_entry_optimized_lng"
 PRINCIPAL_TRIE_METHOD = "l0_trie_entry_trie"
 ROUTED_DRH_ROLE = "predeclared_degree_ratio_hierarchy_v1_upper_authorization_control"
+TWO_LAYER_TOPOLOGY_ABLATION = (
+    ("l2_t1024_16384_ll_entry_optimized_lng", "LNG/LNG"),
+    ("l2_t1024_16384_lt_entry_optimized_lng", "LNG/Trie"),
+    ("l2_t1024_16384_tl_entry_optimized_lng", "Trie/LNG"),
+    ("l2_t1024_16384_tt_entry_optimized_lng", "Trie/Trie"),
+)
+DRH_ENTRY_ABLATION = (
+    ("l2_t1024_16384_lt_entry_original", "Original"),
+    ("l2_t1024_16384_lt_entry_optimized_lng", "Optimized LNG"),
+    ("l2_t1024_16384_lt_entry_trie", "Trie"),
+)
 QUERY_FIELDS = {
     "workload", "mean_selectivity", "method", "layer_count", "thresholds",
     "base_topology", "layer_topologies", "entry_strategy", "routing_policy",
@@ -836,6 +847,66 @@ def render_principal_zero_layer_by_workload(
     return lines
 
 
+def render_equal_recall_ablation(
+    formal: dict[tuple[str, str], dict[str, str]],
+    config: dict[str, Any], workloads: list[str],
+    methods: tuple[tuple[str, str], ...], caption: str, label: str,
+) -> list[str]:
+    """Render every declared method at its conservative Recall crossing."""
+    declared = {str(method["name"]) for method in config["methods"]}
+    missing = [name for name, _ in methods if name not in declared]
+    if missing:
+        raise ValueError(f"{label}: methods are absent from config: {missing}")
+    lines = [
+        r"\begin{table*}[t]", r"\centering", r"\small",
+        rf"\caption{{{caption}}}", rf"\label{{{label}}}",
+        r"\begin{tabular}{" + "r" * (len(methods) + 1) + "}",
+        r"\toprule",
+        "Selectivity & " + " & ".join(
+            tex_escape(display) for _, display in methods) + r" \\",
+        r"\midrule",
+    ]
+    for workload in workloads:
+        baseline = formal.get((BASELINE_METHOD, workload))
+        if baseline is None:
+            raise ValueError(f"principal LNG baseline is missing: {workload}")
+        cells = []
+        for name, _ in methods:
+            row = formal.get((name, workload))
+            cells.append(
+                "NC" if row is None else
+                f"{integer(row, 'lsearch'):,}/{number(row, 'qps_warm_median'):.1f}")
+        lines.append(
+            f"{100.0 * number(baseline, 'mean_selectivity'):.3f}\\% & "
+            + " & ".join(cells) + r" \\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
+    return lines
+
+
+def render_two_layer_topology_table(
+    formal: dict[tuple[str, str], dict[str, str]],
+    config: dict[str, Any], workloads: list[str],
+) -> list[str]:
+    return render_equal_recall_ablation(
+        formal, config, workloads, TWO_LAYER_TOPOLOGY_ABLATION,
+        "Two-layer topology ablation at $T_1=1{,}024$ and "
+        "$T_2=16{,}384$ with optimized LNG entry discovery. Each cell "
+        "reports $L_{search}$/QPS.",
+        "tab:amazon-two-layer-topology")
+
+
+def render_drh_entry_table(
+    formal: dict[tuple[str, str], dict[str, str]],
+    config: dict[str, Any], workloads: list[str],
+) -> list[str]:
+    return render_equal_recall_ablation(
+        formal, config, workloads, DRH_ENTRY_ABLATION,
+        "Entry-strategy ablation on the fixed ungated DRH hierarchy "
+        "($1{,}024$: LNG, $16{,}384$: Trie). Each cell reports "
+        "$L_{search}$/QPS.",
+        "tab:amazon-drh-entry")
+
+
 def render_query_interpretation(
     formal: dict[tuple[str, str], dict[str, str]],
     depth: dict[tuple[str, str], dict[str, str]],
@@ -1449,6 +1520,41 @@ def generate_markdown_report(
             f"{integer(lng, 'lsearch'):,}/{number(lng, 'qps_warm_median'):.1f} | "
             f"{trie_cell} | {ratio} |")
 
+    def append_markdown_ablation(
+        heading: str, methods: tuple[tuple[str, str], ...], note: str,
+    ) -> None:
+        declared = {str(method["name"])
+                    for method in amazon_formal_config["methods"]}
+        missing = [name for name, _ in methods if name not in declared]
+        if missing:
+            raise ValueError(f"{heading}: methods are absent from config: {missing}")
+        lines.extend([
+            "", f"### {heading}", "", note, "",
+            "| 选择率 | " + " | ".join(label for _, label in methods) + " |",
+            "|---:|" + "---:|" * len(methods),
+        ])
+        for workload in workloads:
+            baseline = formal[(BASELINE_METHOD, workload)]
+            cells = []
+            for name, _ in methods:
+                row = formal.get((name, workload))
+                cells.append(
+                    "NC" if row is None else
+                    f"{integer(row, 'lsearch'):,}/"
+                    f"{number(row, 'qps_warm_median'):.1f}")
+            lines.append(
+                f"| {100.0 * number(baseline, 'mean_selectivity'):.3f}% | "
+                + " | ".join(cells) + " |")
+
+    append_markdown_ablation(
+        "两层逐层 topology 消融", TWO_LAYER_TOPOLOGY_ABLATION,
+        "固定 T1=1,024、T2=16,384 和 optimized LNG entry；每格为 "
+        "Lsearch/QPS。")
+    append_markdown_ablation(
+        "固定 DRH 的入口策略消融", DRH_ENTRY_ABLATION,
+        "固定 1,024:LNG、16,384:Trie 的 ungated hierarchy；每格为 "
+        "Lsearch/QPS。")
+
     lines.extend([
         "", "## 5. 无校准 DRH 与冻结人工 Oracle", "",
         "Oracle candidate set 由 DRH 和 35 个预先冻结的手工替代方案组成；所有候选"
@@ -1722,6 +1828,10 @@ def generate_document(
     body.extend(render_depth_global(depth_global))
     body.extend(render_principal_zero_layer_by_workload(formal, workloads))
     body.extend(render_zero_layer_table(formal, amazon_formal_config, workloads))
+    body.extend(render_two_layer_topology_table(
+        formal, amazon_formal_config, workloads))
+    body.extend(render_drh_entry_table(
+        formal, amazon_formal_config, workloads))
     body.extend(render_query_interpretation(formal, depth, profile, workloads))
     body.extend(render_heldout(heldout_rows, heldout_global))
     body.extend(render_profile(profile, amazon_profile_config, workloads))
