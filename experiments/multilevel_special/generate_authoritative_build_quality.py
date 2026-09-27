@@ -49,6 +49,7 @@ def hierarchy_method(structure: str, profile: str) -> dict:
         "expected_main_index_labels_sha256": labels_hash(main),
         "base_topology": "lng",
         "entry_strategy": "optimized_lng",
+        "routing_policy": "require_upper_authorization",
         "hierarchy_layers": layers,
         "special_block_search": True,
         "block_index": str(block),

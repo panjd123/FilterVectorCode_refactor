@@ -405,6 +405,16 @@ class OrthogonalExperimentTest(unittest.TestCase):
                 {"output_root": "/runs/amazon_screen"}, "formal"),
             "/runs/amazon_formal")
 
+    def test_build_quality_hierarchy_uses_final_gated_routing(self):
+        with mock.patch.object(
+                generate_authoritative_build_quality,
+                "labels_hash", return_value="labels-sha256"):
+            method = generate_authoritative_build_quality.hierarchy_method(
+                "auto_drh_v1", "full_gpu")
+        self.assertEqual(
+            method["routing_policy"], "require_upper_authorization")
+        self.assertTrue(method["special_block_search"])
+
     def test_summarizer_reads_declared_measurement_pass(self):
         self.assertEqual(
             summarize_selection_sweep.measurement_root({

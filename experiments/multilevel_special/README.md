@@ -215,10 +215,12 @@ RSS and per-process GPU memory only in the resource pass.
 
 After timing and resource measurement, the driver searches representative
 repeat-0 CPU/GPU outputs through `quality_screen`, `quality_crossing`, and
-`quality_formal`. These checks use the same Amazon query/GT and measured
-Recall-crossing rule as the main query study. `summarize_authoritative_build.py`
-reports component times and paired base-plus-hierarchy totals; it never
-substitutes a CUDA kernel timer for full process wall time.
+`quality_formal`. Hierarchy outputs use the final
+`require_upper_authorization` routing policy, and all checks use the same
+Amazon query/GT and measured Recall-crossing rule as the main query study.
+`summarize_authoritative_build.py` reports component times and paired
+base-plus-hierarchy totals; it never substitutes a CUDA kernel timer for full
+process wall time.
 
 ## UNG versus plain provider study
 
