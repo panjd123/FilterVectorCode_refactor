@@ -92,6 +92,12 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             ],
             "recall_thresholds": {name: 0.9 for name, _ in WORKLOADS},
         }
+        self.screen_config = copy.deepcopy(self.formal_config)
+        for method_row in self.screen_config["methods"]:
+            method_row["lsearch_values_by_workload"] = {
+                name: [100 + index]
+                for index, (name, _) in enumerate(WORKLOADS)
+            }
         self.profile_config = self.formal_config
         self.heldout_configs = []
         self.heldout_policies = {}
@@ -321,6 +327,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             path = self.root / f"{name}.csv"
             write_csv(path, rows)
             paths[name] = path
+        self.screen_points = self.root / "screen_points.csv"
+        write_csv(self.screen_points, formal)
         return generator.ResultPaths(**paths)
 
     def generate(self) -> str:
@@ -434,7 +442,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             for family, _ in generator.RECALL_QPS_FIGURES
         }
         report = generator.generate_markdown_report(
-            self.paths, self.formal_config, self.profile_config,
+            self.paths, self.screen_config, self.screen_points,
+            self.formal_config, self.profile_config,
             list(self.heldout_policies.values()), self.formal_config, figures,
             self.root / "report.md")
         for heading in (
@@ -443,7 +452,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             "GPU 辅助构建", "Recall-QPS 曲线", "解释边界",
             "零层 topology 与入口策略完整消融",
             "两层逐层 topology 消融", "固定 DRH 的入口策略消融",
-            "层数与阈值尺度消融",
+            "层数与阈值尺度消融", "全部 screen 方法的",
         ):
             self.assertIn(heading, report)
         self.assertIn("Entry distances", report)
@@ -461,7 +470,50 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("Trie + optimized LNG", report)
         self.assertIn("GPU evidence", report)
         self.assertIn("idle-3", report)
+        self.assertIn("逐 Lsearch 原始点", report)
+        self.assertIn("L/Q/R", report)
         self.assertNotIn("pending", report.lower())
+
+    def test_screen_matrix_reports_crossing_or_best_measured_recall(self) -> None:
+        rows = generator.read_csv(
+            self.screen_points, generator.SCREEN_POINT_FIELDS)
+        key = (generator.BASELINE_METHOD, WORKLOADS[0][0])
+        point = next(row for row in rows
+                     if (row["method"], row["workload"]) == key)
+        point["recall_min"] = "0.89"
+        summary = generator.summarize_screen_points(
+            rows, self.screen_config,
+            [name for name, _ in WORKLOADS])
+        self.assertEqual(summary[key]["status"], "no_crossing")
+        self.assertEqual(summary[key]["lsearch"], 100)
+
+        crossing = copy.deepcopy(point)
+        crossing["lsearch"] = "200"
+        crossing["recall_min"] = "0.92"
+        rows.append(crossing)
+        earlier_crossing = copy.deepcopy(point)
+        earlier_crossing["lsearch"] = "150"
+        earlier_crossing["recall_min"] = "0.90"
+        rows.append(earlier_crossing)
+        method_config = next(
+            row for row in self.screen_config["methods"]
+            if row["name"] == generator.BASELINE_METHOD)
+        method_config["lsearch_values_by_workload"][WORKLOADS[0][0]] = [
+            100, 150, 200]
+        summary = generator.summarize_screen_points(
+            rows, self.screen_config,
+            [name for name, _ in WORKLOADS])
+        self.assertEqual(summary[key]["status"], "complete")
+        self.assertEqual(summary[key]["lsearch"], 150)
+
+    def test_screen_matrix_rejects_duplicate_lsearch(self) -> None:
+        rows = generator.read_csv(
+            self.screen_points, generator.SCREEN_POINT_FIELDS)
+        rows.append(copy.deepcopy(rows[0]))
+        with self.assertRaisesRegex(ValueError, "duplicate L"):
+            generator.summarize_screen_points(
+                rows, self.screen_config,
+                [name for name, _ in WORKLOADS])
 
     def test_markdown_report_rejects_invalid_build_evidence(self) -> None:
         with self.paths.build_summary.open(
@@ -476,7 +528,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         }
         with self.assertRaisesRegex(ValueError, "idle preflight"):
             generator.generate_markdown_report(
-                self.paths, self.formal_config, self.profile_config,
+                self.paths, self.screen_config, self.screen_points,
+                self.formal_config, self.profile_config,
                 list(self.heldout_policies.values()), self.formal_config,
                 figures, self.root / "report.md")
 

@@ -86,6 +86,7 @@ QUERY_FIELDS = {
     "base_topology", "layer_topologies", "entry_strategy", "routing_policy",
     "lsearch", "recall_min", "qps_warm_median", "target_recall",
 }
+SCREEN_POINT_FIELDS = QUERY_FIELDS - {"target_recall"}
 PROFILE_FIELDS = QUERY_FIELDS | {
     "query_total_ms_warm_median", "els_ms_warm_median",
     "entry_ms_warm_median", "block_authorization_ms_warm_median",
@@ -566,6 +567,109 @@ def validate_formal_rows(
                float(workloads[workload]["mean_selectivity"])) > 1e-12:
             raise ValueError(f"{source}: selectivity mismatch for {method}/{workload}")
     return indexed
+
+
+def summarize_screen_points(
+    rows: list[dict[str, str]], config: dict[str, Any], workloads: list[str],
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Validate every declared screen point and select conservative crossings."""
+    expected = expected_pairs(config)
+    grouped: dict[tuple[str, str], list[dict[str, str]]] = {
+        key: [] for key in expected
+    }
+    methods = {str(row["name"]): row for row in config["methods"]}
+    workload_configs = {
+        str(row["name"]): row for row in config["workloads"]
+    }
+    for row in rows:
+        key = (row["method"], row["workload"])
+        if key not in grouped:
+            raise ValueError(f"Amazon screen points: unexpected pair {key}")
+        grouped[key].append(row)
+    missing = sorted(key for key, values in grouped.items() if not values)
+    if missing:
+        raise ValueError(
+            f"Amazon screen points: missing method/workload pairs {missing[:5]}")
+
+    summaries: dict[tuple[str, str], dict[str, Any]] = {}
+    for (method, workload), points in grouped.items():
+        method_config = methods[method]
+        layers = method_config.get("hierarchy_layers", [])
+        expected_metadata = {
+            "layer_count": str(len(layers)),
+            "thresholds": ",".join(
+                str(layer["min_points"]) for layer in layers) or "none",
+            "base_topology": str(method_config["base_topology"]),
+            "layer_topologies": ",".join(
+                str(layer["topology"]) for layer in layers) or "none",
+            "entry_strategy": str(method_config["entry_strategy"]),
+            "routing_policy": str(method_config.get(
+                "routing_policy", "always_layered")),
+        }
+        seen_lsearch: set[int] = set()
+        for point in points:
+            lsearch = integer(point, "lsearch")
+            recall = number(point, "recall_min")
+            qps = number(point, "qps_warm_median")
+            if lsearch <= 0 or lsearch in seen_lsearch:
+                raise ValueError(
+                    f"Amazon screen points: invalid/duplicate L for "
+                    f"{method}/{workload}: {lsearch}")
+            seen_lsearch.add(lsearch)
+            if not 0.0 <= recall <= 1.0 or qps <= 0:
+                raise ValueError(
+                    f"Amazon screen points: invalid measurement for "
+                    f"{method}/{workload}/L={lsearch}")
+            for field, expected_value in expected_metadata.items():
+                if point[field] != expected_value:
+                    raise ValueError(
+                        f"Amazon screen points: {field} mismatch for "
+                        f"{method}/{workload}")
+            if abs(number(point, "mean_selectivity") - float(
+                    workload_configs[workload]["mean_selectivity"])) > 1e-12:
+                raise ValueError(
+                    f"Amazon screen points: selectivity mismatch for "
+                    f"{method}/{workload}")
+
+        declared_lsearch = method_config.get(
+            "lsearch_values_by_workload", {}).get(workload)
+        if not isinstance(declared_lsearch, list) or not declared_lsearch:
+            raise ValueError(
+                f"Amazon screen config: missing L grid for {method}/{workload}")
+        expected_lsearch = {int(value) for value in declared_lsearch}
+        if len(expected_lsearch) != len(declared_lsearch):
+            raise ValueError(
+                f"Amazon screen config: duplicate L for {method}/{workload}")
+        if seen_lsearch != expected_lsearch:
+            raise ValueError(
+                f"Amazon screen points: L grid mismatch for {method}/{workload}; "
+                f"missing={sorted(expected_lsearch - seen_lsearch)} "
+                f"extra={sorted(seen_lsearch - expected_lsearch)}")
+
+        target = float(config["recall_thresholds"][workload])
+        crossings = [point for point in points
+                     if number(point, "recall_min") >= target]
+        if crossings:
+            selected = min(crossings, key=lambda point: integer(point, "lsearch"))
+            status = "complete"
+        else:
+            selected = max(
+                points,
+                key=lambda point: (
+                    number(point, "recall_min"), -integer(point, "lsearch")),
+            )
+            status = "no_crossing"
+        summaries[(method, workload)] = {
+            "status": status,
+            "lsearch": integer(selected, "lsearch"),
+            "recall_min": number(selected, "recall_min"),
+            "qps": number(selected, "qps_warm_median"),
+        }
+
+    declared_workloads = [str(row["name"]) for row in config["workloads"]]
+    if declared_workloads != workloads:
+        raise ValueError("Amazon screen/formal workload order differs")
+    return summaries
 
 
 def validate_depth_rows(
@@ -1426,6 +1530,8 @@ def render_recall_qps_figures(figures: dict[str, Path]) -> str:
 
 def generate_markdown_report(
     paths: ResultPaths,
+    amazon_screen_config: dict[str, Any],
+    amazon_screen_points: Path,
     amazon_formal_config: dict[str, Any],
     amazon_profile_config: dict[str, Any],
     heldout_policies: list[dict[str, Any]],
@@ -1435,6 +1541,11 @@ def generate_markdown_report(
 ) -> str:
     """Render the presentation report from the same already-validated inputs."""
     workloads = validate_amazon_workloads(amazon_formal_config)
+    if validate_amazon_workloads(amazon_screen_config) != workloads:
+        raise ValueError("Amazon screen and formal workloads differ")
+    screen_rows = read_csv(amazon_screen_points, SCREEN_POINT_FIELDS)
+    screen = summarize_screen_points(
+        screen_rows, amazon_screen_config, workloads)
     formal_rows = read_csv(paths.amazon_formal, QUERY_FIELDS)
     formal = validate_formal_rows(
         formal_rows, amazon_formal_config, "Amazon formal")
@@ -1636,6 +1747,54 @@ def generate_markdown_report(
         "固定 DRH 的入口策略消融", DRH_ENTRY_ABLATION,
         "固定 1,024:LNG、16,384:Trie 的 ungated hierarchy；每格为 "
         "Lsearch/QPS。")
+
+    screen_methods = [
+        method for method in amazon_screen_config["methods"]
+        if any((str(method["name"]), workload) in screen
+               for workload in workloads)
+    ]
+    raw_relative = os.path.relpath(
+        amazon_screen_points.resolve(), report_path.resolve().parent)
+    lines.extend([
+        "", f"### 全部 screen 方法的 {len(screen_methods)} x "
+        f"{len(workloads)} crossing 矩阵", "",
+        f"下表覆盖配置中全部 {len(screen_methods)} 个方法。它只使用 screen 阶段的 "
+        "2 个 warm repeats 来选择候选：`L/Q/R` 表示最小实测 crossing 的 "
+        "Lsearch、QPS 和 warm-min Recall；`NC:R@L` 表示没有 crossing，并报告"
+        "最高实测 warm-min Recall 及其 Lsearch。该表用于完整披露和候选筛选，"
+        "正式性能结论仍以上面的 15-repeat formal 表为准。",
+        "",
+        f"逐 Lsearch 原始点：[all_points.csv]({raw_relative})。",
+        "",
+        "| 方法 | Base | Hierarchy | Entry | Routing | "
+        + " | ".join(
+            f"{100.0 * float(next(row['mean_selectivity'] for row in amazon_screen_config['workloads'] if row['name'] == workload)):.3f}%"
+            for workload in workloads)
+        + " |",
+        "|---|---|---|---|---|" + "---:|" * len(workloads),
+    ])
+    for method in screen_methods:
+        name = str(method["name"])
+        layers = method.get("hierarchy_layers", [])
+        hierarchy = ";".join(
+            f"{int(layer['min_points'])}:{str(layer['topology']).upper()}"
+            for layer in layers) or "none"
+        cells = []
+        for workload in workloads:
+            row = screen.get((name, workload))
+            if row is None:
+                cells.append("--")
+            elif row["status"] == "complete":
+                cells.append(
+                    f"{row['lsearch']:,}/{row['qps']:.1f}/{row['recall_min']:.3f}")
+            else:
+                cells.append(
+                    f"NC:{row['recall_min']:.3f}@{row['lsearch']:,}")
+        lines.append(
+            f"| `{name}` | {str(method['base_topology']).upper()} | "
+            f"{hierarchy} | {method['entry_strategy']} | "
+            f"{method.get('routing_policy', 'always_layered')} | "
+            + " | ".join(cells) + " |")
 
     lines.extend([
         "", "## 5. 无校准 DRH 与冻结人工 Oracle", "",
@@ -2107,7 +2266,8 @@ def main(argv: list[str] | None = None) -> int:
         args.amazon_screen_points.resolve())
     document = document.rstrip() + "\n" + render_recall_qps_figures(figures) + "\n"
     report = generate_markdown_report(
-        paths, amazon_formal, amazon_profile,
+        paths, amazon_screen, args.amazon_screen_points.resolve(),
+        amazon_formal, amazon_profile,
         [policy for _, _, policy in heldout_policies], build_quality_config,
         figures,
         args.report_output.resolve())

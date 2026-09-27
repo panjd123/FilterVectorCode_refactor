@@ -146,6 +146,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M16 | reporting | RESOLVED | 中文报告曾缺少 LaTeX 已有的全局 depth 与完整零层组合表，且单独调用 Markdown renderer 会绕过部分结果校验 | Markdown 现补齐九档全局配置、零层 2x3 topology/entry crossing 和 GPU lock/idle 证据，并自行执行 depth、held-out、build fail-closed 校验；executable hash 使用文件状态键缓存，mutation 回归仍通过 |
 | M17 | measurement | RESOLVED | build 汇总曾将独立 base/hierarchy phase 的同编号 repeat 相加并称为 paired end-to-end measurement | 完整索引点估计改为两个阶段中位数之和，CI 对 original base、accelerated base、hierarchy 独立 bootstrap，并拒绝样本数不平衡；文档统一标为 stage-composed full-index cost |
 | M18 | reporting | RESOLVED | held-out oracle 的两个旧计数字段名称含 manual，但实际候选集合包含 DRH 本身 | 汇总器删除歧义字段，改报 feasible/complete oracle candidates，并硬性要求候选角色计数为 1 DRH + 35 manual = 36 |
+| M19 | reporting | RESOLVED | 主表和七类图只显式覆盖 44 个 Amazon screen 方法中的代表性子集，完整方法结果只能从 raw points 手工恢复 | 中文报告新增 fail-closed 44x9 crossing 矩阵：crossing 报 L/QPS/warm-min Recall，NC 报最高实测 Recall@L，并明确 2-repeat screen 不替代 15-repeat formal 结论 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较 |
@@ -158,8 +159,8 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | E1 | Amazon broad screen | 九档、零/一/多层、Trie/LNG、coarse L 完整 | 进行中 |
 | E2 | Amazon crossing/formal | 每方法每档最小实测 crossing，正式重复完成 | 未开始 |
 | E3 | 多数据集验证 | Reviews/Genome/VariousImg 至少各一个低档和一个较高档或可用代表档 | 配置和预检完成，待运行 |
-| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | gated DRH-v1 与同 gate oracle 协议已冻结；168/168 测试和配置 dry-run 通过，待结果 |
-| E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | 同源 fail-closed LaTeX/中文报告生成器及 25 项专项测试完成；等待权威输入 |
+| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | gated DRH-v1 与同 gate oracle 协议已冻结；176/176 测试和配置 dry-run 通过，待结果 |
+| E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | 同源 fail-closed LaTeX/中文报告生成器及 27 项专项测试完成；含完整 44x9 screen crossing 矩阵，等待权威输入 |
 
 ## 已知数据
 
