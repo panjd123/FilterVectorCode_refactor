@@ -28,6 +28,7 @@ MANIFEST = HERE / "config.drh_v2_manifest.json"
 SEARCH_RUNNER = HERE / "run_selection_sweep.py"
 VALIDATOR = HERE / "validate_selection_sweep.py"
 SUMMARIZER = HERE / "summarize_selection_sweep.py"
+CAMPAIGN_SUMMARIZER = HERE / "summarize_drh_v2_ablation.py"
 DATASET_PRIORITY = {"VariousImg": 0, "Amazon": 1, "Genome": 2, "Reviews": 3}
 
 
@@ -167,6 +168,11 @@ def main() -> int:
         else "complete_with_failures"
     )
     bounded.atomic_json(supervisor, state)
+    if state["status"] == "complete":
+        run_checked([
+            sys.executable, str(CAMPAIGN_SUMMARIZER),
+            "--manifest", str(MANIFEST),
+        ], HERE)
     print(supervisor)
     return 0
 
