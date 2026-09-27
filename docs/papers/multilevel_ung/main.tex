@@ -200,6 +200,55 @@ Each block owns a local vector graph and vector-level inter-block edges.  Edges
 are serialized with their owner block and activation level.  The base topology
 is built independently and remains available for exact fallback.
 
+Algorithm~\ref{alg:trie-topology} makes the Trie topology precise.  A preorder
+scan carries the nearest terminal ancestor.  Consequently, every non-root
+terminal has at most one incoming Trie edge and a terminal may have several
+outgoing edges, one to the first terminal on each descendant branch.  The
+result contains $O(G)$ edges, but unlike LNG it does not connect set-containment
+relations whose sorted label sequences are not prefix related.  For a block
+layer, terminals in the algorithm are the block roots emitted by
+Algorithm~\ref{alg:partition}; traversal stops at the first nested block root,
+so no edge crosses a layer boundary.
+
+\begin{algorithm}[t]
+\caption{Prefix-Trie group topology}
+\label{alg:trie-topology}
+\begin{algorithmic}[1]
+\Require Canonical label trie $\mathcal{T}$ and terminals $g(v)$
+\Ensure Directed topology $E_{\mathrm{Trie}}$
+\State $E_{\mathrm{Trie}}\gets\varnothing$
+\State push $(\mathrm{root}(\mathcal{T}),\bot)$ onto a stack
+\While{the stack is nonempty}
+  \State $(v,a)\gets\Call{Pop}{\mathrm{stack}}$
+  \If{$v$ is a terminal}
+    \If{$a\ne\bot$}
+      \State $E_{\mathrm{Trie}}\gets E_{\mathrm{Trie}}\cup\{(g(a),g(v))\}$
+    \EndIf
+    \State $a\gets v$
+  \EndIf
+  \For{$c\in\mathrm{child}(v)$}
+    \State push $(c,a)$ onto the stack
+  \EndFor
+\EndWhile
+\State \Return $E_{\mathrm{Trie}}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Entry-Group Providers}
+The topology and the entry provider are separate interfaces.  The
+\emph{original LNG} provider sorts and filters candidate supersets to return
+the minimal observed supersets of $Q$.  The \emph{optimized LNG} provider
+computes the same definition with label-cardinality buckets and indexed
+containment checks.  The \emph{Trie} provider instead returns the first
+compatible terminal on every surviving prefix branch.  It chooses the largest
+query label as a pivot, enumerates only its posting list, verifies the remaining
+labels by walking ancestors, and then descends each matched subtree until the
+first terminal on each branch.  For $Q=\varnothing$, it returns the
+precomputed root terminal frontier.  Thus all three providers return group
+identifiers consumed by the same vector-search interface, but the Trie
+frontier is deliberately topology aware and is not claimed to equal the LNG
+minimal-superset set.
+
 \subsection{Exact Query Authorization}
 A query authorizes block $b$ precisely when
 \begin{equation}
@@ -384,6 +433,29 @@ unnecessary score writeback without claiming a fully device-resident index
 builder: host adjacency materialization remains an explicit measured
 boundary.
 
+\begin{algorithm}[t]
+\caption{Accelerated construction of the base unified graph}
+\label{alg:gpu-base-build}
+\begin{algorithmic}[1]
+\Require Vectors $X$, exact-label groups $\{G_S\}$, degree $R$, cross degree $C$
+\Ensure CPU-compatible unified graph $A$
+\State construct group metadata and the declared group topology
+\For{each memory-bounded batch of exact-label groups}
+  \State generate within-group candidates on the GPU
+  \State prune candidates and repair each group to the declared degree policy
+  \State append the resulting identifiers to host adjacency $A$
+\EndFor
+\State form descriptors $(G_S,G_{S'})$ for every group-topology edge
+\For{each descriptor batch that fits the device budget}
+  \State evaluate distances and select group-local top-$C$ identifiers jointly
+  \State compact identifiers and append cross-group edges to $A$
+\EndFor
+\State execute the declared additional-edge completion path
+\State serialize, reload, and validate $A$ and effective backend counters
+\State \Return $A$
+\end{algorithmic}
+\end{algorithm}
+
 Table~\ref{tab:base-build-profiles} freezes the five base-build profiles used
 in the evaluation.  In particular, \texttt{naive\_gpu} and
 \texttt{paper\_fused} retain CPU Vamana for intra-group graphs, isolating the
@@ -528,18 +600,21 @@ and report sidecar overhead against the same accelerated base separately.
 
 \section{Complexity Analysis}
 Let $G$ be the number of exact groups, $B_\ell$ the number of blocks at layer
-$\ell$, $M_\ell$ the number of direct member points represented at that layer,
+$\ell$, $G_\ell$ the number of exact-group memberships assigned at that layer,
+$M_\ell$ the number of direct member points represented at that layer,
 $E_\ell$ its block-topology edges, and $D_\ell$ the number of materialized
 vector edges.  Building the label trie costs $O(\sum_g |S_g|)$ time and space.
-Each independent partition is linear in the trie plus emitted membership, so
+Each independent partition is linear in the trie plus emitted memberships, so
 all partitions cost
 \begin{equation}
   O\left(L|\mathcal{T}|+\sum_{\ell=1}^{L}G_\ell\right).
 \end{equation}
 The stored hierarchy costs $O(\sum_\ell(B_\ell+G_\ell+D_\ell))$ excluding the
-base index.  Trie topology uses at most one nearest-terminal parent per
-non-root terminal, whereas explicit LNG construction can require pairwise
-containment checks in the worst case.  Actual LNG edge count is reported.
+base index.  Trie topology has one incoming nearest-terminal edge per
+non-root terminal and hence $O(B_\ell)$ block edges, whereas explicit LNG
+construction can require pairwise containment checks and a denser transitive
+reduction in the worst case.  We report the materialized edge counts rather
+than infer cost from these bounds.
 
 For one query, exact block authorization by direct comparison is
 $O(\sum_b |R_b|)$; indexed Trie search can reduce the examined frontier, but we
