@@ -1,7 +1,15 @@
-% This file is intentionally kept separate from main.tex.
-% The authoritative result generator will replace this text only after the
-% screen, crossing, formal, profile, held-out, and build validators pass.
-
+% The authoritative generator atomically replaces this entire file only after
+% every required validator and source check passes. Keeping all three outputs
+% here prevents partially updated claims and tables.
+\newcommand{\authoritativeAbstractResult}{%
+\pending{Insert formal multi-dataset speedup and oracle-regret results after
+the authoritative campaign.}
+}
+\newcommand{\authoritativeConclusionResult}{%
+\pending{Replace this sentence with the final cross-dataset conclusions after
+all formal and build campaigns pass validation.}
+}
+\newcommand{\authoritativeResults}{%
 \subsection{Query Performance}
 \pending{Authoritative formal results are still running.}
 
@@ -15,3 +23,4 @@ held-out results.}
 \subsection{Construction}
 \pending{Report repeated end-to-end CPU/GPU builds, resource use, index size,
 and downstream search-quality checks.}
+}

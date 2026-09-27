@@ -11,6 +11,7 @@ from pathlib import Path
 import generate_authoritative_paper_results as generator
 
 
+SCRIPT_DIR = Path(__file__).resolve().parent
 WORKLOADS = [
     (f"sel_{index}", value)
     for index, value in enumerate(generator.EXPECTED_AMAZON_SELECTIVITIES)
@@ -215,6 +216,10 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             "Mechanism Breakdown", "Construction",
         ):
             self.assertIn(heading, output)
+        self.assertIn(r"\newcommand{\authoritativeAbstractResult}", output)
+        self.assertIn(r"\newcommand{\authoritativeConclusionResult}", output)
+        self.assertIn(r"\newcommand{\authoritativeResults}", output)
+        self.assertIn("9/9 selectivity workloads", output)
         self.assertIn("99.001\\%", output)
         self.assertIn("source-sha256", output)
         self.assertIn("Special intra", output)
@@ -269,6 +274,27 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             generator.validated_query_config(
                 self.root / "missing-config.json",
                 self.root / "missing-validator.py", "formal", 15)
+
+    def test_paper_shell_uses_one_generated_macro_contract(self) -> None:
+        paper = SCRIPT_DIR.parent.parent / "docs/papers/multilevel_ung"
+        if not paper.is_dir():
+            paper = SCRIPT_DIR
+        main = (paper / "main.tex").read_text(encoding="utf-8")
+        placeholder = (paper / "generated_results.tex").read_text(
+            encoding="utf-8")
+        self.assertLess(
+            main.index(r"\input{generated_results}"),
+            main.index(r"\begin{document}"))
+        self.assertEqual(main.count(r"\input{generated_results}"), 1)
+        self.assertEqual(main.count(r"\authoritativeAbstractResult"), 1)
+        self.assertEqual(main.count(r"\authoritativeConclusionResult"), 1)
+        self.assertEqual(main.count(r"\authoritativeResults"), 1)
+        self.assertNotIn(r"\pending{", main)
+        for name in (
+                "authoritativeAbstractResult",
+                "authoritativeConclusionResult",
+                "authoritativeResults"):
+            self.assertIn(r"\newcommand{\%s}" % name, placeholder)
 
 
 if __name__ == "__main__":

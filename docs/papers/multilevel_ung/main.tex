@@ -12,6 +12,7 @@
 \newcommand{\dataset}{\mathcal{D}}
 \newcommand{\labels}{\mathcal{A}}
 \newcommand{\eligible}{\mathcal{E}}
+\input{generated_results}
 
 \title{Structure-Adaptive Multilevel Graphs for Filtered Approximate Nearest-Neighbor Search}
 
@@ -37,8 +38,7 @@ describe a GPU construction pipeline for the irregular intra-group and
 cross-group workloads and retain end-to-end quality checks at the index
 boundary.  Our evaluation uses measured Recall@10 crossings rather than curve
 interpolation and reports latency, throughput, phase time, search work, build
-time, memory, and index size.  \pending{Insert formal multi-dataset speedup and
-oracle-regret results after the authoritative campaign.}
+time, memory, and index size.  \authoritativeAbstractResult
 \end{abstract}
 
 \maketitle
@@ -463,7 +463,7 @@ result as an idle-preflight measurement rather than claiming lock-level
 exclusivity.
 
 \section{Results}
-\input{generated_results}
+\authoritativeResults
 
 \section{Discussion}
 \subsection{Why More Layers Are Not Monotone}
@@ -515,8 +515,7 @@ of independent hierarchy, topology, entry, and routing modules.  Exact
 authorization and level-isolated edges make the semantics auditable, while DRH
 removes separate depth and threshold tuning knobs.  The accompanying protocol
 evaluates only measured Recall crossings and separates kernel, sidecar, and
-end-to-end construction costs.  \pending{Replace this sentence with the final
-cross-dataset conclusions after all formal and build campaigns pass validation.}
+end-to-end construction costs.  \authoritativeConclusionResult
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{references}
