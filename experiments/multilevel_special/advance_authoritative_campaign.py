@@ -5,11 +5,54 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import math
 from pathlib import Path
 
 import experiment_core
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def manifest_path(config: dict) -> Path:
+    root = Path(config["output_root"])
+    pass_name = str(config.get("measurement_pass", "performance"))
+    return root / (f"manifest_{pass_name}.json"
+                   if config.get("pass_subdirs", False) else "manifest.json")
+
+
+def pin_source_binary(source: dict, result: dict) -> tuple[Path, str]:
+    """Bind a derived phase to the source phase's immutable executable."""
+    path = manifest_path(source)
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    runs = manifest.get("runs", [])
+    if not runs or any(row.get("status") != "complete" for row in runs):
+        raise ValueError(f"{path}: source phase is not complete")
+    hashes = {row.get("search_binary_sha256") for row in runs}
+    if len(hashes) != 1 or None in hashes:
+        raise ValueError(f"{path}: source phase has inconsistent binary hashes")
+    digest = str(next(iter(hashes)))
+    declared = source.get("expected_search_binary_sha256")
+    if declared is not None and digest != declared:
+        raise ValueError(f"{path}: source manifest differs from its pinned binary")
+    snapshot = (Path(source["output_root"]) / ".binary_snapshots" /
+                f"search_UNG_index.{digest}").resolve()
+    if not snapshot.is_file() or sha256_file(snapshot) != digest:
+        raise ValueError(f"{path}: source binary snapshot is missing or corrupt")
+    result["search_app"] = str(snapshot)
+    result["expected_search_binary_sha256"] = digest
+    result.setdefault("selection_provenance", {})[
+        "search_binary_sha256"] = digest
+    return snapshot, digest
 
 
 def source_run_dir(config: dict, method: dict, workload: dict) -> Path:
@@ -244,6 +287,7 @@ def main() -> int:
         result = make_formal(source)
     else:
         result = make_profile(source)
+    pin_source_binary(source, result)
     experiment_core.validate_config(result)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(args.output)

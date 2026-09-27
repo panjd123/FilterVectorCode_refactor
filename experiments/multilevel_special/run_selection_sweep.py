@@ -43,13 +43,19 @@ def parse_meta(path: Path) -> dict[str, str]:
     return result
 
 
-def snapshot_search_app(search_app: Path, output_root: Path) -> tuple[Path, str]:
+def snapshot_search_app(
+    search_app: Path, output_root: Path, expected_sha256: str | None = None,
+) -> tuple[Path, str]:
     """Use one immutable executable for the whole sweep.
 
     Rebuilding the normal build-tree target while a sweep is active otherwise
     changes semantics midway through an apparently valid manifest.
     """
     digest = sha256_file(search_app)
+    if expected_sha256 is not None and digest != expected_sha256:
+        raise ValueError(
+            "search binary does not match the campaign-pinned SHA256: "
+            f"{digest} != {expected_sha256}")
     snapshot_dir = output_root / ".binary_snapshots"
     snapshot_dir.mkdir(parents=True, exist_ok=True)
     snapshot = snapshot_dir / f"search_UNG_index.{digest}"
@@ -443,7 +449,8 @@ def main() -> int:
     run_lock = acquire_run_lock(output_root)
     source_search_app = Path(config["search_app"])
     search_snapshot, search_binary_sha256 = snapshot_search_app(
-        source_search_app, output_root)
+        source_search_app, output_root,
+        config.get("expected_search_binary_sha256"))
     config["search_app"] = str(search_snapshot)
     pass_name = str(config.get("measurement_pass", "performance"))
     manifest_path = output_root / (

@@ -17,6 +17,7 @@ REPO = build_campaign.REPO
 RUN_ROOT = build_campaign.RUN_ROOT
 DATA_ROOT = build_campaign.DATA_ROOT
 GT_ROOT = Path("/home/graphdb/FilterVectorResult/Amazon/GroundTruth")
+QUERY_PROFILE_CONFIG = HERE / "config.authoritative_amazon_profile_emptyfix.json"
 
 
 def labels_hash(index_dir: Path) -> str:
@@ -58,7 +59,9 @@ def hierarchy_method(structure: str, profile: str) -> dict:
     }
 
 
-def make_config() -> dict:
+def make_config(search_app: Path, expected_search_binary_sha256: str) -> dict:
+    if experiment_core.sha256_file(search_app) != expected_search_binary_sha256:
+        raise ValueError("query-profile search binary does not match its pinned hash")
     methods = [base_method("original_cpu"), base_method("accelerated_gpu")]
     for structure in ("single_t1024_lng", "auto_drh_v1"):
         for profile in ("cpu", "full_gpu", "full_gpu_wmma"):
@@ -69,7 +72,8 @@ def make_config() -> dict:
         "purpose": "Search-quality equivalence for representative CPU/GPU build outputs.",
         "measurement_pass": "performance",
         "pass_subdirs": True,
-        "search_app": str(REPO / "build_ung_rel/apps/search_UNG_index"),
+        "search_app": str(search_app),
+        "expected_search_binary_sha256": expected_search_binary_sha256,
         "data_root": str(DATA_ROOT),
         "gt_root": str(GT_ROOT),
         "output_root": str(RUN_ROOT / "quality_screen"),
@@ -107,8 +111,14 @@ def main() -> int:
     parser.add_argument(
         "--output", type=Path,
         default=HERE / "config.authoritative_amazon_build_quality_screen.json")
+    parser.add_argument(
+        "--query-profile-config", type=Path, default=QUERY_PROFILE_CONFIG)
     args = parser.parse_args()
-    config = make_config()
+    profile = json.loads(args.query_profile_config.read_text(encoding="utf-8"))
+    expected_hash = profile.get("expected_search_binary_sha256")
+    if not expected_hash:
+        raise ValueError("query profile does not declare a pinned search binary")
+    config = make_config(Path(profile["search_app"]), str(expected_hash))
     experiment_core.validate_config(config)
     args.output.write_text(json.dumps(config, indent=2) + "\n")
     print(args.output)

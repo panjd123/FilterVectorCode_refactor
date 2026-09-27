@@ -156,10 +156,16 @@ Genome, Reviews, and VariousImg. Build commands can be preflighted without
 starting construction:
 
 ```bash
-python3 generate_auto_policy_cross_dataset_configs.py
+python3 generate_auto_policy_cross_dataset_configs.py \
+  --search-app ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/.binary_snapshots/search_UNG_index.4c99a51c0f74b187d37f7070f73017b6230935126275560fff1061fa90830a81
 python3 run_build_sweep.py config.authoritative_heldout_genome_build.json --dry-run
 python3 run_heldout_campaign.py
 ```
+
+The held-out configs record the selected executable's SHA256. Derived crossing,
+formal, and profile phases inherit the preceding phase's content-addressed
+snapshot instead of reopening a mutable build-tree executable. Build-quality
+queries are pinned to the same query-profile snapshot.
 
 After the held-out screen/crossing/formal pipeline completes, compare DRH with
 the fastest predeclared manual hierarchy at each workload and with the best

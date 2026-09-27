@@ -225,6 +225,7 @@ def make_search_methods(
 def make_dataset_configs(
     dataset: str, tasks: tuple[str, ...], run_root: Path,
     max_degree: int, cross_edges: int, recall_threshold: float,
+    search_app: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     dataset_root = DATA / dataset
     result_root = RESULT / dataset
@@ -284,7 +285,8 @@ def make_dataset_configs(
         "purpose": "Held-out gated DRH-v1 versus a gated manual hierarchy oracle.",
         "measurement_pass": "performance",
         "pass_subdirs": True,
-        "search_app": str(REPO / "build_ung_rel/apps/search_UNG_index"),
+        "search_app": str(search_app),
+        "expected_search_binary_sha256": sha256_file(search_app),
         "main_index": str(source),
         "data_root": str(dataset_root),
         "gt_root": str(result_root / "GroundTruth"),
@@ -350,13 +352,17 @@ def main() -> int:
     parser.add_argument("--max-degree", type=int, default=64)
     parser.add_argument("--num-cross-edges", type=int, default=4)
     parser.add_argument("--recall-threshold", type=float, default=0.90)
+    parser.add_argument(
+        "--search-app", type=Path,
+        default=REPO / "build_ung_rel/apps/search_UNG_index")
     args = parser.parse_args()
     selected = args.dataset or list(DATASETS)
     config_root = REPO / "experiments/multilevel_special"
     for dataset in selected:
         build, search, policy = make_dataset_configs(
             dataset, DATASETS[dataset], args.run_root.resolve(),
-            args.max_degree, args.num_cross_edges, args.recall_threshold)
+            args.max_degree, args.num_cross_edges, args.recall_threshold,
+            args.search_app.resolve())
         stem = f"config.authoritative_heldout_{dataset.lower()}"
         build_path = config_root / f"{stem}_build.json"
         screen_path = config_root / f"{stem}_screen.json"

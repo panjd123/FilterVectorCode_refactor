@@ -70,7 +70,8 @@ def main() -> int:
     for phase in PHASES[start:stop + 1]:
         print(f"\n=== authoritative build phase: {phase} ===", flush=True)
         if phase == "quality_screen":
-            run("generate_authoritative_build_quality.py")
+            run("generate_authoritative_build_quality.py",
+                "--query-profile-config", str(args.query_profile_config))
             run("run_selection_sweep.py",
                 str(HERE / "config.authoritative_amazon_build_quality_screen.json"))
             run("validate_selection_sweep.py",

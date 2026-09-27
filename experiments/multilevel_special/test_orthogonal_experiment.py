@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -461,6 +462,35 @@ class OrthogonalExperimentTest(unittest.TestCase):
                 {"output_root": "/runs/amazon_screen"}, "formal"),
             "/runs/amazon_formal")
 
+    def test_derived_phase_reuses_source_binary_snapshot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = {
+                "output_root": str(root), "pass_subdirs": True,
+                "measurement_pass": "performance",
+            }
+            digest = "a" * 64
+            snapshot = root / ".binary_snapshots" / f"search_UNG_index.{digest}"
+            snapshot.parent.mkdir(parents=True)
+            snapshot.write_bytes(b"binary")
+            digest = advance_authoritative_campaign.sha256_file(snapshot)
+            renamed = snapshot.with_name(f"search_UNG_index.{digest}")
+            snapshot.rename(renamed)
+            source["expected_search_binary_sha256"] = digest
+            manifest = {
+                "runs": [{"status": "complete",
+                          "search_binary_sha256": digest}]
+            }
+            (root / "manifest_performance.json").write_text(
+                json.dumps(manifest), encoding="utf-8")
+            result = {"selection_provenance": {}}
+            pinned, observed = advance_authoritative_campaign.pin_source_binary(
+                source, result)
+            self.assertEqual(pinned, renamed.resolve())
+            self.assertEqual(observed, digest)
+            self.assertEqual(result["search_app"], str(renamed.resolve()))
+            self.assertEqual(result["expected_search_binary_sha256"], digest)
+
     def test_build_quality_hierarchy_uses_final_gated_routing(self):
         with mock.patch.object(
                 generate_authoritative_build_quality,
@@ -470,6 +500,19 @@ class OrthogonalExperimentTest(unittest.TestCase):
         self.assertEqual(
             method["routing_policy"], "require_upper_authorization")
         self.assertTrue(method["special_block_search"])
+
+    def test_build_quality_uses_query_profile_binary(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            binary = Path(temporary) / "search"
+            binary.write_bytes(b"profile-binary")
+            digest = experiment_core.sha256_file(binary)
+            with mock.patch.object(
+                    generate_authoritative_build_quality,
+                    "labels_hash", return_value="labels-sha256"):
+                config = generate_authoritative_build_quality.make_config(
+                    binary, digest)
+            self.assertEqual(config["search_app"], str(binary))
+            self.assertEqual(config["expected_search_binary_sha256"], digest)
 
     def test_summarizer_reads_declared_measurement_pass(self):
         self.assertEqual(

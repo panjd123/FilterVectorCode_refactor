@@ -207,6 +207,12 @@ def main() -> int:
         binary_hashes = {row.get("search_binary_sha256") for row in current.values()}
         if len(binary_hashes) != 1 or None in binary_hashes:
             problems.append(f"search binary hash mismatch: {sorted(str(x) for x in binary_hashes)}")
+        expected_binary_hash = config.get("expected_search_binary_sha256")
+        if expected_binary_hash and binary_hashes != {expected_binary_hash}:
+            problems.append(
+                "search binary differs from campaign-pinned SHA256: "
+                f"{sorted(str(x) for x in binary_hashes)} != "
+                f"{expected_binary_hash}")
         elapsed_rows = [row for row in current.values()
                         if row.get("status") == "complete"]
         missing_elapsed = [key for key, row in current.items()

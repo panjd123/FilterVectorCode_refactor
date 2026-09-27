@@ -175,7 +175,11 @@ def validated_query_config(
     hashes = {row.get("search_binary_sha256") for row in current.values()}
     if len(hashes) != 1 or None in hashes:
         raise ValueError(f"{path}: query manifest has inconsistent binary hashes")
-    return config, str(next(iter(hashes)))
+    binary_hash = str(next(iter(hashes)))
+    expected_hash = config.get("expected_search_binary_sha256")
+    if expected_hash is not None and binary_hash != expected_hash:
+        raise ValueError(f"{path}: query manifest differs from pinned binary")
+    return config, binary_hash
 
 
 def validate_build_config(path: Path) -> dict[str, Any]:

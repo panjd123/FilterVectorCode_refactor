@@ -716,6 +716,15 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertNotEqual(next_digest, digest)
             self.assertNotEqual(next_snapshot, snapshot)
 
+    def test_search_binary_snapshot_rejects_campaign_hash_drift(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            binary = root / "search"
+            binary.write_bytes(b"unexpected-version")
+            with self.assertRaisesRegex(ValueError, "campaign-pinned SHA256"):
+                run_selection_sweep.snapshot_search_app(
+                    binary, root / "out", "0" * 64)
+
     def test_build_binary_snapshot_is_content_addressed_and_read_only(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -361,6 +361,33 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                 self.root / "missing-config.json",
                 self.root / "missing-validator.py", "formal", 15)
 
+    def test_query_config_rejects_manifest_binary_drift(self) -> None:
+        output = self.root / "query-output"
+        output.mkdir()
+        config = {
+            "output_root": str(output),
+            "expected_search_binary_sha256": "expected",
+            "protocol": {
+                "phase": "formal", "cold_repeats": 1,
+                "measured_repeats": 15, "recall_rule": "all_repeats",
+            },
+            "methods": [{"name": "method"}],
+            "workloads": [{"name": "workload"}],
+        }
+        config_path = self.root / "query-config.json"
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        (output / "manifest.json").write_text(json.dumps({
+            "runs": [{
+                "method": "method", "workload": "workload",
+                "search_binary_sha256": "observed",
+            }],
+        }), encoding="utf-8")
+        validator = self.root / "validator.py"
+        validator.write_text("raise SystemExit(0)\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "differs from pinned binary"):
+            generator.validated_query_config(
+                config_path, validator, "formal", 15)
+
     def test_build_quality_must_use_performance_binary(self) -> None:
         generator.validate_performance_binary_hashes(
             "same", {"same"}, "same")
