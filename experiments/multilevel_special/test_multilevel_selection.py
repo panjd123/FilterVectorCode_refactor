@@ -632,6 +632,11 @@ class SelectionSweepTest(unittest.TestCase):
                 "0,100,30,300,330\n"
                 "1,100,20,200,220\n"
                 "2,100,22,240,262\n")
+            (run / "query_details_repeat3.csv").write_text(
+                "Repeat,Lsearch,SpecialBlockSearchUsed\n"
+                "0,100,1\n0,100,1\n0,100,1\n"
+                "1,100,1\n1,100,0\n1,100,0\n"
+                "2,100,1\n2,100,1\n2,100,0\n")
             rows = summarize_selection_sweep.read_rows({
                 "output_root": str(root),
                 "num_repeats": 3,
@@ -650,6 +655,8 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertAlmostEqual(rows[0]["nodes_visited_warm_median"], 21)
             self.assertAlmostEqual(rows[0]["total_edges_scanned_warm_median"], 220)
             self.assertAlmostEqual(rows[0]["total_distance_calcs_warm_median"], 241)
+            self.assertAlmostEqual(
+                rows[0]["layered_path_activation_rate_warm_median"], 0.5)
             self.assertAlmostEqual(rows[0]["recall"], 0.915)
             self.assertAlmostEqual(rows[0]["recall_min"], 0.91)
             self.assertAlmostEqual(rows[0]["recall_max"], 0.92)
@@ -671,6 +678,8 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertIn("0.910000", text)
             self.assertIn("达标点阶段耗时", text)
             self.assertIn("entry-point setup", text)
+            self.assertIn("layered path", text)
+            self.assertIn("50.0%", text)
             self.assertIn("达标点搜索工作量", text)
             self.assertIn("visited points", text)
 

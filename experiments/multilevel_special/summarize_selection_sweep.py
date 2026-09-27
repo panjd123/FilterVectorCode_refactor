@@ -75,6 +75,36 @@ def method_summary_fields(config: dict[str, Any],
     }
 
 
+def read_layered_path_activation_rates(
+    path: Path, cold_repeats: int,
+) -> dict[int, float]:
+    """Return the median warm-repeat fraction that used a layered path."""
+    if not path.exists():
+        return {}
+    sums: dict[tuple[int, int], float] = {}
+    counts: dict[tuple[int, int], int] = {}
+    with path.open(newline="") as stream:
+        reader = csv.DictReader(stream)
+        if not reader.fieldnames or "SpecialBlockSearchUsed" not in reader.fieldnames:
+            return {}
+        for row in reader:
+            repeat = int(row["Repeat"])
+            if repeat < cold_repeats:
+                continue
+            key = (int(row["Lsearch"]), repeat)
+            sums[key] = sums.get(key, 0.0) + float(row["SpecialBlockSearchUsed"])
+            counts[key] = counts.get(key, 0) + 1
+    rates_by_l: dict[int, list[float]] = {}
+    for (lsearch, repeat), total in sums.items():
+        count = counts[(lsearch, repeat)]
+        if count:
+            rates_by_l.setdefault(lsearch, []).append(total / count)
+    return {
+        lsearch: statistics.median(rates)
+        for lsearch, rates in rates_by_l.items() if rates
+    }
+
+
 def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     root = measurement_root(config)
@@ -108,6 +138,10 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                 with work_path.open(newline="") as stream:
                     for work in csv.DictReader(stream):
                         work_by_l.setdefault(int(work["Lsearch"]), []).append(work)
+            route_rates = read_layered_path_activation_rates(
+                run_dir / f"query_details_repeat{config['num_repeats']}.csv",
+                protocol.cold_repeats,
+            )
             with summary_path.open(newline="") as stream:
                 for source in csv.DictReader(stream):
                     lsearch = int(source["Lsearch"])
@@ -187,6 +221,8 @@ def read_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                             max((abs(float(item["ClosureError_ms"])) for item in warm_stage),
                                 default="")
                         ),
+                        "layered_path_activation_rate_warm_median":
+                            route_rates.get(lsearch, ""),
                         **{output: work_median(source_field)
                            for output, source_field in WORK_FIELDS.items()},
                         "summary_path": str(summary_path),
@@ -350,13 +386,18 @@ def write_markdown(path: Path, equal_rows: list[dict[str, Any]], baseline: str,
             "## 达标点阶段耗时", "",
             "每个数值是先在一次 warm repeat 内对 query 取平均，再在 warm repeats "
             "间取中位数；单位为 ms/query。", "",
-            "| workload | 方法 | L | total | entry-group | entry-point setup | authorization | graph search | residual |",
-            "|---|---|---:|---:|---:|---:|---:|---:|---:|",
+            "| workload | 方法 | L | layered path | total | entry-group | entry-point setup | authorization | graph search | residual |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
         ])
         for row in sorted(breakdown_rows, key=lambda item: (
                 float(item["mean_selectivity"]), item["target_recall"], item["method"])):
+            activation = row.get("layered_path_activation_rate_warm_median", "")
+            activation_text = (
+                f"{100.0 * float(activation):.1f}%"
+                if activation not in (None, "") else "NA")
             lines.append(
                 f"| {row['workload']} | {row['method']} | {row['lsearch']} | "
+                f"{activation_text} | "
                 f"{metric(row, 'query_total_ms_warm_median')} | "
                 f"{metric(row, 'els_ms_warm_median')} | "
                 f"{metric(row, 'entry_ms_warm_median')} | "

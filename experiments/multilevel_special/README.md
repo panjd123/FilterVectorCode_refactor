@@ -113,9 +113,9 @@ a genuinely exhausted full-search budget from an ordinary bounded screen.
 
 `summarize_selection_sweep.py` writes both machine-readable CSVs and a Markdown
 report. The Markdown operating-point table uses the conservative crossing and
-includes stage timing plus visited-point, scanned-edge, distance-calculation,
-and entry-count breakdowns. Recall/QPS figures are generated only from measured
-screen points:
+includes the warm layered-path activation rate, stage timing, and
+visited-point, scanned-edge, distance-calculation, and entry-count breakdowns.
+Recall/QPS figures are generated only from measured screen points:
 
 ```bash
 python3 plot_authoritative_recall_qps.py \
