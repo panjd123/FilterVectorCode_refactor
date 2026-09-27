@@ -222,6 +222,43 @@ Amazon query/GT and measured Recall-crossing rule as the main query study.
 base-plus-hierarchy totals; it never substitutes a CUDA kernel timer for full
 process wall time.
 
+## Authoritative paper result section
+
+`generate_authoritative_paper_results.py` is the fail-closed generator for the
+current nine-selectivity study. It is intentionally separate from the legacy
+six-workload `generate_paper_results.py`. The generator reruns the Amazon
+formal/profile, all three held-out formal, and build-quality validators; checks
+all four raw build manifests; verifies the formal/profile operating-point
+alignment and required stage/work counters; and only then atomically replaces
+`docs/papers/multilevel_ung/generated_results.tex`.
+
+```bash
+python3 generate_authoritative_paper_results.py \
+  --amazon-formal-config config.authoritative_amazon_formal_emptyfix.json \
+  --amazon-profile-config config.authoritative_amazon_profile_emptyfix.json \
+  --heldout-formal-config config.authoritative_heldout_genome_formal.json \
+  --heldout-formal-config config.authoritative_heldout_reviews_formal.json \
+  --heldout-formal-config config.authoritative_heldout_variousimg_formal.json \
+  --build-quality-formal-config config.authoritative_amazon_build_quality_formal.json \
+  --build-config config.authoritative_amazon_base_build_timing.json \
+  --build-config config.authoritative_amazon_base_build_resource.json \
+  --build-config config.authoritative_amazon_hierarchy_build_timing.json \
+  --build-config config.authoritative_amazon_hierarchy_build_resource.json \
+  --amazon-formal ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/equal_recall_conservative.csv \
+  --amazon-depth ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/depth_ablation/depth_by_workload.csv \
+  --amazon-depth-global ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/depth_ablation/depth_global.csv \
+  --amazon-profile ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_profile/summary/profile/equal_recall_conservative.csv \
+  --heldout-workload results_summary/heldout_oracle/heldout_oracle_by_workload.csv \
+  --heldout-global results_summary/heldout_oracle/heldout_oracle_global.csv \
+  --build-summary results_summary/authoritative_build/build_summary.csv \
+  --build-end-to-end results_summary/authoritative_build/build_end_to_end.csv
+```
+
+There is no partial-output flag. Missing inputs, incomplete manifests, a failed
+validator, fewer than the declared formal/build repeats, mismatched profile
+operating points, missing activation/work counters, or an incomplete held-out
+matrix leave the existing LaTeX file unchanged.
+
 ## UNG versus plain provider study
 
 `generate_ung_plain_comparison.py` creates the controlled comparison. It holds

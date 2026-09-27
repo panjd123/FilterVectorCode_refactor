@@ -143,7 +143,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | E2 | Amazon crossing/formal | 每方法每档最小实测 crossing，正式重复完成 | 未开始 |
 | E3 | 多数据集验证 | Reviews/Genome/VariousImg 至少各一个低档和一个较高档或可用代表档 | 配置和预检完成，待运行 |
 | E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | gated DRH-v1 与同 gate oracle 协议已冻结；119/119 测试和配置 dry-run 通过，待结果 |
-| E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | 未开始 |
+| E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | fail-closed 九档 LaTeX 生成器及 7 项 fixture 测试完成；等待权威输入 |
 
 ## 已知数据
 

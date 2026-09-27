@@ -1,0 +1,917 @@
+#!/usr/bin/env python3
+"""Generate the authoritative nine-selectivity LaTeX result section.
+
+This generator is deliberately separate from ``generate_paper_results.py``,
+which belongs to the historical six-workload study.  It fails before touching
+the output unless every query validator passes, every build manifest is
+complete, and the aggregate CSVs agree with the validated configurations.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import json
+import math
+import os
+import statistics
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Iterable
+
+
+HERE = Path(__file__).resolve().parent
+EXPECTED_AMAZON_SELECTIVITIES = (
+    0.00499249, 0.00903055, 0.05038117, 0.09906615, 0.30027242,
+    0.60047491, 0.80023699, 0.95019781, 0.99000600,
+)
+EXPECTED_HELDOUT_DATASETS = {"Genome", "Reviews", "VariousImg"}
+DEPTH_CATEGORIES = (
+    "plain", "best_one_layer", "best_two_layer", "automatic_drh",
+    "automatic_routed",
+)
+BASELINE_METHOD = "l0_lng_entry_optimized_lng"
+ROUTED_DRH_ROLE = "predeclared_degree_ratio_hierarchy_v1_upper_authorization_control"
+QUERY_FIELDS = {
+    "workload", "mean_selectivity", "method", "layer_count", "thresholds",
+    "base_topology", "layer_topologies", "entry_strategy", "routing_policy",
+    "lsearch", "recall_min", "qps_warm_median", "target_recall",
+}
+PROFILE_FIELDS = QUERY_FIELDS | {
+    "query_total_ms_warm_median", "els_ms_warm_median",
+    "entry_ms_warm_median", "block_authorization_ms_warm_median",
+    "graph_ms_warm_median", "residual_ms_warm_median",
+    "stage_closure_ms_at_batch_median",
+    "layered_path_activation_rate_warm_median",
+    "nodes_visited_warm_median", "regular_edges_scanned_warm_median",
+    "special_intra_edges_scanned_warm_median",
+    "special_inter_edges_scanned_warm_median",
+    "total_edges_scanned_warm_median",
+    "entry_point_distance_calcs_warm_median",
+    "graph_search_distance_calcs_warm_median",
+    "total_distance_calcs_warm_median",
+}
+
+
+@dataclass(frozen=True)
+class ResultPaths:
+    amazon_formal: Path
+    amazon_depth: Path
+    amazon_depth_global: Path
+    amazon_profile: Path
+    heldout_workload: Path
+    heldout_global: Path
+    build_summary: Path
+    build_end_to_end: Path
+
+
+def read_csv(path: Path, required: set[str]) -> list[dict[str, str]]:
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    with path.open(newline="", encoding="utf-8") as stream:
+        reader = csv.DictReader(stream)
+        fields = set(reader.fieldnames or [])
+        missing = sorted(required - fields)
+        if missing:
+            raise ValueError(f"{path}: missing columns {missing}")
+        rows = list(reader)
+    if not rows:
+        raise ValueError(f"{path}: empty aggregate")
+    return rows
+
+
+def number(row: dict[str, str], field: str) -> float:
+    value = row.get(field, "")
+    if value in (None, ""):
+        raise ValueError(f"missing numeric field {field}: {row}")
+    result = float(value)
+    if not math.isfinite(result):
+        raise ValueError(f"non-finite {field}: {value}")
+    return result
+
+
+def integer(row: dict[str, str], field: str) -> int:
+    value = number(row, field)
+    if value != int(value):
+        raise ValueError(f"non-integral {field}: {value}")
+    return int(value)
+
+
+def geometric_mean(values: Iterable[float]) -> float:
+    values = list(values)
+    if not values or any(value <= 0 for value in values):
+        raise ValueError("geometric mean requires positive values")
+    return math.exp(statistics.mean(math.log(value) for value in values))
+
+
+def method_enabled(method: dict[str, Any], workload: str) -> bool:
+    enabled = method.get("enabled_workloads")
+    return enabled is None or workload in enabled
+
+
+def expected_pairs(config: dict[str, Any]) -> set[tuple[str, str]]:
+    return {
+        (str(method["name"]), str(workload["name"]))
+        for method in config["methods"]
+        for workload in config["workloads"]
+        if method_enabled(method, str(workload["name"]))
+    }
+
+
+def manifest_path(config: dict[str, Any]) -> Path:
+    root = Path(config["output_root"])
+    pass_name = str(config.get("measurement_pass", "performance"))
+    return root / (f"manifest_{pass_name}.json"
+                   if config.get("pass_subdirs", False) else "manifest.json")
+
+
+def validated_query_config(
+    path: Path, validator: Path, phase: str, measured_repeats: int,
+) -> tuple[dict[str, Any], str]:
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    if not validator.is_file():
+        raise FileNotFoundError(validator)
+    result = subprocess.run(
+        [sys.executable, str(validator), str(path)],
+        cwd=validator.parent, text=True, stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"query validator failed for {path}:\n{result.stdout.rstrip()}")
+    config = json.loads(path.read_text(encoding="utf-8"))
+    protocol = config.get("protocol", {})
+    expected = {
+        "phase": phase, "cold_repeats": 1,
+        "measured_repeats": measured_repeats, "recall_rule": "all_repeats",
+    }
+    mismatches = {
+        key: (protocol.get(key), value) for key, value in expected.items()
+        if protocol.get(key) != value
+    }
+    if mismatches:
+        raise ValueError(f"{path}: protocol mismatch {mismatches}")
+    manifest = json.loads(manifest_path(config).read_text(encoding="utf-8"))
+    current = {
+        (str(row.get("method")), str(row.get("workload"))): row
+        for row in manifest.get("runs", [])
+        if (str(row.get("method")), str(row.get("workload")))
+        in expected_pairs(config)
+    }
+    hashes = {row.get("search_binary_sha256") for row in current.values()}
+    if len(hashes) != 1 or None in hashes:
+        raise ValueError(f"{path}: query manifest has inconsistent binary hashes")
+    return config, str(next(iter(hashes)))
+
+
+def validate_build_config(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    config = json.loads(path.read_text(encoding="utf-8"))
+    manifest = Path(config["output_root"]) / "manifest.json"
+    if not manifest.is_file():
+        raise FileNotFoundError(manifest)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    latest = {str(row.get("name")): row for row in payload.get("runs", [])}
+    problems = []
+    for case in config.get("cases", []):
+        row = latest.get(str(case["name"]))
+        if row is None:
+            problems.append(f"{case['name']}: missing")
+        elif row.get("status") != "complete" or int(row.get("returncode", 0)) != 0:
+            problems.append(
+                f"{case['name']}: status={row.get('status')} "
+                f"returncode={row.get('returncode')}")
+        elif float(row.get("elapsed_seconds", 0)) <= 0:
+            problems.append(f"{case['name']}: missing positive elapsed time")
+    if not config.get("cases"):
+        problems.append("configuration has no cases")
+    if problems:
+        raise RuntimeError(f"incomplete build config {path}:\n" + "\n".join(problems))
+    return config
+
+
+def validate_build_config_set(configs: list[dict[str, Any]]) -> None:
+    observed = set()
+    for config in configs:
+        builder = Path(config.get("build_app", "")).name
+        if builder == "build_UNG_index":
+            component = "base"
+        elif builder == "build_special_block_index":
+            component = "hierarchy"
+        else:
+            raise ValueError(f"unexpected authoritative builder: {builder}")
+        observed.add((component, bool(config.get("resource_profile", False))))
+    expected = {
+        ("base", False), ("base", True),
+        ("hierarchy", False), ("hierarchy", True),
+    }
+    if observed != expected or len(configs) != len(expected):
+        raise ValueError(
+            f"build config set mismatch: expected {sorted(expected)}, "
+            f"got {sorted(observed)}")
+
+
+def validate_config_dataset(
+    config: dict[str, Any], expected_dataset: str,
+) -> None:
+    if str(config.get("dataset")) != expected_dataset:
+        raise ValueError(
+            f"expected dataset {expected_dataset}, got {config.get('dataset')}")
+
+
+def validate_amazon_workloads(config: dict[str, Any]) -> list[str]:
+    validate_config_dataset(config, "Amazon")
+    workloads = sorted(
+        config["workloads"], key=lambda row: float(row["mean_selectivity"]))
+    if len(workloads) != len(EXPECTED_AMAZON_SELECTIVITIES):
+        raise ValueError(f"Amazon must contain nine workloads, got {len(workloads)}")
+    observed = [float(row["mean_selectivity"]) for row in workloads]
+    for actual, expected in zip(observed, EXPECTED_AMAZON_SELECTIVITIES):
+        if abs(actual - expected) > 5e-7:
+            raise ValueError(
+                f"unexpected Amazon selectivity sequence: {observed}")
+    if any(abs(float(config["recall_thresholds"][row["name"]]) - 0.90) > 1e-12
+           for row in workloads):
+        raise ValueError("Amazon Recall thresholds must all be 0.90")
+    return [str(row["name"]) for row in workloads]
+
+
+def unique_rows(
+    rows: list[dict[str, str]], keys: tuple[str, ...], source: str,
+) -> dict[tuple[str, ...], dict[str, str]]:
+    result: dict[tuple[str, ...], dict[str, str]] = {}
+    for row in rows:
+        key = tuple(row[field] for field in keys)
+        if key in result:
+            raise ValueError(f"{source}: duplicate key {key}")
+        result[key] = row
+    return result
+
+
+def validate_formal_rows(
+    rows: list[dict[str, str]], config: dict[str, Any], source: str,
+) -> dict[tuple[str, str], dict[str, str]]:
+    indexed = unique_rows(rows, ("method", "workload"), source)
+    expected = expected_pairs(config)
+    if set(indexed) != expected:
+        missing = sorted(expected - set(indexed))
+        extra = sorted(set(indexed) - expected)
+        raise ValueError(
+            f"{source}: method/workload mismatch; missing={missing[:5]} "
+            f"extra={extra[:5]}")
+    targets = config["recall_thresholds"]
+    methods = {str(row["name"]): row for row in config["methods"]}
+    workloads = {str(row["name"]): row for row in config["workloads"]}
+    for (method, workload), row in indexed.items():
+        target = float(targets[workload])
+        if abs(number(row, "target_recall") - target) > 1e-12:
+            raise ValueError(f"{source}: target mismatch for {method}/{workload}")
+        if number(row, "recall_min") < target:
+            raise ValueError(f"{source}: non-crossing formal row {method}/{workload}")
+        if integer(row, "lsearch") <= 0 or number(row, "qps_warm_median") <= 0:
+            raise ValueError(f"{source}: invalid operating point {method}/{workload}")
+        method_config = methods[method]
+        layers = method_config.get("hierarchy_layers", [])
+        expected_metadata = {
+            "layer_count": str(len(layers)),
+            "thresholds": ",".join(
+                str(layer["min_points"]) for layer in layers) or "none",
+            "base_topology": str(method_config["base_topology"]),
+            "layer_topologies": ",".join(
+                str(layer["topology"]) for layer in layers) or "none",
+            "entry_strategy": str(method_config["entry_strategy"]),
+            "routing_policy": str(method_config.get(
+                "routing_policy", "always_layered")),
+        }
+        for field, expected_value in expected_metadata.items():
+            if row[field] != expected_value:
+                raise ValueError(
+                    f"{source}: {field} mismatch for {method}/{workload}: "
+                    f"{row[field]} != {expected_value}")
+        if abs(number(row, "mean_selectivity") -
+               float(workloads[workload]["mean_selectivity"])) > 1e-12:
+            raise ValueError(f"{source}: selectivity mismatch for {method}/{workload}")
+    return indexed
+
+
+def validate_depth_rows(
+    rows: list[dict[str, str]], workloads: list[str],
+) -> dict[tuple[str, str], dict[str, str]]:
+    indexed = unique_rows(rows, ("category", "workload"), "Amazon depth")
+    expected = {(category, workload) for category in DEPTH_CATEGORIES
+                for workload in workloads}
+    if set(indexed) != expected:
+        raise ValueError(
+            "Amazon depth matrix mismatch; missing="
+            f"{sorted(expected - set(indexed))[:5]} extra="
+            f"{sorted(set(indexed) - expected)[:5]}")
+    for (category, workload), row in indexed.items():
+        status = row["status"]
+        if status not in {"complete", "no_crossing"}:
+            raise ValueError(f"invalid depth status {status}: {category}/{workload}")
+        if category == "plain" and status != "complete":
+            raise ValueError(f"plain baseline has no crossing: {workload}")
+        if status == "complete":
+            if number(row, "recall_min") < number(row, "target_recall"):
+                raise ValueError(f"non-conservative depth crossing: {category}/{workload}")
+            if number(row, "qps") <= 0 or number(row, "speedup_vs_plain") <= 0:
+                raise ValueError(f"invalid depth performance: {category}/{workload}")
+            if number(row, "speedup_ci95_low") <= 0 or number(
+                    row, "speedup_ci95_high") <= 0:
+                raise ValueError(f"invalid depth confidence interval: {category}/{workload}")
+    return indexed
+
+
+def validate_depth_global(rows: list[dict[str, str]]) -> None:
+    indexed = unique_rows(rows, ("category",), "Amazon depth global")
+    if set(key[0] for key in indexed) != set(DEPTH_CATEGORIES):
+        raise ValueError("Amazon depth global categories are incomplete")
+    if indexed[("plain",)]["status"] != "complete":
+        raise ValueError("global plain baseline is incomplete")
+    for (category,), row in indexed.items():
+        if integer(row, "workload_count") != 9:
+            raise ValueError(f"global depth workload count mismatch: {category}")
+        if row["status"] == "complete":
+            if number(row, "geomean_qps") <= 0 or number(
+                    row, "speedup_vs_plain") <= 0:
+                raise ValueError(f"invalid global depth result: {category}")
+
+
+def validate_profile_rows(
+    rows: list[dict[str, str]], config: dict[str, Any],
+    formal: dict[tuple[str, str], dict[str, str]],
+) -> dict[tuple[str, str], dict[str, str]]:
+    indexed = validate_formal_rows(rows, config, "Amazon profile")
+    if set(indexed) != set(formal):
+        raise ValueError("profile and formal method/workload sets differ")
+    for key, row in indexed.items():
+        if integer(row, "lsearch") != integer(formal[key], "lsearch"):
+            raise ValueError(f"profile L differs from formal L: {key}")
+        for field in PROFILE_FIELDS - QUERY_FIELDS:
+            number(row, field)
+        activation = number(row, "layered_path_activation_rate_warm_median")
+        if not 0.0 <= activation <= 1.0:
+            raise ValueError(f"invalid layered activation rate: {key}")
+        if abs(number(row, "stage_closure_ms_at_batch_median")) > 1e-6:
+            raise ValueError(f"stage closure exceeds tolerance: {key}")
+    return indexed
+
+
+def validate_heldout_rows(
+    workload_rows: list[dict[str, str]], global_rows: list[dict[str, str]],
+    configs: list[dict[str, Any]],
+) -> None:
+    datasets = {str(config["dataset"]) for config in configs}
+    if datasets != EXPECTED_HELDOUT_DATASETS:
+        raise ValueError(f"held-out dataset set mismatch: {sorted(datasets)}")
+    expected = {
+        (str(config["dataset"]), str(workload["name"]))
+        for config in configs for workload in config["workloads"]
+    }
+    indexed = unique_rows(
+        workload_rows, ("dataset", "workload"), "held-out workload")
+    if set(indexed) != expected:
+        raise ValueError("held-out workload matrix does not match validated configs")
+    for key, row in indexed.items():
+        if row["status"] not in {"complete", "automatic_no_crossing"}:
+            raise ValueError(f"invalid held-out status: {key}")
+        if number(row, "baseline_recall_min") < number(row, "target_recall"):
+            raise ValueError(f"held-out baseline misses Recall: {key}")
+        if number(row, "oracle_recall_min") < number(row, "target_recall"):
+            raise ValueError(f"held-out oracle misses Recall: {key}")
+        if row["status"] == "complete":
+            if number(row, "automatic_recall_min") < number(row, "target_recall"):
+                raise ValueError(f"held-out automatic method misses Recall: {key}")
+            number(row, "automatic_speedup_vs_baseline")
+            number(row, "automatic_qps_fraction_of_oracle")
+            number(row, "automatic_speedup_ci95_low")
+            number(row, "automatic_speedup_ci95_high")
+            number(row, "automatic_oracle_fraction_ci95_low")
+            number(row, "automatic_oracle_fraction_ci95_high")
+    globals_by_dataset = unique_rows(global_rows, ("dataset",), "held-out global")
+    if {key[0] for key in globals_by_dataset} != datasets:
+        raise ValueError("held-out global rows do not match validated configs")
+    expected_counts = {
+        str(config["dataset"]): len(config["workloads"]) for config in configs
+    }
+    for (dataset,), row in globals_by_dataset.items():
+        if integer(row, "workload_count") != expected_counts[dataset]:
+            raise ValueError(f"held-out global workload count mismatch: {dataset}")
+
+
+def parse_bool(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"true", "1", "yes"}:
+        return True
+    if normalized in {"false", "0", "no"}:
+        return False
+    raise ValueError(f"invalid boolean: {value}")
+
+
+def validate_build_rows(
+    summary: list[dict[str, str]], end_to_end: list[dict[str, str]],
+) -> None:
+    seen = unique_rows(summary, ("component", "structure", "profile"), "build summary")
+    if not {"base", "hierarchy"}.issubset({key[0] for key in seen}):
+        raise ValueError("build summary must contain base and hierarchy components")
+    for key, row in seen.items():
+        if integer(row, "measured_repeats") < 5:
+            raise ValueError(f"build result has fewer than five repeats: {key}")
+        for field in ("wall_median_seconds", "wall_p95_seconds", "index_median_mib"):
+            if number(row, field) <= 0:
+                raise ValueError(f"non-positive build metric {field}: {key}")
+        if number(row, "peak_rss_mib") <= 0:
+            raise ValueError(f"missing host-memory measurement: {key}")
+        if parse_bool(row["gpu_required"]):
+            if number(row, "peak_gpu_memory_mib") <= 0:
+                raise ValueError(f"missing GPU-memory measurement: {key}")
+            locked = row["gpu_exclusive_lock"] not in (None, "") and parse_bool(
+                row["gpu_exclusive_lock"])
+            idle_samples = integer(row, "gpu_idle_samples_min")
+            if not locked and idle_samples < 3:
+                raise ValueError(f"GPU build lacks lock or idle preflight: {key}")
+    if not end_to_end:
+        raise ValueError("end-to-end build summary is empty")
+    unique_rows(end_to_end, ("structure", "hierarchy_profile"), "end-to-end build")
+    for row in end_to_end:
+        if integer(row, "paired_repeats") < 5:
+            raise ValueError("end-to-end build result has fewer than five paired repeats")
+        for field in (
+            "original_cpu_base_median_seconds",
+            "accelerated_base_plus_hierarchy_median_seconds",
+            "speedup_vs_original_cpu", "speedup_ci95_low", "speedup_ci95_high",
+            "overhead_vs_accelerated_base_median",
+        ):
+            if number(row, field) <= 0:
+                raise ValueError(f"non-positive end-to-end build metric {field}")
+        parse_bool(row["no_slower_supported"])
+
+
+def tex_escape(value: Any) -> str:
+    text = str(value)
+    replacements = {
+        "\\": r"\textbackslash{}", "&": r"\&", "%": r"\%",
+        "$": r"\$", "#": r"\#", "_": r"\_", "{": r"\{",
+        "}": r"\}", "~": r"\textasciitilde{}", "^": r"\textasciicircum{}",
+    }
+    return "".join(replacements.get(char, char) for char in text)
+
+
+def fmt(value: Any, digits: int = 2) -> str:
+    if value in (None, ""):
+        return "NC"
+    return f"{float(value):.{digits}f}"
+
+
+def compact_method(row: dict[str, str]) -> str:
+    category = row.get("category", "")
+    labels = {
+        "plain": "0-layer", "best_one_layer": "best 1-layer",
+        "best_two_layer": "best 2-layer", "automatic_drh": "ungated DRH",
+        "automatic_routed": "gated DRH",
+    }
+    return labels.get(category, row.get("method", "method"))
+
+
+def render_depth_table(
+    depth: dict[tuple[str, str], dict[str, str]], workloads: list[str],
+) -> list[str]:
+    lines = [
+        r"\subsection{Query Performance}",
+        "All values below use the smallest measured $L_{search}$ for which every "
+        "warm repeat reaches Recall@10 $\\ge 0.90$; NC denotes no measured "
+        "crossing in the declared grid.",
+        r"\begin{table*}[t]", r"\centering", r"\scriptsize",
+        r"\caption{Amazon QPS at the conservative Recall crossing. Parentheses give speedup and its bootstrap 95\% confidence interval relative to zero-layer LNG.}",
+        r"\label{tab:amazon-depth}",
+        r"\begin{tabular}{r@{\quad}rrrr}", r"\toprule",
+        r"Selectivity & 0-layer LNG & Best 1-layer & Best 2-layer & Gated DRH \\",
+        r"\midrule",
+    ]
+    for workload in workloads:
+        rowset = {category: depth[(category, workload)]
+                  for category in DEPTH_CATEGORIES}
+        selectivity = number(rowset["plain"], "mean_selectivity")
+        values = []
+        for category in ("plain", "best_one_layer", "best_two_layer", "automatic_routed"):
+            row = rowset[category]
+            if row["status"] != "complete":
+                values.append("NC")
+            elif category == "plain":
+                values.append(fmt(row["qps"], 1))
+            else:
+                values.append(
+                    f"{fmt(row['qps'], 1)} ({fmt(row['speedup_vs_plain'], 2)}$\\times$; "
+                    f"[{fmt(row['speedup_ci95_low'], 2)}, "
+                    f"{fmt(row['speedup_ci95_high'], 2)}])")
+        lines.append(f"{100.0 * selectivity:.3f}\\% & " + " & ".join(values) + r" \\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
+    return lines
+
+
+def render_depth_global(rows: list[dict[str, str]]) -> list[str]:
+    lines = [
+        r"\begin{table}[t]", r"\centering", r"\small",
+        r"\caption{One unchanged Amazon configuration across all nine selectivities.}",
+        r"\label{tab:amazon-depth-global}",
+        r"\begin{tabular}{lrr}", r"\toprule",
+        r"Category & Geomean QPS & vs. 0-layer \\", r"\midrule",
+    ]
+    order = {name: index for index, name in enumerate(DEPTH_CATEGORIES)}
+    for row in sorted(rows, key=lambda item: order[item["category"]]):
+        if row["status"] == "complete":
+            qps = fmt(row["geomean_qps"], 1)
+            speedup = fmt(row["speedup_vs_plain"], 2) + r"$\times$"
+        else:
+            qps = speedup = "NC"
+        lines.append(
+            f"{tex_escape(compact_method(row))} & {qps} & {speedup} " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table}", ""])
+    return lines
+
+
+def render_zero_layer_table(
+    formal: dict[tuple[str, str], dict[str, str]],
+    config: dict[str, Any], workloads: list[str],
+) -> list[str]:
+    methods = [method for method in config["methods"]
+               if len(method.get("hierarchy_layers", [])) == 0]
+    baseline_qps = [number(formal[(BASELINE_METHOD, workload)], "qps_warm_median")
+                    for workload in workloads
+                    if (BASELINE_METHOD, workload) in formal]
+    if len(baseline_qps) != len(workloads):
+        raise ValueError("principal zero-layer baseline is incomplete")
+    baseline_geomean = geometric_mean(baseline_qps)
+    lines = [
+        r"\begin{table}[t]", r"\centering", r"\small",
+        r"\caption{Zero-layer topology and entry-strategy ablation on Amazon. Global QPS is reported only when all nine workloads cross.}",
+        r"\label{tab:amazon-zero-layer}",
+        r"\begin{tabular}{llrr}", r"\toprule",
+        r"Topology & Entry & Crossings & Geomean QPS \\", r"\midrule",
+    ]
+    for method in sorted(methods, key=lambda row: (
+            str(row["base_topology"]), str(row["entry_strategy"]))):
+        name = str(method["name"])
+        qps = [number(formal[(name, workload)], "qps_warm_median")
+               for workload in workloads if (name, workload) in formal]
+        global_text = "NC"
+        if len(qps) == len(workloads):
+            value = geometric_mean(qps)
+            global_text = f"{value:.1f} ({value / baseline_geomean:.2f}$\\times$)"
+        lines.append(
+            f"{tex_escape(method['base_topology'].upper())} & "
+            f"{tex_escape(method['entry_strategy'])} & {len(qps)}/9 & "
+            f"{global_text} " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table}", ""])
+    return lines
+
+
+def render_heldout(
+    workload_rows: list[dict[str, str]], global_rows: list[dict[str, str]],
+) -> list[str]:
+    lines = [
+        r"\subsection{Automatic Versus Manual Hierarchies}",
+        "The manual oracle grid is frozen before held-out queries are read and "
+        "uses the same exact upper-authorization gate as DRH.",
+        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\caption{Calibration-free gated DRH versus the frozen per-workload manual oracle on held-out datasets.}",
+        r"\label{tab:heldout-oracle}",
+        r"\begin{tabular}{llrrll}", r"\toprule",
+        r"Dataset & Selectivity & DRH/plain [95\% CI] & DRH/oracle [95\% CI] & DRH hierarchy & Oracle hierarchy \\",
+        r"\midrule",
+    ]
+    for row in sorted(workload_rows, key=lambda item: (
+            item["dataset"], number(item, "mean_selectivity"))):
+        speedup = (
+            fmt(row["automatic_speedup_vs_baseline"], 2) + r"$\times$ ["
+            + fmt(row["automatic_speedup_ci95_low"], 2) + ", "
+            + fmt(row["automatic_speedup_ci95_high"], 2) + "]"
+            if row["status"] == "complete" else "NC")
+        oracle = (
+            fmt(row["automatic_qps_fraction_of_oracle"], 2) + " ["
+            + fmt(row["automatic_oracle_fraction_ci95_low"], 2) + ", "
+            + fmt(row["automatic_oracle_fraction_ci95_high"], 2) + "]"
+            if row["status"] == "complete" else "NC")
+        lines.append(
+            f"{tex_escape(row['dataset'])} & {100.0 * number(row, 'mean_selectivity'):.3f}\\% & "
+            f"{speedup} & {oracle} & {tex_escape(row['automatic_hierarchy'])} & "
+            f"{tex_escape(row['oracle_hierarchy'])} " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
+    lines.extend([
+        r"\begin{table}[t]", r"\centering", r"\small",
+        r"\caption{One unchanged DRH plan versus one unchanged manual plan per held-out dataset.}",
+        r"\label{tab:heldout-global}",
+        r"\begin{tabular}{lrrr}", r"\toprule",
+        r"Dataset & Workloads & DRH/plain & DRH/oracle \\", r"\midrule",
+    ])
+    for row in sorted(global_rows, key=lambda item: item["dataset"]):
+        auto = row["status"] == "complete"
+        speedup = (fmt(row["automatic_speedup_vs_baseline"], 2) + r"$\times$"
+                   if auto else "NC")
+        oracle = (fmt(row["automatic_qps_fraction_of_global_oracle"], 2)
+                  if auto else "NC")
+        lines.append(
+            f"{tex_escape(row['dataset'])} & {integer(row, 'workload_count')} & "
+            f"{speedup} & {oracle} " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table}", ""])
+    return lines
+
+
+def render_profile(
+    profile: dict[tuple[str, str], dict[str, str]],
+    config: dict[str, Any], workloads: list[str],
+) -> list[str]:
+    role_by_name = {str(method["name"]): str(method.get("selection_role", ""))
+                    for method in config["methods"]}
+    drh = [name for name, role in role_by_name.items() if role == ROUTED_DRH_ROLE]
+    if len(drh) != 1:
+        raise ValueError(f"expected one gated DRH method, got {drh}")
+    selected_names = (BASELINE_METHOD, drh[0])
+    rows = [profile[(name, workload)] for workload in workloads
+            for name in selected_names if (name, workload) in profile]
+    lines = [
+        r"\subsection{Mechanism Breakdown}",
+        "Profile-pass times are milliseconds per query and are not used for the "
+        "primary QPS result. Activation is the measured fraction of queries that "
+        "actually execute a layered path.",
+        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\caption{Stage timing at the formal operating point.}",
+        r"\label{tab:query-stages}",
+        r"\begin{tabular}{rlrrrrrrr}", r"\toprule",
+        r"Sel. & Method & Active & Total & Entry-group & Entry setup & Authorization & Graph & Residual \\",
+        r"\midrule",
+    ]
+    for row in rows:
+        label = "0-layer" if row["method"] == BASELINE_METHOD else "gated DRH"
+        lines.append(
+            f"{100.0 * number(row, 'mean_selectivity'):.3f}\\% & {label} & "
+            f"{100.0 * number(row, 'layered_path_activation_rate_warm_median'):.1f}\\% & "
+            f"{fmt(row['query_total_ms_warm_median'], 3)} & "
+            f"{fmt(row['els_ms_warm_median'], 3)} & "
+            f"{fmt(row['entry_ms_warm_median'], 3)} & "
+            f"{fmt(row['block_authorization_ms_warm_median'], 3)} & "
+            f"{fmt(row['graph_ms_warm_median'], 3)} & "
+            f"{fmt(row['residual_ms_warm_median'], 3)} " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
+    lines.extend([
+        r"\begin{table*}[t]", r"\centering", r"\scriptsize",
+        r"\caption{Search work at the same profiled operating points.}",
+        r"\label{tab:query-work}",
+        r"\begin{tabular}{rlrrrrrrr}", r"\toprule",
+        r"Sel. & Method & Visited & Base edges & Special intra & Special inter & Entry dist. & Graph dist. & Total dist. \\",
+        r"\midrule",
+    ])
+    for row in rows:
+        label = "0-layer" if row["method"] == BASELINE_METHOD else "gated DRH"
+        lines.append(
+            f"{100.0 * number(row, 'mean_selectivity'):.3f}\\% & {label} & "
+            f"{fmt(row['nodes_visited_warm_median'], 0)} & "
+            f"{fmt(row['regular_edges_scanned_warm_median'], 0)} & "
+            f"{fmt(row['special_intra_edges_scanned_warm_median'], 0)} & "
+            f"{fmt(row['special_inter_edges_scanned_warm_median'], 0)} & "
+            f"{fmt(row['entry_point_distance_calcs_warm_median'], 0)} & "
+            f"{fmt(row['graph_search_distance_calcs_warm_median'], 0)} & "
+            f"{fmt(row['total_distance_calcs_warm_median'], 0)} " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
+    return lines
+
+
+def render_build(
+    summary: list[dict[str, str]], end_to_end: list[dict[str, str]],
+) -> list[str]:
+    lines = [
+        r"\subsection{Construction}",
+        "Construction time is process wall time through validated files on disk. "
+        "GPU entries are end-to-end measurements, not isolated kernel timings.",
+        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\caption{Component construction time, footprint, and measured resources.}",
+        r"\label{tab:build-components}",
+        r"\begin{tabular}{lllrrrrrl}", r"\toprule",
+        r"Component & Structure & Profile & Repeats & Median s & P95 s & Index MiB & Host/GPU MiB & GPU evidence \\",
+        r"\midrule",
+    ]
+    for row in sorted(summary, key=lambda item: (
+            item["component"], item["structure"], item["profile"])):
+        gpu = fmt(row["peak_gpu_memory_mib"], 1) \
+            if row["peak_gpu_memory_mib"] not in (None, "") else "--"
+        host = fmt(row["peak_rss_mib"], 1) \
+            if row["peak_rss_mib"] not in (None, "") else "--"
+        if parse_bool(row["gpu_required"]):
+            evidence = (
+                "lock" if parse_bool(row["gpu_exclusive_lock"]) else
+                f"idle-{integer(row, 'gpu_idle_samples_min')}")
+        else:
+            evidence = "--"
+        lines.append(
+            f"{tex_escape(row['component'])} & {tex_escape(row['structure'])} & "
+            f"{tex_escape(row['profile'])} & {integer(row, 'measured_repeats')} & "
+            f"{fmt(row['wall_median_seconds'], 2)} & {fmt(row['wall_p95_seconds'], 2)} & "
+            f"{fmt(row['index_median_mib'], 1)} & {host}/{gpu} & "
+            f"{tex_escape(evidence)} " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
+    lines.extend([
+        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\caption{Paired end-to-end accelerated-base plus hierarchy construction versus the original CPU base builder.}",
+        r"\label{tab:build-e2e}",
+        r"\begin{tabular}{llrrrrl}", r"\toprule",
+        r"Structure & Hierarchy profile & Repeats & Total s & Speedup & 95\% CI & No-slower support \\",
+        r"\midrule",
+    ])
+    for row in sorted(end_to_end, key=lambda item: (
+            item["structure"], item["hierarchy_profile"])):
+        lines.append(
+            f"{tex_escape(row['structure'])} & {tex_escape(row['hierarchy_profile'])} & "
+            f"{integer(row, 'paired_repeats')} & "
+            f"{fmt(row['accelerated_base_plus_hierarchy_median_seconds'], 2)} & "
+            f"{fmt(row['speedup_vs_original_cpu'], 2)}$\\times$ & "
+            f"[{fmt(row['speedup_ci95_low'], 2)}, {fmt(row['speedup_ci95_high'], 2)}] & "
+            f"{'yes' if parse_bool(row['no_slower_supported']) else 'no'} " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
+    return lines
+
+
+def source_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def generate_document(
+    paths: ResultPaths, amazon_formal_config: dict[str, Any],
+    amazon_profile_config: dict[str, Any], heldout_configs: list[dict[str, Any]],
+) -> str:
+    workloads = validate_amazon_workloads(amazon_formal_config)
+    profile_workloads = validate_amazon_workloads(amazon_profile_config)
+    if profile_workloads != workloads:
+        raise ValueError("Amazon formal and profile workloads differ")
+
+    formal_rows = read_csv(paths.amazon_formal, QUERY_FIELDS)
+    formal = validate_formal_rows(formal_rows, amazon_formal_config, "Amazon formal")
+    depth_rows = read_csv(paths.amazon_depth, {
+        "status", "dataset", "workload", "mean_selectivity", "target_recall",
+        "category", "method", "hierarchy", "entry_strategy", "lsearch",
+        "recall_min", "qps", "speedup_vs_plain", "speedup_ci95_low",
+        "speedup_ci95_high",
+    })
+    depth = validate_depth_rows(depth_rows, workloads)
+    depth_global = read_csv(paths.amazon_depth_global, {
+        "dataset", "category", "status", "method", "hierarchy",
+        "entry_strategy", "routing_policy", "geomean_qps",
+        "speedup_vs_plain", "workload_count",
+    })
+    validate_depth_global(depth_global)
+    profile_rows = read_csv(paths.amazon_profile, PROFILE_FIELDS)
+    profile = validate_profile_rows(
+        profile_rows, amazon_profile_config, formal)
+    heldout_rows = read_csv(paths.heldout_workload, {
+        "status", "dataset", "workload", "mean_selectivity", "target_recall",
+        "baseline_recall_min", "automatic_hierarchy", "automatic_recall_min",
+        "oracle_hierarchy", "oracle_recall_min",
+        "automatic_speedup_vs_baseline", "automatic_qps_fraction_of_oracle",
+        "automatic_speedup_ci95_low", "automatic_speedup_ci95_high",
+        "automatic_oracle_fraction_ci95_low",
+        "automatic_oracle_fraction_ci95_high",
+    })
+    heldout_global = read_csv(paths.heldout_global, {
+        "dataset", "status", "workload_count", "automatic_speedup_vs_baseline",
+        "automatic_qps_fraction_of_global_oracle",
+    })
+    validate_heldout_rows(heldout_rows, heldout_global, heldout_configs)
+    build_summary = read_csv(paths.build_summary, {
+        "component", "structure", "profile", "measured_repeats",
+        "wall_median_seconds", "wall_p95_seconds", "index_median_mib",
+        "peak_rss_mib", "peak_gpu_memory_mib", "gpu_required",
+        "gpu_exclusive_lock", "gpu_idle_samples_min",
+    })
+    build_end_to_end = read_csv(paths.build_end_to_end, {
+        "structure", "hierarchy_profile", "paired_repeats",
+        "original_cpu_base_median_seconds",
+        "accelerated_base_plus_hierarchy_median_seconds",
+        "speedup_vs_original_cpu", "speedup_ci95_low", "speedup_ci95_high",
+        "overhead_vs_accelerated_base_median", "no_slower_supported",
+    })
+    validate_build_rows(build_summary, build_end_to_end)
+
+    source_paths = [getattr(paths, field) for field in paths.__dataclass_fields__]
+    lines = [
+        "% Generated by generate_authoritative_paper_results.py.",
+        "% All inputs passed the authoritative fail-closed checks.",
+    ]
+    for path in source_paths:
+        lines.append(f"% source-sha256 {path.name} {source_digest(path)}")
+    lines.append("")
+    lines.extend(render_depth_table(depth, workloads))
+    lines.extend(render_depth_global(depth_global))
+    lines.extend(render_zero_layer_table(formal, amazon_formal_config, workloads))
+    lines.extend(render_heldout(heldout_rows, heldout_global))
+    lines.extend(render_profile(profile, amazon_profile_config, workloads))
+    lines.extend(render_build(build_summary, build_end_to_end))
+    document = "\n".join(lines).rstrip() + "\n"
+    if "\\pending" in document:
+        raise AssertionError("authoritative output contains a pending marker")
+    return document
+
+
+def atomic_write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(
+        prefix=f".{path.name}.", dir=path.parent, text=True)
+    temporary_path = Path(temporary)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(content)
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--amazon-formal-config", type=Path, required=True)
+    parser.add_argument("--amazon-profile-config", type=Path, required=True)
+    parser.add_argument("--heldout-formal-config", type=Path, action="append",
+                        required=True)
+    parser.add_argument("--build-quality-formal-config", type=Path, required=True)
+    parser.add_argument("--build-config", type=Path, action="append", required=True)
+    parser.add_argument("--amazon-formal", type=Path, required=True)
+    parser.add_argument("--amazon-depth", type=Path, required=True)
+    parser.add_argument("--amazon-depth-global", type=Path, required=True)
+    parser.add_argument("--amazon-profile", type=Path, required=True)
+    parser.add_argument("--heldout-workload", type=Path, required=True)
+    parser.add_argument("--heldout-global", type=Path, required=True)
+    parser.add_argument("--build-summary", type=Path, required=True)
+    parser.add_argument("--build-end-to-end", type=Path, required=True)
+    parser.add_argument("--validator", type=Path,
+                        default=HERE / "validate_selection_sweep.py")
+    parser.add_argument(
+        "--output", type=Path,
+        default=HERE.parent.parent / "docs/papers/multilevel_ung/generated_results.tex")
+    args = parser.parse_args(argv)
+    if len(args.heldout_formal_config) != 3:
+        parser.error("exactly three --heldout-formal-config values are required")
+    if len(args.build_config) != 4:
+        parser.error("exactly four --build-config values are required")
+
+    amazon_formal, formal_hash = validated_query_config(
+        args.amazon_formal_config.resolve(), args.validator.resolve(), "formal", 15)
+    amazon_profile, profile_hash = validated_query_config(
+        args.amazon_profile_config.resolve(), args.validator.resolve(), "profile", 3)
+    heldout_configs = []
+    heldout_hashes = set()
+    for path in args.heldout_formal_config:
+        config, binary_hash = validated_query_config(
+            path.resolve(), args.validator.resolve(), "formal", 15)
+        heldout_configs.append(config)
+        heldout_hashes.add(binary_hash)
+    validated_query_config(
+        args.build_quality_formal_config.resolve(), args.validator.resolve(),
+        "formal", 15)
+    if len(heldout_hashes | {formal_hash}) != 1:
+        raise ValueError(
+            "Amazon formal and held-out formal runs must use one immutable query binary")
+    # A dedicated instrumented profile binary is permitted, but its provenance
+    # remains explicit through the validated manifest and this diagnostic.
+    if profile_hash != formal_hash:
+        print(
+            "profile uses a distinct instrumented binary: "
+            f"formal={formal_hash} profile={profile_hash}", file=sys.stderr)
+    build_configs = [validate_build_config(path.resolve())
+                     for path in args.build_config]
+    validate_build_config_set(build_configs)
+
+    paths = ResultPaths(
+        amazon_formal=args.amazon_formal.resolve(),
+        amazon_depth=args.amazon_depth.resolve(),
+        amazon_depth_global=args.amazon_depth_global.resolve(),
+        amazon_profile=args.amazon_profile.resolve(),
+        heldout_workload=args.heldout_workload.resolve(),
+        heldout_global=args.heldout_global.resolve(),
+        build_summary=args.build_summary.resolve(),
+        build_end_to_end=args.build_end_to_end.resolve(),
+    )
+    document = generate_document(
+        paths, amazon_formal, amazon_profile, heldout_configs)
+    provenance = [
+        f"% query-binary-sha256 formal-and-heldout {formal_hash}",
+        f"% query-binary-sha256 profile {profile_hash}",
+    ]
+    for path in (
+            args.amazon_formal_config, args.amazon_profile_config,
+            *args.heldout_formal_config, args.build_quality_formal_config,
+            *args.build_config):
+        resolved = path.resolve()
+        provenance.append(
+            f"% config-sha256 {resolved.name} {source_digest(resolved)}")
+    document = "\n".join(provenance) + "\n" + document
+    atomic_write(args.output.resolve(), document)
+    print(args.output.resolve())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -123,6 +123,12 @@
   构建伪代码，Tectonic 编译成功。
 - Trie empty-predicate root terminal frontier 改为 build/load 时预计算；Amazon
   真实空谓词在 `L=N=602453` 的单查询 Recall@10 为 1.0，而旧实现为 0。
+- 当前九档 campaign 已有独立的 fail-closed 论文结果生成器
+  `generate_authoritative_paper_results.py`：它会重跑 Amazon formal/profile、
+  三个 held-out formal 和 build-quality validator，核对四个 build manifest、
+  conservative crossing、profile L、分层路径启用率与重复数，并只在全部通过后
+  原子替换 `generated_results.tex`。合成 fixture 的 7 个回归测试已通过；历史六档
+  `generate_paper_results.py` 保持不变。
 
 ## 下一步
 
