@@ -3,7 +3,6 @@
   "purpose": "Bounded end-to-end Amazon construction evidence.",
   "run_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_build_20260927",
   "evidence_tier": "deadline_screen",
-  "generated_at_utc": "2026-09-27T10:50:43.344927+00:00",
   "protocol": {
     "cold_repeats": 1,
     "measured_repeats": 2,
@@ -89,5 +88,7 @@
         "auto_drh_v1_full_gpu_wmma_measured_r0"
       ]
     }
-  ]
+  ],
+  "summarizer": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/summarize_authoritative_build.py",
+  "summary_output_dir": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_build_20260927/build_study/summary"
 }

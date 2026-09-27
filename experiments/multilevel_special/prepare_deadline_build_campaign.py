@@ -9,7 +9,6 @@ import hashlib
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -203,7 +202,6 @@ def main() -> int:
         "purpose": "Bounded end-to-end Amazon construction evidence.",
         "run_root": str(run_root),
         "evidence_tier": "deadline_screen",
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "protocol": {
             "cold_repeats": 1,
             "measured_repeats": args.measured_repeats,
@@ -213,6 +211,8 @@ def main() -> int:
             "kernel_time_is_not_end_to_end_time": True,
         },
         "stages": stages,
+        "summarizer": str(HERE / "summarize_authoritative_build.py"),
+        "summary_output_dir": str(run_root / "build_study" / "summary"),
     }
     manifest_path = absolute_no_resolve(args.manifest)
     atomic_json(manifest_path, manifest)

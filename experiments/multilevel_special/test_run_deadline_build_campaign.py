@@ -10,6 +10,21 @@ import run_deadline_build_campaign as deadline
 
 
 class DeadlineBuildRunnerTest(unittest.TestCase):
+    def test_summary_command_uses_all_four_generated_configs(self) -> None:
+        campaign = {
+            "summarizer": "/repo/summarize.py",
+            "summary_output_dir": "/run/summary",
+            "stages": [
+                {"phase": name, "config": f"/repo/{name}.json"}
+                for name in deadline.BUILD_PHASES
+            ],
+        }
+        command = deadline.summary_command(campaign)
+        self.assertEqual(command[1], "/repo/summarize.py")
+        for phase in deadline.BUILD_PHASES:
+            self.assertIn(f"/repo/{phase}.json", command)
+        self.assertEqual(command[-1], "/run/summary")
+
     def test_query_gate_requires_finished_marker(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "query.json"

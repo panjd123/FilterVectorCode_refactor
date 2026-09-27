@@ -23,8 +23,9 @@ DEFAULT_QUERY_SUPERVISOR = (
     HERE.parents[1] / "runs/deadline_evidence_20260927_cpufix" /
     "deadline_supervisor_manifest.json"
 )
-PHASES = ("base_timing", "hierarchy_timing", "base_resource",
-          "hierarchy_resource")
+BUILD_PHASES = ("base_timing", "hierarchy_timing", "base_resource",
+                "hierarchy_resource")
+PHASES = BUILD_PHASES + ("summarize",)
 
 
 def atomic_json(path: Path, payload: Any) -> None:
@@ -111,6 +112,19 @@ def update_record(path: Path, state: dict[str, Any],
     atomic_json(path, state)
 
 
+def summary_command(campaign: dict[str, Any]) -> list[str]:
+    stages = {str(row["phase"]): row for row in campaign["stages"]}
+    return [
+        sys.executable,
+        str(campaign["summarizer"]),
+        "--base-timing", str(stages["base_timing"]["config"]),
+        "--base-resource", str(stages["base_resource"]["config"]),
+        "--hierarchy-timing", str(stages["hierarchy_timing"]["config"]),
+        "--hierarchy-resource", str(stages["hierarchy_resource"]["config"]),
+        "--output-dir", str(campaign["summary_output_dir"]),
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--case-timeout-seconds", type=float, default=3300.0)
@@ -144,6 +158,25 @@ def main() -> int:
 
     stages = {str(row["phase"]): row for row in campaign["stages"]}
     for phase in PHASES[start:stop + 1]:
+        if phase == "summarize":
+            key = (phase, "all")
+            status = existing.get(key)
+            if status == "complete" or (
+                    status in {"failed", "timeout"} and not args.retry_failed):
+                print(f"[SKIP] summarize/all: prior status={status}", flush=True)
+                continue
+            status, returncode, elapsed = run_bounded(
+                summary_command(campaign), log_path,
+                min(args.case_timeout_seconds, 600.0))
+            update_record(supervisor_path, state, {
+                "phase": phase,
+                "case": "all",
+                "status": status,
+                "returncode": returncode,
+                "elapsed_seconds": elapsed,
+            })
+            existing[key] = status
+            continue
         stage = stages[phase]
         for case in stage["cases"]:
             key = (phase, str(case))
