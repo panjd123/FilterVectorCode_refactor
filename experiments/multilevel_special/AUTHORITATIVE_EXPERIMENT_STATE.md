@@ -19,6 +19,9 @@ binary、固定数据 provenance、完整 manifest 产生的结果可以进入�
 5. 验证结果：生成器同时关闭 legacy intra、inter 和 size-routed intra；新 root
    中 Reviews/VariousImg automatic DRH 分别用 120.44/633.16 秒构建完成，metadata
    和日志均记录 GPU intra blocks/inter use 为 0。下一步恢复 bounded query campaign。
+6. 新 measurement issue M28：performance pass 默认启用 light stats，layered 路径
+   的逐类 edge counters 因此保持 0；这不是“扫描零条边”。deadline 汇总器将这些
+   值改报 NA 并显式标记 counter mode，最终边数只引用独立 detailed profile。
 
 ## 当前状态
 
@@ -173,6 +176,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M25 | methodology | RESOLVED | screen 的逐方法 Lsearch 网格上限不同，旧 crossing 仅将未过线方法末点扩展 1.5x，可能在低于同 workload 其他方法已测预算处过早宣告 NC | crossing 现在为每个 workload 计算共同预算：默认取所有方法已测最大 Lsearch，显式 `max_lsearch` 则作为统一上限；未过线方法一次细化到该共同预算，formal 与最终报告均拒绝未实际测到共同预算的 NC，并核对 disabled cell 与 NC 记录一一对应；相关回归使全量测试增至 189 项 |
 | M26 | reporting | RESOLVED | 共同 Recall 搜索预算仅存在于 formal provenance，论文和中文报告中的 NC 无法直接对应具体 workload 上限 | LaTeX 与 Markdown 生成入口现在都直接校验 formal selection provenance，并从同一个 `shared_max_lsearch_by_workload` 动态生成九档预算表；缺失、不完整或与 disabled/NC cell 不闭合时拒绝生成。一项双入口回归使全量测试增至 190 项，含真实动态表的 Tectonic fixture 编译通过 |
 | M27 | measurement | RESOLVED | deadline held-out case 声明为 CPU profile，但继承的 size-routed intra path 仍调用 Jasper/Tagore CUDA | 保留 fail-closed validator；生成器显式把 legacy intra/inter 与 `UNG_SPECIAL_INTRA_ROUTE` 全部置 0；Reviews/VariousImg 真实 automatic build 均通过且 verified GPU counters 为 0 |
+| M28 | measurement | ACTIVE | performance pass 的 light stats 会让 layered special-edge counters 为 0，旧汇总表若不标注会误读为未扫描边 | deadline 汇总器已把 light-pass edge counters 改报 NA；待新 binary detailed profile 提供 base/special intra/inter 边数并同时解决 M13 authorization 归因 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较。四个正式数据集都导出两层，因此本轮不把跨数据集结果表述为深度变化的实证验证 |

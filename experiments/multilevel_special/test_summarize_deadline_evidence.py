@@ -59,6 +59,17 @@ class DeadlineSummaryTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "lacks exact routing gate"):
             summary.method_roles({"methods": methods})
 
+    def test_light_stats_do_not_claim_edge_counters(self) -> None:
+        row = {"method": "layered", "workload": "workload"}
+        for field in summary.STAGE_FIELDS + summary.WORK_FIELDS:
+            if field not in summary.EDGE_FIELDS:
+                row[field] = 0.0
+        row["closure_error_ms_max_abs"] = 0.0
+
+        summary.validate_crossing_breakdown(row, require_detail_stats=False)
+        with self.assertRaisesRegex(ValueError, "missing breakdown"):
+            summary.validate_crossing_breakdown(row, require_detail_stats=True)
+
 
 if __name__ == "__main__":
     unittest.main()

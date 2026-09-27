@@ -58,6 +58,10 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
 - deadline 专用汇总器已实现：原子输出全方法 conservative crossing、DRH/plain、
   DRH/5-manual、单一 global manual、阶段耗时、点/边/距离计算、CPU sidecar 构建
   和完整性 manifest；partial 模式会逐 case 明示缺失，严格模式拒绝不完整网格。
+- 已确认 performance pass 默认 `UNG_SPECIAL_LIGHT_STATS=1`，因此 layered 方法的
+  special-edge 0 是“计数关闭”而非“未扫描边”。deadline 汇总器现把这类边计数
+  输出为 NA 并标记 light；真实 base/special intra/inter 边数必须来自后续独立
+  detailed profile。当前 snapshot 的 exact-gate 时间也仍在 residual 中。
 
 ## 下一步
 
@@ -75,7 +79,8 @@ breakdown 和 GPU build 数据并生成报告/论文。
 
 ## 验证
 
-- `196/196` Python tests — `通过`：含 CPU route 和 deadline 汇总器回归。
+- `197/197` Python tests — `待全量复跑`：新增 light/detail counter 语义回归后
+  专项 5/5 已通过。
 - 当前 deadline Reviews/VariousImg build — `失败且已解释`：环境虽有
   `GPU_INTRA=0`，但日志记录 `gpu_intra_blocks=19/20`，来自独立 size route。
 - 新 CPU route 修复 — `通过`：18/18 case 静态为 `cpu/0/0/0`；两项单元测试及

@@ -51,6 +51,12 @@ WORK_FIELDS = (
     "total_distance_calcs_warm_median",
     "num_entries_warm_median",
 )
+EDGE_FIELDS = (
+    "regular_edges_scanned_warm_median",
+    "special_intra_edges_scanned_warm_median",
+    "special_inter_edges_scanned_warm_median",
+    "total_edges_scanned_warm_median",
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -119,8 +125,14 @@ def operating_point(
     )
 
 
-def validate_crossing_breakdown(row: dict[str, Any]) -> None:
-    for field in STAGE_FIELDS + WORK_FIELDS:
+def validate_crossing_breakdown(
+    row: dict[str, Any], require_detail_stats: bool,
+) -> None:
+    required_work = tuple(
+        field for field in WORK_FIELDS
+        if require_detail_stats or field not in EDGE_FIELDS
+    )
+    for field in STAGE_FIELDS + required_work:
         value = row.get(field, "")
         if value in (None, ""):
             raise ValueError(
@@ -133,12 +145,14 @@ def validate_crossing_breakdown(row: dict[str, Any]) -> None:
     if closure in (None, "") or abs(float(closure)) > 1e-6:
         raise ValueError(
             f"stage closure exceeds tolerance: {row['method']}/{row['workload']}")
-    if float(row["total_edges_scanned_warm_median"]) < max(
-        float(row["regular_edges_scanned_warm_median"]),
-        float(row["special_intra_edges_scanned_warm_median"]),
-        float(row["special_inter_edges_scanned_warm_median"]),
-    ):
-        raise ValueError(f"edge counters do not close: {row['method']}/{row['workload']}")
+    if require_detail_stats:
+        if float(row["total_edges_scanned_warm_median"]) < max(
+            float(row["regular_edges_scanned_warm_median"]),
+            float(row["special_intra_edges_scanned_warm_median"]),
+            float(row["special_inter_edges_scanned_warm_median"]),
+        ):
+            raise ValueError(
+                f"edge counters do not close: {row['method']}/{row['workload']}")
     if float(row["total_distance_calcs_warm_median"]) < max(
         float(row["entry_point_distance_calcs_warm_median"]),
         float(row["graph_search_distance_calcs_warm_median"]),
@@ -174,6 +188,7 @@ def summarize_search_config(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     config = experiment_core.load_config(config_path)
     protocol = experiment_core.protocol_for(config)
+    detail_stats = str(config.get("measurement_pass", "performance")) == "profile"
     if protocol.cold_repeats != 1 or protocol.measured_repeats != 2:
         raise ValueError(f"unexpected deadline repeat protocol: {config_path}")
     baseline, automatic, manual = method_roles(config)
@@ -229,10 +244,16 @@ def summarize_search_config(
                     "batch_ms_warm_cv": float(point["batch_ms_warm_cv"]),
                 })
                 if status == "crossing":
-                    validate_crossing_breakdown(point)
+                    validate_crossing_breakdown(point, detail_stats)
                     breakdown_rows.append({
                         **record,
-                        **{field: point[field] for field in STAGE_FIELDS + WORK_FIELDS},
+                        "measurement_pass": config.get(
+                            "measurement_pass", "performance"),
+                        "detailed_edge_counters": detail_stats,
+                        **{field: (
+                            "" if field in EDGE_FIELDS and not detail_stats
+                            else point[field])
+                           for field in STAGE_FIELDS + WORK_FIELDS},
                         "layered_path_activation_rate_warm_median": point.get(
                             "layered_path_activation_rate_warm_median", ""),
                         "closure_error_ms_max_abs": point["closure_error_ms_max_abs"],
@@ -432,7 +453,9 @@ def render_markdown(
             f"{row.get('lsearch', 'NA')} | {value(row, 'recall_min', 4)} | "
             f"{value(row, 'qps_warm_median')} | {value(row, 'batch_ms_warm_cv')} |")
     lines.extend(["", "## Crossing 阶段耗时", "",
-                  "单位为 ms/query；均为 warm-repeat 中位数。", "",
+                  "单位为 ms/query；均为 warm-repeat 中位数。当前 performance pass "
+                  "使用 light stats；旧 snapshot 的 exact gate 时间落在 residual，"
+                  "authorization 列只含后续 coverage，最终机制归因以独立 profile 为准。", "",
                   "| Dataset | Workload | Method | ELS | Entry point | Authorization | Graph | Residual |",
                   "|---|---|---|---:|---:|---:|---:|---:|"])
     for row in sorted(breakdown, key=lambda item: (
@@ -445,19 +468,24 @@ def render_markdown(
             f"{value(row, 'graph_ms_warm_median')} | "
             f"{value(row, 'residual_ms_warm_median')} |")
     lines.extend(["", "## Crossing 搜索工作量", "",
-                  "| Dataset | Workload | Method | Visited | Base edges | Special edges | Distances | Entries |",
-                  "|---|---|---|---:|---:|---:|---:|---:|"])
+                  "light-stats performance pass 保留 visited points 与距离计算，但会"
+                  "关闭逐类边计数；关闭时边数显示 NA，不能解释为扫描了零条边。", "",
+                  "| Dataset | Workload | Method | Counter mode | Visited | Base edges | Special edges | Distances | Entries |",
+                  "|---|---|---|---|---:|---:|---:|---:|---:|"])
     for row in sorted(breakdown, key=lambda item: (
             item["dataset"], float(item["mean_selectivity"]), item["method"])):
+        intra = row.get("special_intra_edges_scanned_warm_median", "")
+        inter = row.get("special_inter_edges_scanned_warm_median", "")
         special_edges = (
-            float(row["special_intra_edges_scanned_warm_median"])
-            + float(row["special_inter_edges_scanned_warm_median"])
-        )
+            f"{float(intra) + float(inter):.1f}"
+            if intra not in (None, "") and inter not in (None, "") else "NA")
+        counter_mode = ("detailed" if row["detailed_edge_counters"] else "light")
         lines.append(
             f"| {row['dataset']} | {row['workload']} | {row['method']} | "
+            f"{counter_mode} | "
             f"{value(row, 'nodes_visited_warm_median', 1)} | "
             f"{value(row, 'regular_edges_scanned_warm_median', 1)} | "
-            f"{special_edges:.1f} | {value(row, 'total_distance_calcs_warm_median', 1)} | "
+            f"{special_edges} | {value(row, 'total_distance_calcs_warm_median', 1)} | "
             f"{value(row, 'num_entries_warm_median', 1)} |")
     lines.extend(["", "## Held-out sidecar 构建", "",
                   "这些 CPU sidecar 只服务查询比较，不作为 GPU 构建加速证据。", "",
