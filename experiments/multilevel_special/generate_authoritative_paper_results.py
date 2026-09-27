@@ -1841,6 +1841,8 @@ def generate_markdown_report(
         "最小实测 Lsearch；不插值、不外推。screen 使用 2 个 warm repeats，formal "
         "使用 15 个 warm repeats，profile 使用独立 instrumentation binary 且不进入"
         "主 QPS。",
+        "screen 未过线的方法会在 crossing 阶段扩展到该 workload 的共同最大实测"
+        "预算（或显式统一上限）；只有在共同预算处仍未过线才记为 NC。",
         "",
         "## 2. 数据集与自动层次",
         "",

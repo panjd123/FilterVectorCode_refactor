@@ -590,7 +590,10 @@ We select the smallest \emph{measured} $L_{search}$ for which every warm repeat
 reaches Recall@10 $\ge0.90$; there is no interpolation or extrapolation.  The
 screen pass locates crossings, a bounded crossing pass refines them, a formal
 pass uses one discarded cold repeat and 15 warm repeats, and a separate profile
-pass collects expensive counters.
+pass collects expensive counters.  If a method has no screen crossing, its
+crossing pass extends to the largest $L_{search}$ measured for any method on
+that workload (or an explicitly declared common cap); only failure at that
+shared budget is reported as no crossing.
 
 \subsection{Metrics}
 Primary query metrics are warm-median batch latency and QPS with bootstrap 95\%

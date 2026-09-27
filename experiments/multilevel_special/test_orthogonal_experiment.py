@@ -599,7 +599,39 @@ class OrthogonalExperimentTest(unittest.TestCase):
             advance.crossing_grid(
                 {100: 0.5, 1000: 0.8}, threshold=0.9, k=10,
                 max_lsearch=2000)[-1],
-            1500)
+            2000)
+
+    def test_crossing_uses_one_shared_budget_per_workload(self):
+        advance = __import__("advance_authoritative_campaign")
+        with tempfile.TemporaryDirectory() as temporary:
+            config = orthogonal_config()
+            config["output_root"] = temporary
+            config["pass_subdirs"] = False
+            short = config["methods"][0]
+            long = dict(short)
+            long["name"] = "long_grid"
+            config["methods"] = [short, long]
+            for method, rows in (
+                (short, [(100, 0.7), (1000, 0.8)]),
+                (long, [(1000, 0.8), (2000, 0.91)]),
+            ):
+                run_dir = Path(temporary) / method["name"] / "sel_1"
+                run_dir.mkdir(parents=True)
+                lines = ["Repeat,Lsearch,Time_ms,Avg_Recall"]
+                for lsearch, recall in rows:
+                    for repeat in range(3):
+                        lines.append(f"{repeat},{lsearch},1.0,{recall}")
+                (run_dir / "search_time_details.csv").write_text(
+                    "\n".join(lines) + "\n")
+            self.assertEqual(
+                advance.shared_lsearch_budgets(config), {"sel_1": 2000})
+            crossing = advance.make_crossing(config)
+            short_grid = crossing["methods"][0][
+                "lsearch_values_by_workload"]["sel_1"]
+            self.assertEqual(short_grid[-1], 2000)
+            self.assertEqual(
+                crossing["selection_provenance"]
+                ["shared_max_lsearch_by_workload"], {"sel_1": 2000})
 
     def test_formal_excludes_a_case_without_measured_crossing(self):
         advance = __import__("advance_authoritative_campaign")

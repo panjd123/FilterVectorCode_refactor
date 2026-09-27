@@ -492,6 +492,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("逐 Lsearch 原始点", report)
         self.assertIn("100 个查询工作线程", report)
         self.assertIn("query-level parallel batch throughput", report)
+        self.assertIn("共同最大实测", report)
         self.assertIn("L/Q/R", report)
         self.assertIn("先在单个 warm repeat 内取每查询均值", report)
         self.assertIn("不由表中四舍五入后的分项相加", report)

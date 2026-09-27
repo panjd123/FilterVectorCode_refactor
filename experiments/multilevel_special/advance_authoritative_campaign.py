@@ -92,7 +92,7 @@ def crossing_grid(values: dict[int, float], threshold: float, k: int,
         lower = ordered[-1]
         if lower >= max_lsearch:
             return None
-        upper = min(max_lsearch, max(lower + 1, math.ceil(lower * 1.5)))
+        upper = max_lsearch
         if upper == lower:
             raise ValueError(f"no Recall crossing before max_lsearch={max_lsearch}")
     width = upper - lower
@@ -101,6 +101,40 @@ def crossing_grid(values: dict[int, float], threshold: float, k: int,
     if grid[-1] != upper:
         grid.append(upper)
     return sorted(set(grid))
+
+
+def shared_lsearch_budgets(config: dict) -> dict[str, int]:
+    """Return one fair crossing ceiling for every workload.
+
+    A per-method screen grid is allowed to focus on the expected operating
+    region.  A no-crossing result is only comparable, however, after every
+    method has had the same workload-level search budget.  An explicit
+    ``max_lsearch`` is authoritative; otherwise the common ceiling is the
+    largest Lsearch already measured by any enabled method for that workload.
+    """
+    explicit = config.get("max_lsearch")
+    hard_cap = int(explicit if explicit is not None else
+                   config.get("expected_num_points", 1 << 30))
+    if hard_cap <= 0:
+        raise ValueError("max_lsearch must be positive")
+    budgets = {}
+    for workload in config["workloads"]:
+        name = workload["name"]
+        maxima = []
+        for method in config["methods"]:
+            enabled = method.get("enabled_workloads")
+            if enabled is not None and name not in enabled:
+                continue
+            values = measured_recall_by_l(config, method, workload)
+            maxima.append(max(values))
+        if not maxima:
+            raise ValueError(f"{name}: no measured Lsearch values")
+        observed = max(maxima)
+        if observed > hard_cap:
+            raise ValueError(
+                f"{name}: measured Lsearch {observed} exceeds cap {hard_cap}")
+        budgets[name] = hard_cap if explicit is not None else observed
+    return budgets
 
 
 def selected_lsearch(config: dict, method: dict, workload: dict) -> int:
@@ -144,7 +178,9 @@ def with_method_grids(config: dict, resolver) -> list[dict]:
     return methods
 
 
-def exhausted_budget_cases(config: dict, max_lsearch: int) -> list[dict]:
+def exhausted_budget_cases(
+    config: dict, max_lsearch_by_workload: dict[str, int],
+) -> list[dict]:
     result = []
     for method in config["methods"]:
         enabled = method.get("enabled_workloads")
@@ -153,6 +189,7 @@ def exhausted_budget_cases(config: dict, max_lsearch: int) -> list[dict]:
                 continue
             values = measured_recall_by_l(config, method, workload)
             threshold = float(config["recall_thresholds"][workload["name"]])
+            max_lsearch = max_lsearch_by_workload[workload["name"]]
             if max(values) >= max_lsearch and max(values.values()) < threshold:
                 result.append({
                     "method": method["name"],
@@ -202,7 +239,7 @@ def phase_output_root(source: dict, phase: str) -> str:
 
 def make_crossing(source: dict) -> dict:
     config = copy.deepcopy(source)
-    max_lsearch = int(source.get("max_lsearch", source.get("expected_num_points", 1 << 30)))
+    max_lsearch_by_workload = shared_lsearch_budgets(source)
     config["output_root"] = phase_output_root(source, "crossing")
     config["num_repeats"] = 3
     config["campaign_minimum_successful_child_seconds"] = int(
@@ -219,12 +256,15 @@ def make_crossing(source: dict) -> dict:
         lambda method, workload: crossing_grid(
             measured_recall_by_l(source, method, workload),
             float(source["recall_thresholds"][workload["name"]]),
-            int(source["K"]), max_lsearch),
+            int(source["K"]), max_lsearch_by_workload[workload["name"]]),
     )
     config["selection_provenance"] = {
         "source_output_root": source["output_root"],
-        "rule": "six-interval measured refinement between the last failing and first passing screen point",
-        "excluded_no_crossing": exhausted_budget_cases(source, max_lsearch),
+        "rule": "six-interval measured refinement between the last failing "
+        "and first passing point, or through the shared workload budget",
+        "shared_max_lsearch_by_workload": max_lsearch_by_workload,
+        "excluded_no_crossing": exhausted_budget_cases(
+            source, max_lsearch_by_workload),
     }
     return config
 
