@@ -509,6 +509,24 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             generator.validate_performance_binary_hashes(
                 "performance", {"performance"}, "different")
 
+    def test_build_quality_identity_parses_generated_method_names(self) -> None:
+        expected = {
+            "quality_base_original_cpu": ("base", "original_cpu"),
+            "quality_base_accelerated_gpu": ("base", "accelerated_gpu"),
+            "quality_single_t1024_lng_cpu": ("single_t1024_lng", "cpu"),
+            "quality_single_t1024_lng_full_gpu":
+                ("single_t1024_lng", "full_gpu"),
+            "quality_single_t1024_lng_full_gpu_wmma":
+                ("single_t1024_lng", "full_gpu_wmma"),
+            "quality_auto_drh_v1_cpu": ("auto_drh_v1", "cpu"),
+            "quality_auto_drh_v1_full_gpu": ("auto_drh_v1", "full_gpu"),
+            "quality_auto_drh_v1_full_gpu_wmma":
+                ("auto_drh_v1", "full_gpu_wmma"),
+        }
+        self.assertEqual(
+            {name: generator.build_quality_identity(name) for name in expected},
+            expected)
+
     def test_heldout_policies_bind_to_frozen_formal_configs(self) -> None:
         validated = generator.validate_heldout_policy_set(
             self.heldout_policy_paths, self.heldout_configs)

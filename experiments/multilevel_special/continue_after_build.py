@@ -97,7 +97,7 @@ def required_artifacts(run_root: Path, results: Path) -> list[Path]:
         results / "authoritative_build/build_summary.csv",
         results / "authoritative_build/build_end_to_end.csv",
         run_root / "search/amazon_formal/summary/performance/equal_recall_conservative.csv",
-        run_root / ("build_study/quality_screen_crossing_formal/summary/"
+        run_root / ("build_study/quality_formal/summary/"
                     "performance/equal_recall_conservative.csv"),
         figures / "plot_manifest.json",
         *(figures / f"{family}.pdf" for family in FIGURE_FAMILIES),
@@ -159,7 +159,7 @@ def paper_generation_command(run_root: Path, results: Path) -> list[str]:
         "--build-end-to-end",
         str(results / "authoritative_build/build_end_to_end.csv"),
         "--build-quality-formal",
-        str(run_root / ("build_study/quality_screen_crossing_formal/summary/"
+        str(run_root / ("build_study/quality_formal/summary/"
                         "performance/equal_recall_conservative.csv")),
     ])
     return command

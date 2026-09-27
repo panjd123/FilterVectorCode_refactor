@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import advance_authoritative_campaign as advance
 import continue_after_build as finalizer
 
 
@@ -19,7 +20,20 @@ class ContinueAfterBuildTest(unittest.TestCase):
         self.assertIn("amazon_formal", rendered)
         self.assertIn("heldout_oracle_by_workload.csv", rendered)
         self.assertIn("build_end_to_end.csv", rendered)
-        self.assertIn("quality_screen_crossing_formal", rendered)
+        self.assertIn("quality_formal", rendered)
+        self.assertNotIn("quality_screen_crossing_formal", rendered)
+
+    def test_build_quality_artifact_matches_campaign_phase_naming(self) -> None:
+        run_root = Path("/run")
+        screen = {"output_root": str(run_root / "build_study/quality_screen")}
+        crossing = {
+            "output_root": advance.phase_output_root(screen, "crossing"),
+        }
+        formal_root = Path(advance.phase_output_root(crossing, "formal"))
+        expected = (formal_root / "summary/performance/"
+                    "equal_recall_conservative.csv")
+        self.assertIn(
+            expected, finalizer.required_artifacts(run_root, Path("/results")))
 
     def test_paper_command_uses_instrumented_profile_and_all_policies(self) -> None:
         command = finalizer.paper_generation_command(
@@ -35,6 +49,8 @@ class ContinueAfterBuildTest(unittest.TestCase):
         self.assertEqual(command.count("--heldout-policy"), 3)
         self.assertEqual(command.count("--build-config"), 4)
         self.assertEqual(command.count("--build-quality-formal"), 1)
+        build_quality = command[command.index("--build-quality-formal") + 1]
+        self.assertIn("build_study/quality_formal/summary/performance", build_quality)
 
     def test_active_process_filter_excludes_probe_and_self(self) -> None:
         completed = mock.Mock(stdout=(
