@@ -137,6 +137,15 @@ query supervisor 未写入完成标记前，构建 runner fail closed，因而�
 baseline/DRH 在 performance pass 中的 conservative crossing（无 crossing 时为明示
 best-measured point）收集 detailed counters，不使用 profile wall time 替代主 QPS。
 
+截至 19:25，baseline/DRH priority screen 的 5 个 held-out workload 已完成。
+DRH/plain QPS 比在 Genome 3.365%/6.292% 为 `0.9536x/0.9817x`，在
+Reviews 0.200%/4.115% 为 `1.0142x/1.0044x`，在 VariousImg 10.252%
+为 `0.2046x`；所有点均按 all-warm Recall crossing 比较。VariousImg 的分解显示
+DRH graph-search 约为 167.0 ms/query，plain 约为 34.1 ms/query，而 ELS 反而从
+2.21 ms/query 降至 1.58 ms/query；因而该负结果来自被合法启用的层内图搜索，
+不是入口组查找。这些仍是 1 cold + 2 warm 的 deadline screen，结论不使用
+显著性语言。
+
 ## 公平性协议
 
 - 数据、query、GT、K、entry-point 数、graph backend 和 Recall 判定规则在同一
@@ -192,7 +201,7 @@ best-measured point）收集 detailed counters，不使用 profile wall time 替
 | M30 | measurement | ACTIVE | M13/M28 需要新 binary 的真实 gate timing 与 detailed edge/work counters，但 profile 不得污染主 QPS 或 GPU build timing | 独立 prepare/runner 已于 `5117e76` 提交，两级 completion gate + process-idle gate 保证串行；全量 213/213 测试通过，待 query/build 完成后实测 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
-| H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较。四个正式数据集都导出两层，因此本轮不把跨数据集结果表述为深度变化的实证验证 |
+| H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，但 exact gate 只保证无合法 upper 时回到 base，不保证所有中低选择率无损 | held-out priority screen 在 Genome/Reviews 四点为 0.954--1.014x，VariousImg 10.252% 为 0.205x 且由 graph-search 放大解释；待同 gate 的 5 个 deadline manual alternatives 量化自动方案 regret。四个数据集都导出两层，本轮不宣称实证了自动深度变化 |
 
 ## 实验阶段
 

@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-27 19:07 Asia/Shanghai`
+最后更新：`2026-09-27 19:25 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`5117e76`（push：`不执行，origin 指向用户工作树`）
+检查点：`4382e77`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -28,11 +28,16 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
   因而当前证据只支持高选择率优势，不能声称全区间无损。
 - deadline held-out 子集包含 baseline、DRH 和 5 个 query-independent frozen
   manual structural alternatives；它不是原 35-manual full oracle。
+- held-out priority screen 已完成：DRH/plain 在 Genome 3.365%/6.292% 为
+  `0.954x/0.982x`，Reviews 0.200%/4.115% 为 `1.014x/1.004x`，VariousImg
+  10.252% 为 `0.205x`。前四点接近 plain，但 VariousImg 明确反驳全区间
+  无损主张；其 DRH graph-search 约 167 ms/query，plain 约 34 ms/query。
 
 ## 进行中
 
-- 三段串行证据流水线正在运行：query supervisor 已完成 8 条记录，当前为 Reviews
-  baseline 的 `query_minlen2_cov1k`；Amazon build runner 仅等待 query completion；
+- 三段串行证据流水线正在运行：query supervisor 已完成 10 个 priority
+  query 和 9 个 manual build，当前继续 Reviews manual build；Amazon build runner
+  仅等待 query completion；
   detailed-profile runner 将等待 query 和 build 都完成且相关进程退出后才启动。
 
 ## 完成历史
@@ -69,6 +74,9 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
 - 独立 detailed-profile prepare/runner 已提交 — `5117e76`；从 performance
   pass 的 conservative crossing 选择 baseline/DRH 点，无 crossing 时明示标记
   best measured point，且 profile wall time 不进入主 QPS。全量 Python tests 为 `213/213`。
+- 论文实验方法已明确 repeat 为同一冻结查询集的重复测量，cold 丢弃、
+  QPS 由 warm batch-time median 换算、Recall 逐 warm repeat 达标 — `4382e77`；
+  本地 Tectonic 完整编译通过。
 
 ## 下一步
 
