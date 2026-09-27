@@ -349,14 +349,20 @@ tasks induced by topology edges.  Launching a general GPU library once per
 group or group pair repeats packing, transfer, launch, and writeback overhead.
 
 \subsection{Intra-Group Graphs}
-The accelerated backend routes very small groups to bounded complete graphs,
-medium groups to packed exact-anchor batches, and large groups to GPU
-GNN-Descent candidate generation.  The latter uses a fixed-budget local
-RNG-style pruning pass, optional sampled reverse-tail candidates, and degree
-repair.  Routing is static by group size; it does not inspect downstream Recall.
-GPU output is compacted before device-to-host transfer, but the current system
-still materializes CPU-compatible adjacency lists.  We report that conversion
-as an output-boundary cost rather than kernel work.
+The hybrid backend routes small blocks to CPU exact top-$k$ (or bounded
+complete) graphs, medium blocks to sampled CPU Vamana construction, and large
+blocks to GPU GNN-Descent candidate generation followed by RNG-style pruning
+and degree repair.  The authoritative configurations use
+$n_{\mathrm{small}}=2048$, $n_{\mathrm{large}}=8192$, and 256 sampled
+candidates for the middle route; these are fixed construction-backend settings
+shared by the compared hierarchy structures, not inputs to DRH.  A separate
+full-GPU profile disables this three-way router and sends every block above the
+small-block completion threshold to the CUDA path.  Routing is determined by
+block cardinality and does not inspect downstream Recall.  GPU output is
+compacted before device-to-host transfer, but the current system still
+materializes CPU-compatible adjacency lists.  We report that conversion as an
+output-boundary cost rather than kernel work, and record any CUDA failure that
+falls back to CPU.
 
 \subsection{Grouped Fused Cross-Block Top-$k$}
 For every topology edge, source vectors need nearest target vectors.  The GPU
@@ -385,15 +391,14 @@ by the builder.
   \State $\mathcal{E}_\ell\gets\Call{BuildTopology}{\mathcal{B}_\ell,\tau_\ell}$
   \For{each block $b\in\mathcal{B}_\ell$}
     \If{$|b|\le n_{\mathrm{small}}$}
-      \State $A_b\gets\Call{BoundedCompleteCPU}{X_b,R}$
+      \State $A_b\gets\Call{ExactTopKCPU}{X_b,R}$
     \ElsIf{$|b|<n_{\mathrm{large}}$}
-      \State append $b$ to a packed exact-anchor batch bounded by $M$
+      \State $A_b\gets\Call{SampledVamanaCPU}{X_b,R}$
     \Else
       \State $C_b\gets\Call{GPUCandidateGraph}{X_b,M}$
       \State $A_b\gets\Call{RNGPruneAndRepair}{C_b,R}$
     \EndIf
   \EndFor
-  \State flush packed anchor batches and materialize their $A_b$
   \State $\mathcal{P}\gets\{(u,v):(u,v)\in\mathcal{E}_\ell\}$
   \For{each memory-bounded descriptor batch $P\subseteq\mathcal{P}$}
     \State $A_P\gets\Call{FusedDistanceTopK}{X,P,C,M}$
