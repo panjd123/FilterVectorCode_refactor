@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import copy
 import csv
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -65,13 +67,97 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             "recall_thresholds": {name: 0.9 for name, _ in WORKLOADS},
         }
         self.profile_config = self.formal_config
-        self.heldout_configs = [
-            {
-                "dataset": dataset,
-                "workloads": [{"name": f"{dataset.lower()}_query"}],
+        self.heldout_configs = []
+        self.heldout_policies = {}
+        self.heldout_policy_paths = []
+        num_points = {
+            "Genome": 108077, "Reviews": 288065, "VariousImg": 758935,
+        }
+        for dataset in sorted(generator.EXPECTED_HELDOUT_DATASETS):
+            workload = {
+                "name": f"{dataset.lower()}_query",
+                "query_dir": f"{dataset.lower()}_query",
+                "mean_selectivity": 0.1,
+                "num_queries": 3000,
             }
-            for dataset in sorted(generator.EXPECTED_HELDOUT_DATASETS)
-        ]
+            layers = generator.derive_plan(num_points[dataset], 64, 4)
+            config_layers = [
+                {"min_points": layer["min_points"],
+                 "topology": layer["topology"]}
+                for layer in layers
+            ]
+            automatic_name = f"{dataset.lower()}_automatic"
+            unrouted_name = f"{dataset.lower()}_automatic_unrouted"
+            methods = [{
+                "name": generator.BASELINE_METHOD,
+                "selection_role": generator.HELDOUT_BASELINE_ROLE,
+                "base_topology": "lng", "entry_strategy": "optimized_lng",
+                "hierarchy_layers": [], "special_block_search": False,
+            }, {
+                "name": automatic_name,
+                "selection_role": generator.HELDOUT_AUTOMATIC_ROLE,
+                "base_topology": "lng", "entry_strategy": "optimized_lng",
+                "hierarchy_layers": config_layers,
+                "special_block_search": True,
+                "routing_policy": generator.HELDOUT_ROUTING_POLICY,
+            }, {
+                "name": unrouted_name,
+                "selection_role": generator.HELDOUT_UNROUTED_ROLE,
+                "base_topology": "lng", "entry_strategy": "optimized_lng",
+                "hierarchy_layers": config_layers,
+                "special_block_search": True,
+            }]
+            for index in range(35):
+                depth = 1 + index % 3
+                threshold = 100 + index
+                manual_layers = [
+                    {
+                        "min_points": threshold * (16 ** level),
+                        "topology": "lng" if level == 0 else "trie",
+                    }
+                    for level in range(depth)
+                ]
+                methods.append({
+                    "name": f"{dataset.lower()}_manual_{index}",
+                    "selection_role": generator.HELDOUT_MANUAL_ROLE,
+                    "base_topology": "lng",
+                    "entry_strategy": "optimized_lng",
+                    "hierarchy_layers": manual_layers,
+                    "special_block_search": True,
+                    "routing_policy": generator.HELDOUT_ROUTING_POLICY,
+                })
+            config = {
+                "dataset": dataset,
+                "expected_num_points": num_points[dataset],
+                "methods": methods,
+                "workloads": [workload],
+            }
+            policy = {
+                "schema_version": 2,
+                "dataset": dataset,
+                "policy": "gated_degree_ratio_hierarchy_v1",
+                "query_calibrated": False,
+                "inputs": {
+                    "num_points": num_points[dataset], "dimension": 128,
+                    "max_degree": 64, "num_cross_edges": 4,
+                    "scale_ratio": 16,
+                },
+                "automatic_hierarchy_layers": layers,
+                "automatic_method": automatic_name,
+                "automatic_routing_policy":
+                    generator.HELDOUT_ROUTING_POLICY,
+                "unrouted_ablation_method": unrouted_name,
+                "manual_grid_frozen_before_search": True,
+                "manual_grid_uses_automatic_routing_policy": True,
+                "manual_hierarchy_cases": 36,
+                "manual_depths": [1, 2, 3],
+                "workloads": [workload],
+            }
+            policy_path = self.root / f"{dataset.lower()}_policy.json"
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+            self.heldout_configs.append(config)
+            self.heldout_policies[dataset] = policy
+            self.heldout_policy_paths.append(policy_path)
         self.paths = self.make_fixture()
 
     def tearDown(self) -> None:
@@ -282,6 +368,54 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                 ValueError, "build-quality formal runs must use one immutable"):
             generator.validate_performance_binary_hashes(
                 "performance", {"performance"}, "different")
+
+    def test_heldout_policies_bind_to_frozen_formal_configs(self) -> None:
+        validated = generator.validate_heldout_policy_set(
+            self.heldout_policy_paths, self.heldout_configs)
+        self.assertEqual(
+            [row[0] for row in validated],
+            sorted(generator.EXPECTED_HELDOUT_DATASETS))
+        self.assertTrue(all(len(generator.source_digest(row[1])) == 64
+                            for row in validated))
+
+    def test_heldout_policy_rejects_query_calibration(self) -> None:
+        config = self.heldout_configs[0]
+        policy = copy.deepcopy(self.heldout_policies[config["dataset"]])
+        policy["query_calibrated"] = True
+        path = self.root / "calibrated-policy.json"
+        path.write_text(json.dumps(policy), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "must not be query calibrated"):
+            generator.validate_heldout_policy_protocol(path, config)
+
+    def test_heldout_policy_rederives_automatic_layers(self) -> None:
+        config = self.heldout_configs[0]
+        policy = copy.deepcopy(self.heldout_policies[config["dataset"]])
+        policy["automatic_hierarchy_layers"][0]["min_points"] *= 2
+        path = self.root / "changed-layers-policy.json"
+        path.write_text(json.dumps(policy), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "does not match DRH derivation"):
+            generator.validate_heldout_policy_protocol(path, config)
+
+    def test_heldout_policy_requires_one_gate_for_manual_grid(self) -> None:
+        config = copy.deepcopy(self.heldout_configs[0])
+        manual = next(
+            row for row in config["methods"]
+            if row["selection_role"] == generator.HELDOUT_MANUAL_ROLE)
+        manual["routing_policy"] = "always_layered"
+        dataset = config["dataset"]
+        path = next(path for path in self.heldout_policy_paths
+                    if dataset.lower() in path.name)
+        with self.assertRaisesRegex(ValueError, "do not share one gate"):
+            generator.validate_heldout_policy_protocol(path, config)
+
+    def test_heldout_policy_binds_workload_query_count(self) -> None:
+        config = copy.deepcopy(self.heldout_configs[0])
+        config["workloads"][0]["num_queries"] -= 1
+        dataset = config["dataset"]
+        path = next(path for path in self.heldout_policy_paths
+                    if dataset.lower() in path.name)
+        with self.assertRaisesRegex(ValueError, "query count mismatch"):
+            generator.validate_heldout_policy_protocol(path, config)
 
     def test_paper_shell_uses_one_generated_macro_contract(self) -> None:
         paper = SCRIPT_DIR.parent.parent / "docs/papers/multilevel_ung"

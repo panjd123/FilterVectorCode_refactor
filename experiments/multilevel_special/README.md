@@ -228,9 +228,13 @@ process wall time.
 current nine-selectivity study. It is intentionally separate from the legacy
 six-workload `generate_paper_results.py`. The generator reruns the Amazon
 formal/profile, all three held-out formal, and build-quality validators; checks
-all four raw build manifests; verifies the formal/profile operating-point
-alignment and required stage/work counters; and only then atomically replaces
-`docs/papers/multilevel_ung/generated_results.tex`.
+all four raw build manifests; re-derives each held-out DRH plan from its recorded
+`N/R/C` inputs; verifies that the frozen 35-candidate manual grid, automatic
+method, ungated ablation, gate, and workload metadata match the formal configs;
+checks the formal/profile operating-point alignment and required stage/work
+counters; and only then atomically replaces
+`docs/papers/multilevel_ung/generated_results.tex`. The generated file records a
+SHA256 for every held-out policy.
 
 ```bash
 python3 generate_authoritative_paper_results.py \
@@ -239,6 +243,9 @@ python3 generate_authoritative_paper_results.py \
   --heldout-formal-config config.authoritative_heldout_genome_formal.json \
   --heldout-formal-config config.authoritative_heldout_reviews_formal.json \
   --heldout-formal-config config.authoritative_heldout_variousimg_formal.json \
+  --heldout-policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/policy.json \
+  --heldout-policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/reviews/policy.json \
+  --heldout-policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/policy.json \
   --build-quality-formal-config config.authoritative_amazon_build_quality_formal.json \
   --build-config config.authoritative_amazon_base_build_timing.json \
   --build-config config.authoritative_amazon_base_build_resource.json \

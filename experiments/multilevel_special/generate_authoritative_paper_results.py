@@ -19,9 +19,12 @@ import statistics
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
+
+from derive_static_hierarchy import derive_plan
 
 
 HERE = Path(__file__).resolve().parent
@@ -30,6 +33,12 @@ EXPECTED_AMAZON_SELECTIVITIES = (
     0.60047491, 0.80023699, 0.95019781, 0.99000600,
 )
 EXPECTED_HELDOUT_DATASETS = {"Genome", "Reviews", "VariousImg"}
+HELDOUT_AUTOMATIC_ROLE = "predeclared_degree_ratio_hierarchy_v1"
+HELDOUT_MANUAL_ROLE = "predeclared_manual_oracle_grid"
+HELDOUT_UNROUTED_ROLE = "degree_ratio_hierarchy_v1_unrouted_ablation"
+HELDOUT_BASELINE_ROLE = "zero_layer_baseline"
+HELDOUT_ROUTING_POLICY = "require_upper_authorization"
+EXPECTED_MANUAL_HIERARCHY_CASES = 36
 DEPTH_CATEGORIES = (
     "plain", "best_one_layer", "best_two_layer", "automatic_drh",
     "automatic_routed",
@@ -234,6 +243,197 @@ def validate_config_dataset(
     if str(config.get("dataset")) != expected_dataset:
         raise ValueError(
             f"expected dataset {expected_dataset}, got {config.get('dataset')}")
+
+
+def hierarchy_signature(method: dict[str, Any]) -> tuple[tuple[int, str], ...]:
+    layers = method.get("hierarchy_layers")
+    if not isinstance(layers, list):
+        raise ValueError(f"invalid hierarchy_layers for {method.get('name')}")
+    signature = []
+    previous = 0
+    for layer in layers:
+        if not isinstance(layer, dict):
+            raise ValueError(f"invalid hierarchy layer for {method.get('name')}")
+        threshold = layer.get("min_points")
+        topology = layer.get("topology")
+        if type(threshold) is not int or threshold <= previous:
+            raise ValueError(
+                f"non-increasing hierarchy thresholds for {method.get('name')}")
+        if topology not in {"lng", "trie"}:
+            raise ValueError(f"invalid hierarchy topology for {method.get('name')}")
+        signature.append((threshold, str(topology)))
+        previous = threshold
+    return tuple(signature)
+
+
+def validate_heldout_policy_protocol(
+    path: Path, config: dict[str, Any],
+) -> dict[str, Any]:
+    """Re-derive DRH and bind a frozen held-out policy to its formal config."""
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    policy = json.loads(path.read_text(encoding="utf-8"))
+    dataset = str(config.get("dataset"))
+    if policy.get("schema_version") != 2:
+        raise ValueError(f"{path}: expected policy schema_version 2")
+    if policy.get("dataset") != dataset:
+        raise ValueError(
+            f"{path}: policy/config dataset mismatch: "
+            f"{policy.get('dataset')} != {dataset}")
+    if policy.get("policy") != "gated_degree_ratio_hierarchy_v1":
+        raise ValueError(f"{path}: unexpected automatic policy")
+    if policy.get("query_calibrated") is not False:
+        raise ValueError(f"{path}: held-out policy must not be query calibrated")
+    if policy.get("manual_grid_frozen_before_search") is not True:
+        raise ValueError(f"{path}: manual grid was not frozen before search")
+    if policy.get("manual_grid_uses_automatic_routing_policy") is not True:
+        raise ValueError(f"{path}: manual grid does not use the automatic gate")
+    if policy.get("automatic_routing_policy") != HELDOUT_ROUTING_POLICY:
+        raise ValueError(f"{path}: unexpected automatic routing policy")
+
+    inputs = policy.get("inputs")
+    if not isinstance(inputs, dict):
+        raise ValueError(f"{path}: missing policy inputs")
+    required_inputs = (
+        "num_points", "dimension", "max_degree", "num_cross_edges",
+        "scale_ratio",
+    )
+    for field in required_inputs:
+        if type(inputs.get(field)) is not int or inputs[field] <= 0:
+            raise ValueError(f"{path}: invalid positive integer input {field}")
+    if inputs["num_points"] != config.get("expected_num_points"):
+        raise ValueError(f"{path}: policy N does not match formal config")
+    expected_ratio = max(
+        2, round(inputs["max_degree"] / inputs["num_cross_edges"]))
+    if inputs["scale_ratio"] != expected_ratio:
+        raise ValueError(f"{path}: inconsistent degree ratio")
+    derived_layers = derive_plan(
+        inputs["num_points"], inputs["max_degree"],
+        inputs["num_cross_edges"])
+    if policy.get("automatic_hierarchy_layers") != derived_layers:
+        raise ValueError(f"{path}: automatic hierarchy does not match DRH derivation")
+    automatic_signature = tuple(
+        (int(layer["min_points"]), str(layer["topology"]))
+        for layer in derived_layers)
+
+    methods = config.get("methods")
+    if not isinstance(methods, list):
+        raise ValueError(f"{path}: formal config has no method list")
+    names = [str(method.get("name")) for method in methods]
+    if len(set(names)) != len(names):
+        raise ValueError(f"{path}: duplicate formal method names")
+    roles = Counter(str(method.get("selection_role")) for method in methods)
+    expected_roles = {
+        HELDOUT_AUTOMATIC_ROLE: 1,
+        HELDOUT_MANUAL_ROLE: EXPECTED_MANUAL_HIERARCHY_CASES - 1,
+        HELDOUT_UNROUTED_ROLE: 1,
+        HELDOUT_BASELINE_ROLE: 1,
+    }
+    if roles != expected_roles:
+        raise ValueError(
+            f"{path}: held-out method roles mismatch: "
+            f"expected {expected_roles}, got {dict(roles)}")
+    if policy.get("manual_hierarchy_cases") != EXPECTED_MANUAL_HIERARCHY_CASES:
+        raise ValueError(f"{path}: expected 36 frozen hierarchy candidates")
+
+    by_role = {
+        role: [method for method in methods
+               if method.get("selection_role") == role]
+        for role in expected_roles
+    }
+    baseline = by_role[HELDOUT_BASELINE_ROLE][0]
+    if (
+        baseline.get("name") != BASELINE_METHOD
+        or baseline.get("base_topology") != "lng"
+        or baseline.get("entry_strategy") != "optimized_lng"
+        or hierarchy_signature(baseline)
+        or baseline.get("special_block_search") is not False
+    ):
+        raise ValueError(f"{path}: invalid held-out zero-layer baseline")
+
+    automatic = by_role[HELDOUT_AUTOMATIC_ROLE][0]
+    unrouted = by_role[HELDOUT_UNROUTED_ROLE][0]
+    if automatic.get("name") != policy.get("automatic_method"):
+        raise ValueError(f"{path}: automatic method name mismatch")
+    if unrouted.get("name") != policy.get("unrouted_ablation_method"):
+        raise ValueError(f"{path}: unrouted ablation name mismatch")
+    for method in (automatic, unrouted):
+        if hierarchy_signature(method) != automatic_signature:
+            raise ValueError(f"{path}: automatic hierarchy/config mismatch")
+        if (method.get("base_topology") != "lng"
+                or method.get("entry_strategy") != "optimized_lng"
+                or method.get("special_block_search") is not True):
+            raise ValueError(f"{path}: invalid automatic method capability")
+    if automatic.get("routing_policy") != HELDOUT_ROUTING_POLICY:
+        raise ValueError(f"{path}: automatic method does not use the policy gate")
+    if unrouted.get("routing_policy", "always_layered") != "always_layered":
+        raise ValueError(f"{path}: ungated ablation is unexpectedly routed")
+
+    candidates = by_role[HELDOUT_MANUAL_ROLE] + [automatic]
+    signatures = []
+    for method in candidates:
+        signature = hierarchy_signature(method)
+        if not signature:
+            raise ValueError(f"{path}: empty hierarchy in frozen candidate grid")
+        if signature[-1][0] >= inputs["num_points"]:
+            raise ValueError(f"{path}: hierarchy threshold exceeds dataset size")
+        if (method.get("base_topology") != "lng"
+                or method.get("entry_strategy") != "optimized_lng"
+                or method.get("special_block_search") is not True
+                or method.get("routing_policy") != HELDOUT_ROUTING_POLICY):
+            raise ValueError(f"{path}: frozen candidates do not share one gate")
+        signatures.append(signature)
+    if len(set(signatures)) != EXPECTED_MANUAL_HIERARCHY_CASES:
+        raise ValueError(f"{path}: frozen hierarchy candidates are not unique")
+    observed_depths = sorted({len(signature) for signature in signatures})
+    if policy.get("manual_depths") != observed_depths:
+        raise ValueError(f"{path}: frozen hierarchy depths mismatch")
+
+    policy_workloads = policy.get("workloads")
+    config_workloads = config.get("workloads")
+    if not isinstance(policy_workloads, list) or not isinstance(config_workloads, list):
+        raise ValueError(f"{path}: invalid workload metadata")
+    policy_by_name = {str(row.get("name")): row for row in policy_workloads}
+    config_by_name = {str(row.get("name")): row for row in config_workloads}
+    if (len(policy_by_name) != len(policy_workloads)
+            or len(config_by_name) != len(config_workloads)
+            or set(policy_by_name) != set(config_by_name)):
+        raise ValueError(f"{path}: policy/config workload names mismatch")
+    for workload, policy_row in policy_by_name.items():
+        config_row = config_by_name[workload]
+        if policy_row.get("num_queries") != config_row.get("num_queries"):
+            raise ValueError(f"{path}: query count mismatch for {workload}")
+        if abs(float(policy_row.get("mean_selectivity")) -
+               float(config_row.get("mean_selectivity"))) > 1e-15:
+            raise ValueError(f"{path}: selectivity mismatch for {workload}")
+    return policy
+
+
+def validate_heldout_policy_set(
+    paths: list[Path], configs: list[dict[str, Any]],
+) -> list[tuple[str, Path, dict[str, Any]]]:
+    configs_by_dataset = {str(config.get("dataset")): config for config in configs}
+    if set(configs_by_dataset) != EXPECTED_HELDOUT_DATASETS:
+        raise ValueError("held-out formal config dataset set is incomplete")
+    validated = []
+    seen = set()
+    for path in paths:
+        resolved = path.resolve()
+        if not resolved.is_file():
+            raise FileNotFoundError(resolved)
+        payload = json.loads(resolved.read_text(encoding="utf-8"))
+        dataset = str(payload.get("dataset"))
+        if dataset in seen:
+            raise ValueError(f"duplicate held-out policy for {dataset}")
+        if dataset not in configs_by_dataset:
+            raise ValueError(f"unexpected held-out policy dataset {dataset}")
+        policy = validate_heldout_policy_protocol(
+            resolved, configs_by_dataset[dataset])
+        validated.append((dataset, resolved, policy))
+        seen.add(dataset)
+    if seen != EXPECTED_HELDOUT_DATASETS:
+        raise ValueError(f"held-out policy dataset set mismatch: {sorted(seen)}")
+    return sorted(validated, key=lambda row: row[0])
 
 
 def validate_amazon_workloads(config: dict[str, Any]) -> list[str]:
@@ -914,6 +1114,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--amazon-profile-config", type=Path, required=True)
     parser.add_argument("--heldout-formal-config", type=Path, action="append",
                         required=True)
+    parser.add_argument("--heldout-policy", type=Path, action="append",
+                        required=True)
     parser.add_argument("--build-quality-formal-config", type=Path, required=True)
     parser.add_argument("--build-config", type=Path, action="append", required=True)
     parser.add_argument("--amazon-formal", type=Path, required=True)
@@ -932,6 +1134,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if len(args.heldout_formal_config) != 3:
         parser.error("exactly three --heldout-formal-config values are required")
+    if len(args.heldout_policy) != 3:
+        parser.error("exactly three --heldout-policy values are required")
     if len(args.build_config) != 4:
         parser.error("exactly four --build-config values are required")
 
@@ -946,6 +1150,8 @@ def main(argv: list[str] | None = None) -> int:
             path.resolve(), args.validator.resolve(), "formal", 15)
         heldout_configs.append(config)
         heldout_hashes.add(binary_hash)
+    heldout_policies = validate_heldout_policy_set(
+        args.heldout_policy, heldout_configs)
     _, build_quality_hash = validated_query_config(
         args.build_quality_formal_config.resolve(), args.validator.resolve(),
         "formal", 15)
@@ -977,6 +1183,9 @@ def main(argv: list[str] | None = None) -> int:
         f"% query-binary-sha256 formal-heldout-build-quality {formal_hash}",
         f"% query-binary-sha256 profile {profile_hash}",
     ]
+    for dataset, path, _ in heldout_policies:
+        provenance.append(
+            f"% heldout-policy-sha256 {dataset} {source_digest(path)}")
     for path in (
             args.amazon_formal_config, args.amazon_profile_config,
             *args.heldout_formal_config, args.build_quality_formal_config,

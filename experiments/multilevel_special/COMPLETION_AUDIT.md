@@ -42,13 +42,15 @@
 3. Instrumented profile 从 formal 的同一实测 L 派生，manifest 中所有 case 使用
    新 binary；BlockAuthorizationTime_ms 包含 exact gate 与 coverage，stage
    closure 不超过 1e-6 ms/query。
-4. Held-out 输出恰好覆盖配置声明的 Genome 2、Reviews 2、VariousImg 1 个
+4. Held-out policy 从记录的 N/R/C 重推导后与 formal config 的自动层级一致；
+   35 个冻结 manual 候选、自动方法、ungated ablation、统一 gate 和 workload
+   元数据全部匹配。输出恰好覆盖 Genome 2、Reviews 2、VariousImg 1 个
    workload；允许并显式保留 automatic_no_crossing，不得删掉失败点。
 5. 四个 build manifest 全部完成；每个 timing profile 至少 5 个 measured
    repeats；GPU case 有外部锁或至少三次连续 idle-preflight 证据。
 6. generate_authoritative_paper_results.py 成功运行并原子替换
-   generated_results.tex；生成文件记录所有输入/config/binary hash，且没有
-   pending。
+   generated_results.tex；生成文件记录所有输入/config/binary/policy hash，且
+   没有 pending。
 7. Python 实验测试、C++ tests、git diff --check 和 LaTeX 编译全部通过。
 
 ## 当前不可使用的证据
