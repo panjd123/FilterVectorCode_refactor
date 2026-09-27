@@ -368,6 +368,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("Trie/LNG", output)
         self.assertIn("Observed Query Regimes", output)
         self.assertIn("diagnostic profile ratios", output)
+        self.assertIn("per-query mean", output)
+        self.assertIn("rather than sums of rounded table cells", output)
         self.assertIn("DRH/plain [95\\% CI]", output)
         self.assertIn("Host/GPU MiB", output)
         self.assertIn("Downstream query quality", output)
@@ -477,6 +479,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("idle-3", report)
         self.assertIn("逐 Lsearch 原始点", report)
         self.assertIn("L/Q/R", report)
+        self.assertIn("先在单个 warm repeat 内取每查询均值", report)
+        self.assertIn("不由表中四舍五入后的分项相加", report)
         self.assertNotIn("pending", report.lower())
 
     def test_screen_matrix_reports_crossing_or_best_measured_recall(self) -> None:
@@ -579,6 +583,30 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         rows[0]["layered_path_activation_rate_warm_median"] = ""
         write_csv(self.paths.amazon_profile, rows)
         with self.assertRaisesRegex(ValueError, "missing numeric field"):
+            self.generate()
+
+    def test_profile_rejects_negative_breakdown_metric(self) -> None:
+        with self.paths.amazon_profile.open(newline="", encoding="utf-8") as stream:
+            rows = list(csv.DictReader(stream))
+        rows[0]["graph_ms_warm_median"] = "-0.1"
+        write_csv(self.paths.amazon_profile, rows)
+        with self.assertRaisesRegex(ValueError, "negative profile metric"):
+            self.generate()
+
+    def test_profile_rejects_edge_total_below_component(self) -> None:
+        with self.paths.amazon_profile.open(newline="", encoding="utf-8") as stream:
+            rows = list(csv.DictReader(stream))
+        rows[0]["total_edges_scanned_warm_median"] = "100"
+        write_csv(self.paths.amazon_profile, rows)
+        with self.assertRaisesRegex(ValueError, "total edge count"):
+            self.generate()
+
+    def test_profile_rejects_distance_total_below_component(self) -> None:
+        with self.paths.amazon_profile.open(newline="", encoding="utf-8") as stream:
+            rows = list(csv.DictReader(stream))
+        rows[0]["total_distance_calcs_warm_median"] = "200"
+        write_csv(self.paths.amazon_profile, rows)
+        with self.assertRaisesRegex(ValueError, "total distance count"):
             self.generate()
 
     def test_build_requires_five_repeats(self) -> None:

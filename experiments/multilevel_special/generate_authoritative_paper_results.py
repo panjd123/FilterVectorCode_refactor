@@ -102,6 +102,19 @@ PROFILE_FIELDS = QUERY_FIELDS | {
     "total_distance_calcs_warm_median",
     "num_entries_warm_median", "entry_group_matched_points_warm_median",
 }
+PROFILE_NONNEGATIVE_FIELDS = {
+    "query_total_ms_warm_median", "els_ms_warm_median",
+    "entry_ms_warm_median", "block_authorization_ms_warm_median",
+    "graph_ms_warm_median", "residual_ms_warm_median",
+    "nodes_visited_warm_median", "regular_edges_scanned_warm_median",
+    "special_intra_edges_scanned_warm_median",
+    "special_inter_edges_scanned_warm_median",
+    "total_edges_scanned_warm_median",
+    "entry_point_distance_calcs_warm_median",
+    "graph_search_distance_calcs_warm_median",
+    "total_distance_calcs_warm_median",
+    "num_entries_warm_median", "entry_group_matched_points_warm_median",
+}
 
 
 @dataclass(frozen=True)
@@ -727,11 +740,30 @@ def validate_profile_rows(
             raise ValueError(f"profile L differs from formal L: {key}")
         for field in PROFILE_FIELDS - QUERY_FIELDS:
             number(row, field)
+        for field in PROFILE_NONNEGATIVE_FIELDS:
+            if number(row, field) < 0:
+                raise ValueError(f"negative profile metric {field}: {key}")
         activation = number(row, "layered_path_activation_rate_warm_median")
         if not 0.0 <= activation <= 1.0:
             raise ValueError(f"invalid layered activation rate: {key}")
         if abs(number(row, "stage_closure_ms_at_batch_median")) > 1e-6:
             raise ValueError(f"stage closure exceeds tolerance: {key}")
+        total_edges = number(row, "total_edges_scanned_warm_median")
+        edge_parts = (
+            "regular_edges_scanned_warm_median",
+            "special_intra_edges_scanned_warm_median",
+            "special_inter_edges_scanned_warm_median",
+        )
+        if any(total_edges < number(row, field) for field in edge_parts):
+            raise ValueError(f"total edge count is below a component: {key}")
+        total_distances = number(row, "total_distance_calcs_warm_median")
+        distance_parts = (
+            "entry_point_distance_calcs_warm_median",
+            "graph_search_distance_calcs_warm_median",
+        )
+        if any(total_distances < number(row, field)
+               for field in distance_parts):
+            raise ValueError(f"total distance count is below a component: {key}")
     return indexed
 
 
@@ -1358,8 +1390,10 @@ def render_profile(
     lines = [
         r"\subsection{Mechanism Breakdown}",
         "Profile-pass times are milliseconds per query and are not used for the "
-        "primary QPS result. Activation is the measured fraction of queries that "
-        "actually execute a layered path.",
+        "primary QPS result. Every timing and work-counter cell is the median "
+        "across warm repeats of that repeat's per-query mean; totals come from "
+        "instrumentation rather than sums of rounded table cells. Activation is "
+        "the measured fraction of queries that actually execute a layered path.",
         r"\begin{table*}[t]", r"\centering", r"\small",
         r"\caption{Stage timing at the formal operating point.}",
         r"\label{tab:query-stages}",
@@ -1934,7 +1968,9 @@ def generate_markdown_report(
     selected_names = (BASELINE_METHOD, drh_names[0])
     lines.extend([
         "", "## 6. 查询阶段与工作量 Breakdown", "",
-        "时间单位为 ms/query；profile 只用于机制解释，不进入主 QPS。",
+        "时间单位为 ms/query；profile 只用于机制解释，不进入主 QPS。每个耗时和"
+        "工作量单元格都是先在单个 warm repeat 内取每查询均值，再跨 warm repeats "
+        "取中位数；总量直接来自 instrumentation，不由表中四舍五入后的分项相加。",
         "", "| 选择率 | 方法 | 激活率 | 总时间 | 入口组 | 入口点 | 授权 | 图搜索 | "
         "Residual |",
         "|---:|---|---:|---:|---:|---:|---:|---:|---:|",
