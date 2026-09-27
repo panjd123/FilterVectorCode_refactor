@@ -311,11 +311,24 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("source-sha256", output)
         self.assertIn("Special intra", output)
         self.assertIn("Entry dist.", output)
+        self.assertIn("Principal zero-layer comparison", output)
+        self.assertIn("Trie/LNG", output)
         self.assertIn("DRH/plain [95\\% CI]", output)
         self.assertIn("Host/GPU MiB", output)
         self.assertIn("Held-out datasets and query-independent DRH plans", output)
         self.assertIn("Genome", output)
         self.assertIn("108,077", output)
+
+    def test_principal_zero_layer_table_marks_missing_trie_crossing(self) -> None:
+        formal_rows = generator.read_csv(self.paths.amazon_formal,
+                                         generator.QUERY_FIELDS)
+        formal = generator.validate_formal_rows(
+            formal_rows, self.formal_config, "Amazon formal")
+        missing = (generator.PRINCIPAL_TRIE_METHOD, WORKLOADS[-1][0])
+        del formal[missing]
+        table = "\n".join(generator.render_principal_zero_layer_by_workload(
+            formal, [WORKLOADS[-1][0]]))
+        self.assertIn("NC & NC", table)
 
     def test_missing_depth_cell_fails(self) -> None:
         with self.paths.amazon_depth.open(newline="", encoding="utf-8") as stream:

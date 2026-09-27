@@ -45,6 +45,7 @@ DEPTH_CATEGORIES = (
     "automatic_routed",
 )
 BASELINE_METHOD = "l0_lng_entry_optimized_lng"
+PRINCIPAL_TRIE_METHOD = "l0_trie_entry_trie"
 ROUTED_DRH_ROLE = "predeclared_degree_ratio_hierarchy_v1_upper_authorization_control"
 QUERY_FIELDS = {
     "workload", "mean_selectivity", "method", "layer_count", "thresholds",
@@ -790,6 +791,38 @@ def render_zero_layer_table(
     return lines
 
 
+def render_principal_zero_layer_by_workload(
+    formal: dict[tuple[str, str], dict[str, str]], workloads: list[str],
+) -> list[str]:
+    """Render the direct zero-layer Trie-versus-LNG comparison."""
+    lines = [
+        r"\begin{table}[t]", r"\centering", r"\small",
+        r"\caption{Principal zero-layer comparison at the conservative Recall crossing. Each cell reports $L_{search}$/QPS; NC means no measured crossing.}",
+        r"\label{tab:amazon-zero-layer-by-selectivity}",
+        r"\begin{tabular}{rrrr}", r"\toprule",
+        r"Selectivity & LNG & Trie & Trie/LNG \\", r"\midrule",
+    ]
+    for workload in workloads:
+        baseline = formal.get((BASELINE_METHOD, workload))
+        if baseline is None:
+            raise ValueError(f"principal LNG baseline is missing: {workload}")
+        trie = formal.get((PRINCIPAL_TRIE_METHOD, workload))
+        selectivity = 100.0 * number(baseline, "mean_selectivity")
+        lng_qps = number(baseline, "qps_warm_median")
+        lng_cell = f"{integer(baseline, 'lsearch'):,}/{lng_qps:.1f}"
+        if trie is None:
+            trie_cell = ratio = "NC"
+        else:
+            trie_qps = number(trie, "qps_warm_median")
+            trie_cell = f"{integer(trie, 'lsearch'):,}/{trie_qps:.1f}"
+            ratio = f"{trie_qps / lng_qps:.2f}$\\times$"
+        lines.append(
+            f"{selectivity:.3f}\\% & {lng_cell} & {trie_cell} & {ratio} "
+            + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table}", ""])
+    return lines
+
+
 def render_heldout_dataset_table(policies: list[dict[str, Any]]) -> list[str]:
     lines = [
         r"\begin{table*}[t]", r"\centering", r"\scriptsize",
@@ -1099,6 +1132,7 @@ def generate_document(
     body = []
     body.extend(render_depth_table(depth, workloads))
     body.extend(render_depth_global(depth_global))
+    body.extend(render_principal_zero_layer_by_workload(formal, workloads))
     body.extend(render_zero_layer_table(formal, amazon_formal_config, workloads))
     body.extend(render_heldout(heldout_rows, heldout_global))
     body.extend(render_profile(profile, amazon_profile_config, workloads))
