@@ -33,8 +33,9 @@ layer, and tags candidates with an activation level.  A candidate scans only
 edges owned by that level, which prevents implicit promotion or cross-level
 edge mixing.  We further propose Degree-Ratio Hierarchy (DRH), a
 query-calibration-free rule that derives both layer count and block thresholds
-from the dataset size and the graph's existing degree budgets, and pairs the
-result with an exact predicate-authorization gate.  Finally, we
+from the dataset size and the graph's existing degree budgets.  Its router
+combines exact predicate authorization with a next-scale direct-mass test,
+without observing query frequencies or performance.  Finally, we
 describe a GPU construction pipeline for the irregular intra-group and
 cross-group workloads and retain end-to-end quality checks at the index
 boundary.  Our evaluation uses measured Recall@10 crossings rather than curve
@@ -77,8 +78,9 @@ This paper makes the following contributions.
   \item We define a modular multilevel filtered graph index in which hierarchy,
   per-layer topology, and entry discovery can be independently composed.
   \item We give level-isolated search semantics with exact containment
-  authorization and an optional structural fallback that leaves the base-only
-  search unchanged when no upper block is authorized.
+  authorization and a structural fallback that leaves the base-only search
+  unchanged when no upper block is authorized or its direct mass is below the
+  next hierarchy scale.
   \item We introduce DRH, a deterministic rule that chooses the first scale,
   scale ratio, stopping depth, topology, and exact structural activation gate
   without query traces, latency measurements, or Recall calibration.
@@ -249,18 +251,31 @@ identifiers consumed by the same vector-search interface, but the Trie
 frontier is deliberately topology aware and is not claimed to equal the LNG
 minimal-superset set.
 
-\subsection{Exact Query Authorization}
+\subsection{Exact Authorization and Structural Eligibility}
 A query authorizes block $b$ precisely when
 \begin{equation}
   Q\subseteq R_b,
 \end{equation}
 where $R_b$ is the block root's sorted label set.  This test is independent of
-estimated selectivity and observed latency.  The
-\emph{upper-authorization router} executes the unchanged base-only algorithm
-when no block above the first overlay layer is authorized.  Otherwise all
-authorized layers are eligible to seed the multilevel search. The modular
-system permits this gate to be disabled for ablation, but the automatic DRH
-policy enables it by default.
+estimated selectivity and observed latency. Let $h$ be the highest upper layer
+with at least one authorized block and let
+\begin{equation}
+  \mathcal{A}_h(Q)=\{b\mid \mathrm{level}(b)=h,\ Q\subseteq R_b\}.
+\end{equation}
+Because direct members partition each layer, the authorized direct mass
+\begin{equation}
+  M_h(Q)=\sum_{b\in\mathcal{A}_h(Q)} |P_b|
+\end{equation}
+does not count a point once at a coarse layer and again at a finer layer.
+
+We distinguish two query-free routing policies. DRH-v1 executes the
+multilevel backend whenever $\mathcal{A}_h(Q)$ is nonempty. DRH-v2 additionally
+requires $M_h(Q)\ge T_{L+1}$, where $T_{L+1}$ is the next scale implied by the
+same recurrence that constructs the $L$ materialized layers. If either test
+fails, the router invokes the unchanged base-only algorithm before any overlay
+seed is created. Otherwise the authorized layers are eligible to seed the
+multilevel search. Neither policy reads query frequencies, latency, Recall,
+or a learned selectivity estimate.
 
 \subsection{Level-Isolated Bounded Search}
 Each candidate is a tuple $(i,d,\ell)$ containing a vector identifier, its
@@ -274,12 +289,15 @@ $L_{search}$.
 \caption{Level-isolated multilevel query}
 \label{alg:query}
 \begin{algorithmic}[1]
-\Require Query $(q,Q)$, entry provider $e$, hierarchy $H$, budget $L$
+\Require Query $(q,Q)$, entry provider $e$, hierarchy $H$, budget $L_s$,
+optional mass threshold $T_{\mathrm{gate}}$
 \State $B_Q\gets\{b\in H:Q\subseteq R_b\}$
-\If{upper authorization is required and $B_Q$ has no upper block}
-  \State \Return \Call{BaseSearch}{$q,Q,e,L$}
+\State $h\gets\max\{\mathrm{level}(b):b\in B_Q,\ \mathrm{level}(b)>0\}$
+\State $M_h\gets\sum_{b\in B_Q:\mathrm{level}(b)=h}|P_b|$
+\If{$h$ is undefined or $M_h<T_{\mathrm{gate}}$}
+  \State \Return \Call{BaseSearch}{$q,Q,e,L_s$}
 \EndIf
-\State initialize a capacity-$L$ queue with block and entry-group seeds
+\State initialize a capacity-$L_s$ queue with block and entry-group seeds
 \While{the queue has an unexpanded candidate $(i,d,\ell)$}
   \State pop the closest unexpanded candidate
   \If{$\ell=0$}
@@ -326,13 +344,13 @@ level ensure that the same vector identifier in two layers does not collapse
 the two search states.
 
 \paragraph{Fallback equivalence.}
-With the upper-authorization gate enabled, if no upper block is authorized,
-the implementation invokes the same base-search routine with the same entry
-provider, entry groups, and $L_{search}$ as the corresponding zero-layer
-method.  Under deterministic execution, its returned neighbors and post-route
-search-work trace are therefore identical.  Total latency can still increase
-by the exact authorization test itself; we measure that cost rather than
-claiming that an unused hierarchy is free.
+When the router rejects the overlay, the implementation invokes the same
+base-search routine with the same entry provider, entry groups, and
+$L_{search}$ as the corresponding zero-layer method. Under deterministic
+execution, its returned neighbors and post-route search-work trace are
+therefore identical. Total latency can still increase by the authorization
+and mass tests themselves; we measure that cost rather than claiming that an
+unused hierarchy is free.
 
 \section{Calibration-Free Hierarchy Selection}
 \subsection{Degree-Ratio Hierarchy}
@@ -369,12 +387,17 @@ the top:
 \end{equation}
 For the authoritative Amazon setup, $N=602{,}453$, $R=64$, and $C=4$, so DRH
 selects $1024{:}\mathrm{LNG},16384{:}\mathrm{Trie}$ before examining query
-performance. DRH also enables the exact upper-authorization gate from the
-preceding section. The gate has no learned parameter: it evaluates only
-$Q\subseteq R_b$ against persisted block roots and otherwise falls back to the
-unchanged base search. We emphasize that $\Phi$ is a query-independent
-structural cost proxy, not a proof of runtime optimality; held-out oracle
-regret tests whether the complete policy transfers without query calibration.
+performance. DRH-v2 sets its routing mass threshold to the next unmaterialized
+scale,
+\begin{equation}
+  T_{\mathrm{gate}}=T_{L+1}=\rho T_L.
+\end{equation}
+This does not introduce an empirical knob: the value is already determined by
+$N$, $R$, and $C$. DRH-v1, retained as an ablation, is equivalent to
+$T_{\mathrm{gate}}=0$ with the nonempty-authorization requirement. We
+emphasize that $\Phi$ and the mass gate are query-independent structural
+proxies, not proofs of runtime optimality; held-out oracle regret tests whether
+the complete policy transfers without query calibration.
 
 \begin{algorithm}[t]
 \caption{Gated Degree-Ratio Hierarchy (DRH)}
@@ -388,7 +411,8 @@ regret tests whether the complete policy transfers without query calibration.
   \State append $(T,\tau)$ to the hierarchy plan
   \State $T\gets\rho T$
 \EndWhile
-\State attach exact upper-authorization gate to the hierarchy plan
+\State $T_{\mathrm{gate}}\gets T$ \Comment{the next unmaterialized scale}
+\State attach exact authorization and $M_h\ge T_{\mathrm{gate}}$ routing gate
 \State \Return gated hierarchy plan
 \end{algorithmic}
 \end{algorithm}
@@ -703,9 +727,11 @@ Level isolation prevents an upper candidate from scanning lower-level edges,
 but does not make an extra layer cost-free.  Authorized block seeds enter the
 same bounded queue as base or finer-layer seeds.  They consume distance
 computations and can displace candidates before useful regions are expanded.
-The upper-authorization router removes this overhead only for queries that
-authorize no upper block; it cannot predict whether an authorized overlay will
-be profitable.
+DRH-v1 removes this overhead only for queries that authorize no upper block.
+DRH-v2 also rejects an authorized overlay whose highest-layer direct mass is
+below the next hierarchy scale. This remains a structural rule rather than a
+latency predictor, so it cannot guarantee that every accepted overlay is
+profitable.
 
 \subsection{Trie Topology Is a Sparsifier, Not an LNG Alias}
 Canonical prefix adjacency is cheaper and can be highly effective when query
@@ -718,9 +744,9 @@ therefore report no-crossing outcomes explicitly and pair Recall with entry
 count, visited-node, scanned-edge, and distance-computation counts.
 
 \subsection{Limitations}
-DRH's first version uses a symmetric static cost proxy, existing degree
-budgets, and a parameter-free exact authorization gate; it does not use a
-learned cost model or query frequencies.  The
+DRH uses a symmetric static cost proxy, existing degree budgets, exact
+authorization, and a next-scale mass gate; it does not use a learned cost model
+or query frequencies. The
 held-out study is required to distinguish genuine structural generalization
 from an Amazon-specific coincidence.  The GPU pipeline retains a host
 adjacency materialization boundary, and full device-resident construction is
