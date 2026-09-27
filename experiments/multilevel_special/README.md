@@ -133,7 +133,10 @@ The authoritative paper generator accepts only a complete, non-partial plot
 manifest whose screen-config and `all_points.csv` hashes still match. It embeds
 all six PDF families in the Results section, while finalization records both
 PDF and PNG hashes so the paper figures and downloadable artifacts have one
-auditable source.
+auditable source. The same validated inputs atomically replace
+`docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md`; this is the
+current exact-level report, while older result reports remain explicitly
+historical.
 
 After the formal pass, generate the requested plain versus best one-layer
 versus best two-layer table with conservative crossings and bootstrap

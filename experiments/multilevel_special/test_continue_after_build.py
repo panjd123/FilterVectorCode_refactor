@@ -28,6 +28,7 @@ class ContinueAfterBuildTest(unittest.TestCase):
         self.assertIn("config.authoritative_amazon_screen_emptyfix.json", rendered)
         self.assertIn("amazon_profile_instrumented", rendered)
         self.assertIn("amazon_screen/summary/performance/figures", rendered)
+        self.assertIn("MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md", rendered)
         self.assertIn("--validator", command)
         self.assertEqual(command.count("--heldout-formal-config"), 3)
         self.assertEqual(command.count("--heldout-policy"), 3)

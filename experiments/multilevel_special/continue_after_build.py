@@ -116,6 +116,9 @@ def paper_generation_command(run_root: Path, results: Path) -> list[str]:
         str(run_root / "search/amazon_screen/summary/performance/all_points.csv"),
         "--amazon-figures-dir",
         str(run_root / "search/amazon_screen/summary/performance/figures"),
+        "--report-output",
+        str(REPO / "docs/reports/"
+            "MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md"),
     ]
     for dataset in ("genome", "reviews", "variousimg"):
         command.extend([
@@ -322,6 +325,12 @@ def main() -> int:
         raise RuntimeError("generated paper results still contain pending markers")
     paper_inputs = paper_input_snapshot(generation_command)
     validate_generated_provenance(generated, paper_inputs)
+    report = (REPO / "docs/reports/"
+              "MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md")
+    if not report.is_file() or report.stat().st_size <= 0:
+        raise RuntimeError(f"authoritative Markdown report is missing: {report}")
+    if "pending" in report.read_text(encoding="utf-8").lower():
+        raise RuntimeError("authoritative Markdown report contains pending markers")
     paper_output = run_root / "paper"
     paper_output.mkdir(parents=True, exist_ok=True)
     paper_sources = [{
@@ -351,6 +360,8 @@ def main() -> int:
             text=True, stdout=subprocess.PIPE).stdout.strip(),
         "generated_results": str(generated),
         "generated_results_sha256": sha256(generated),
+        "authoritative_report": str(report),
+        "authoritative_report_sha256": sha256(report),
         "paper_inputs": paper_inputs,
         "paper_generator_sha256": sha256(
             HERE / "generate_authoritative_paper_results.py"),

@@ -385,6 +385,26 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             generator.validate_recall_qps_figures(
                 figure_dir, screen_config, screen_points)
 
+    def test_markdown_report_contains_all_authoritative_sections(self) -> None:
+        self.generate()
+        figures = {
+            family: self.root / "figures" / f"{family}.pdf"
+            for family, _ in generator.RECALL_QPS_FIGURES
+        }
+        report = generator.generate_markdown_report(
+            self.paths, self.formal_config, self.profile_config,
+            list(self.heldout_policies.values()), figures,
+            self.root / "report.md")
+        for heading in (
+            "方法与评估口径", "Amazon 层数消融", "零层 Trie 与 LNG",
+            "无校准 DRH 与冻结人工 Oracle", "查询阶段与工作量 Breakdown",
+            "GPU 辅助构建", "Recall-QPS 曲线", "解释边界",
+        ):
+            self.assertIn(heading, report)
+        self.assertIn("Entry distances", report)
+        self.assertIn("Special inter", report)
+        self.assertNotIn("pending", report.lower())
+
     def test_principal_zero_layer_table_marks_missing_trie_crossing(self) -> None:
         formal_rows = generator.read_csv(self.paths.amazon_formal,
                                          generator.QUERY_FIELDS)

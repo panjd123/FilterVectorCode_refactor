@@ -1252,6 +1252,292 @@ def render_recall_qps_figures(figures: dict[str, Path]) -> str:
     return "\n".join(lines)
 
 
+def generate_markdown_report(
+    paths: ResultPaths,
+    amazon_formal_config: dict[str, Any],
+    amazon_profile_config: dict[str, Any],
+    heldout_policies: list[dict[str, Any]],
+    figures: dict[str, Path],
+    report_path: Path,
+) -> str:
+    """Render the presentation report from the same already-validated inputs."""
+    workloads = validate_amazon_workloads(amazon_formal_config)
+    formal_rows = read_csv(paths.amazon_formal, QUERY_FIELDS)
+    formal = validate_formal_rows(
+        formal_rows, amazon_formal_config, "Amazon formal")
+    depth_rows = read_csv(paths.amazon_depth, {
+        "status", "dataset", "workload", "mean_selectivity", "target_recall",
+        "category", "method", "hierarchy", "entry_strategy", "lsearch",
+        "recall_min", "qps", "speedup_vs_plain", "speedup_ci95_low",
+        "speedup_ci95_high",
+    })
+    depth = validate_depth_rows(depth_rows, workloads)
+    profile_rows = read_csv(paths.amazon_profile, PROFILE_FIELDS)
+    profile = validate_profile_rows(
+        profile_rows, amazon_profile_config, formal)
+    heldout_rows = read_csv(paths.heldout_workload, {
+        "status", "dataset", "workload", "mean_selectivity", "target_recall",
+        "baseline_recall_min", "automatic_hierarchy", "automatic_recall_min",
+        "oracle_hierarchy", "oracle_recall_min",
+        "automatic_speedup_vs_baseline", "automatic_qps_fraction_of_oracle",
+        "automatic_speedup_ci95_low", "automatic_speedup_ci95_high",
+        "automatic_oracle_fraction_ci95_low",
+        "automatic_oracle_fraction_ci95_high",
+    })
+    heldout_global = read_csv(paths.heldout_global, {
+        "dataset", "status", "workload_count", "automatic_speedup_vs_baseline",
+        "automatic_qps_fraction_of_global_oracle",
+    })
+    build_summary = read_csv(paths.build_summary, {
+        "component", "structure", "profile", "measured_repeats",
+        "wall_median_seconds", "wall_p95_seconds", "index_median_mib",
+        "peak_rss_mib", "peak_gpu_memory_mib", "gpu_required",
+        "gpu_exclusive_lock", "gpu_idle_samples_min",
+    })
+    build_e2e = read_csv(paths.build_end_to_end, {
+        "structure", "hierarchy_profile", "paired_repeats",
+        "original_cpu_base_median_seconds",
+        "accelerated_base_plus_hierarchy_median_seconds",
+        "speedup_vs_original_cpu", "speedup_ci95_low", "speedup_ci95_high",
+        "overhead_vs_accelerated_base_median", "no_slower_supported",
+    })
+
+    lines = [
+        "# ML-UNG 权威实验报告",
+        "",
+        "> 本文由最终 fail-closed 流水线从已验证实验文件自动生成。所有 QPS "
+        "比较均使用相同数据、查询、精确 ground truth、K、线程数、查询二进制、"
+        "graph backend 与 Recall 协议。",
+        "",
+        "## 1. 方法与评估口径",
+        "",
+        "ML-UNG 将层数与阈值、每层 LNG/Trie topology、三种 entry-group "
+        "strategy（original、optimized_lng、trie）以及 routing 明确解耦。候选只"
+        "扫描其 activation level 拥有的边，不进行 edge fallthrough、隐式晋级或"
+        "跨层混扫。DRH 仅使用 N、层内最大度 R 和跨 block 度 C 自动决定层数、"
+        "阈值与逐层 topology，不读取 query distribution、延迟或 Recall。",
+        "",
+        "Recall crossing 定义为所有 warm repeats 均达到 Recall@10 >= 0.90 的"
+        "最小实测 Lsearch；不插值、不外推。screen 使用 2 个 warm repeats，formal "
+        "使用 15 个 warm repeats，profile 使用独立 instrumentation binary 且不进入"
+        "主 QPS。",
+        "",
+        "## 2. 数据集与自动层次",
+        "",
+        "| 数据集 | N | 维度 | workload | queries | 平均选择率 | DRH |",
+        "|---|---:|---:|---|---:|---:|---|",
+    ]
+    for policy in sorted(heldout_policies, key=lambda row: str(row["dataset"])):
+        inputs = policy["inputs"]
+        plan = ", ".join(
+            f"{layer['min_points']}:{str(layer['topology']).upper()}"
+            for layer in policy["automatic_hierarchy_layers"])
+        for workload in sorted(
+                policy["workloads"], key=lambda row: float(row["mean_selectivity"])):
+            lines.append(
+                f"| {policy['dataset']} | {int(inputs['num_points']):,} | "
+                f"{int(inputs['dimension'])} | {workload['name']} | "
+                f"{int(workload['num_queries']):,} | "
+                f"{100.0 * float(workload['mean_selectivity']):.3f}% | {plan} |")
+
+    lines.extend([
+        "", "Amazon 是开发集，使用 602,453 个 768D vectors 和九档选择率；"
+        "Genome、Reviews、VariousImg 仅用于冻结后的迁移验证。",
+        "", "## 3. Amazon 层数消融：等 Recall QPS", "",
+        "| 选择率 | 0 层 QPS | 最优 1 层 QPS / vs 0 | 最优 2 层 QPS / vs 0 | "
+        "gated DRH QPS / vs 0 |",
+        "|---:|---:|---:|---:|---:|",
+    ])
+    for workload in workloads:
+        rowset = {category: depth[(category, workload)] for category in (
+            "plain", "best_one_layer", "best_two_layer", "automatic_routed")}
+        cells = []
+        for category in ("plain", "best_one_layer", "best_two_layer",
+                         "automatic_routed"):
+            row = rowset[category]
+            if row["status"] != "complete":
+                cells.append("NC")
+            elif category == "plain":
+                cells.append(fmt(row["qps"], 1))
+            else:
+                cells.append(
+                    f"{fmt(row['qps'], 1)} / {fmt(row['speedup_vs_plain'], 2)}x "
+                    f"[{fmt(row['speedup_ci95_low'], 2)}, "
+                    f"{fmt(row['speedup_ci95_high'], 2)}]")
+        selectivity = 100.0 * number(rowset["plain"], "mean_selectivity")
+        lines.append(f"| {selectivity:.3f}% | " + " | ".join(cells) + " |")
+
+    lines.extend([
+        "", "## 4. 零层 Trie 与 LNG", "",
+        "主比较同时展示系统默认组合；随后给出固定 entry strategy 的完整曲线，"
+        "用于把 topology 效应与入口算法效应分开。NC 表示实测范围内未达到 Recall。",
+        "", "| 选择率 | LNG L/QPS | Trie L/QPS | Trie/LNG |",
+        "|---:|---:|---:|---:|",
+    ])
+    for workload in workloads:
+        lng = formal[(BASELINE_METHOD, workload)]
+        trie = formal.get((PRINCIPAL_TRIE_METHOD, workload))
+        if trie is None:
+            trie_cell = ratio = "NC"
+        else:
+            trie_qps = number(trie, "qps_warm_median")
+            trie_cell = f"{integer(trie, 'lsearch'):,}/{trie_qps:.1f}"
+            ratio = f"{trie_qps / number(lng, 'qps_warm_median'):.2f}x"
+        lines.append(
+            f"| {100.0 * number(lng, 'mean_selectivity'):.3f}% | "
+            f"{integer(lng, 'lsearch'):,}/{number(lng, 'qps_warm_median'):.1f} | "
+            f"{trie_cell} | {ratio} |")
+
+    lines.extend([
+        "", "## 5. 无校准 DRH 与冻结人工 Oracle", "",
+        "Oracle candidate set 由 DRH 和 35 个预先冻结的手工替代方案组成；所有候选"
+        "使用同一个 exact upper-authorization gate，因此差距只反映深度、阈值和"
+        "逐层 topology。",
+        "", "| 数据集 | workload | 选择率 | DRH/plain [95% CI] | "
+        "DRH/oracle [95% CI] | DRH | Oracle |",
+        "|---|---|---:|---:|---:|---|---|",
+    ])
+    for row in sorted(heldout_rows, key=lambda item: (
+            item["dataset"], number(item, "mean_selectivity"))):
+        if row["status"] == "complete":
+            speed = (
+                f"{fmt(row['automatic_speedup_vs_baseline'], 2)}x "
+                f"[{fmt(row['automatic_speedup_ci95_low'], 2)}, "
+                f"{fmt(row['automatic_speedup_ci95_high'], 2)}]")
+            oracle = (
+                f"{fmt(row['automatic_qps_fraction_of_oracle'], 2)} "
+                f"[{fmt(row['automatic_oracle_fraction_ci95_low'], 2)}, "
+                f"{fmt(row['automatic_oracle_fraction_ci95_high'], 2)}]")
+        else:
+            speed = oracle = "NC"
+        lines.append(
+            f"| {row['dataset']} | {row['workload']} | "
+            f"{100.0 * number(row, 'mean_selectivity'):.3f}% | {speed} | "
+            f"{oracle} | {row['automatic_hierarchy']} | {row['oracle_hierarchy']} |")
+    lines.extend([
+        "", "跨 workload 的冻结配置结果：", "",
+        "| 数据集 | workloads | DRH/plain | DRH/global oracle |",
+        "|---|---:|---:|---:|",
+    ])
+    for row in sorted(heldout_global, key=lambda item: item["dataset"]):
+        complete = row["status"] == "complete"
+        lines.append(
+            f"| {row['dataset']} | {integer(row, 'workload_count')} | "
+            f"{fmt(row['automatic_speedup_vs_baseline'], 2) + 'x' if complete else 'NC'} | "
+            f"{fmt(row['automatic_qps_fraction_of_global_oracle'], 2) if complete else 'NC'} |")
+
+    role_by_name = {
+        str(method["name"]): str(method.get("selection_role", ""))
+        for method in amazon_profile_config["methods"]
+    }
+    drh_names = [name for name, role in role_by_name.items()
+                 if role == ROUTED_DRH_ROLE]
+    if len(drh_names) != 1:
+        raise ValueError("profile report requires exactly one gated DRH method")
+    selected_names = (BASELINE_METHOD, drh_names[0])
+    lines.extend([
+        "", "## 6. 查询阶段与工作量 Breakdown", "",
+        "时间单位为 ms/query；profile 只用于机制解释，不进入主 QPS。",
+        "", "| 选择率 | 方法 | 激活率 | 总时间 | 入口组 | 入口点 | 授权 | 图搜索 | "
+        "Residual |",
+        "|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    for workload in workloads:
+        for name in selected_names:
+            row = profile.get((name, workload))
+            if row is None:
+                continue
+            label = "0-layer" if name == BASELINE_METHOD else "gated DRH"
+            lines.append(
+                f"| {100.0 * number(row, 'mean_selectivity'):.3f}% | {label} | "
+                f"{100.0 * number(row, 'layered_path_activation_rate_warm_median'):.1f}% | "
+                f"{fmt(row['query_total_ms_warm_median'], 3)} | "
+                f"{fmt(row['els_ms_warm_median'], 3)} | "
+                f"{fmt(row['entry_ms_warm_median'], 3)} | "
+                f"{fmt(row['block_authorization_ms_warm_median'], 3)} | "
+                f"{fmt(row['graph_ms_warm_median'], 3)} | "
+                f"{fmt(row['residual_ms_warm_median'], 3)} |")
+    lines.extend([
+        "", "| 选择率 | 方法 | 访问点 | Base edges | Special intra | "
+        "Special inter | Entry distances | Graph distances | Total distances |",
+        "|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    for workload in workloads:
+        for name in selected_names:
+            row = profile.get((name, workload))
+            if row is None:
+                continue
+            label = "0-layer" if name == BASELINE_METHOD else "gated DRH"
+            lines.append(
+                f"| {100.0 * number(row, 'mean_selectivity'):.3f}% | {label} | "
+                f"{fmt(row['nodes_visited_warm_median'], 0)} | "
+                f"{fmt(row['regular_edges_scanned_warm_median'], 0)} | "
+                f"{fmt(row['special_intra_edges_scanned_warm_median'], 0)} | "
+                f"{fmt(row['special_inter_edges_scanned_warm_median'], 0)} | "
+                f"{fmt(row['entry_point_distance_calcs_warm_median'], 0)} | "
+                f"{fmt(row['graph_search_distance_calcs_warm_median'], 0)} | "
+                f"{fmt(row['total_distance_calcs_warm_median'], 0)} |")
+
+    lines.extend([
+        "", "## 7. GPU 辅助构建", "",
+        "构建时间是进程端到端 wall time，包含产生并验证磁盘文件；resource pass "
+        "与 timing pass 分离，CUDA kernel timing 不替代端到端时间。",
+        "", "| 组件 | 结构 | profile | repeats | median s | p95 s | index MiB | "
+        "peak RSS MiB | peak GPU MiB |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|",
+    ])
+    for row in sorted(build_summary, key=lambda item: (
+            item["component"], item["structure"], item["profile"])):
+        lines.append(
+            f"| {row['component']} | {row['structure']} | {row['profile']} | "
+            f"{integer(row, 'measured_repeats')} | "
+            f"{fmt(row['wall_median_seconds'], 2)} | "
+            f"{fmt(row['wall_p95_seconds'], 2)} | "
+            f"{fmt(row['index_median_mib'], 1)} | "
+            f"{fmt(row['peak_rss_mib'], 1) if row['peak_rss_mib'] else '--'} | "
+            f"{fmt(row['peak_gpu_memory_mib'], 1) if row['peak_gpu_memory_mib'] else '--'} |")
+    lines.extend([
+        "", "端到端构建对比：", "",
+        "| 结构 | hierarchy profile | paired repeats | 原始 CPU s | "
+        "加速 base + hierarchy s | speedup [95% CI] | hierarchy overhead |",
+        "|---|---|---:|---:|---:|---:|---:|",
+    ])
+    for row in build_e2e:
+        lines.append(
+            f"| {row['structure']} | {row['hierarchy_profile']} | "
+            f"{integer(row, 'paired_repeats')} | "
+            f"{fmt(row['original_cpu_base_median_seconds'], 2)} | "
+            f"{fmt(row['accelerated_base_plus_hierarchy_median_seconds'], 2)} | "
+            f"{fmt(row['speedup_vs_original_cpu'], 2)}x "
+            f"[{fmt(row['speedup_ci95_low'], 2)}, {fmt(row['speedup_ci95_high'], 2)}] | "
+            f"{fmt(row['overhead_vs_accelerated_base_median'], 2)}x |")
+
+    lines.extend([
+        "", "## 8. Recall-QPS 曲线", "",
+        "每个 marker 都是 screen 阶段实际执行点；虚线为预声明 Recall 门槛。",
+        "",
+    ])
+    for family, caption in RECALL_QPS_FIGURES:
+        png = figures[family].with_suffix(".png")
+        relative = os.path.relpath(png, report_path.resolve().parent)
+        lines.extend([f"### {caption}", "", f"![{caption}]({relative})", ""])
+    lines.extend([
+        "## 9. 解释边界", "",
+        "- 更多层不保证单调加速：合法 upper seeds 仍共享有界队列，可能增加距离计算"
+        "或挤占低层候选。",
+        "- gate 未授权时，图搜索路径与对应零层方法一致，但 exact authorization "
+        "本身仍有可测成本。",
+        "- Trie topology 是 LNG 的稀疏替代，不保证保留全部 subset reachability；"
+        "未达到 Recall 的点按 NC 报告。",
+        "- DRH 是 query-independent structural heuristic，而非运行时最优性证明；"
+        "其有效性由 held-out oracle regret 衡量。",
+        "- 当前 GPU pipeline 仍保留 host adjacency materialization boundary，"
+        "不能表述为完全 device-resident construction。",
+        "",
+    ])
+    return "\n".join(lines)
+
+
 def render_indirect_provenance(
     validator: Path,
     query_config_paths: list[Path],
@@ -1415,6 +1701,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--output", type=Path,
         default=HERE.parent.parent / "docs/papers/multilevel_ung/generated_results.tex")
+    parser.add_argument(
+        "--report-output", type=Path,
+        default=HERE.parent.parent /
+        "docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md")
     args = parser.parse_args(argv)
     if len(args.heldout_formal_config) != 3:
         parser.error("exactly three --heldout-formal-config values are required")
@@ -1473,6 +1763,10 @@ def main(argv: list[str] | None = None) -> int:
         args.amazon_figures_dir.resolve(), args.amazon_screen_config.resolve(),
         args.amazon_screen_points.resolve())
     document = document.rstrip() + "\n" + render_recall_qps_figures(figures) + "\n"
+    report = generate_markdown_report(
+        paths, amazon_formal, amazon_profile,
+        [policy for _, _, policy in heldout_policies], figures,
+        args.report_output.resolve())
     provenance = [
         f"% query-binary-sha256 formal-heldout-build-quality {formal_hash}",
         f"% query-binary-sha256 profile {profile_hash}",
@@ -1507,8 +1801,13 @@ def main(argv: list[str] | None = None) -> int:
          build_quality_config],
         [path.resolve() for path in args.build_config], build_configs))
     document = "\n".join(provenance) + "\n" + document
+    report = (
+        "<!--\n" + "\n".join(line.removeprefix("% ") for line in provenance)
+        + "\n-->\n\n" + report)
     atomic_write(args.output.resolve(), document)
+    atomic_write(args.report_output.resolve(), report)
     print(args.output.resolve())
+    print(args.report_output.resolve())
     return 0
 
 
