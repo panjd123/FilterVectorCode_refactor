@@ -241,6 +241,38 @@ This provides a clean attribution of work to a layer.  It does not imply that
 adding a layer is free: additional seeds can displace lower-layer candidates in
 the shared bounded queue.
 
+\subsection{Semantic Guarantees}
+The hierarchy does not make approximate graph search exact, but its routing
+and ownership rules provide three useful guarantees.
+
+\paragraph{Authorization safety.}
+If block $b$ is authorized, then every direct-member point of $b$ satisfies the
+query predicate.  To see this, every member terminal is a descendant of the
+block root and therefore contains all labels in $R_b$.  Authorization gives
+$Q\subseteq R_b$, so transitivity yields $Q\subseteq A_i$ for every direct
+member $i$ of $b$.  This claim is one-way: a block that is not authorized may
+still contain some eligible points, which remain reachable through another
+authorized layer or the base search.
+
+\paragraph{Level-isolation invariant.}
+Every expansion descended from a seed tagged $\ell$ scans only edges owned by
+$\ell$.  The invariant holds initially because each seed is tagged with its
+owning level.  During expansion, a special edge is accepted only when its owner
+level equals the current tag, and its successor retains that tag; a level-zero
+candidate reads only base edges.  Induction over queue removals therefore
+excludes both implicit promotion and fallthrough.  Separate visited sets per
+level ensure that the same vector identifier in two layers does not collapse
+the two search states.
+
+\paragraph{Fallback equivalence.}
+With the upper-authorization gate enabled, if no upper block is authorized,
+the implementation invokes the same base-search routine with the same entry
+provider, entry groups, and $L_{search}$ as the corresponding zero-layer
+method.  Under deterministic execution, its returned neighbors and post-route
+search-work trace are therefore identical.  Total latency can still increase
+by the exact authorization test itself; we measure that cost rather than
+claiming that an unused hierarchy is free.
+
 \section{Calibration-Free Hierarchy Selection}
 \subsection{Degree-Ratio Hierarchy}
 DRH uses only values already required by index construction: $N$, maximum
