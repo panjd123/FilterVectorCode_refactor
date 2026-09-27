@@ -119,6 +119,12 @@ def prepare_dataset(dataset: str) -> dict[str, Any]:
     if {str(row["name"]) for row in build["cases"]} != selected_structures:
         raise ValueError(f"{dataset}: selected build cases are incomplete")
     build["output_root"] = str(hierarchy_root)
+    for case in build["cases"]:
+        # These sidecars exist only to evaluate held-out query behavior.  GPU
+        # construction performance is measured by the separate Amazon build
+        # study, so the backend declaration must match the CPU-disabled env
+        # inherited from the frozen held-out grid.
+        case["benchmark_profile"] = "cpu"
     build["purpose"] = (
         "Deadline-bounded held-out structural oracle: query-independent DRH "
         "plus five frozen manual alternatives.")
