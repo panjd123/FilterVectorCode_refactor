@@ -37,6 +37,21 @@ def command_options(path: Path) -> dict[str, list[str]]:
     return options
 
 
+def result_evidence_is_complete(
+    config: dict, method: dict, workload: dict, run_dir: Path,
+) -> bool:
+    """Apply the runner's full repeat and breakdown integrity contract."""
+    pass_name = str(config.get("measurement_pass", "performance"))
+    return run_selection_sweep.result_is_complete(
+        run_dir,
+        run_selection_sweep.lsearch_values_for(config, method, workload),
+        require_stage_breakdown=bool(config.get("require_stage_breakdown", False)),
+        require_work_breakdown=bool(
+            config.get("require_work_breakdown", False) or pass_name == "profile"),
+        expected_repeats=int(config["num_repeats"]),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
@@ -67,6 +82,9 @@ def main() -> int:
             if not summary_path.is_file() or not detail_path.is_file():
                 problems.append(f"{name}: missing summary or details")
                 continue
+            if not result_evidence_is_complete(config, method, workload, run_dir):
+                problems.append(
+                    f"{name}: incomplete repeat grid or invalid stage/work evidence")
             command_path = run_dir / "command.txt"
             environment_path = run_dir / "environment.json"
             if not command_path.is_file() or not environment_path.is_file():

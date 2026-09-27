@@ -642,12 +642,26 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertTrue(run_selection_sweep.result_is_complete(
                 root, [100], require_stage_breakdown=True,
                 require_work_breakdown=True, expected_repeats=2))
+            self.assertTrue(validate_selection_sweep.result_evidence_is_complete(
+                {
+                    "num_repeats": 2,
+                    "require_stage_breakdown": True,
+                    "require_work_breakdown": True,
+                    "lsearch_values": [100],
+                }, {"name": "method"}, {"name": "workload"}, root))
 
             (root / "search_stage_details.csv").write_text(
                 stage_header + "0,100,1,.1,.1,.1,.6,.1,0\n")
             self.assertFalse(run_selection_sweep.result_is_complete(
                 root, [100], require_stage_breakdown=True,
                 require_work_breakdown=True, expected_repeats=2))
+            self.assertFalse(validate_selection_sweep.result_evidence_is_complete(
+                {
+                    "num_repeats": 2,
+                    "require_stage_breakdown": True,
+                    "require_work_breakdown": True,
+                    "lsearch_values": [100],
+                }, {"name": "method"}, {"name": "workload"}, root))
 
             (root / "search_stage_details.csv").write_text(
                 stage_header +
