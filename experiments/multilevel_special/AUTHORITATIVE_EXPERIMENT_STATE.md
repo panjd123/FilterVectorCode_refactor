@@ -91,6 +91,16 @@ Trie 较慢；这些是 1 cold + 2 warm 的 screen 数据，不替代 formal pas
 | 95% | 320000 | 1.503 | 602453 | 0.489 | 0.325x |
 | 99% | 400000 | 0.787 | 602453 | 0.442 | 0.561x |
 
+交叉控制 `Trie topology + optimized-LNG entry` 在 0.5%/1%/5%/10%/30%
+的最高 warm-min Recall 仅为 0.4546/0.4270/0.4370/0.4669/0.4040，均未
+crossing。相同 Trie topology 配合 Trie entry 在前四档可以 crossing；在各档
+最大已测 $L$，optimized-LNG entry 的平均入口数为
+160.5/123.4/789.0/345.3/1578.1，而 Trie entry 为
+1277.4/1510.0/2355.4/4714.9/8835.4。这支持 reachability-interaction 解释：
+LNG 的最小超集入口依赖非 prefix 的 containment 边继续扩散，而 Trie topology
+只保留 prefix 分支；较少入口虽然减少点、边和距离计算，却不能覆盖所有可达分支。
+该结果是 screen 机制证据，最终效应大小仍以后续 formal pass 为准。
+
 当前最佳方法：每个结构使用同一个不可变 search binary；先做轻量 performance
 pass，再对选中的 Recall crossing 做独立 profile pass。主结论使用 performance
 pass 的 wall time，profile pass 只用于机制解释。profile 同时显式标记
@@ -134,7 +144,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M14 | provenance | RESOLVED | held-out policy 的 `manual_hierarchy_cases=36` 会把包含 DRH 的总候选数误读成 36 个额外人工方案 | policy 改为 `frozen_hierarchy_candidates=36` 与 `manual_alternatives=35`，validator 同时核对字段、角色计数和闭合关系并拒绝旧字段；六份冻结 build/search config hash 未变 |
 | M15 | provenance | RESOLVED | 最终 query validator 曾只核对少数命令选项，无法完整证明 query/GT/index 路径、环境和 executable snapshot 均与配置一致 | validator 现逐 case 重建完整命令与 `UNG_*` 环境，校验 content-addressed snapshot 路径、文件名/内容 hash，并绑定 manifest；86/86 完成项通过严格回扫 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
-| H2 | hypothesis | UNKNOWN | Trie 与 LNG topology 的优劣由标签包含结构而非选择率单独决定 | 固定其他维度，比较 topology 与 crossed entry combinations |
+| H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较 |
 
 ## 实验阶段

@@ -140,6 +140,16 @@ where $H$ is the threshold sequence, $\tau_0$ is the base topology,
 $\tau_\ell$ is layer $\ell$'s topology, $e$ is the entry strategy, and $r$ is
 the routing policy.
 
+Orthogonality here is an interface and experimental property, not a claim that
+the factors have no interaction.  An LNG entry routine returns minimal
+observed supersets under set containment, relying on LNG edges to reach other
+eligible supersets.  A prefix-Trie topology omits non-prefix containment edges;
+its native entry routine must instead seed the minimal compatible terminal on
+each surviving prefix branch.  Crossed configurations remain legal and are
+valuable controls, but an entry frontier designed for one reachability relation
+can lose Recall on the other.  We therefore report Recall before comparing
+their QPS rather than treating entry discovery as a constant-time plug-in.
+
 \section{Multilevel Index}
 \subsection{Independent Trie Partitions}
 We build a canonical prefix trie over sorted group label sets.  Each terminal
@@ -613,8 +623,11 @@ be profitable.
 Canonical prefix adjacency is cheaper and can be highly effective when query
 entries align with its branches.  It omits non-prefix subset relations,
 however, so large $L_{search}$ cannot recover vectors in unreachable graph
-regions.  We therefore report no-crossing outcomes explicitly and pair Recall
-with visited-node and scanned-edge counts.
+regions.  This also explains why crossing an LNG-style minimal-superset entry
+frontier with a Trie topology can reduce work yet lower Recall: fewer seeds do
+not cover every prefix branch that the Trie graph keeps disconnected.  We
+therefore report no-crossing outcomes explicitly and pair Recall with entry
+count, visited-node, scanned-edge, and distance-computation counts.
 
 \subsection{Limitations}
 DRH's first version uses a symmetric static cost proxy, existing degree

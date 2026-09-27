@@ -2,7 +2,7 @@
 
 最后更新：`2026-09-27 13:54 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`b6ed3f3`（push：`不执行，origin 指向用户工作树`）
+检查点：`6576cd5`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -78,6 +78,10 @@
 - 最终 query validator 现在逐 case 重建完整命令和 `UNG_*` 环境，要求执行文件
   位于该 phase 的 content-addressed snapshot 目录、文件名 hash 与实际内容一致，
   并将实测 executable hash 与 manifest 逐项绑定。当前 86 个完成项全部通过。
+- crossed-entry screen 显示 `Trie topology + optimized-LNG entry` 在
+  0.5%--30% 的最高 warm-min Recall 仅为 0.404--0.467，而原生 Trie entry
+  在前四档 crossing；较少入口降低搜索工作但无法覆盖 Trie 的全部 prefix 分支。
+  这说明模块接口正交不等于效果无交互，最终差距仍由 formal pass 确认。
 - profile 证据现显式使用 `measurement_pass=profile` 和
   `protocol.phase=profile`；两者不一致时配置校验直接失败。
 - screen 接续 watcher PID 为 `25189`；query 完成后串行启动
