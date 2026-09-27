@@ -128,7 +128,9 @@ The plotter produces PDF and PNG panels for the principal zero-layer
 comparison, fixed-entry topology, depth, two-layer topology, entry strategy,
 and upper-authorization ablations. It fails closed on missing
 method/workload results unless `--allow-partial` is explicitly supplied and
-records input hashes and missing cases in `plot_manifest.json`.
+records input hashes and missing cases in `plot_manifest.json`. Lines follow
+increasing measured `Lsearch`; points are not reordered by Recall or smoothed
+to conceal non-monotone measurements.
 The authoritative paper generator accepts only a complete, non-partial plot
 manifest whose screen-config and `all_points.csv` hashes still match. It embeds
 all six PDF families in the Results section, while finalization records both

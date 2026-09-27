@@ -1296,8 +1296,9 @@ def render_recall_qps_figures(figures: dict[str, Path]) -> str:
             r"\centering",
             rf"\includegraphics[width=0.98\textwidth]{{\detokenize{{{path}}}}}",
             rf"\caption{{Measured Recall@10--QPS curves for {caption}. "
-            r"Every marker is an executed screen point; the dashed line is the "
-            r"predeclared Recall target.}",
+            r"Every marker is an executed screen point, lines follow increasing "
+            r"$L_{search}$ without monotonic smoothing, and the dashed line is "
+            r"the predeclared Recall target.}",
             rf"\label{{fig:{family.replace('_', '-')}}}",
             r"\end{figure*}",
         ])
@@ -1601,7 +1602,8 @@ def generate_markdown_report(
 
     lines.extend([
         "", "## 8. Recall-QPS 曲线", "",
-        "每个 marker 都是 screen 阶段实际执行点；虚线为预声明 Recall 门槛。",
+        "每个 marker 都是 screen 阶段实际执行点，连线按 Lsearch 递增顺序且不做"
+        "单调平滑；虚线为预声明 Recall 门槛。",
         "",
     ])
     for family, caption in RECALL_QPS_FIGURES:

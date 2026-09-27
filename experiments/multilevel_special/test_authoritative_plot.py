@@ -6,6 +6,18 @@ import plot_authoritative_recall_qps as plotting
 
 
 class AuthoritativePlotTest(unittest.TestCase):
+    def test_curve_follows_lsearch_when_measured_recall_is_nonmonotone(self):
+        points = [
+            {"lsearch": "300", "recall": "0.92"},
+            {"lsearch": "100", "recall": "0.88"},
+            {"lsearch": "200", "recall": "0.87"},
+        ]
+        ordered = plotting.sweep_order(points)
+        self.assertEqual([row["lsearch"] for row in ordered],
+                         ["100", "200", "300"])
+        self.assertEqual([row["recall"] for row in ordered],
+                         ["0.88", "0.87", "0.92"])
+
     def test_partial_plot_records_missing_method_workload(self):
         rows = [{
             "workload": "w", "method": "measured", "recall": "0.91",

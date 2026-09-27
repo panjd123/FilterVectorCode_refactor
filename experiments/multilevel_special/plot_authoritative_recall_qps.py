@@ -71,6 +71,11 @@ def workload_order(config: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(config["workloads"], key=lambda item: float(item["mean_selectivity"]))
 
 
+def sweep_order(points: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Preserve the executed control-parameter order without smoothing Recall."""
+    return sorted(points, key=lambda item: int(item["lsearch"]))
+
+
 def plot_family(
     rows: list[dict[str, str]], workloads: list[dict[str, Any]],
     methods: list[tuple[str, str]], target_by_workload: dict[str, float],
@@ -94,7 +99,7 @@ def plot_family(
             if not points:
                 missing.append((method, workload_name))
                 continue
-            points.sort(key=lambda item: (float(item["recall"]), int(item["lsearch"])))
+            points = sweep_order(points)
             handle, = axis.plot(
                 [float(item["recall"]) for item in points],
                 [float(item["qps_warm_median"]) for item in points],
