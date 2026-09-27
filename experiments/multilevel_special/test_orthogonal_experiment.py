@@ -218,6 +218,62 @@ class OrthogonalExperimentTest(unittest.TestCase):
         self.assertEqual(summary[0]["speedup_vs_original_cpu"], 2.0)
         self.assertTrue(summary[0]["no_slower_supported"])
 
+    def test_build_summary_excludes_resource_probe_from_timing(self):
+        rows = []
+        for wall in (10.0, 12.0):
+            rows.append({
+                "component": "base", "structure": "zero_layer",
+                "profile": "original_cpu", "resource_profile": False,
+                "timing_role": "measured", "wall_seconds": wall,
+                "internal_seconds": wall - 1.0, "index_bytes": 1024,
+                "gpu_required": False, "gpu_isolation_mode": "not_required",
+                "gpu_exclusive_lock": False, "gpu_idle_samples": 0,
+            })
+        rows.append({
+            "component": "base", "structure": "zero_layer",
+            "profile": "original_cpu", "resource_profile": True,
+            "timing_role": "measured", "wall_seconds": 100.0,
+            "internal_seconds": 99.0, "index_bytes": 1024,
+            "gpu_required": False, "gpu_isolation_mode": "not_required",
+            "gpu_exclusive_lock": False, "gpu_idle_samples": 0,
+            "peak_rss_mib": 512.0, "peak_gpu_memory_mib": 0.0,
+        })
+        summary = summarize_authoritative_build.summarize(rows)
+        self.assertEqual(summary[0]["measured_repeats"], 2)
+        self.assertEqual(summary[0]["wall_median_seconds"], 11.0)
+        self.assertEqual(summary[0]["peak_rss_mib"], 512.0)
+
+    def test_end_to_end_ignores_duplicate_resource_repeat(self):
+        rows = [
+            {"component": "base", "structure": "zero_layer",
+             "profile": "original_cpu", "resource_profile": False,
+             "timing_role": "measured", "repeat": 0,
+             "wall_seconds": 10.0},
+            {"component": "base", "structure": "zero_layer",
+             "profile": "accelerated_gpu", "resource_profile": False,
+             "timing_role": "measured", "repeat": 0,
+             "wall_seconds": 3.0},
+            {"component": "hierarchy", "structure": "auto_drh_v1",
+             "profile": "full_gpu", "resource_profile": False,
+             "timing_role": "measured", "repeat": 0,
+             "wall_seconds": 2.0},
+            {"component": "base", "structure": "zero_layer",
+             "profile": "original_cpu", "resource_profile": True,
+             "timing_role": "measured", "repeat": 0,
+             "wall_seconds": 100.0},
+            {"component": "base", "structure": "zero_layer",
+             "profile": "accelerated_gpu", "resource_profile": True,
+             "timing_role": "measured", "repeat": 0,
+             "wall_seconds": 100.0},
+            {"component": "hierarchy", "structure": "auto_drh_v1",
+             "profile": "full_gpu", "resource_profile": True,
+             "timing_role": "measured", "repeat": 0,
+             "wall_seconds": 100.0},
+        ]
+        summary = summarize_authoritative_build.summarize_end_to_end(rows)
+        self.assertEqual(summary[0]["paired_repeats"], 1)
+        self.assertEqual(summary[0]["speedup_vs_original_cpu"], 2.0)
+
     def test_build_summary_preserves_gpu_isolation_limit(self):
         rows = [{
             "component": "hierarchy",

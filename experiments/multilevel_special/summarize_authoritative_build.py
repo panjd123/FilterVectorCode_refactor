@@ -49,6 +49,7 @@ def load_rows(config_path: Path, component: str) -> list[dict]:
             "case": case["name"],
             "structure": case.get("structure", "zero_layer"),
             "profile": case["benchmark_profile"],
+            "resource_profile": bool(config.get("resource_profile", False)),
             "timing_role": case["timing_role"],
             "repeat": int(case["repeat"]),
             "wall_seconds": float(record["elapsed_seconds"]),
@@ -84,7 +85,8 @@ def summarize(rows: list[dict]) -> list[dict]:
     resources = defaultdict(list)
     for row in rows:
         key = (row["component"], row["structure"], row["profile"])
-        if row["timing_role"] == "measured":
+        if (row["timing_role"] == "measured"
+                and not row.get("resource_profile", False)):
             grouped[key].append(row)
         if "peak_rss_mib" in row:
             resources[key].append(row)
@@ -143,6 +145,7 @@ def indexed_measured(rows: list[dict], component: str, structure: str,
         row["repeat"]: row["wall_seconds"] for row in rows
         if row["component"] == component and row["structure"] == structure
         and row["profile"] == profile and row["timing_role"] == "measured"
+        and not row.get("resource_profile", False)
     }
 
 
