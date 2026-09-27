@@ -280,6 +280,16 @@ def equal_recall_rows(rows: list[dict[str, Any]], baseline: str, targets: list[f
     return output
 
 
+def require_baseline(rows: list[dict[str, Any]], baseline: str) -> None:
+    """Reject a missing baseline before any derived output is overwritten."""
+    methods = sorted({str(row["method"]) for row in rows})
+    if baseline not in methods:
+        available = ", ".join(methods) if methods else "(none)"
+        raise ValueError(
+            f"baseline method {baseline!r} has no measured rows; "
+            f"available methods: {available}")
+
+
 def baseline_l_targets(rows: list[dict[str, Any]], baseline: str,
                        target_lsearch: list[int],
                        recall_field: str = "recall") -> dict[str, list[float]]:
@@ -458,6 +468,7 @@ def main() -> int:
     config = json.loads(args.config.read_text())
     root = summary_root(config)
     rows = read_rows(config)
+    require_baseline(rows, args.baseline)
     write_csv(root / "all_points.csv", rows)
     write_csv(root / "pareto_points.csv", pareto_rows(rows))
     if args.targets is None:
