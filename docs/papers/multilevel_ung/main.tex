@@ -83,7 +83,7 @@ This paper makes the following contributions.
   scale ratio, stopping depth, topology, and exact structural activation gate
   without query traces, latency measurements, or Recall calibration.
   \item We adapt GPU group-graph and grouped top-$k$ construction to the
-  hierarchy sidecar and define an end-to-end measurement protocol that does not
+  hierarchy sidecar and define a construction measurement protocol that does not
   confuse kernel time with index construction time.
   \item We evaluate all methods at the smallest measured search budget whose
   every warm repeat reaches the target Recall, and compare the automatic plan
@@ -597,8 +597,10 @@ setup, block authorization, graph search, residual time, visited nodes, scanned
 base/special edges, and distance computations.  Build results use process wall
 time through validated files on disk, one cold build followed by at least five
 measured builds, interleaved CPU/GPU order, peak host/device memory in a separate
-pass, index bytes, and paired bootstrap intervals.  GPU kernel timings are
-never substituted for end-to-end build time.  GPU runs use an external
+pass, and index bytes.  Full-index cost is the sum of independently measured
+base and hierarchy stage medians; confidence intervals independently resample
+all three stages rather than pairing repeat identifiers across phases.  GPU
+kernel timings are never substituted for construction wall time. GPU runs use an external
 exclusive lock when the host provides one.  On the current host, where that
 tool is unavailable, each GPU case instead requires three consecutive idle
 device snapshots before timing; we retain those snapshots and label the
@@ -664,8 +666,9 @@ semantics and measuring quality end to end.
 of independent hierarchy, topology, entry, and routing modules.  Exact
 authorization and level-isolated edges make the semantics auditable, while DRH
 removes separate depth and threshold tuning knobs.  The accompanying protocol
-evaluates only measured Recall crossings and separates kernel, sidecar, and
-end-to-end construction costs.  \authoritativeConclusionResult
+evaluates only measured Recall crossings and separates kernel, component wall
+time, and stage-composed full-index construction costs.
+\authoritativeConclusionResult
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{references}

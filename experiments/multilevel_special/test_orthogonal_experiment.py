@@ -200,7 +200,7 @@ class OrthogonalExperimentTest(unittest.TestCase):
             self.assertFalse(gpu_isolation.has_perf_lock(0))
             self.assertTrue(gpu_isolation.has_perf_lock(1))
 
-    def test_end_to_end_build_claim_uses_speedup_lower_bound(self):
+    def test_composed_build_claim_uses_speedup_lower_bound(self):
         rows = []
         for repeat in range(3):
             rows.extend([
@@ -272,8 +272,50 @@ class OrthogonalExperimentTest(unittest.TestCase):
              "wall_seconds": 100.0},
         ]
         summary = summarize_authoritative_build.summarize_end_to_end(rows)
-        self.assertEqual(summary[0]["paired_repeats"], 1)
+        self.assertEqual(summary[0]["stage_repeats"], 1)
         self.assertEqual(summary[0]["speedup_vs_original_cpu"], 2.0)
+
+    def test_composed_build_total_does_not_pair_unrelated_stage_repeats(self):
+        rows = []
+        for repeat, original, accelerated, hierarchy in (
+                (0, 400.0, 1.0, 100.0),
+                (1, 400.0, 100.0, 1.0),
+                (2, 400.0, 100.0, 100.0)):
+            rows.extend([
+                {"component": "base", "structure": "zero_layer",
+                 "profile": "original_cpu", "timing_role": "measured",
+                 "repeat": repeat, "wall_seconds": original},
+                {"component": "base", "structure": "zero_layer",
+                 "profile": "accelerated_gpu", "timing_role": "measured",
+                 "repeat": repeat, "wall_seconds": accelerated},
+                {"component": "hierarchy", "structure": "auto_drh_v1",
+                 "profile": "full_gpu", "timing_role": "measured",
+                 "repeat": repeat, "wall_seconds": hierarchy},
+            ])
+        row = summarize_authoritative_build.summarize_end_to_end(rows)[0]
+        self.assertEqual(row["composed_base_plus_hierarchy_seconds"], 200.0)
+        self.assertEqual(row["speedup_vs_original_cpu"], 2.0)
+        self.assertEqual(
+            row["composition_method"],
+            "sum_of_stage_medians_independent_bootstrap")
+
+    def test_composed_build_rejects_unbalanced_stage_repeats(self):
+        rows = [
+            {"component": "base", "structure": "zero_layer",
+             "profile": "original_cpu", "timing_role": "measured",
+             "repeat": 0, "wall_seconds": 10.0},
+            {"component": "base", "structure": "zero_layer",
+             "profile": "accelerated_gpu", "timing_role": "measured",
+             "repeat": 0, "wall_seconds": 3.0},
+            {"component": "hierarchy", "structure": "auto_drh_v1",
+             "profile": "full_gpu", "timing_role": "measured",
+             "repeat": 0, "wall_seconds": 2.0},
+            {"component": "hierarchy", "structure": "auto_drh_v1",
+             "profile": "full_gpu", "timing_role": "measured",
+             "repeat": 1, "wall_seconds": 2.1},
+        ]
+        with self.assertRaisesRegex(ValueError, "unbalanced"):
+            summarize_authoritative_build.summarize_end_to_end(rows)
 
     def test_build_summary_preserves_gpu_isolation_limit(self):
         rows = [{

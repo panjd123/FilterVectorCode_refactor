@@ -12,7 +12,7 @@ entry-point setup、block authorization、graph search 以及点/边/距离计�
 bounded crossing、正式重复和独立 profile。修复前 campaign 使用的 Trie entry
 错误地把空标签集解释为“无结果”，其 99% 结果只保留作缺陷诊断。详细计数会给主
 吞吐测量增加分支和计数开销，因此不能把 profile wall time 混入主 QPS。
-截至 2026-09-27 14:15，manifest 已完成 86/396，另有 1 个 case 运行中；
+截至 2026-09-27 14:23，manifest 已完成 86/396，另有 1 个 case 运行中；
 当前为 `l0_trie_entry_optimized_lng / sel_60`，仍使用 SHA-256 为
 `4c99a51c...a81` 的冻结 binary snapshot。
 零层 LNG 95% 的
@@ -144,6 +144,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M14 | provenance | RESOLVED | held-out policy 的 `manual_hierarchy_cases=36` 会把包含 DRH 的总候选数误读成 36 个额外人工方案 | policy 改为 `frozen_hierarchy_candidates=36` 与 `manual_alternatives=35`，validator 同时核对字段、角色计数和闭合关系并拒绝旧字段；六份冻结 build/search config hash 未变 |
 | M15 | provenance | RESOLVED | 最终 query validator 曾只核对少数命令选项，无法完整证明 query/GT/index 路径、环境和 executable snapshot 均与配置一致 | validator 现逐 case 重建完整命令与 `UNG_*` 环境，校验 content-addressed snapshot 路径、文件名/内容 hash，并绑定 manifest；86/86 完成项通过严格回扫 |
 | M16 | reporting | RESOLVED | 中文报告曾缺少 LaTeX 已有的全局 depth 与完整零层组合表，且单独调用 Markdown renderer 会绕过部分结果校验 | Markdown 现补齐九档全局配置、零层 2x3 topology/entry crossing 和 GPU lock/idle 证据，并自行执行 depth、held-out、build fail-closed 校验；executable hash 使用文件状态键缓存，mutation 回归仍通过 |
+| M17 | measurement | RESOLVED | build 汇总曾将独立 base/hierarchy phase 的同编号 repeat 相加并称为 paired end-to-end measurement | 完整索引点估计改为两个阶段中位数之和，CI 对 original base、accelerated base、hierarchy 独立 bootstrap，并拒绝样本数不平衡；文档统一标为 stage-composed full-index cost |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较 |
@@ -157,7 +158,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | E2 | Amazon crossing/formal | 每方法每档最小实测 crossing，正式重复完成 | 未开始 |
 | E3 | 多数据集验证 | Reviews/Genome/VariousImg 至少各一个低档和一个较高档或可用代表档 | 配置和预检完成，待运行 |
 | E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | gated DRH-v1 与同 gate oracle 协议已冻结；168/168 测试和配置 dry-run 通过，待结果 |
-| E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | 同源 fail-closed LaTeX/中文报告生成器及 24 项专项测试完成；等待权威输入 |
+| E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | 同源 fail-closed LaTeX/中文报告生成器及 25 项专项测试完成；等待权威输入 |
 
 ## 已知数据
 

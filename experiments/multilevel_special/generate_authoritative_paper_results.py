@@ -708,17 +708,26 @@ def validate_build_rows(
         raise ValueError("end-to-end build summary is empty")
     unique_rows(end_to_end, ("structure", "hierarchy_profile"), "end-to-end build")
     for row in end_to_end:
-        if integer(row, "paired_repeats") < 5:
-            raise ValueError("end-to-end build result has fewer than five paired repeats")
+        if integer(row, "stage_repeats") < 5:
+            raise ValueError(
+                "composed build result has fewer than five stage repeats")
+        if row["composition_method"] != \
+                "sum_of_stage_medians_independent_bootstrap":
+            raise ValueError("invalid full-build composition method")
         for field in (
             "original_cpu_base_median_seconds",
-            "accelerated_base_plus_hierarchy_median_seconds",
+            "composed_base_plus_hierarchy_seconds",
             "speedup_vs_original_cpu", "speedup_ci95_low", "speedup_ci95_high",
             "overhead_vs_accelerated_base_median",
         ):
             if number(row, field) <= 0:
                 raise ValueError(f"non-positive end-to-end build metric {field}")
-        parse_bool(row["no_slower_supported"])
+        lower = number(row, "speedup_ci95_low")
+        upper = number(row, "speedup_ci95_high")
+        if lower > upper:
+            raise ValueError("full-build confidence interval is reversed")
+        if parse_bool(row["no_slower_supported"]) != (lower >= 1.0):
+            raise ValueError("full-build no-slower decision disagrees with CI")
 
 
 def tex_escape(value: Any) -> str:
@@ -1240,18 +1249,18 @@ def render_build(
     lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
     lines.extend([
         r"\begin{table*}[t]", r"\centering", r"\small",
-        r"\caption{Paired end-to-end accelerated-base plus hierarchy construction versus the original CPU base builder.}",
+        r"\caption{Full-index construction cost composed from separately measured base and hierarchy stages. Confidence intervals use independent resampling across stages.}",
         r"\label{tab:build-e2e}",
         r"\begin{tabular}{llrrrrl}", r"\toprule",
-        r"Structure & Hierarchy profile & Repeats & Total s & Speedup & 95\% CI & No-slower support \\",
+        r"Structure & Hierarchy profile & Stage repeats & Composed total s & Speedup & 95\% CI & No-slower support \\",
         r"\midrule",
     ])
     for row in sorted(end_to_end, key=lambda item: (
             item["structure"], item["hierarchy_profile"])):
         lines.append(
             f"{tex_escape(row['structure'])} & {tex_escape(row['hierarchy_profile'])} & "
-            f"{integer(row, 'paired_repeats')} & "
-            f"{fmt(row['accelerated_base_plus_hierarchy_median_seconds'], 2)} & "
+            f"{integer(row, 'stage_repeats')} & "
+            f"{fmt(row['composed_base_plus_hierarchy_seconds'], 2)} & "
             f"{fmt(row['speedup_vs_original_cpu'], 2)}$\\times$ & "
             f"[{fmt(row['speedup_ci95_low'], 2)}, {fmt(row['speedup_ci95_high'], 2)}] & "
             f"{'yes' if parse_bool(row['no_slower_supported']) else 'no'} " + r"\\")
@@ -1340,7 +1349,7 @@ def render_claims(
         "over zero-layer LNG at the measured selectivities of at least 60\\%. "
         f"Across the held-out study it crosses "
         f"{len(heldout_complete)}/{len(heldout_rows)} workloads {oracle_clause}. "
-        f"The best measured accelerated-base-plus-hierarchy build is "
+        f"The best stage-composed accelerated-base-plus-hierarchy cost is "
         f"{build_speedup:.2f}$\\times$ the original CPU base build "
         f"(95\\% CI [{build_lo:.2f}, {build_hi:.2f}])."
     )
@@ -1350,8 +1359,9 @@ def render_claims(
         f"{len(heldout_complete)}/{len(heldout_rows)} held-out workloads; at "
         f"Amazon selectivities of at least 60\\% its speedup is "
         f"{min(high_speedups):.2f}--{max(high_speedups):.2f}$\\times$. "
-        f"The strongest end-to-end construction configuration reaches "
-        f"{build_speedup:.2f}$\\times$ speedup with a paired 95\\% interval "
+        f"The strongest stage-composed full-index construction configuration reaches "
+        f"{build_speedup:.2f}$\\times$ speedup with an independent-bootstrap "
+        "95\\% interval "
         f"of [{build_lo:.2f}, {build_hi:.2f}]."
     )
     return abstract, conclusion
@@ -1469,9 +1479,9 @@ def generate_markdown_report(
         "gpu_exclusive_lock", "gpu_idle_samples_min",
     })
     build_e2e = read_csv(paths.build_end_to_end, {
-        "structure", "hierarchy_profile", "paired_repeats",
+        "structure", "hierarchy_profile", "stage_repeats", "composition_method",
         "original_cpu_base_median_seconds",
-        "accelerated_base_plus_hierarchy_median_seconds",
+        "composed_base_plus_hierarchy_seconds",
         "speedup_vs_original_cpu", "speedup_ci95_low", "speedup_ci95_high",
         "overhead_vs_accelerated_base_median", "no_slower_supported",
     })
@@ -1786,17 +1796,19 @@ def generate_markdown_report(
             f"{fmt(row['peak_gpu_memory_mib'], 1) if row['peak_gpu_memory_mib'] else '--'} | "
             f"{evidence} |")
     lines.extend([
-        "", "端到端构建对比：", "",
-        "| 结构 | hierarchy profile | paired repeats | 原始 CPU s | "
-        "加速 base + hierarchy s | speedup [95% CI] | hierarchy overhead |",
+        "", "分阶段实测后组合的完整构建成本：", "",
+        "点估计为 base 与 hierarchy 各自 wall-time 中位数之和；95% CI 对三个"
+        "阶段独立重采样，不把不同 phase 中相同编号的 repeat 当作配对样本。", "",
+        "| 结构 | hierarchy profile | stage repeats | 原始 CPU s | "
+        "组合 base + hierarchy s | speedup [95% CI] | hierarchy overhead |",
         "|---|---|---:|---:|---:|---:|---:|",
     ])
     for row in build_e2e:
         lines.append(
             f"| {row['structure']} | {row['hierarchy_profile']} | "
-            f"{integer(row, 'paired_repeats')} | "
+            f"{integer(row, 'stage_repeats')} | "
             f"{fmt(row['original_cpu_base_median_seconds'], 2)} | "
-            f"{fmt(row['accelerated_base_plus_hierarchy_median_seconds'], 2)} | "
+            f"{fmt(row['composed_base_plus_hierarchy_seconds'], 2)} | "
             f"{fmt(row['speedup_vs_original_cpu'], 2)}x "
             f"[{fmt(row['speedup_ci95_low'], 2)}, {fmt(row['speedup_ci95_high'], 2)}] | "
             f"{fmt(row['overhead_vs_accelerated_base_median'], 2)}x |")
@@ -1928,9 +1940,9 @@ def generate_document(
         "gpu_exclusive_lock", "gpu_idle_samples_min",
     })
     build_end_to_end = read_csv(paths.build_end_to_end, {
-        "structure", "hierarchy_profile", "paired_repeats",
+        "structure", "hierarchy_profile", "stage_repeats", "composition_method",
         "original_cpu_base_median_seconds",
-        "accelerated_base_plus_hierarchy_median_seconds",
+        "composed_base_plus_hierarchy_seconds",
         "speedup_vs_original_cpu", "speedup_ci95_low", "speedup_ci95_high",
         "overhead_vs_accelerated_base_median", "no_slower_supported",
     })

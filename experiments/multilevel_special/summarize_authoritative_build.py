@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import random
 import statistics
 from collections import defaultdict
 from pathlib import Path
@@ -149,6 +150,25 @@ def indexed_measured(rows: list[dict], component: str, structure: str,
     }
 
 
+def bootstrap_composed_speedup(
+    original: list[float], accelerated: list[float], hierarchy: list[float],
+    seed: int, samples: int = 20000,
+) -> tuple[float, float]:
+    """Bootstrap a ratio whose denominator is the sum of independent stages."""
+    if not original or not accelerated or not hierarchy:
+        raise ValueError("composed bootstrap requires all three stage samples")
+    rng = random.Random(seed)
+    ratios = []
+    for _ in range(samples):
+        baseline = statistics.median(rng.choices(original, k=len(original)))
+        base = statistics.median(
+            rng.choices(accelerated, k=len(accelerated)))
+        sidecar = statistics.median(
+            rng.choices(hierarchy, k=len(hierarchy)))
+        ratios.append(baseline / (base + sidecar))
+    return percentile(ratios, 0.025), percentile(ratios, 0.975)
+
+
 def summarize_end_to_end(rows: list[dict]) -> list[dict]:
     original = indexed_measured(rows, "base", "zero_layer", "original_cpu")
     accelerated = indexed_measured(rows, "base", "zero_layer", "accelerated_gpu")
@@ -158,28 +178,36 @@ def summarize_end_to_end(rows: list[dict]) -> list[dict]:
     result = []
     for structure, profile in hierarchy_keys:
         hierarchy = indexed_measured(rows, "hierarchy", structure, profile)
-        repeats = sorted(set(original) & set(accelerated) & set(hierarchy))
-        if not repeats:
+        if not original or not accelerated or not hierarchy:
             continue
-        original_values = [original[index] for index in repeats]
-        total_values = [accelerated[index] + hierarchy[index] for index in repeats]
-        overhead_values = [total_values[pos] / accelerated[index]
-                           for pos, index in enumerate(repeats)]
-        ratio = statistics.median(original_values) / statistics.median(total_values)
-        lo, hi = experiment_core.bootstrap_median_ratio(
-            original_values, total_values,
-            seed=20260925 + sum(ord(ch) for ch in structure + profile),
-            samples=20000, paired=True)
+        original_values = list(original.values())
+        accelerated_values = list(accelerated.values())
+        hierarchy_values = list(hierarchy.values())
+        stage_counts = {
+            len(original_values), len(accelerated_values), len(hierarchy_values)}
+        if len(stage_counts) != 1:
+            raise ValueError(
+                f"unbalanced construction-stage repeats: {structure}/{profile}")
+        baseline_median = statistics.median(original_values)
+        accelerated_median = statistics.median(accelerated_values)
+        hierarchy_median = statistics.median(hierarchy_values)
+        composed_total = accelerated_median + hierarchy_median
+        ratio = baseline_median / composed_total
+        lo, hi = bootstrap_composed_speedup(
+            original_values, accelerated_values, hierarchy_values,
+            seed=20260925 + sum(ord(ch) for ch in structure + profile))
         result.append({
             "structure": structure,
             "hierarchy_profile": profile,
-            "paired_repeats": len(repeats),
-            "original_cpu_base_median_seconds": statistics.median(original_values),
-            "accelerated_base_plus_hierarchy_median_seconds": statistics.median(total_values),
+            "stage_repeats": len(original_values),
+            "composition_method": "sum_of_stage_medians_independent_bootstrap",
+            "original_cpu_base_median_seconds": baseline_median,
+            "composed_base_plus_hierarchy_seconds": composed_total,
             "speedup_vs_original_cpu": ratio,
             "speedup_ci95_low": lo,
             "speedup_ci95_high": hi,
-            "overhead_vs_accelerated_base_median": statistics.median(overhead_values),
+            "overhead_vs_accelerated_base_median": (
+                composed_total / accelerated_median),
             "no_slower_supported": lo >= 1.0,
         })
     return result

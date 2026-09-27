@@ -12,7 +12,7 @@ For an independent sidecar the latter total is necessarily
 
 Accordingly, the paper reports two distinct comparisons:
 
-1. end-to-end multilevel build versus the original CPU baseline; and
+1. stage-composed full-index construction cost versus the original CPU baseline; and
 2. hierarchy overhead relative to the same accelerated base build.
 
 "No slower" is accepted only when the upper bound of the 95% confidence
@@ -57,10 +57,12 @@ manifest. This fallback is fail closed but is reported as
 `idle_preflight_no_lock`: it verifies pre-run idleness and does not claim the
 race-free exclusivity of a lock.
 
-The isolation check is outside the timed region. End-to-end build time starts
-immediately before the builder child process and includes its complete CPU/GPU
-pipeline. CUDA kernel microbenchmarks remain separate evidence and are never
-substituted for end-to-end wall time.
+The isolation check is outside the timed region. Each component wall time starts
+immediately before its builder child process and includes that component's
+complete CPU/GPU pipeline. The reported full-index total is the sum of the base
+and hierarchy median wall times; it is a stage-composed estimate, not a claim
+that both stages ran inside one timed child process. CUDA kernel microbenchmarks
+remain separate evidence and are never substituted for construction wall time.
 
 - Use one immutable snapshot of each build executable and record SHA-256.
 - Run builds serially on the same host with the same thread count, graph degree,
@@ -72,8 +74,10 @@ substituted for end-to-end wall time.
 - Primary time is process wall time from invocation through validated files on
   disk. Internal metadata, layer-local edge, inter-block edge, serialization,
   and compact-reload timers are explanatory and must close against wall time.
-- Report median, p95, coefficient of variation, and a paired bootstrap 95%
-  confidence interval for each ratio.
+- Report median, p95, coefficient of variation, and a 95% confidence interval.
+  For the full-index ratio, resample original base, accelerated base, and
+  hierarchy stage measurements independently; repeat identifiers from separate
+  phases are not statistical pairs.
 - Resource profiling is a separate pass. Sample the direct process at 200 ms
   for peak resident CPU memory and peak GPU memory; do not mix this monitored
   pass into the primary wall-time estimate.
@@ -111,4 +115,4 @@ quality changes directly.
   multilevel overhead against the same modern base builder.
 - `T(Hauto-full-gpu) / T(H1-gpu)` reports the marginal cost of automatic depth.
 
-No kernel-only number may be presented as end-to-end build speedup.
+No kernel-only number may be presented as full-index construction speedup.

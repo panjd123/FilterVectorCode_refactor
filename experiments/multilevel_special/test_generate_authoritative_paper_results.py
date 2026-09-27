@@ -300,8 +300,10 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         ]
         build_e2e = [{
             "structure": "auto_drh_v1", "hierarchy_profile": "full_gpu",
-            "paired_repeats": 5, "original_cpu_base_median_seconds": 10,
-            "accelerated_base_plus_hierarchy_median_seconds": 8,
+            "stage_repeats": 5,
+            "composition_method": "sum_of_stage_medians_independent_bootstrap",
+            "original_cpu_base_median_seconds": 10,
+            "composed_base_plus_hierarchy_seconds": 8,
             "speedup_vs_original_cpu": 1.25, "speedup_ci95_low": 1.1,
             "speedup_ci95_high": 1.4,
             "overhead_vs_accelerated_base_median": 1.2,
@@ -477,6 +479,15 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                 self.paths, self.formal_config, self.profile_config,
                 list(self.heldout_policies.values()), self.formal_config,
                 figures, self.root / "report.md")
+
+    def test_build_claim_must_follow_confidence_interval(self) -> None:
+        with self.paths.build_end_to_end.open(
+                newline="", encoding="utf-8") as stream:
+            rows = list(csv.DictReader(stream))
+        rows[0]["no_slower_supported"] = "False"
+        write_csv(self.paths.build_end_to_end, rows)
+        with self.assertRaisesRegex(ValueError, "disagrees with CI"):
+            self.generate()
 
     def test_principal_zero_layer_table_marks_missing_trie_crossing(self) -> None:
         formal_rows = generator.read_csv(self.paths.amazon_formal,
