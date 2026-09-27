@@ -1,30 +1,79 @@
-# 多层 Special Block 目标完成审计
+# 多层 Filtered-ANN 权威实验完成审计
 
-本文件把用户目标逐项映射到可检查的代码、实验与文档。只有所有必需项都有当前 Amazon x1 的直接证据时，任务才可标记完成。
+本文件把当前用户目标映射到可检查的实现、原始实验、聚合产物和论文内容。
+历史六档结果、修复前 binary 和部分 screen 均不能证明当前目标完成。只有下表
+所有必需项均有当前证据并通过对应 validator，任务才可标记完成。
 
-## 目标拆解与证据
+## 固定口径
 
-| 显式要求 | 验收标准 | 当前证据 | 状态 / 缺口 |
-|---|---|---|---|
-| 独立文件夹开发 | 不修改原始脏工作树；独立分支可审阅 | shared clone `/home/sunyahui/worktrees/FilterVectorCode_multilevel_special`；分支 `codex/multilevel-special-block-20260905` | 完成 |
-| 多层 block 构建 | T1 中层保留，并叠加独立 T2 上层；双 ownership、父子关系、持久化可用 | `uni_nav_graph_special_blocks.cpp`、`ung_special_block_trie.*`；提交 `1f0c1e6`、`368227e` | 完成 |
-| 多层查询 | 候选按普通 0 -> 中层 1 -> 上层 2 单调激活；不能越级；同 point 去重升级 | `ung_special_block_activation.h`、`ung_special_candidate_queue.*`、`uni_nav_graph_search_backend.cpp` | 完成；focused C++ 5/5 |
-| 数据集测试 | 只使用 Amazon 原始 100% x1，query、labels、GT 和主图 provenance 一致 | runner 的 SHA/fingerprint gate；30,723 labels、602,453 points | 完成；六档正式结果 |
-| 参数调优 | 至少扫描 T1=500/1000/2000、T2=4k/10k/25k/50k 和足够密的 Lsearch；只选实测点 | configs、209 个内部 canonical 点、paired formal | 完成 |
-| 普通/单层/多层比较 | 同主图、ELS、query/GT、线程数与 timing 口径，按同 Recall 比较 | `run_selection_sweep.py`、统一 binary manifests 与正式 source CSV | 完成；六档主表 |
-| 各种选择率 | 覆盖现有六档真实 workload：0.499%、0.903%、9.907%、24.915%、49.971%、74.994% | `paper_results.csv` 与 workload 表 | 完成 |
-| 外部方法比较 | FAVOR、NaviX、Curator、ACORN 使用相同 Amazon x1 query/GT、K=10、1000 queries、100 threads，并明确 timing 边界 | 各 baseline runner、447 个外部 canonical 点和 ACORN correctness patch | 完成；仅作离散 Pareto 系统位置对照 |
-| 完整数据表和分析 | 可提交完整 sweep、主表、构建表、负结果、适用边界；数字可由脚本重算 | `generate_paper_results.py`、`paper_results.csv`、多层报告 | 完成 |
-| 可复现性 | 记录 commit、命令、配置、数据 checksum、repeats、raw/aggregate 路径 | configs、18 份内部 manifest、source SHA-256 manifest、当前源码 24 点 search regression、三次 fresh rebuild 与稳健 L 审计、`MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md` | 完成；冻结 sidecar 上 Special Recall 最大漂移 0；跨重建 50% 推荐 L=550；raw `runs/` 按政策不提交 |
-| 审阅就绪 | 两轮结构审阅、一轮有限上下文交付审阅，阻塞问题处理或明确降级 | 第二轮结构审阅 clean；有限上下文交付审阅通过；实现与结果检查点 `7a2bf4635eac43d174100770838daf1b3a10fa58` | 完成 |
+- 开发数据集：Amazon x1，602,453 points、768 dimensions、482,387 groups。
+- 选择率：0.499249%、0.903055%、5.038117%、9.906615%、30.027242%、
+  60.047491%、80.023699%、95.019781%、99.000600%。
+- 查询：每档 1,000 queries，K=10，100 threads，exact containment GT。
+- crossing：所有 warm repeats 的 Recall@10 均不低于 0.90 的最小实测
+  Lsearch；不插值、不外推、不按延迟回选更大的 L。
+- performance：1 cold + 15 warm；profile：1 cold + 3 warm；screen 仅用于
+  确定 refinement 区间，不进入最终性能主表。
+- 公平比较固定 data/query/labels/GT/K/threads/binary/backend。自动 DRH 和
+  held-out manual grid 使用相同 require_upper_authorization gate。
 
-## 当前不能使用的证据
+## 目标与证据
 
-- `runs/multilevel_selection/` 的六档结果绑定 21,834-label hybrid 主图，只能作历史机制诊断。
-- `runs/quarantine/` 内所有并发污染、运行中换 binary、instrumentation bug 或 label mismatch 结果均不得进入论文表。
-- 固定 L 的耗时不能作为加速结论；主结果必须在共同 Recall 门槛下选择离散实测点。
-- Special Block 的 stage/overlay 时间与其完整 builder wall time必须分列，不能混称。
+| 显式要求 | 完成所需的权威证据 | 当前状态 |
+|---|---|---|
+| 任意多层统一结构 | hierarchy、base/per-layer topology、entry strategy、routing 四维独立；候选只扫描自身层边；无隐式晋级或 edge fallthrough | **实现完成**：experiment_core.py、uni_nav_graph_search_backend.cpp 及 C++/Python 回归测试 |
+| Trie vs LNG 公平消融 | Amazon 九档、六个零层 topology-entry 组合，以及固定 entry 下的逐层 topology 曲线；同一 immutable performance binary | **采集中**：44 methods x 9 workloads screen 正在串行运行 |
+| 0/1/2 层与参数消融 | 每档 plain、best one-layer、best two-layer、ungated DRH、gated DRH；同时给单一固定配置的九档 geomean | **脚本完成，结果待采集**：summarize_depth_ablation.py |
+| Recall-QPS 曲线 | screen 的全部离散实测点，缺失 case 必须失败；PDF/PNG 与输入 hash manifest | **脚本完成，结果待采集**：plot_authoritative_recall_qps.py |
+| 查询阶段 breakdown | entry-group、entry-point setup、完整 block authorization、graph search、residual，单位统一为 ms/query，并验证 closure | **采集链完成，正确口径待重跑**：旧 immutable binary 未把 exact gate 计入 authorization；源码已修复 |
+| 查询工作量 breakdown | visited points、base/special intra/special inter edges、entry/graph/total distance calculations，以及 layered-path activation rate | **采集链完成，结果待 profile**：summarize_selection_sweep.py |
+| 自动决定层数、阈值、topology | DRH 仅从 N、R、C 推导，无 query distribution、latency 或 Recall 校准；exact gate 只读当前 predicate 和持久化 root labels | **方法与协议完成**：derive_static_hierarchy.py、AUTOMATIC_HIERARCHY_PROTOCOL.md |
+| held-out 自动方案 vs 手工 oracle | Genome、Reviews、VariousImg；manual grid 在看结果前冻结；自动与 35 个 manual candidates 使用同一 gate；报告逐 workload 和单一配置 oracle gap | **配置/预检完成，查询待运行**：summarize_heldout_oracle.py |
+| GPU 建图 | kernel 与端到端 wall time 分开；1 cold + 至少 5 measured；CPU/GPU 交错；RSS/GPU memory/index bytes；下游 Recall 复验 | **runner 完成，权威 timing/resource/quality 待运行** |
+| 完整可展示报告 | 方法、baseline、数据集、Recall crossing、QPS/CI、适用区间、负结果、机制解释和限制均由当前证据生成 | **正文框架完成，数字待 validator** |
+| SIGMOD/VLDB LaTeX | 算法定义、正确性、复杂度、伪代码、实验方法、表图、讨论、限制、引用完整；无 pending；可编译 | **正文与原子结果接口完成；最终数字及编译验收待完成** |
 
-## 当前剩余收尾
+## 必须通过的最终门禁
 
-没有待补的论文主表实验或代码阻断项。当前源码以不同 binary 完成 24 点 search 回归，并以同一 builder 完成三次独立 rebuild；两者保持与冻结论文 evidence 分离。GPU approximate special edges 不保证 bitwise deterministic，故用跨重建 Recall 稳健点验收。原始 checkout 是用户脏工作树，因此未自动 merge/push；后续只需由用户先保存其现有改动，再选择 cherry-pick 或 merge 本隔离分支。
+1. validate_selection_sweep.py 分别通过 Amazon screen、crossing、formal、
+   instrumented profile，以及三个 held-out formal 和 build-quality formal。
+2. Amazon formal 的 equal_recall_conservative.csv、depth_by_workload.csv
+   和 depth_global.csv 与 config 的 method/workload/L/结构元数据完全一致。
+3. Instrumented profile 从 formal 的同一实测 L 派生，manifest 中所有 case 使用
+   新 binary；BlockAuthorizationTime_ms 包含 exact gate 与 coverage，stage
+   closure 不超过 1e-6 ms/query。
+4. Held-out 输出恰好覆盖配置声明的 Genome 2、Reviews 2、VariousImg 1 个
+   workload；允许并显式保留 automatic_no_crossing，不得删掉失败点。
+5. 四个 build manifest 全部完成；每个 timing profile 至少 5 个 measured
+   repeats；GPU case 有外部锁或至少三次连续 idle-preflight 证据。
+6. generate_authoritative_paper_results.py 成功运行并原子替换
+   generated_results.tex；生成文件记录所有输入/config/binary hash，且没有
+   pending。
+7. Python 实验测试、C++ tests、git diff --check 和 LaTeX 编译全部通过。
+
+## 当前不可使用的证据
+
+- runs/multilevel_selection/ 及旧六档 paper_results.csv 仅为历史结果。
+- Trie 空谓词修复前 binary 3ae4fe9a... 的所有数据均已 invalidated。
+- 当前 performance binary 4c99a51c... 的 Recall/QPS 可用于本轮主表，但其
+  profile authorization 子项口径不完整；该 profile 只能作诊断。
+- 任何固定 L 延迟、mean-Recall crossing、插值 crossing、缩短 query 数或减少
+  正式重复的结果均不能替代上述权威口径。
+- GPU kernel microbenchmark 不能替代 base-plus-hierarchy 端到端 build wall time。
+- 无锁机器上的 idle preflight 不能表述为独占 GPU 测量。
+
+## 当前执行状态
+
+- Amazon 44 x 9 screen：运行中，由既有 runner 和 watcher 串行推进。
+- Amazon crossing/formal/profile：等待 screen validator。
+- Held-out：配置与冻结 manual grid 已完成，等待 Amazon query gate。
+- Build：等待 query gate；continue_after_query.py 将 held-out 与 build 串联。
+- 完整 authorization profile：run_authoritative_instrumented_profile.py 已就绪，
+  会在所有实验进程退出后使用独立 build 目录执行。
+- 论文结果：generated_results.tex 保持 fail-closed placeholder；摘要、结论和
+  Results 由同一生成文件统一更新。
+
+## 完成判定
+
+当前目标**尚未完成**。代码、协议和论文正文骨架已具备，但 Amazon formal、
+held-out oracle、GPU build 和修复后 profile 的权威数据尚未全部生成并验证。
