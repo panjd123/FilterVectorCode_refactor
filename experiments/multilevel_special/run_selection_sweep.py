@@ -14,6 +14,7 @@ import csv
 import fcntl
 import hashlib
 import json
+import math
 import os
 import shlex
 import shutil
@@ -261,20 +262,45 @@ def result_is_complete(path: Path, expected_lsearch: list[int],
     if not summary.exists():
         return False
     with summary.open(newline="") as stream:
-        seen = {int(row["Lsearch"]) for row in csv.DictReader(stream)}
-    if seen != set(expected_lsearch):
+        summary_rows = list(csv.DictReader(stream))
+    seen = {int(row["Lsearch"]) for row in summary_rows}
+    if seen != set(expected_lsearch) or len(summary_rows) != len(expected_lsearch):
         return False
+
+    expected_grid = None
+    if expected_repeats is not None:
+        expected_grid = {
+            (repeat, lsearch)
+            for repeat in range(expected_repeats)
+            for lsearch in expected_lsearch
+        }
+
+    def has_expected_grid(rows: list[dict[str, str]]) -> bool:
+        if expected_grid is None:
+            return {int(row["Lsearch"]) for row in rows} == set(expected_lsearch)
+        try:
+            observed = [(int(row["Repeat"]), int(row["Lsearch"])) for row in rows]
+        except (KeyError, TypeError, ValueError):
+            return False
+        return len(observed) == len(expected_grid) and set(observed) == expected_grid
+
     details = path / "search_time_details.csv"
     if expected_repeats is not None:
         if not details.exists():
             return False
         with details.open(newline="") as stream:
             detail_rows = list(csv.DictReader(stream))
-        repeat_counts = {
-            value: sum(int(row["Lsearch"]) == value for row in detail_rows)
-            for value in expected_lsearch
-        }
-        if any(count != expected_repeats for count in repeat_counts.values()):
+        if not has_expected_grid(detail_rows):
+            return False
+        try:
+            if any(
+                    not math.isfinite(float(row["Time_ms"])) or
+                    float(row["Time_ms"]) <= 0 or
+                    not math.isfinite(float(row["Avg_Recall"])) or
+                    not 0.0 <= float(row["Avg_Recall"]) <= 1.0
+                    for row in detail_rows):
+                return False
+        except (KeyError, TypeError, ValueError):
             return False
     command_path = path / "command.txt"
     if expected_command is not None:
@@ -308,7 +334,17 @@ def result_is_complete(path: Path, expected_lsearch: list[int],
             "AverageGraphSearch_ms", "AverageResidual_ms", "ClosureError_ms",
         }
         if (stage_lsearch != set(expected_lsearch) or not stage_rows or
+                not has_expected_grid(stage_rows) or
                 not required_columns.issubset(stage_rows[0])):
+            return False
+        try:
+            for row in stage_rows:
+                values = [float(row[column]) for column in required_columns]
+                if not all(math.isfinite(value) for value in values):
+                    return False
+                if abs(float(row["ClosureError_ms"])) > 1e-6:
+                    return False
+        except (KeyError, TypeError, ValueError):
             return False
     if require_work_breakdown:
         work = path / "search_work_details.csv"
@@ -318,13 +354,43 @@ def result_is_complete(path: Path, expected_lsearch: list[int],
             work_rows = list(csv.DictReader(stream))
         work_lsearch = {int(row["Lsearch"]) for row in work_rows}
         required_columns = {
-            "AverageNodesVisited", "AverageRegularEdgesScanned",
-            "AverageSpecialEdgesScanned", "AverageTotalEdgesScanned",
+            "AverageNodesVisited", "AverageRegularNodesExpanded",
+            "AverageSpecialNodesExpanded", "AverageRegularEdgesScanned",
+            "AverageSpecialEdgesScanned", "AverageSpecialIntraEdgesScanned",
+            "AverageSpecialInterEdgesScanned", "AverageTotalEdgesScanned",
             "AverageTotalDistanceCalcs", "AverageEntryPointDistanceCalcs",
-            "AverageGraphSearchDistanceCalcs",
+            "AverageGraphSearchDistanceCalcs", "AverageNumEntries",
+            "AverageEntryGroupMatchedPoints",
         }
         if (work_lsearch != set(expected_lsearch) or not work_rows or
+                not has_expected_grid(work_rows) or
                 not required_columns.issubset(work_rows[0])):
+            return False
+        try:
+            for row in work_rows:
+                values = {column: float(row[column]) for column in required_columns}
+
+                def sum_matches(total: str, *parts: str) -> bool:
+                    return math.isclose(
+                        values[total], sum(values[part] for part in parts),
+                        rel_tol=2e-5, abs_tol=0.05)
+
+                if (not all(math.isfinite(value) and value >= 0
+                            for value in values.values()) or
+                        not sum_matches(
+                            "AverageSpecialEdgesScanned",
+                            "AverageSpecialIntraEdgesScanned",
+                            "AverageSpecialInterEdgesScanned") or
+                        not sum_matches(
+                            "AverageTotalEdgesScanned",
+                            "AverageRegularEdgesScanned",
+                            "AverageSpecialEdgesScanned") or
+                        not sum_matches(
+                            "AverageTotalDistanceCalcs",
+                            "AverageEntryPointDistanceCalcs",
+                            "AverageGraphSearchDistanceCalcs")):
+                    return False
+        except (KeyError, TypeError, ValueError):
             return False
     return True
 
@@ -572,13 +638,21 @@ def main() -> int:
             run_record["elapsed_source"] = "monotonic_child_wall"
             run_record["returncode"] = completed.returncode
             run_record["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-            run_record["status"] = "complete" if completed.returncode == 0 else "failed"
-            update_manifest(manifest_path, run_record)
             if completed.returncode != 0:
+                run_record["status"] = "failed"
+                update_manifest(manifest_path, run_record)
                 raise RuntimeError(f"search failed for {method['name']}/{workload['name']}; see {run_dir / 'search.log'}")
             if not result_is_complete(
-                    run_dir, values, require_stage_breakdown, require_work_breakdown):
+                    run_dir, values, require_stage_breakdown, require_work_breakdown,
+                    expected_repeats=int(config["num_repeats"]),
+                    expected_command=expected_command,
+                    expected_environment=effective_env,
+                    expected_binary_sha256=search_binary_sha256):
+                run_record["status"] = "incomplete"
+                update_manifest(manifest_path, run_record)
                 raise RuntimeError(f"incomplete summary for {method['name']}/{workload['name']}")
+            run_record["status"] = "complete"
+            update_manifest(manifest_path, run_record)
     run_lock.close()
     return 0
 

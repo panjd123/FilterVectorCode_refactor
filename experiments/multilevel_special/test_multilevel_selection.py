@@ -609,6 +609,56 @@ class SelectionSweepTest(unittest.TestCase):
                 root, [100], expected_repeats=2, expected_command=command,
                 expected_environment={"UNG_DISABLE_ELS_REUSE": "0"},
                 expected_binary_sha256=digest))
+
+    def test_complete_breakdown_requires_exact_repeat_grid_and_identities(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "search_time_summary.csv").write_text(
+                "Lsearch,Average_Time_ms,Average_Recall\n100,1,.9\n")
+            (root / "search_time_details.csv").write_text(
+                "Repeat,Lsearch,Time_ms,Avg_Recall\n"
+                "0,100,1,.9\n1,100,1.1,.91\n")
+            stage_header = (
+                "Repeat,Lsearch,AverageQueryTotal_ms,AverageELS_ms,"
+                "AverageEntryPointSetup_ms,AverageBlockAuthorization_ms,"
+                "AverageGraphSearch_ms,AverageResidual_ms,ClosureError_ms\n")
+            (root / "search_stage_details.csv").write_text(
+                stage_header +
+                "0,100,1,.1,.1,.1,.6,.1,0\n"
+                "1,100,1.1,.1,.1,.1,.7,.1,0\n")
+            work_header = (
+                "Repeat,Lsearch,AverageNodesVisited,AverageRegularNodesExpanded,"
+                "AverageSpecialNodesExpanded,AverageRegularEdgesScanned,"
+                "AverageSpecialEdgesScanned,AverageSpecialIntraEdgesScanned,"
+                "AverageSpecialInterEdgesScanned,AverageTotalEdgesScanned,"
+                "AverageTotalDistanceCalcs,AverageEntryPointDistanceCalcs,"
+                "AverageGraphSearchDistanceCalcs,AverageNumEntries,"
+                "AverageEntryGroupMatchedPoints\n")
+            work_rows = (
+                "0,100,10,5,5,20,30,18,12,50,25,5,20,3,40\n"
+                "1,100,11,6,5,21,31,19,12,52,27,6,21,4,41\n")
+            (root / "search_work_details.csv").write_text(
+                work_header + work_rows)
+            self.assertTrue(run_selection_sweep.result_is_complete(
+                root, [100], require_stage_breakdown=True,
+                require_work_breakdown=True, expected_repeats=2))
+
+            (root / "search_stage_details.csv").write_text(
+                stage_header + "0,100,1,.1,.1,.1,.6,.1,0\n")
+            self.assertFalse(run_selection_sweep.result_is_complete(
+                root, [100], require_stage_breakdown=True,
+                require_work_breakdown=True, expected_repeats=2))
+
+            (root / "search_stage_details.csv").write_text(
+                stage_header +
+                "0,100,1,.1,.1,.1,.6,.1,0\n"
+                "1,100,1.1,.1,.1,.1,.7,.1,0\n")
+            (root / "search_work_details.csv").write_text(
+                work_header + work_rows.replace(",27,6,21,", ",28,6,21,"))
+            self.assertFalse(run_selection_sweep.result_is_complete(
+                root, [100], require_stage_breakdown=True,
+                require_work_breakdown=True, expected_repeats=2))
+
     def test_summarizer_reads_warm_stage_medians(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
