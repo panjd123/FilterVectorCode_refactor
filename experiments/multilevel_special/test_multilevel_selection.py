@@ -136,6 +136,70 @@ class SelectionSweepTest(unittest.TestCase):
                 "--K": ["10"],
             })
 
+    def test_validator_binds_full_command_environment_and_snapshot(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            output = root / "out"
+            snapshot_dir = output / ".binary_snapshots"
+            snapshot_dir.mkdir(parents=True)
+            seed = root / "search"
+            seed.write_bytes(b"immutable-binary")
+            digest = run_selection_sweep.sha256_file(seed)
+            snapshot = snapshot_dir / f"search_UNG_index.{digest}"
+            snapshot.write_bytes(seed.read_bytes())
+            run_dir = output / "performance" / "plain" / "workload"
+            run_dir.mkdir(parents=True)
+            config = {
+                "output_root": str(output), "pass_subdirs": True,
+                "measurement_pass": "performance", "search_app": str(seed),
+                "data_root": str(root / "data"), "gt_root": str(root / "gt"),
+                "main_index": str(root / "index"), "dataset": "Amazon",
+                "num_threads": 4, "K": 10, "num_repeats": 2,
+                "num_entry_points": 16, "lsearch_values": [100],
+                "require_stage_breakdown": False,
+                "require_work_breakdown": False,
+                "env": {"UNG_DISABLE_ELS_REUSE": "1"},
+            }
+            method = {
+                "name": "plain", "base_topology": "lng",
+                "entry_strategy": "optimized_lng", "hierarchy_layers": [],
+                "special_block_search": False,
+            }
+            workload = {"name": "workload", "query_dir": "query"}
+            executed_config = {**config, "search_app": str(snapshot)}
+            command = run_selection_sweep.build_command(
+                executed_config, method, workload, run_dir)
+            environment = run_selection_sweep.clean_method_env(
+                os.environ, executed_config, method)
+            (run_dir / "command.txt").write_text(shlex.join(command) + "\n")
+            (run_dir / "environment.json").write_text(json.dumps({
+                key: value for key, value in environment.items()
+                if key.startswith("UNG_")
+            }))
+            (run_dir / "search_time_summary.csv").write_text(
+                "Lsearch,Average_Time_ms,Average_Recall\n100,1,.9\n")
+            (run_dir / "search_time_details.csv").write_text(
+                "Repeat,Lsearch,Time_ms,Avg_Recall\n"
+                "0,100,1,.9\n1,100,1,.9\n")
+            contract = validate_selection_sweep.expected_execution_contract(
+                config, method, workload, run_dir)
+            self.assertIsNotNone(contract)
+            self.assertEqual(contract[2], digest)
+            self.assertTrue(validate_selection_sweep.result_execution_is_complete(
+                config, method, workload, run_dir, contract))
+
+            changed = command.copy()
+            changed[changed.index("--query_bin_file") + 1] = "/wrong/query.bin"
+            (run_dir / "command.txt").write_text(shlex.join(changed) + "\n")
+            self.assertFalse(
+                validate_selection_sweep.result_execution_is_complete(
+                    config, method, workload, run_dir))
+
+            (run_dir / "command.txt").write_text(shlex.join(command) + "\n")
+            snapshot.write_bytes(b"mutated-binary")
+            self.assertIsNone(validate_selection_sweep.expected_execution_contract(
+                config, method, workload, run_dir))
+
     def test_method_can_limit_formal_rerun_to_selected_workloads(self):
         method = {"enabled_workloads": ["a", "c"]}
         self.assertTrue(run_selection_sweep.method_enabled_for_workload(

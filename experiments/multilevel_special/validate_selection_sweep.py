@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import shlex
 import statistics
 from pathlib import Path
@@ -55,6 +56,65 @@ def result_evidence_is_complete(
     )
 
 
+def expected_execution_contract(
+    config: dict, method: dict, workload: dict, run_dir: Path,
+) -> tuple[list[str], dict[str, str], str] | None:
+    """Reconstruct the exact command/environment around an immutable snapshot."""
+    command_path = run_dir / "command.txt"
+    environment_path = run_dir / "environment.json"
+    if not command_path.is_file() or not environment_path.is_file():
+        return None
+    try:
+        executed = shlex.split(command_path.read_text())
+        if not executed:
+            return None
+        binary = Path(executed[0]).resolve()
+        snapshot_dir = (Path(config["output_root"]) / ".binary_snapshots").resolve()
+        if not binary.is_file() or binary.parent != snapshot_dir:
+            return None
+        digest = run_selection_sweep.sha256_file(binary)
+        if binary.name != f"search_UNG_index.{digest}":
+            return None
+        pinned = config.get("expected_search_binary_sha256")
+        if pinned is not None and digest != pinned:
+            return None
+        expected_config = {**config, "search_app": str(binary)}
+        expected_command = run_selection_sweep.build_command(
+            expected_config, method, workload, run_dir)
+        expected_environment = run_selection_sweep.clean_method_env(
+            os.environ, expected_config, method)
+    except (KeyError, OSError, TypeError, ValueError):
+        return None
+    return expected_command, expected_environment, digest
+
+
+def result_execution_is_complete(
+    config: dict, method: dict, workload: dict, run_dir: Path,
+    contract: tuple[list[str], dict[str, str], str] | None = None,
+) -> bool:
+    """Bind complete result evidence to the exact executed binary and inputs."""
+    contract = contract or expected_execution_contract(
+        config, method, workload, run_dir)
+    if contract is None:
+        return False
+    expected_command, expected_environment, binary_sha256 = contract
+    pass_name = str(config.get("measurement_pass", "performance"))
+    num_queries = workload.get(
+        "num_queries", config.get("expected_num_queries"))
+    return run_selection_sweep.result_is_complete(
+        run_dir,
+        run_selection_sweep.lsearch_values_for(config, method, workload),
+        require_stage_breakdown=bool(config.get("require_stage_breakdown", False)),
+        require_work_breakdown=bool(
+            config.get("require_work_breakdown", False) or pass_name == "profile"),
+        expected_repeats=int(config["num_repeats"]),
+        expected_command=expected_command,
+        expected_environment=expected_environment,
+        expected_binary_sha256=binary_sha256,
+        expected_num_queries=(int(num_queries) if num_queries is not None else None),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
@@ -67,6 +127,7 @@ def main() -> int:
         root /= pass_name
     expected_repeats = int(config["num_repeats"])
     problems: list[str] = []
+    executed_binary_hashes: dict[tuple[str, str], str] = {}
     expected_case_keys = {
         (method["name"], workload["name"])
         for method in config["methods"] for workload in config["workloads"]
@@ -93,6 +154,17 @@ def main() -> int:
             if not command_path.is_file() or not environment_path.is_file():
                 problems.append(f"{name}: missing executed command or environment")
                 continue
+            contract = expected_execution_contract(
+                config, method, workload, run_dir)
+            if contract is None:
+                problems.append(
+                    f"{name}: invalid content-addressed executable contract")
+            else:
+                executed_binary_hashes[(method["name"], workload["name"])] = contract[2]
+                if not result_execution_is_complete(
+                        config, method, workload, run_dir, contract):
+                    problems.append(
+                        f"{name}: command, environment, or executable mismatch")
             options = command_options(command_path)
             expected_options = {
                 "--num_threads": [str(int(config["num_threads"]))],
@@ -267,6 +339,10 @@ def main() -> int:
             actual_manifest_l = sorted(int(value) for value in row.get("lsearch_values", []))
             if actual_manifest_l != expected_manifest_l:
                 problems.append(f"{key}: manifest L grid mismatch")
+            executed_binary_hash = executed_binary_hashes.get(key)
+            if (executed_binary_hash is not None and
+                    row.get("search_binary_sha256") != executed_binary_hash):
+                problems.append(f"{key}: manifest/executable binary hash mismatch")
             provenance = row.get("provenance", {})
             if provenance.get("base_labels_sha256") != config.get("expected_base_labels_sha256"):
                 problems.append(f"{key}: base labels hash mismatch")
