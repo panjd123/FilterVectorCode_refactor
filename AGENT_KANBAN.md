@@ -129,6 +129,11 @@
   conservative crossing、profile L、分层路径启用率与重复数，并只在全部通过后
   原子替换 `generated_results.tex`。合成 fixture 的 7 个回归测试已通过；历史六档
   `generate_paper_results.py` 保持不变。
+- `run_authoritative_instrumented_profile.py` 已把 M13 的重测路径固化：等待所有
+  query/build 进程退出后，在独立 `build_ung_profile_instrumented` 中构建，不改动
+  performance/held-out 使用的 immutable binary；profile config 从已验证 formal
+  crossing 派生，最终强制核对 manifest binary SHA256。4 项 fixture 测试及当前
+  活跃实验拒绝启动检查均通过。
 
 ## 下一步
 

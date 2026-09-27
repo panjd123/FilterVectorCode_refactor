@@ -235,7 +235,7 @@ alignment and required stage/work counters; and only then atomically replaces
 ```bash
 python3 generate_authoritative_paper_results.py \
   --amazon-formal-config config.authoritative_amazon_formal_emptyfix.json \
-  --amazon-profile-config config.authoritative_amazon_profile_emptyfix.json \
+  --amazon-profile-config config.authoritative_amazon_profile_instrumented.json \
   --heldout-formal-config config.authoritative_heldout_genome_formal.json \
   --heldout-formal-config config.authoritative_heldout_reviews_formal.json \
   --heldout-formal-config config.authoritative_heldout_variousimg_formal.json \
@@ -247,7 +247,7 @@ python3 generate_authoritative_paper_results.py \
   --amazon-formal ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/equal_recall_conservative.csv \
   --amazon-depth ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/depth_ablation/depth_by_workload.csv \
   --amazon-depth-global ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/depth_ablation/depth_global.csv \
-  --amazon-profile ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_profile/summary/profile/equal_recall_conservative.csv \
+  --amazon-profile ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_profile_instrumented/summary/profile/equal_recall_conservative.csv \
   --heldout-workload results_summary/heldout_oracle/heldout_oracle_by_workload.csv \
   --heldout-global results_summary/heldout_oracle/heldout_oracle_global.csv \
   --build-summary results_summary/authoritative_build/build_summary.csv \
@@ -258,6 +258,23 @@ There is no partial-output flag. Missing inputs, incomplete manifests, a failed
 validator, fewer than the declared formal/build repeats, mismatched profile
 operating points, missing activation/work counters, or an incomplete held-out
 matrix leave the existing LaTeX file unchanged.
+
+The immutable performance binary predates the correction that charges exact
+upper authorization to `BlockAuthorizationTime_ms`. After every performance,
+held-out, and build process has exited, rerun only the profile pass with a
+separately built binary:
+
+```bash
+python3 run_authoritative_instrumented_profile.py
+```
+
+The runner refuses to start while another query or build process is active,
+requires committed query sources containing `7f723b6`, configures
+`build_ung_profile_instrumented` without changing `build_ung_rel`, derives the
+profile from the validated formal operating points, and verifies the resulting
+manifest against the new executable's SHA256. A different profile binary is
+allowed because profile timing is explanatory and never contributes to QPS;
+the generated paper records both hashes.
 
 ## UNG versus plain provider study
 

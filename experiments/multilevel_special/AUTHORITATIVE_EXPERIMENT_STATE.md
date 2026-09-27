@@ -129,7 +129,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M10 | reporting | RESOLVED | 通用 Markdown 只展示 Recall/QPS，用户要求的阶段和工作量证据需另行解析 CSV | 每个 conservative crossing 现自动报告五段 timing、visited points、base/special edges、entry/graph/total distance calculations 和 entry 数；profile pass 使用同一格式 |
 | M11 | provenance | RESOLVED | profile 的 measurement pass 曾被记为 formal protocol phase，证据语义含混 | 新增显式 `profile` phase，并强制 measurement pass 与 protocol phase 成对；118/118 Python tests 通过 |
 | M12 | measurement | RESOLVED | GPU build 无外部锁时只有一次手工空闲检查，不足以支撑权威 timing | runner 优先在 `gpulock perf` 下重执行；当前主机无 `gpulock` 时，每个 GPU case 强制三次连续空闲预检并在 manifest 明示 no-lock 限制，缺证据的 artifact 校验失败 |
-| M13 | measurement | ACTIVE | 当前 immutable query snapshot 在 exact upper-authorization gate 之前开始总计时，但没有把 gate 本身计入 `BlockAuthorizationTime_ms`；该时间落入 residual，主 QPS/Recall 不受影响 | 源码已把 gate 与后续 coverage 时间累加为完整 authorization stage；为保持 screen/crossing/formal binary 一致，当前 campaign 不重编译，结束后用新 binary 独立重跑 profile 并明确 hash |
+| M13 | measurement | ACTIVE | 当前 immutable query snapshot 在 exact upper-authorization gate 之前开始总计时，但没有把 gate 本身计入 `BlockAuthorizationTime_ms`；该时间落入 residual，主 QPS/Recall 不受影响 | 源码已把 gate 与后续 coverage 时间累加为完整 authorization stage；`run_authoritative_instrumented_profile.py` 已实现独立 build、活跃进程拒绝、formal-L 复用及 manifest hash 校验，待当前 query/build 流水线退出后执行 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | UNKNOWN | Trie 与 LNG topology 的优劣由标签包含结构而非选择率单独决定 | 固定其他维度，比较 topology 与 crossed entry combinations |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 36-case 人工网格 oracle 比较 |
