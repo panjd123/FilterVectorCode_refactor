@@ -292,9 +292,12 @@ $L_{search}$.
 \Require Query $(q,Q)$, entry provider $e$, hierarchy $H$, budget $L_s$,
 optional mass threshold $T_{\mathrm{gate}}$
 \State $B_Q\gets\{b\in H:Q\subseteq R_b\}$
+\If{$B_Q$ has no upper block}
+  \State \Return \Call{BaseSearch}{$q,Q,e,L_s$}
+\EndIf
 \State $h\gets\max\{\mathrm{level}(b):b\in B_Q,\ \mathrm{level}(b)>0\}$
 \State $M_h\gets\sum_{b\in B_Q:\mathrm{level}(b)=h}|P_b|$
-\If{$h$ is undefined or $M_h<T_{\mathrm{gate}}$}
+\If{$M_h<T_{\mathrm{gate}}$}
   \State \Return \Call{BaseSearch}{$q,Q,e,L_s$}
 \EndIf
 \State initialize a capacity-$L_s$ queue with block and entry-group seeds
