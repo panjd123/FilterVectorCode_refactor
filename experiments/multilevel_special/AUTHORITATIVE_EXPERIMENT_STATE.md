@@ -3,7 +3,7 @@
 本文档用于维护 `fcb74ad` 之后的实验协议、问题状态、假设和证据。只有本轮固定
 binary、固定数据 provenance、完整 manifest 产生的结果可以进入最终主表。
 
-## 2026-09-27 18:12 State Sync
+## 2026-09-27 20:33 State Sync
 
 1. 当前事实：旧 396-case Amazon campaign 已停止，保留 88 个完成 case；新的
    deadline-bounded 协议使用 6 点 `Lsearch`、1 cold + 2 warm 和 3300 秒 case
@@ -22,6 +22,11 @@ binary、固定数据 provenance、完整 manifest 产生的结果可以进入�
 6. 新 measurement issue M28：performance pass 默认启用 light stats，layered 路径
    的逐类 edge counters 因此保持 0；这不是“扫描零条边”。deadline 汇总器将这些
    值改报 NA 并显式标记 counter mode，最终边数只引用独立 detailed profile。
+7. DRH-v2 静态 route-mass 审计已按 C++ `Storage::load_from_file` 的逐行逗号标签
+   语义和 `std::includes` 的重复元素语义实现，并用 workload coverage profile
+   对 Amazon 九档共 9,000 条查询逐条验证 `authorized direct mass <= eligible
+   mass`，未发现违规。5% workload 的 582,582 点不是解析异常，而来自 43 条被
+   确定性替换为标签 `{1}` 的高覆盖查询。
 
 ## 当前状态
 
@@ -91,7 +96,9 @@ sidecar edges。更粗 comparator 在 10% 更接近 plain，在 80%/95% 则低�
 
 `SpecialBlockSearchUsed` 给出的 DRH gate 启用率依次为
 0%/0%/4.3%/35.7%/32.5%/61.8%/82.5%/98.3%/100%；mass-ladder 对应为
-0%/0%/4.3%/0%/29.6%/61.4%/82.2%/98.2%/99.3%。该非单调性来自谓词与
+0%/0%/4.3%/0%/29.6%/61.4%/82.2%/98.2%/100%。后者是由持久化 block
+metadata 和冻结 query labels 静态计算并经 coverage profile 验证的 DRH-v2
+预测进入率；实际性能 campaign 尚未完成。该非单调性来自谓词与
 block-root label 的精确包含关系，而非用平均选择率阈值路由。0.5% 和 1% 完全
 回退 base path；screen 中剩余 QPS 差异主要伴随 entry-group 时间波动，须由
 正式重复判断，不能归因于层级搜索。
@@ -216,7 +223,7 @@ measurement 前提交；四个数据集的阈值分别为 262144、65536、13107
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，但 exact gate 只保证无合法 upper 时回到 base，不保证所有中低选择率无损 | held-out priority screen 在 Genome/Reviews 四点为 0.954--1.014x，VariousImg 10.252% 为 0.205x 且由 graph-search 放大解释；待同 gate 的 5 个 deadline manual alternatives 量化自动方案 regret。四个数据集都导出两层，本轮不宣称实证了自动深度变化 |
-| H4 | hypothesis | ACTIVE | 下一尺度 direct-mass gate 可在不做 query/performance 校准的前提下拒绝规模不足的 upper route，恢复中低选择率接近 plain 的路径，同时保留高选择率可用 overlay | 协议已冻结；待同 binary plain/DRH-v1/DRH-v2 在 Amazon 九档及三个 held-out 数据集上的 screen。无论正负均保留，且不宣称单调加速定理 |
+| H4 | hypothesis | ACTIVE | 下一尺度 direct-mass gate 可在不做 query/performance 校准的前提下拒绝规模不足的 upper route，恢复中低选择率接近 plain 的路径，同时保留高选择率可用 overlay | Amazon 静态审计预测 0.5/1/10% 全回退，5% 仅 4.3% 查询进入，30/60/80/95/99% 进入率为 29.6/61.4/82.2/98.2/100%；9,000 条查询均通过 direct-mass 安全检查。待同 binary plain/DRH-v1/DRH-v2 性能 screen；无论正负均保留，且不宣称单调加速定理 |
 
 ## 实验阶段
 

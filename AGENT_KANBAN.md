@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-27 20:00 Asia/Shanghai`
+最后更新：`2026-09-27 20:33 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`ad90bf3`（push：`不执行，origin 指向用户工作树`）
+检查点：`48d6487`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -55,6 +55,10 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
   direct-point mass，并以 DRH 的下一未物化尺度 `T_next=rho*T_L` 为 gate；不足时
   在进入 multilevel backend 前真正回退 base。源码、C++ 边界测试、独立同 binary
   运行器和汇总器已提交，协议见 `DRH_V2_PROTOCOL.md`。
+- DRH-v2 静态审计器已提交 — `48d6487`：query parser 与 C++ Storage 语义一致，
+  metadata magic/层级/direct mass 均从二进制读取；Amazon 九档 9,000 条查询逐条
+  对照 coverage profile，`direct_mass <= eligible_mass` 全部成立。静态预测 gate
+  进入率为 `0/0/4.3/0/29.6/61.4/82.2/98.2/100%`，性能效果仍等待同 binary 实测。
 - 查询/build runner 已记录 binary hash、命令、环境、manifest、超时和断点恢复；
   汇总器使用 conservative crossing 并分离 performance/profile pass。
 - 权威生成器已能输出 Recall/QPS、五段 timing、visited points、base/special
