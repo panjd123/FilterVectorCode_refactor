@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "deadline": "2026-09-28T08:00:00+08:00",
+  "query_calibrated": false,
+  "selection_rule": "DRH plus five predeclared structural alternatives: one-layer T1 LNG, same-threshold LL and TT, and nearest lower/higher LT scales.",
+  "query_protocol": {
+    "lsearch_values": [
+      40,
+      100,
+      500,
+      2500,
+      10000,
+      40000
+    ],
+    "cold_repeats": 1,
+    "warm_repeats": 2,
+    "recall_crossing": "minimum measured L with every warm repeat >= target"
+  },
+  "datasets": [
+    {
+      "dataset": "Genome",
+      "build_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_heldout_genome_build.json",
+      "search_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_heldout_genome_search.json",
+      "workloads": [
+        "query_minlen5_cov0.1k",
+        "query_minlen2_cov1k"
+      ],
+      "baseline_method": "l0_lng_entry_optimized_lng",
+      "automatic_method": "l2_t256_4096_lt_entry_optimized_lng_upper_routed",
+      "manual_methods": [
+        "l1_t256_l_entry_optimized_lng_upper_routed",
+        "l2_t256_4096_ll_entry_optimized_lng_upper_routed",
+        "l2_t256_4096_tt_entry_optimized_lng_upper_routed",
+        "l2_t128_2048_lt_entry_optimized_lng_upper_routed",
+        "l2_t512_8192_lt_entry_optimized_lng_upper_routed"
+      ],
+      "hierarchy_cases": [
+        "l1_t256_l",
+        "l2_t128_2048_lt",
+        "l2_t256_4096_ll",
+        "l2_t256_4096_lt",
+        "l2_t256_4096_tt",
+        "l2_t512_8192_lt"
+      ]
+    },
+    {
+      "dataset": "Reviews",
+      "build_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_heldout_reviews_build.json",
+      "search_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_heldout_reviews_search.json",
+      "workloads": [
+        "query_minlen5_cov0.1k",
+        "query_minlen2_cov1k"
+      ],
+      "baseline_method": "l0_lng_entry_optimized_lng",
+      "automatic_method": "l2_t512_8192_lt_entry_optimized_lng_upper_routed",
+      "manual_methods": [
+        "l1_t512_l_entry_optimized_lng_upper_routed",
+        "l2_t512_8192_ll_entry_optimized_lng_upper_routed",
+        "l2_t512_8192_tt_entry_optimized_lng_upper_routed",
+        "l2_t256_4096_lt_entry_optimized_lng_upper_routed",
+        "l2_t1024_16384_lt_entry_optimized_lng_upper_routed"
+      ],
+      "hierarchy_cases": [
+        "l1_t512_l",
+        "l2_t256_4096_lt",
+        "l2_t512_8192_ll",
+        "l2_t512_8192_lt",
+        "l2_t512_8192_tt",
+        "l2_t1024_16384_lt"
+      ]
+    },
+    {
+      "dataset": "VariousImg",
+      "build_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_heldout_variousimg_build.json",
+      "search_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_heldout_variousimg_search.json",
+      "workloads": [
+        "query_minlen2_cov5k"
+      ],
+      "baseline_method": "l0_lng_entry_optimized_lng",
+      "automatic_method": "l2_t1024_16384_lt_entry_optimized_lng_upper_routed",
+      "manual_methods": [
+        "l1_t1024_l_entry_optimized_lng_upper_routed",
+        "l2_t1024_16384_ll_entry_optimized_lng_upper_routed",
+        "l2_t1024_16384_tt_entry_optimized_lng_upper_routed",
+        "l2_t512_8192_lt_entry_optimized_lng_upper_routed",
+        "l2_t2048_32768_lt_entry_optimized_lng_upper_routed"
+      ],
+      "hierarchy_cases": [
+        "l1_t1024_l",
+        "l2_t512_8192_lt",
+        "l2_t1024_16384_ll",
+        "l2_t1024_16384_lt",
+        "l2_t1024_16384_tt",
+        "l2_t2048_32768_lt"
+      ]
+    }
+  ]
+}
