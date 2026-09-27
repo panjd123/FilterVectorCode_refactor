@@ -74,6 +74,10 @@
   会在所有实验进程退出后使用独立 build 目录执行。
 - 论文结果：generated_results.tex 保持 fail-closed placeholder；摘要、结论和
   Results 由同一生成文件统一更新。
+- 最终 provenance：finalization manifest v2 会逐项核对并记录结果 CSV、配置、
+  冻结 policy、validator、query/build manifest、论文源文件、Tectonic、编译日志、
+  generated_results.tex 与 PDF 的 SHA-256；输入在编译期间变化或日志含 fatal、
+  undefined citation/reference、BibTeX warning 时拒绝发布。
 - 论文编译：2026-09-27 使用 Tectonic 0.15.0 musl 对当前 placeholder 骨架执行
   `tectonic main.tex --keep-logs --keep-intermediates` 成功并生成 PDF；这仅证明
   LaTeX 工程可编译，不替代最终 `generated_results.tex` 生成后的再次验收。

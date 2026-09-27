@@ -294,7 +294,13 @@ held-out and build summaries and for every query/build process to exit. It then
 runs the isolated instrumented profile, invokes the fail-closed paper generator,
 compiles the paper with Tectonic, checks `git diff --check`, and writes
 `runs/authoritative_multilevel_20260926_emptyfix/finalization_manifest.json`
-with hashes of the generated result source and PDF:
+using schema version 2. Before publishing, it requires every result CSV,
+configuration, frozen policy, validator, and query/build run manifest hash in
+`generated_results.tex` to match the current files. It rechecks those inputs
+after compilation, rejects missing logs, fatal TeX diagnostics, undefined
+citations/references, and BibTeX warnings, and records hashes for the complete
+evidence input set, paper sources, Tectonic executable, compiler logs,
+generated result source, and PDF:
 
 ```bash
 nohup python3 -u continue_after_build.py \
