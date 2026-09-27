@@ -140,6 +140,13 @@ auditable source. The same validated inputs atomically replace
 current exact-level report, while older result reports remain explicitly
 historical.
 
+The generated LaTeX and Chinese report also contain per-selectivity
+conservative-crossing tables for all four two-layer topology assignments
+(`LNG/LNG`, `LNG/Trie`, `Trie/LNG`, and `Trie/Trie`) at fixed thresholds, and
+for all three entry strategies on the fixed DRH hierarchy. Each cell reports
+the measured `Lsearch/QPS`; configurations without a measured crossing are
+shown as `NC` rather than omitted.
+
 After the formal pass, generate the requested plain versus best one-layer
 versus best two-layer table with conservative crossings and bootstrap
 intervals:
@@ -254,6 +261,7 @@ SHA256 for every held-out policy.
 
 ```bash
 python3 generate_authoritative_paper_results.py \
+  --amazon-screen-config config.authoritative_amazon_screen_emptyfix.json \
   --amazon-formal-config config.authoritative_amazon_formal_emptyfix.json \
   --amazon-profile-config config.authoritative_amazon_profile_instrumented.json \
   --heldout-formal-config config.authoritative_heldout_genome_formal.json \
@@ -267,6 +275,8 @@ python3 generate_authoritative_paper_results.py \
   --build-config config.authoritative_amazon_base_build_resource.json \
   --build-config config.authoritative_amazon_hierarchy_build_timing.json \
   --build-config config.authoritative_amazon_hierarchy_build_resource.json \
+  --amazon-screen-points ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv \
+  --amazon-figures-dir ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/figures \
   --amazon-formal ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/equal_recall_conservative.csv \
   --amazon-depth ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/depth_ablation/depth_by_workload.csv \
   --amazon-depth-global ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/depth_ablation/depth_global.csv \
@@ -274,7 +284,8 @@ python3 generate_authoritative_paper_results.py \
   --heldout-workload results_summary/heldout_oracle/heldout_oracle_by_workload.csv \
   --heldout-global results_summary/heldout_oracle/heldout_oracle_global.csv \
   --build-summary results_summary/authoritative_build/build_summary.csv \
-  --build-end-to-end results_summary/authoritative_build/build_end_to_end.csv
+  --build-end-to-end results_summary/authoritative_build/build_end_to_end.csv \
+  --build-quality-formal ../../runs/authoritative_multilevel_20260926_emptyfix/build_study/quality_formal/summary/performance/equal_recall_conservative.csv
 ```
 
 There is no partial-output flag. Missing inputs, incomplete manifests, a failed
