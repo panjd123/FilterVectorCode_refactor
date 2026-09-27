@@ -1,6 +1,6 @@
 # Agent 看板
 
-最后更新：`2026-09-27 18:28 Asia/Shanghai`
+最后更新：`2026-09-27 18:36 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
 检查点：`ed22c63`（push：`不执行，origin 指向用户工作树`）
 
@@ -55,6 +55,9 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
   size-routed intra，并新增两项回归测试。新 root 的 Reviews/VariousImg automatic
   build 分别用 120.44/633.16 秒完成；metadata 与日志均证明 GPU intra blocks 和
   inter use 为 0。
+- deadline 专用汇总器已实现：原子输出全方法 conservative crossing、DRH/plain、
+  DRH/5-manual、单一 global manual、阶段耗时、点/边/距离计算、CPU sidecar 构建
+  和完整性 manifest；partial 模式会逐 case 明示缺失，严格模式拒绝不完整网格。
 
 ## 下一步
 
@@ -72,7 +75,7 @@ breakdown 和 GPU build 数据并生成报告/论文。
 
 ## 验证
 
-- `190/190` Python tests — `通过`：deadline 修复前基线。
+- `196/196` Python tests — `通过`：含 CPU route 和 deadline 汇总器回归。
 - 当前 deadline Reviews/VariousImg build — `失败且已解释`：环境虽有
   `GPU_INTRA=0`，但日志记录 `gpu_intra_blocks=19/20`，来自独立 size route。
 - 新 CPU route 修复 — `通过`：18/18 case 静态为 `cpu/0/0/0`；两项单元测试及
