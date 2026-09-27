@@ -640,6 +640,10 @@ class OrthogonalExperimentTest(unittest.TestCase):
             config["output_root"] = temporary
             config["pass_subdirs"] = False
             config["minimum_successful_child_seconds"] = 43200
+            config["protocol"]["phase"] = "crossing"
+            config["selection_provenance"] = {
+                "shared_max_lsearch_by_workload": {"sel_1": 10},
+            }
             run_dir = Path(temporary) / "mixed_three" / "sel_1"
             run_dir.mkdir(parents=True)
             (run_dir / "search_time_details.csv").write_text(
@@ -657,6 +661,10 @@ class OrthogonalExperimentTest(unittest.TestCase):
             self.assertEqual(len(excluded), 1)
             self.assertEqual(excluded[0]["max_measured_lsearch"], 10)
             self.assertEqual(excluded[0]["recall_at_max_lsearch"], 0.8)
+            config["selection_provenance"][
+                "shared_max_lsearch_by_workload"]["sel_1"] = 20
+            with self.assertRaisesRegex(ValueError, "shared budget 20"):
+                advance.make_formal(config)
 
 
 if __name__ == "__main__":

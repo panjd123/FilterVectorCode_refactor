@@ -228,6 +228,33 @@ def no_crossing_cases(config: dict) -> list[dict]:
     return result
 
 
+def validate_shared_budget_exhaustion(config: dict) -> None:
+    """Reject a crossing phase that declares NC before its shared ceiling."""
+    if config.get("protocol", {}).get("phase") != "crossing":
+        return
+    budgets = config.get("selection_provenance", {}).get(
+        "shared_max_lsearch_by_workload")
+    expected_names = {workload["name"] for workload in config["workloads"]}
+    if not isinstance(budgets, dict) or set(budgets) != expected_names:
+        raise ValueError("crossing config lacks complete shared Lsearch budgets")
+    for method in config["methods"]:
+        enabled = method.get("enabled_workloads")
+        for workload in config["workloads"]:
+            name = workload["name"]
+            if enabled is not None and name not in enabled:
+                continue
+            values = measured_recall_by_l(config, method, workload)
+            threshold = float(config["recall_thresholds"][name])
+            if max(values.values()) >= threshold:
+                continue
+            budget = int(budgets[name])
+            if max(values) != budget:
+                raise ValueError(
+                    f"{method['name']}/{name}: no crossing before shared "
+                    f"budget {budget}, but maximum measured Lsearch is "
+                    f"{max(values)}")
+
+
 def phase_output_root(source: dict, phase: str) -> str:
     root = Path(source["output_root"])
     for suffix in ("screen", "crossing", "formal", "profile"):
@@ -270,6 +297,7 @@ def make_crossing(source: dict) -> dict:
 
 
 def make_formal(source: dict) -> dict:
+    validate_shared_budget_exhaustion(source)
     config = copy.deepcopy(source)
     config["output_root"] = phase_output_root(source, "formal")
     config["num_repeats"] = 16
