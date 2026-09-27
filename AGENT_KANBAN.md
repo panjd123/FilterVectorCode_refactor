@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-27 08:04 Asia/Shanghai`
+最后更新：`2026-09-27 08:40 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`2951062`（push：`不执行，origin 指向用户工作树`）
+检查点：`7f723b6`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -26,9 +26,9 @@
   漏失的 `AverageNodesVisited` 表头，但在 screen/crossing/formal/profile 全部结束前
   不得重编译 `build_ung_rel/apps/search_UNG_index`。工作量主表读取未错位的
   `search_work_details.csv`。
-- 截至 `2026-09-27 04:27`，零层 LNG/Trie 共 18 个 method-workload
-  case 已全部完成；manifest 已完成至少 41/396，runner 已进入
-  `8192:lng,131072:trie` 两层设置。LNG-0 的 95%
+- 截至 `2026-09-27 08:40`，零层 LNG/Trie 共 18 个 method-workload
+  case 已全部完成；manifest 已完成 45/396，runner 已进入 `1024:lng`
+  单层设置。LNG-0 的 95%
   conservative crossing 为 `L=320000`，warm Recall min/max 为
   `0.9134/0.9136`，warm-median QPS 为 `1.50268`；99% crossing 为
   `L=400000`，warm Recall min/max 均为 `0.9408`，warm-median QPS 为
@@ -54,6 +54,16 @@
   routed 版在 0.5%--10% 恢复 crossing，但相对 LNG-0 仍有约
   `14%/1%/15%/36%` 开销，30% 在 `L<=45000` 未 crossing。这些数据
   反驳“增层天然不损低选择率”，也说明 router 成本必须显式报告。
+- gated `8192:lng,131072:trie` comparator 九档已完成：0.5%/1%/5%/10%
+  相对 LNG-0 为 `0.905x/1.017x/0.843x/0.933x`，30% 未 crossing，
+  60%/80%/95%/99% 为 `15.08x/21.93x/25.47x/18.81x`。它比 DRH 粗，
+  在 10% 更接近 plain、在 80%/95% 更慢，支持“粒度权衡”而非单调层数结论。
+- exact gate 的分层启用率在 DRH 九档上为
+  `0%/0%/4.3%/35.7%/32.5%/61.8%/82.5%/98.3%/100%`；它由谓词与
+  block-root label 的包含关系决定，不是按平均选择率阈值路由。
+- 当前 immutable binary 未单独计时 exact gate，故 gate 成本被归入 residual；
+  主 QPS/Recall 不受影响。源码 `7f723b6` 已修正 authorization 归因，但不在
+  query campaign 中重编译，结束后用独立 instrumented profile 验证。
 - 根据这一 development-set 证据，held-out 的最终自动方案已严格定义为
   “DRH 静态层级 + 无参数精确 upper-authorization gate”。为公平比较，
   35 个人工 hierarchy 候选也全部使用相同 gate；无 gate DRH 仅作消融。

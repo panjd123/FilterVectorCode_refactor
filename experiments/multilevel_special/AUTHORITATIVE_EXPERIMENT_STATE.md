@@ -12,9 +12,8 @@ entry-point setup、block authorization、graph search 以及点/边/距离计�
 bounded crossing、正式重复和独立 profile。修复前 campaign 使用的 Trie entry
 错误地把空标签集解释为“无结果”，其 99% 结果只保留作缺陷诊断。详细计数会给主
 吞吐测量增加分支和计数开销，因此不能把 profile wall time 混入主 QPS。
-截至 2026-09-27 06:25，零层 LNG/Trie 共 18 个 case 已完成；manifest
-已完成至少 41/396，runner 已进入 `8192:lng,131072:trie`
-两层设置。
+截至 2026-09-27 08:40，零层 LNG/Trie 共 18 个 case 已完成；manifest
+已完成 45/396，runner 已进入 `1024:lng` 单层设置。
 零层 LNG 95% 的
 conservative crossing 为 $L=320000$，warm Recall 最小值 0.9134，
 warm-median QPS 1.50268；99% crossing 为 $L=400000$，两次 warm Recall
@@ -57,6 +56,24 @@ upper-authorization gate”：层数、阈值和 topology 仅由 $N/R/C$ 生成�
 gate 仅比较当前谓词与持久化 block-root label，不读取 selectivity、延迟或
 Recall。所有 35 个人工 hierarchy 候选使用同一 gate，使 oracle 只调整
 层数、阈值和逐层 topology；无 gate DRH 仅作消融。
+
+第二个 query-free 静态 comparator `8192:lng,131072:trie` 的 gated 九档也已
+完成。其 0.5%/1%/5%/10% crossing QPS 为
+2241.587/4262.756/459.137/420.190，相对 LNG-0 为
+0.905x/1.017x/0.843x/0.933x；30% 在 $L\le45000$ 未 crossing，最大 Recall
+为 0.8578；60%/80%/95%/99% QPS 为
+61.368/39.531/38.279/14.802，相对 LNG-0 为
+15.08x/21.93x/25.47x/18.81x。该结构只有 24 个 materialized blocks 和
+54,719,258 条 sidecar edges，而 DRH 有 212 个 blocks 和 73,527,844 条
+sidecar edges。更粗 comparator 在 10% 更接近 plain，在 80%/95% 则低于
+较细 DRH，表明粒度存在可解释的 workload trade-off。
+
+`SpecialBlockSearchUsed` 给出的 DRH gate 启用率依次为
+0%/0%/4.3%/35.7%/32.5%/61.8%/82.5%/98.3%/100%；mass-ladder 对应为
+0%/0%/4.3%/0%/29.6%/61.4%/82.2%/98.2%/99.3%。该非单调性来自谓词与
+block-root label 的精确包含关系，而非用平均选择率阈值路由。0.5% 和 1% 完全
+回退 base path；screen 中剩余 QPS 差异主要伴随 entry-group 时间波动，须由
+正式重复判断，不能归因于层级搜索。
 
 零层 screen 的 conservative crossing 对比如下。`Trie/LNG` 小于 1 表示
 Trie 较慢；这些是 1 cold + 2 warm 的 screen 数据，不替代 formal pass。
