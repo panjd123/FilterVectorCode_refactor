@@ -15,7 +15,7 @@
 
 - 总体：`进行中`
 - 摘要：新结构已在 `fcb74ad` 完成；Trie entry 对空 containment 谓词的历史错误
-  已修复，并通过 15/15 CTest、189/189 Python tests 和 Amazon 单查询端到端验证。实验框架已
+  已修复，并通过 15/15 CTest、190/190 Python tests 和 Amazon 单查询端到端验证。实验框架已
   迁移到 `orthogonal_v2`，明确分离 hierarchy、逐层 topology 和三种 entry
   strategy，并采用轻量 performance pass 与独立 profile pass。旧 QF-SSL 数据仅作
   候选假设，不能作为本轮结论。
@@ -183,7 +183,7 @@ Reviews/Genome/VariousImg 留出验证和 GPU 建图 timing/resource/quality 矩
 
 - `cmake --build build_ung_rel --clean-first -j16` — `通过`：`fcb74ad` 前最终构建。
 - `env LC_ALL=C LANG=C ctest --output-on-failure` — `通过`：15/15。
-- 新实验框架测试 — `通过`：Python unittest 189/189，`git diff --check` 通过；
+- 新实验框架测试 — `通过`：Python unittest 190/190，`git diff --check` 通过；
   含实际生成 screen 附录的完整 `main.tex` 已通过本地 Tectonic 编译。
 - Breakdown 与报告校验 — `通过`：34/34 专项测试；生成器拒绝负耗时/负工作量、
   总边数小于任一边类别、总距离计算小于任一距离分项，以及不闭合的 stage timing。
@@ -198,6 +198,8 @@ Reviews/Genome/VariousImg 留出验证和 GPU 建图 timing/resource/quality 矩
   未过 screen Recall 的方法在 crossing 阶段使用同一 workload 的共同最大预算，
   避免不同方法因初始网格上限不同而得到不可比的 NC；formal 和最终报告均重新
   核对每个 disabled cell 的 NC 证据确实耗尽该共同预算。
+  论文和中文报告还从同一 formal provenance 动态生成九档共同预算表；两个文档
+  入口均独立执行 fail-closed 校验，含真实表格的 Tectonic fixture 编译通过。
 - Trie 空谓词回归 — `通过`：root frontier 单元测试覆盖 build/load 两条路径；Amazon
   空谓词单查询 `L=N` 得到 Recall@10=1.0。
 - 12 小时有效 build/search 采集 — `进行中`；manifest 会分别标记单调时钟实测值

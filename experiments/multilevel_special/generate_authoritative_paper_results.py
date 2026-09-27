@@ -580,7 +580,7 @@ def validate_amazon_workloads(config: dict[str, Any]) -> list[str]:
 
 def validate_amazon_formal_selection_provenance(
     config: dict[str, Any],
-) -> None:
+) -> dict[str, int]:
     """Bind every disabled formal cell to an exhausted shared search budget."""
     workloads = {str(row["name"]): row for row in config["workloads"]}
     methods = {str(row["name"]): row for row in config["methods"]}
@@ -631,6 +631,7 @@ def validate_amazon_formal_selection_provenance(
         raise ValueError(
             "Amazon formal disabled/no-crossing pair mismatch: "
             f"disabled={len(disabled_pairs)} excluded={len(excluded_pairs)}")
+    return normalized_budgets
 
 
 def validate_query_thread_count(configs: Iterable[dict[str, Any]]) -> int:
@@ -1023,6 +1024,35 @@ def fmt(value: Any, digits: int = 2) -> str:
     if value in (None, ""):
         return "NC"
     return f"{float(value):.{digits}f}"
+
+
+def render_shared_lsearch_budget_table(
+    config: dict[str, Any], workloads: list[str], budgets: dict[str, int],
+) -> list[str]:
+    """Render the exact per-workload cap used to classify no crossings."""
+    selectivities = {
+        str(row["name"]): 100.0 * float(row["mean_selectivity"])
+        for row in config["workloads"]
+    }
+    lines = [
+        r"\begin{table}[t]",
+        r"\centering",
+        r"\small",
+        r"\caption{Shared maximum measured $L_{search}$ used for "
+        r"no-crossing classification. A method is marked NC only after it "
+        r"fails the Recall target at the listed workload-wide budget.}",
+        r"\label{tab:shared-lsearch-budgets}",
+        r"\begin{tabular}{lrr}",
+        r"\toprule",
+        r"Workload & Mean selectivity & Shared $L_{search}$ \\",
+        r"\midrule",
+    ]
+    for workload in workloads:
+        lines.append(
+            rf"\texttt{{{tex_escape(workload)}}} & "
+            rf"{selectivities[workload]:.3f}\% & {budgets[workload]:,} \\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table}"])
+    return lines
 
 
 def compact_method(row: dict[str, str]) -> str:
@@ -1812,6 +1842,8 @@ def generate_markdown_report(
         *heldout_configs, build_quality_config,
     ])
     workloads = validate_amazon_workloads(amazon_formal_config)
+    shared_budgets = validate_amazon_formal_selection_provenance(
+        amazon_formal_config)
     if validate_amazon_workloads(amazon_screen_config) != workloads:
         raise ValueError("Amazon screen and formal workloads differ")
     screen_rows = read_csv(amazon_screen_points, SCREEN_POINT_FIELDS)
@@ -1899,11 +1931,29 @@ def generate_markdown_report(
         "screen 未过线的方法会在 crossing 阶段扩展到该 workload 的共同最大实测"
         "预算（或显式统一上限）；只有在共同预算处仍未过线才记为 NC。",
         "",
+        "### 共同 Recall 搜索预算",
+        "",
+        "| workload | 平均选择率 | 共同最大实测 Lsearch |",
+        "|---|---:|---:|",
+    ]
+    selectivities = {
+        str(row["name"]): 100.0 * float(row["mean_selectivity"])
+        for row in amazon_formal_config["workloads"]
+    }
+    for workload in workloads:
+        lines.append(
+            f"| `{workload}` | {selectivities[workload]:.3f}% | "
+            f"{shared_budgets[workload]:,} |")
+    lines.extend([
+        "",
+        "该预算由同一 workload 上所有方法的实测搜索范围共同确定，不是按方法"
+        "分别截断；因此表中每个 NC 都可追溯到对应的同一预算。",
+        "",
         "## 2. 数据集与自动层次",
         "",
         "| 数据集 | N | 维度 | workload | queries | 平均选择率 | DRH |",
         "|---|---:|---:|---|---:|---:|---|",
-    ]
+    ])
     for policy in sorted(heldout_policies, key=lambda row: str(row["dataset"])):
         inputs = policy["inputs"]
         plan = ", ".join(
@@ -2340,6 +2390,8 @@ def generate_document(
         *heldout_configs, build_quality_config,
     ])
     workloads = validate_amazon_workloads(amazon_formal_config)
+    shared_budgets = validate_amazon_formal_selection_provenance(
+        amazon_formal_config)
     if validate_amazon_workloads(amazon_screen_config) != workloads:
         raise ValueError("Amazon screen and formal workloads differ")
     screen_rows = read_csv(amazon_screen_points, SCREEN_POINT_FIELDS)
@@ -2444,6 +2496,10 @@ def generate_document(
         "All reported query QPS values are query-level parallel batch "
         f"throughput with {query_threads} worker threads; they are not "
         "single-query, single-thread latency measurements.",
+        "}",
+        r"\newcommand{\authoritativeSharedSearchBudgetTable}{%",
+        *render_shared_lsearch_budget_table(
+            amazon_formal_config, workloads, shared_budgets),
         "}",
         r"\newcommand{\authoritativeResults}{%",
         *body,

@@ -92,6 +92,14 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                 for name, selectivity in WORKLOADS
             ],
             "recall_thresholds": {name: 0.9 for name, _ in WORKLOADS},
+            "selection_provenance": {
+                "shared_max_lsearch_by_workload": dict(zip(
+                    (name for name, _ in WORKLOADS),
+                    (2000, 2200, 5000, 64000, 150000, 320000,
+                     602453, 602453, 602453))),
+                "upstream_excluded_no_crossing": [],
+                "excluded_no_crossing": [],
+            },
         }
         self.screen_config = copy.deepcopy(self.formal_config)
         for method_row in self.screen_config["methods"]:
@@ -361,6 +369,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn(r"\newcommand{\authoritativeAbstractResult}", output)
         self.assertIn(r"\newcommand{\authoritativeConclusionResult}", output)
         self.assertIn(r"\newcommand{\authoritativeDatasetTable}", output)
+        self.assertIn(
+            r"\newcommand{\authoritativeSharedSearchBudgetTable}", output)
         self.assertIn(r"\newcommand{\authoritativeResults}", output)
         self.assertIn(r"\newcommand{\authoritativeScreenAppendix}", output)
         self.assertIn("Complete Amazon Screen Matrix", output)
@@ -394,6 +404,9 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("Held-out datasets and query-independent DRH plans", output)
         self.assertIn("Genome", output)
         self.assertIn("108,077", output)
+        self.assertIn("Shared maximum measured", output)
+        self.assertIn("602,453", output)
+        self.assertIn(r"\label{tab:shared-lsearch-budgets}", output)
 
     def test_indirect_provenance_hashes_validator_and_manifests(self) -> None:
         validator = self.root / "validator.py"
@@ -493,6 +506,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("100 个查询工作线程", report)
         self.assertIn("query-level parallel batch throughput", report)
         self.assertIn("共同最大实测", report)
+        self.assertIn("共同 Recall 搜索预算", report)
+        self.assertIn("602,453", report)
         self.assertIn("L/Q/R", report)
         self.assertIn("先在单个 warm repeat 内取每查询均值", report)
         self.assertIn("不由表中四舍五入后的分项相加", report)
@@ -584,6 +599,21 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         }]
         with self.assertRaisesRegex(ValueError, "differs from shared budget"):
             generator.validate_amazon_formal_selection_provenance(config)
+
+    def test_document_and_report_validate_formal_provenance(self) -> None:
+        del self.formal_config["selection_provenance"]
+        with self.assertRaisesRegex(ValueError, "lacks selection provenance"):
+            self.generate()
+        figures = {
+            family: self.root / "figures" / f"{family}.pdf"
+            for family, _ in generator.RECALL_QPS_FIGURES
+        }
+        with self.assertRaisesRegex(ValueError, "lacks selection provenance"):
+            generator.generate_markdown_report(
+                self.paths, self.screen_config, self.screen_points,
+                self.formal_config, self.profile_config, self.heldout_configs,
+                list(self.heldout_policies.values()), self.formal_config,
+                figures, self.root / "report.md")
 
     def test_build_claim_must_follow_confidence_interval(self) -> None:
         with self.paths.build_end_to_end.open(
@@ -875,6 +905,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertEqual(main.count(r"\authoritativeConclusionResult"), 1)
         self.assertEqual(main.count(r"\authoritativeDatasetTable"), 1)
         self.assertEqual(main.count(r"\authoritativeQueryExecution"), 1)
+        self.assertEqual(
+            main.count(r"\authoritativeSharedSearchBudgetTable"), 1)
         self.assertEqual(main.count(r"\authoritativeResults"), 1)
         self.assertEqual(main.count(r"\authoritativeRecallQPSFigures"), 1)
         self.assertEqual(main.count(r"\authoritativeScreenAppendix"), 1)
@@ -884,6 +916,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                 "authoritativeConclusionResult",
                 "authoritativeDatasetTable",
                 "authoritativeQueryExecution",
+                "authoritativeSharedSearchBudgetTable",
                 "authoritativeResults",
                 "authoritativeRecallQPSFigures",
                 "authoritativeScreenAppendix"):
