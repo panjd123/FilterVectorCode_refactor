@@ -132,8 +132,10 @@ def summarize_dataset(spec: dict[str, Any]) -> list[dict[str, Any]]:
                     "graph_ms_warm_median": row["graph_ms_warm_median"],
                     "nodes_visited_warm_median": row["nodes_visited_warm_median"],
                     "total_distance_calcs_warm_median": row["total_distance_calcs_warm_median"],
-                    **route_stats(config, method, workload_name, int(row["lsearch"])),
                 })
+                if role != "plain":
+                    result.update(route_stats(
+                        config, method, workload_name, int(row["lsearch"])))
                 result["speedup_vs_plain"] = (
                     float(plain["batch_ms_warm_median"]) /
                     float(row["batch_ms_warm_median"])
@@ -142,7 +144,8 @@ def summarize_dataset(spec: dict[str, Any]) -> list[dict[str, Any]]:
                 result["speedup_vs_drh_v1"] = (
                     float(v1["batch_ms_warm_median"]) /
                     float(row["batch_ms_warm_median"])
-                    if v1 is not None and status == "crossing" else ""
+                    if role == "drh_v2" and v1 is not None and
+                    status == "crossing" else ""
                 )
             output.append(result)
     return output
