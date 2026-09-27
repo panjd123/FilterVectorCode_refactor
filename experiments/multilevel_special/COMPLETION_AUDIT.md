@@ -48,6 +48,9 @@
    workload；允许并显式保留 automatic_no_crossing，不得删掉失败点。
 5. 四个 build manifest 全部完成；每个 timing profile 至少 5 个 measured
    repeats；GPU case 有外部锁或至少三次连续 idle-preflight 证据。
+   build-quality 的最终 aggregate 必须来自 campaign 实际 formal 输出
+   `build_study/quality_formal/summary/performance/equal_recall_conservative.csv`；
+   `screen -> crossing -> formal` 的目录替换由回归测试锁定。
 6. generate_authoritative_paper_results.py 成功运行并原子替换
    generated_results.tex；生成文件记录所有输入/config/binary/policy hash，且
    没有 pending。
