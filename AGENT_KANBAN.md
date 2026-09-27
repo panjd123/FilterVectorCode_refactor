@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-27 13:36 Asia/Shanghai`
+最后更新：`2026-09-27 13:54 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`e26759e`（push：`不执行，origin 指向用户工作树`）
+检查点：`b6ed3f3`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 - 总体：`进行中`
 - 摘要：新结构已在 `fcb74ad` 完成；Trie entry 对空 containment 谓词的历史错误
-  已修复，并通过 15/15 CTest、167/167 Python tests 和 Amazon 单查询端到端验证。实验框架已
+  已修复，并通过 15/15 CTest、168/168 Python tests 和 Amazon 单查询端到端验证。实验框架已
   迁移到 `orthogonal_v2`，明确分离 hierarchy、逐层 topology 和三种 entry
   strategy，并采用轻量 performance pass 与独立 profile pass。旧 QF-SSL 数据仅作
   候选假设，不能作为本轮结论。
@@ -26,8 +26,8 @@
   漏失的 `AverageNodesVisited` 表头，但在 screen/crossing/formal/profile 全部结束前
   不得重编译 `build_ung_rel/apps/search_UNG_index`。工作量主表读取未错位的
   `search_work_details.csv`。
-- 截至 `2026-09-27 13:36`，manifest 已完成 80/396，另有 1 个 case 运行中；
-  当前为 `l1_t8192_trie_entry_optimized_lng / sel_99`，仍使用冻结的
+- 截至 `2026-09-27 13:54`，manifest 已完成 86/396，另有 1 个 case 运行中；
+  当前为 `l0_trie_entry_optimized_lng / sel_60`，仍使用冻结的
   content-addressed binary。LNG-0 的 95%
   conservative crossing 为 `L=320000`，warm Recall min/max 为
   `0.9134/0.9136`，warm-median QPS 为 `1.50268`；99% crossing 为
@@ -69,12 +69,15 @@
   35 个人工 hierarchy 候选也全部使用相同 gate；无 gate DRH 仅作消融。
   Genome/Reviews/VariousImg 配置已重新生成，每个仍为 38 个方法；每套包含
   1 个零层 baseline、1 个 DRH routed、35 个 manual routed alternatives 和
-  1 个 DRH ungated ablation。167/167 Python tests、三套 build dry-run、
+  1 个 DRH ungated ablation。168/168 Python tests、三套 build dry-run、
   三套零层 search dry-run 和本地 Tectonic 论文编译通过。
 - held-out policy 元数据现明确记录
   `frozen_hierarchy_candidates=36` 与 `manual_alternatives=35`，并拒绝旧的
   `manual_hierarchy_cases` 歧义字段。重生成前后三套 build/search config 的
   SHA-256 完全一致；仅三份 policy 的元数据及 hash 变化。
+- 最终 query validator 现在逐 case 重建完整命令和 `UNG_*` 环境，要求执行文件
+  位于该 phase 的 content-addressed snapshot 目录、文件名 hash 与实际内容一致，
+  并将实测 executable hash 与 manifest 逐项绑定。当前 86 个完成项全部通过。
 - profile 证据现显式使用 `measurement_pass=profile` 和
   `protocol.phase=profile`；两者不一致时配置校验直接失败。
 - screen 接续 watcher PID 为 `25189`；query 完成后串行启动
@@ -112,7 +115,7 @@
   `max(0, 1 + floor(log_rho(N/(C*T1))))`，并明确该代价仅是静态代理而非最优性定理。
 - 查询/建图 runner 的 provenance、binary snapshot、resume elapsed ledger、GPU
   backend/fallback 校验和 build-quality 再搜索链已实现；汇总表显式记录完整阈值、
-  逐层 topology、entry strategy 与 routing policy；Python 实验测试 167/167 通过。
+  逐层 topology、entry strategy 与 routing policy；Python 实验测试 168/168 通过。
 - GPU build runner 已加入 fail-closed 隔离证据：若有 `gpulock` 则整个
   campaign 在 `perf` 锁下运行；当前主机无该工具，因此每个 GPU case 需
   通过三次连续空闲快照并记录 `idle_preflight_no_lock` 限制。
@@ -157,7 +160,7 @@ Reviews/Genome/VariousImg 留出验证和 GPU 建图 timing/resource/quality 矩
 
 - `cmake --build build_ung_rel --clean-first -j16` — `通过`：`fcb74ad` 前最终构建。
 - `env LC_ALL=C LANG=C ctest --output-on-failure` — `通过`：15/15。
-- 新实验框架测试 — `通过`：Python unittest 167/167，`git diff --check` 通过。
+- 新实验框架测试 — `通过`：Python unittest 168/168，`git diff --check` 通过。
 - Trie 空谓词回归 — `通过`：root frontier 单元测试覆盖 build/load 两条路径；Amazon
   空谓词单查询 `L=N` 得到 Recall@10=1.0。
 - 12 小时有效 build/search 采集 — `进行中`；manifest 会分别标记单调时钟实测值
