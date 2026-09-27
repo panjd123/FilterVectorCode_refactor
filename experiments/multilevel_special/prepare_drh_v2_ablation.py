@@ -99,6 +99,16 @@ def make_ablation_config(
     drh_v2["selection_role"] = "degree_ratio_hierarchy_v2_next_scale_mass_gate"
     drh_v2["routing_policy"] = "highest_authorized_layer_direct_mass_at_least_next_scale"
     drh_v2["env"]["UNG_SPECIAL_UPPER_MIN_COVERED_POINTS"] = str(threshold)
+    baseline_by_workload = baseline.get("lsearch_values_by_workload", {})
+    drh_v1_by_workload = drh_v1.get("lsearch_values_by_workload", {})
+    if baseline_by_workload or drh_v1_by_workload:
+        drh_v2["lsearch_values_by_workload"] = {
+            str(workload["name"]): sorted(set(
+                baseline_by_workload.get(str(workload["name"]), []) +
+                drh_v1_by_workload.get(str(workload["name"]), [])
+            ))
+            for workload in source["workloads"]
+        }
 
     result = copy.deepcopy(source)
     result["purpose"] = (
@@ -133,6 +143,7 @@ def make_ablation_config(
         "next_scale_threshold": threshold,
         "query_calibrated": False,
         "latency_calibrated": False,
+        "lsearch_grid": "union of the frozen plain and DRH-v1 grids",
     }
     return result
 

@@ -33,6 +33,7 @@ class PrepareDrhV2AblationTest(unittest.TestCase):
                         "entry_strategy": "optimized_lng",
                         "hierarchy_layers": [],
                         "special_block_search": False,
+                        "lsearch_values_by_workload": {"w": [100, 300]},
                         "env": {},
                     },
                     {
@@ -45,6 +46,7 @@ class PrepareDrhV2AblationTest(unittest.TestCase):
                         ],
                         "special_block_search": True,
                         "block_index": str(root / "blocks"),
+                        "lsearch_values_by_workload": {"w": [200, 300]},
                         "env": {"UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"},
                     },
                 ],
@@ -67,6 +69,10 @@ class PrepareDrhV2AblationTest(unittest.TestCase):
             )
             self.assertEqual(result["drh_v2_provenance"]["rho"], 16)
             self.assertEqual(result["search_app"], str(binary))
+            self.assertEqual(
+                result["methods"][2]["lsearch_values_by_workload"]["w"],
+                [100, 200, 300],
+            )
 
     def test_rejects_non_multilevel_source(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
