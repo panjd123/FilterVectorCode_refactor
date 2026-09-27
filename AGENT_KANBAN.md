@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-27 18:51 Asia/Shanghai`
+最后更新：`2026-09-27 19:07 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`ead6faf`（push：`不执行，origin 指向用户工作树`）
+检查点：`5117e76`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -18,8 +18,9 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
   `l0_trie_entry_optimized_lng/sel_95` 因单个 warm repeat 约 64.6 分钟被终止，
   不再恢复该 campaign。
 - 新协议固定 `Lsearch=[40,100,500,2500,10000,40000]`、1 cold + 2 warm、
-  每 case 3300 秒硬超时。重复用于预热后估计 warm throughput；Recall crossing
-  要求所有 warm repeats 达标。若仍超时，可在明确标注的 screen 中降为 1+1，
+  每 case 3300 秒硬超时。每个 repeat 执行同一冻结的完整查询集，不重新随机采样；
+  cold 仅预热，warm 用于估计 throughput 与波动，Recall crossing 要求所有 warm
+  repeats 达标。若仍超时，可在明确标注的 screen 中降为 1+1，
   不把它冒充正式重复结果。
 - Amazon 已有 9 个代表方法覆盖九档。routed DRH `1024:lng,16384:trie`
   相对 LNG-0 在 60/80/95/99% 为约 `14.40/24.22/26.70/18.78x`，在
@@ -30,13 +31,9 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
 
 ## 进行中
 
-- `fv_deadline_cpufix_20260927` 正在独立 root
-  `runs/deadline_evidence_20260927_cpufix/` 串行运行。三个 automatic build 已完成；
-  Genome 首个 baseline workload 已完成，当前第二个 baseline workload 仍在运行。
-- Amazon 构建 deadline 子集已生成但尚未启动：base 与 DRH hierarchy 各含 5 个
-  backend profile 的 1 cold + 2 measured timing，另各有 1 次独立 resource pass；
-  每个 case 使用独立进程组和 3300 秒硬超时。runner 会在 query supervisor 尚无
-  `finished_at_utc` 时 fail closed，避免污染 100-thread QPS。
+- 三段串行证据流水线正在运行：query supervisor 已完成 8 条记录，当前为 Reviews
+  baseline 的 `query_minlen2_cov1k`；Amazon build runner 仅等待 query completion；
+  detailed-profile runner 将等待 query 和 build 都完成且相关进程退出后才启动。
 
 ## 完成历史
 
@@ -69,12 +66,15 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
 - deadline Amazon 构建 prepare/runner 已实现并生成 40 个 case（15 base timing、
   15 DRH hierarchy timing、5 base resource、5 hierarchy resource）；8 项专项测试
   与全量 `205/205` Python tests 通过，查询未结束时的真实启动尝试被隔离门拒绝。
+- 独立 detailed-profile prepare/runner 已提交 — `5117e76`；从 performance
+  pass 的 conservative crossing 选择 baseline/DRH 点，无 crossing 时明示标记
+  best measured point，且 profile wall time 不进入主 QPS。全量 Python tests 为 `213/213`。
 
 ## 下一步
 
-继续轮询现有 query campaign，不重启 PID；其结束后立即生成 held-out partial/strict
-汇总并审计缺失 case。随后启动独立 deadline Amazon build campaign，汇总端到端
-wall time、阶段计时、资源与质量，再回填中文报告和论文结果。
+继续轮询现有 query campaign，不重启 PID；保持 build/profile waiter 串行。
+query 完成后生成 held-out strict 汇总，build 完成后汇总 GPU 构建证据，profile
+完成后合并真实边/点/距离计数，再回填中文报告和论文。
 
 ## 阻塞与问题
 
@@ -86,8 +86,7 @@ wall time、阶段计时、资源与质量，再回填中文报告和论文结�
 
 ## 验证
 
-- `205/205` Python tests — `通过`；新增 deadline build prepare/runner 8 项专项
-  测试均通过。
+- `213/213` Python tests — `通过`；profile prepare/runner 与现有全套回归均通过。
 - 当前 deadline Reviews/VariousImg build — `失败且已解释`：环境虽有
   `GPU_INTRA=0`，但日志记录 `gpu_intra_blocks=19/20`，来自独立 size route。
 - 新 CPU route 修复 — `通过`：18/18 case 静态为 `cpu/0/0/0`；两项单元测试及
@@ -104,6 +103,8 @@ wall time、阶段计时、资源与质量，再回填中文报告和论文结�
 - `runs/deadline_evidence_20260927_cpufix/` — 修复后的权威 bounded campaign root。
 - `runs/deadline_build_20260927/` — 查询结束后使用的 Amazon bounded 构建 root；
   当前只有已生成配置，尚无 timing 运行。
+- `runs/deadline_profile_20260927/` — query 与 build 都完成后用的独立 detailed
+  profile root；只能用于机制 breakdown，不能替代 performance-pass QPS。
 
 ## 恢复说明
 
