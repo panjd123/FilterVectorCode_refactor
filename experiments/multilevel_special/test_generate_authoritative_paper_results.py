@@ -212,7 +212,9 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                     "status": "complete", "dataset": "Amazon",
                     "workload": workload, "mean_selectivity": selectivity,
                     "target_recall": 0.9, "category": category,
-                    "method": category, "hierarchy": "none",
+                    "method": ("gated_drh" if category == "automatic_routed"
+                               else category),
+                    "hierarchy": "none",
                     "entry_strategy": "optimized_lng", "lsearch": 100 + index,
                     "recall_min": 0.91, "qps": 1000 + index,
                     "speedup_vs_plain": 1.0, "speedup_ci95_low": 0.95,
@@ -313,6 +315,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("Entry dist.", output)
         self.assertIn("Principal zero-layer comparison", output)
         self.assertIn("Trie/LNG", output)
+        self.assertIn("Observed Query Regimes", output)
+        self.assertIn("diagnostic profile ratios", output)
         self.assertIn("DRH/plain [95\\% CI]", output)
         self.assertIn("Host/GPU MiB", output)
         self.assertIn("Held-out datasets and query-independent DRH plans", output)

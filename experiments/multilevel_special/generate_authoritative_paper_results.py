@@ -823,6 +823,124 @@ def render_principal_zero_layer_by_workload(
     return lines
 
 
+def render_query_interpretation(
+    formal: dict[tuple[str, str], dict[str, str]],
+    depth: dict[tuple[str, str], dict[str, str]],
+    profile: dict[tuple[str, str], dict[str, str]],
+    workloads: list[str],
+) -> list[str]:
+    """Turn validated operating points into cautious, data-backed prose."""
+    trie_ratios = []
+    trie_faster = []
+    trie_missing = []
+    for workload in workloads:
+        baseline = formal[(BASELINE_METHOD, workload)]
+        trie = formal.get((PRINCIPAL_TRIE_METHOD, workload))
+        if trie is None:
+            trie_missing.append(workload)
+            continue
+        ratio = number(trie, "qps_warm_median") / number(
+            baseline, "qps_warm_median")
+        trie_ratios.append(ratio)
+        if ratio > 1.0:
+            trie_faster.append(workload)
+
+    def percentage_list(names: list[str]) -> str:
+        return ", ".join(
+            f"{100.0 * number(formal[(BASELINE_METHOD, name)], 'mean_selectivity'):.3f}\\%"
+            for name in names)
+
+    zero_text = (
+        f"Among the {len(trie_ratios)} workloads where both principal zero-layer "
+        f"methods reach the Recall target, Trie is faster on {len(trie_faster)} "
+        f"of {len(trie_ratios)}, "
+        f"and its QPS ratio to LNG ranges from {min(trie_ratios):.2f}$\\times$ "
+        f"to {max(trie_ratios):.2f}$\\times$."
+        if trie_ratios else
+        "The principal zero-layer Trie method has no measured Recall crossing."
+    )
+    if trie_missing:
+        zero_text += (
+            " It has no measured crossing at " + percentage_list(trie_missing)
+            + ".")
+
+    routed = [depth[("automatic_routed", workload)] for workload in workloads]
+    routed_complete = [row for row in routed if row["status"] == "complete"]
+    low_mid = [row for row in routed_complete
+               if number(row, "mean_selectivity") < 0.60]
+    high = [row for row in routed_complete
+            if number(row, "mean_selectivity") >= 0.60]
+
+    def speed_range(rows: list[dict[str, str]]) -> str:
+        values = [number(row, "speedup_vs_plain") for row in rows]
+        return f"{min(values):.2f}--{max(values):.2f}$\\times$"
+
+    regime_parts = []
+    if low_mid:
+        regime_parts.append(
+            f"below 60\\% selectivity it spans {speed_range(low_mid)}")
+    if high:
+        regime_parts.append(
+            f"at 60\\% and above it spans {speed_range(high)}")
+    regime_text = (
+        f"Gated DRH reaches the target on {len(routed_complete)}/{len(workloads)} "
+        "Amazon workloads; " + ", while ".join(regime_parts) + "."
+        if regime_parts else
+        "Gated DRH has no measured Recall crossing in the declared grid."
+    )
+
+    activated = []
+    for workload in workloads:
+        baseline = profile.get((BASELINE_METHOD, workload))
+        routed_method = depth[("automatic_routed", workload)]["method"]
+        candidate = profile.get((routed_method, workload))
+        if (baseline is None or candidate is None
+                or number(candidate, "layered_path_activation_rate_warm_median") <= 0):
+            continue
+        if (number(baseline, "graph_search_distance_calcs_warm_median") <= 0
+                or number(baseline, "graph_ms_warm_median") <= 0):
+            raise ValueError(
+                f"non-positive baseline graph work for profiled {workload}")
+        activated.append((baseline, candidate))
+    mechanism_text = (
+        "No profiled workload activates an upper layer, so the profile does not "
+        "support a layered-path mechanism claim."
+    )
+    if activated:
+        distance_ratios = [
+            number(candidate, "graph_search_distance_calcs_warm_median") /
+            number(baseline, "graph_search_distance_calcs_warm_median")
+            for baseline, candidate in activated
+        ]
+        graph_time_ratios = [
+            number(candidate, "graph_ms_warm_median") /
+            number(baseline, "graph_ms_warm_median")
+            for baseline, candidate in activated
+        ]
+        authorization = [
+            number(candidate, "block_authorization_ms_warm_median")
+            for _, candidate in activated
+        ]
+        mechanism_text = (
+            f"Across {len(activated)} workloads with observed layered-path "
+            f"activation, gated DRH uses {min(distance_ratios):.2f}--"
+            f"{max(distance_ratios):.2f}$\\times$ the baseline graph-search "
+            f"distance calculations and {min(graph_time_ratios):.2f}--"
+            f"{max(graph_time_ratios):.2f}$\\times$ its graph-stage time. "
+            f"Measured authorization costs {min(authorization):.3f}--"
+            f"{max(authorization):.3f} ms/query. These are diagnostic profile "
+            "ratios at the formal operating points, not primary QPS measurements."
+        )
+
+    return [
+        r"\subsection{Observed Query Regimes}",
+        r"\paragraph{Zero-layer topology.} " + zero_text,
+        r"\paragraph{Hierarchy.} " + regime_text,
+        r"\paragraph{Mechanism.} " + mechanism_text,
+        "",
+    ]
+
+
 def render_heldout_dataset_table(policies: list[dict[str, Any]]) -> list[str]:
     lines = [
         r"\begin{table*}[t]", r"\centering", r"\scriptsize",
@@ -1134,6 +1252,7 @@ def generate_document(
     body.extend(render_depth_global(depth_global))
     body.extend(render_principal_zero_layer_by_workload(formal, workloads))
     body.extend(render_zero_layer_table(formal, amazon_formal_config, workloads))
+    body.extend(render_query_interpretation(formal, depth, profile, workloads))
     body.extend(render_heldout(heldout_rows, heldout_global))
     body.extend(render_profile(profile, amazon_profile_config, workloads))
     body.extend(render_build(build_summary, build_end_to_end))
