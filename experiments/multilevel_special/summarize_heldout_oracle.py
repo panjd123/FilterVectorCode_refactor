@@ -23,13 +23,11 @@ import experiment_core
 import summarize_selection_sweep
 
 
-ORACLE_CANDIDATE_ROLES = {
-    "predeclared_manual_oracle_grid",
-    "predeclared_degree_ratio_hierarchy_v1",
-}
 AUTOMATIC_ROLE = "predeclared_degree_ratio_hierarchy_v1"
 UNROUTED_ABLATION_ROLE = "degree_ratio_hierarchy_v1_unrouted_ablation"
 ROUTING_POLICY = "require_upper_authorization"
+EXPECTED_ORACLE_CANDIDATES = 36
+EXPECTED_MANUAL_ALTERNATIVES = 35
 
 
 def stable_seed(*parts: str) -> int:
@@ -86,6 +84,29 @@ def layer_spec(row: dict[str, Any]) -> str:
     return f"{row['thresholds']}:{row['layer_topologies']}"
 
 
+def classify_oracle_methods(
+    methods: dict[str, dict[str, Any]],
+) -> tuple[str, list[str]]:
+    automatic = [
+        name for name, method in methods.items()
+        if method.get("selection_role") == AUTOMATIC_ROLE
+    ]
+    manual = [
+        name for name, method in methods.items()
+        if method.get("selection_role") == "predeclared_manual_oracle_grid"
+    ]
+    if len(automatic) != 1:
+        raise ValueError("expected exactly one DRH oracle candidate")
+    if len(manual) != EXPECTED_MANUAL_ALTERNATIVES:
+        raise ValueError(
+            f"expected exactly {EXPECTED_MANUAL_ALTERNATIVES} manual alternatives")
+    candidates = automatic + manual
+    if len(candidates) != EXPECTED_ORACLE_CANDIDATES:
+        raise ValueError(
+            f"expected exactly {EXPECTED_ORACLE_CANDIDATES} oracle candidates")
+    return automatic[0], candidates
+
+
 def evaluate_config(
     config_path: Path, bootstrap_samples: int,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -98,26 +119,16 @@ def evaluate_config(
         name for name, method in methods.items()
         if method.get("selection_role") == "zero_layer_baseline"
     ]
-    automatic_names = [
-        name for name, method in methods.items()
-        if method.get("selection_role") == AUTOMATIC_ROLE
-    ]
-    oracle_candidate_names = [
-        name for name, method in methods.items()
-        if method.get("selection_role") in ORACLE_CANDIDATE_ROLES
-    ]
+    automatic_name, oracle_candidate_names = classify_oracle_methods(methods)
     unrouted_names = [
         name for name, method in methods.items()
         if method.get("selection_role") == UNROUTED_ABLATION_ROLE
     ]
-    if len(baseline_names) != 1 or len(automatic_names) != 1:
-        raise ValueError("expected exactly one zero-layer baseline and one DRH method")
+    if len(baseline_names) != 1:
+        raise ValueError("expected exactly one zero-layer baseline")
     if len(unrouted_names) > 1:
         raise ValueError("expected at most one ungated DRH ablation")
-    if not oracle_candidate_names:
-        raise ValueError("oracle candidate set is empty")
     baseline_name = baseline_names[0]
-    automatic_name = automatic_names[0]
     if methods[automatic_name].get("routing_policy") != ROUTING_POLICY:
         raise ValueError("automatic DRH must use the exact upper-authorization gate")
     if any(methods[name].get("routing_policy") != ROUTING_POLICY
@@ -176,8 +187,7 @@ def evaluate_config(
             "automatic_qps_fraction_of_oracle": "",
             "automatic_oracle_fraction_ci95_low": "",
             "automatic_oracle_fraction_ci95_high": "",
-            # Preserve the existing CSV field name for artifact compatibility.
-            "manual_feasible_methods": len(oracle_candidates),
+            "feasible_oracle_candidates": len(oracle_candidates),
         }
         if automatic is not None:
             automatic_times = warm_times(
@@ -247,8 +257,7 @@ def evaluate_config(
         "baseline_geomean_qps": baseline_qps,
         "automatic_speedup_vs_baseline": (
             auto_qps / baseline_qps if auto_feasible else ""),
-        # Preserve the existing CSV field name for artifact compatibility.
-        "complete_manual_methods": len(complete_candidates),
+        "complete_oracle_candidates": len(complete_candidates),
     }
     return output, global_row
 
@@ -287,7 +296,7 @@ def write_markdown(
             f"{ratio(row['automatic_speedup_vs_baseline'], 'x')} | "
             f"{ratio(row['automatic_qps_fraction_of_oracle'])} |")
     lines.extend(["", "## Global configuration", "",
-                  "| Dataset | DRH method | Manual oracle | DRH/oracle | DRH/plain |",
+                  "| Dataset | DRH method | Frozen oracle | DRH/oracle | DRH/plain |",
                   "|---|---|---|---:|---:|"])
     for row in global_rows:
         lines.append(

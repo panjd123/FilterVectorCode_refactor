@@ -12,8 +12,8 @@ entry-point setup、block authorization、graph search 以及点/边/距离计�
 bounded crossing、正式重复和独立 profile。修复前 campaign 使用的 Trie entry
 错误地把空标签集解释为“无结果”，其 99% 结果只保留作缺陷诊断。详细计数会给主
 吞吐测量增加分支和计数开销，因此不能把 profile wall time 混入主 QPS。
-截至 2026-09-27 14:23，manifest 已完成 86/396，另有 1 个 case 运行中；
-当前为 `l0_trie_entry_optimized_lng / sel_60`，仍使用 SHA-256 为
+截至 2026-09-27 14:48，manifest 已完成 87/396，另有 1 个 case 运行中；
+当前为 `l0_trie_entry_optimized_lng / sel_80`，仍使用 SHA-256 为
 `4c99a51c...a81` 的冻结 binary snapshot。
 零层 LNG 95% 的
 conservative crossing 为 $L=320000$，warm Recall 最小值 0.9134，
@@ -145,6 +145,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M15 | provenance | RESOLVED | 最终 query validator 曾只核对少数命令选项，无法完整证明 query/GT/index 路径、环境和 executable snapshot 均与配置一致 | validator 现逐 case 重建完整命令与 `UNG_*` 环境，校验 content-addressed snapshot 路径、文件名/内容 hash，并绑定 manifest；86/86 完成项通过严格回扫 |
 | M16 | reporting | RESOLVED | 中文报告曾缺少 LaTeX 已有的全局 depth 与完整零层组合表，且单独调用 Markdown renderer 会绕过部分结果校验 | Markdown 现补齐九档全局配置、零层 2x3 topology/entry crossing 和 GPU lock/idle 证据，并自行执行 depth、held-out、build fail-closed 校验；executable hash 使用文件状态键缓存，mutation 回归仍通过 |
 | M17 | measurement | RESOLVED | build 汇总曾将独立 base/hierarchy phase 的同编号 repeat 相加并称为 paired end-to-end measurement | 完整索引点估计改为两个阶段中位数之和，CI 对 original base、accelerated base、hierarchy 独立 bootstrap，并拒绝样本数不平衡；文档统一标为 stage-composed full-index cost |
+| M18 | reporting | RESOLVED | held-out oracle 的两个旧计数字段名称含 manual，但实际候选集合包含 DRH 本身 | 汇总器删除歧义字段，改报 feasible/complete oracle candidates，并硬性要求候选角色计数为 1 DRH + 35 manual = 36 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较 |

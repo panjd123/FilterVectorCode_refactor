@@ -16,7 +16,11 @@ from generate_auto_policy_cross_dataset_configs import (
     make_search_methods,
 )
 import gpu_isolation
-from summarize_heldout_oracle import first_crossings, geometric_mean
+from summarize_heldout_oracle import (
+    classify_oracle_methods,
+    first_crossings,
+    geometric_mean,
+)
 
 
 class AutoLayerPolicyTest(unittest.TestCase):
@@ -108,6 +112,21 @@ class DegreeRatioHeldoutProtocolTest(unittest.TestCase):
                 "manual_alternatives": 35,
             },
         )
+
+    def test_oracle_classifier_requires_drh_plus_35_manual_alternatives(self):
+        methods = {
+            "drh": {"selection_role": AUTOMATIC_ROLE},
+            **{
+                f"manual_{index}": {"selection_role": MANUAL_ROLE}
+                for index in range(35)
+            },
+        }
+        automatic, candidates = classify_oracle_methods(methods)
+        self.assertEqual(automatic, "drh")
+        self.assertEqual(len(candidates), 36)
+        del methods["manual_34"]
+        with self.assertRaisesRegex(ValueError, "35 manual alternatives"):
+            classify_oracle_methods(methods)
 
     def test_heldout_builds_declare_gpu_isolation_policy(self):
         # Full config generation needs dataset files; the policy itself must

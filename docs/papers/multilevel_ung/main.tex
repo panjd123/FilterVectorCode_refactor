@@ -87,7 +87,8 @@ This paper makes the following contributions.
   confuse kernel time with index construction time.
   \item We evaluate all methods at the smallest measured search budget whose
   every warm repeat reaches the target Recall, and compare the automatic plan
-  with both a fixed zero-layer baseline and a manually enumerated oracle.
+  with both a fixed zero-layer baseline and a frozen candidate oracle composed
+  of DRH plus manually enumerated alternatives.
 \end{itemize}
 
 \section{Problem Definition}
@@ -579,8 +580,8 @@ ablation independently varies zero/one/two layers, thresholds, LNG/Trie at each
 layer, and the three legal entry strategies: original LNG, optimized LNG, and
 Trie.  Routed controls are outside the factorial because routing changes which
 search algorithm executes. For held-out automatic-policy evaluation, however,
-the exact gate is fixed for DRH and every manual-oracle hierarchy; the ungated
-DRH variant is reported separately.
+the exact gate is fixed for DRH and every manual-alternative hierarchy; the
+ungated DRH variant is reported separately.
 
 All query methods use the same data, query vectors, labels, exact ground truth,
 $K$, thread count, immutable search binary, graph backend, and Recall protocol.

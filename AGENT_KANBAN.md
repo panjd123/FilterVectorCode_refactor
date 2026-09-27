@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-27 14:23 Asia/Shanghai`
+最后更新：`2026-09-27 14:48 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`22b2713`（push：`不执行，origin 指向用户工作树`）
+检查点：`cd1fda1`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 - 总体：`进行中`
 - 摘要：新结构已在 `fcb74ad` 完成；Trie entry 对空 containment 谓词的历史错误
-  已修复，并通过 15/15 CTest、173/173 Python tests 和 Amazon 单查询端到端验证。实验框架已
+  已修复，并通过 15/15 CTest、174/174 Python tests 和 Amazon 单查询端到端验证。实验框架已
   迁移到 `orthogonal_v2`，明确分离 hierarchy、逐层 topology 和三种 entry
   strategy，并采用轻量 performance pass 与独立 profile pass。旧 QF-SSL 数据仅作
   候选假设，不能作为本轮结论。
@@ -26,8 +26,8 @@
   漏失的 `AverageNodesVisited` 表头，但在 screen/crossing/formal/profile 全部结束前
   不得重编译 `build_ung_rel/apps/search_UNG_index`。工作量主表读取未错位的
   `search_work_details.csv`。
-- 截至 `2026-09-27 13:54`，manifest 已完成 86/396，另有 1 个 case 运行中；
-  当前为 `l0_trie_entry_optimized_lng / sel_60`，仍使用冻结的
+- 截至 `2026-09-27 14:48`，manifest 已完成 87/396，另有 1 个 case 运行中；
+  当前为 `l0_trie_entry_optimized_lng / sel_80`，仍使用冻结的
   content-addressed binary。LNG-0 的 95%
   conservative crossing 为 `L=320000`，warm Recall min/max 为
   `0.9134/0.9136`，warm-median QPS 为 `1.50268`；99% crossing 为
@@ -75,6 +75,9 @@
   `frozen_hierarchy_candidates=36` 与 `manual_alternatives=35`，并拒绝旧的
   `manual_hierarchy_cases` 歧义字段。重生成前后三套 build/search config 的
   SHA-256 完全一致；仅三份 policy 的元数据及 hash 变化。
+- held-out 汇总器现在从方法角色硬性核验 oracle 集合恰为 1 个 DRH 加 35 个
+  manual alternatives，并将结果字段命名为 `feasible_oracle_candidates` 和
+  `complete_oracle_candidates`；不再保留会把 DRH 误称为 manual 的旧列名。
 - 最终 query validator 现在逐 case 重建完整命令和 `UNG_*` 环境，要求执行文件
   位于该 phase 的 content-addressed snapshot 目录、文件名 hash 与实际内容一致，
   并将实测 executable hash 与 manifest 逐项绑定。当前 86 个完成项全部通过；
@@ -173,7 +176,7 @@ Reviews/Genome/VariousImg 留出验证和 GPU 建图 timing/resource/quality 矩
 
 - `cmake --build build_ung_rel --clean-first -j16` — `通过`：`fcb74ad` 前最终构建。
 - `env LC_ALL=C LANG=C ctest --output-on-failure` — `通过`：15/15。
-- 新实验框架测试 — `通过`：Python unittest 173/173，`git diff --check` 通过。
+- 新实验框架测试 — `通过`：Python unittest 174/174，`git diff --check` 通过。
 - Trie 空谓词回归 — `通过`：root frontier 单元测试覆盖 build/load 两条路径；Amazon
   空谓词单查询 `L=N` 得到 Recall@10=1.0。
 - 12 小时有效 build/search 采集 — `进行中`；manifest 会分别标记单调时钟实测值

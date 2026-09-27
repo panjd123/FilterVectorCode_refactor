@@ -1132,7 +1132,7 @@ def render_heldout(
     lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
     lines.extend([
         r"\begin{table}[t]", r"\centering", r"\small",
-        r"\caption{One unchanged DRH plan versus one unchanged manual plan per held-out dataset.}",
+        r"\caption{One unchanged DRH plan versus one unchanged frozen-candidate plan per held-out dataset.}",
         r"\label{tab:heldout-global}",
         r"\begin{tabular}{lrrr}", r"\toprule",
         r"Dataset & Workloads & DRH/plain & DRH/oracle \\", r"\midrule",
@@ -1338,7 +1338,7 @@ def render_claims(
     build_hi = number(best_build, "speedup_ci95_high")
     oracle_clause = (
         f"and retains at least {100.0 * heldout_fraction:.1f}\\% of the "
-        "per-workload manual-oracle QPS on those crossings"
+        "per-workload frozen-candidate-oracle QPS on those crossings"
         if heldout_fraction is not None else
         "while no held-out automatic crossing is observed"
     )
