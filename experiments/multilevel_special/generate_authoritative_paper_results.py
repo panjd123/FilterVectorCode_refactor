@@ -15,6 +15,7 @@ import hashlib
 import json
 import math
 import os
+import shlex
 import statistics
 import subprocess
 import sys
@@ -253,6 +254,7 @@ def validate_build_config(path: Path) -> dict[str, Any]:
     payload = json.loads(manifest.read_text(encoding="utf-8"))
     latest = {str(row.get("name")): row for row in payload.get("runs", [])}
     problems = []
+    binary_hashes = set()
     for case in config.get("cases", []):
         row = latest.get(str(case["name"]))
         if row is None:
@@ -263,15 +265,49 @@ def validate_build_config(path: Path) -> dict[str, Any]:
                 f"returncode={row.get('returncode')}")
         elif float(row.get("elapsed_seconds", 0)) <= 0:
             problems.append(f"{case['name']}: missing positive elapsed time")
+        else:
+            provenance = row.get("provenance")
+            if not isinstance(provenance, dict):
+                provenance = row.get("source_provenance")
+            binary_hash = (provenance.get("build_binary_sha256")
+                           if isinstance(provenance, dict) else None)
+            if (not isinstance(binary_hash, str) or len(binary_hash) != 64
+                    or any(character not in "0123456789abcdef"
+                           for character in binary_hash)):
+                problems.append(f"{case['name']}: invalid build binary hash")
+                continue
+            binary_hashes.add(binary_hash)
+            case_root = Path(str(row.get("case_root", "")))
+            command_path = case_root / "command.txt"
+            if not command_path.is_file():
+                problems.append(f"{case['name']}: missing command.txt")
+                continue
+            command = shlex.split(command_path.read_text(encoding="utf-8"))
+            if not command:
+                problems.append(f"{case['name']}: empty command.txt")
+                continue
+            executable = Path(command[0])
+            if not executable.is_file():
+                problems.append(
+                    f"{case['name']}: executed build snapshot is missing")
+            elif source_digest(executable) != binary_hash:
+                problems.append(
+                    f"{case['name']}: command binary differs from manifest hash")
     if not config.get("cases"):
         problems.append("configuration has no cases")
+    if len(binary_hashes) != 1:
+        problems.append(
+            "configuration mixes build binaries: "
+            f"{sorted(binary_hashes)}")
     if problems:
         raise RuntimeError(f"incomplete build config {path}:\n" + "\n".join(problems))
+    config["_validated_build_binary_sha256"] = next(iter(binary_hashes))
     return config
 
 
 def validate_build_config_set(configs: list[dict[str, Any]]) -> None:
     observed = set()
+    binary_hashes: dict[str, set[str]] = {"base": set(), "hierarchy": set()}
     for config in configs:
         builder = Path(config.get("build_app", "")).name
         if builder == "build_UNG_index":
@@ -281,6 +317,10 @@ def validate_build_config_set(configs: list[dict[str, Any]]) -> None:
         else:
             raise ValueError(f"unexpected authoritative builder: {builder}")
         observed.add((component, bool(config.get("resource_profile", False))))
+        binary_hash = config.get("_validated_build_binary_sha256")
+        if not isinstance(binary_hash, str):
+            raise ValueError(f"unvalidated build binary for {component}")
+        binary_hashes[component].add(binary_hash)
     expected = {
         ("base", False), ("base", True),
         ("hierarchy", False), ("hierarchy", True),
@@ -289,6 +329,11 @@ def validate_build_config_set(configs: list[dict[str, Any]]) -> None:
         raise ValueError(
             f"build config set mismatch: expected {sorted(expected)}, "
             f"got {sorted(observed)}")
+    mixed = {component: sorted(hashes)
+             for component, hashes in binary_hashes.items()
+             if len(hashes) != 1}
+    if mixed:
+        raise ValueError(f"timing/resource build binary mismatch: {mixed}")
 
 
 def validate_performance_binary_hashes(

@@ -627,6 +627,46 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "fewer than five"):
             self.generate()
 
+    def test_build_config_binds_command_snapshot_to_manifest_hash(self) -> None:
+        output_root = self.root / "build-output"
+        case_root = output_root / "case0"
+        case_root.mkdir(parents=True)
+        executable = self.root / "build_UNG_index.snapshot"
+        executable.write_bytes(b"actual build binary")
+        (case_root / "command.txt").write_text(
+            f"{executable} --flag value\n", encoding="utf-8")
+        config = {
+            "build_app": str(self.root / "build_UNG_index"),
+            "output_root": str(output_root),
+            "resource_profile": False,
+            "cases": [{"name": "case0"}],
+        }
+        config_path = self.root / "build-config.json"
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        (output_root / "manifest.json").write_text(json.dumps({"runs": [{
+            "name": "case0", "status": "complete", "returncode": 0,
+            "elapsed_seconds": 1.0, "case_root": str(case_root),
+            "provenance": {"build_binary_sha256": "0" * 64},
+        }]}), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "command binary differs"):
+            generator.validate_build_config(config_path)
+
+    def test_build_config_set_rejects_timing_resource_binary_drift(self) -> None:
+        configs = []
+        for builder, component in (
+                ("build_UNG_index", "base"),
+                ("build_special_block_index", "hierarchy")):
+            for resource in (False, True):
+                configs.append({
+                    "build_app": str(self.root / builder),
+                    "resource_profile": resource,
+                    "_validated_build_binary_sha256":
+                        (("a" if component == "base" and not resource else "b")
+                         * 64),
+                })
+        with self.assertRaisesRegex(ValueError, "build binary mismatch"):
+            generator.validate_build_config_set(configs)
+
     def test_build_summary_requires_complete_frozen_matrix(self) -> None:
         with self.paths.build_summary.open(newline="", encoding="utf-8") as stream:
             rows = list(csv.DictReader(stream))
