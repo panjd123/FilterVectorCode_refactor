@@ -289,6 +289,19 @@ manifest against the new executable's SHA256. A different profile binary is
 allowed because profile timing is explanatory and never contributes to QPS;
 the generated paper records both hashes.
 
+For a long unattended campaign, `continue_after_build.py` waits for the
+held-out and build summaries and for every query/build process to exit. It then
+runs the isolated instrumented profile, invokes the fail-closed paper generator,
+compiles the paper with Tectonic, checks `git diff --check`, and writes
+`runs/authoritative_multilevel_20260926_emptyfix/finalization_manifest.json`
+with hashes of the generated result source and PDF:
+
+```bash
+nohup python3 -u continue_after_build.py \
+  > ../../runs/authoritative_multilevel_20260926_emptyfix/finalization.log \
+  2>&1 < /dev/null &
+```
+
 ## UNG versus plain provider study
 
 `generate_ung_plain_comparison.py` creates the controlled comparison. It holds
