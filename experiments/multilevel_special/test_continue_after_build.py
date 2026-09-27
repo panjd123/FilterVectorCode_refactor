@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -47,6 +48,73 @@ class ContinueAfterBuildTest(unittest.TestCase):
             manifest = root / "manifest.json"
             finalizer.write_manifest(manifest, {"sha256": finalizer.sha256(source)})
             self.assertIn(finalizer.sha256(source), manifest.read_text())
+
+    def make_provenance_fixture(
+        self, root: Path,
+    ) -> tuple[list[str], list[dict[str, str]], Path]:
+        config = root / "formal.json"
+        result = root / "formal.csv"
+        policy = root / "policy.json"
+        config.write_text('{"phase": "formal"}\n', encoding="utf-8")
+        result.write_text("status\ncomplete\n", encoding="utf-8")
+        policy.write_text(json.dumps({"dataset": "Genome"}), encoding="utf-8")
+        command = [
+            "python", "generator.py",
+            "--amazon-formal-config", str(config),
+            "--amazon-formal", str(result),
+            "--heldout-policy", str(policy),
+        ]
+        snapshot = finalizer.paper_input_snapshot(command)
+        generated = root / "generated_results.tex"
+        generated.write_text("".join(
+            f"% {row['kind']} {row['label']} {row['sha256']}\n"
+            for row in snapshot), encoding="utf-8")
+        return command, snapshot, generated
+
+    def test_generated_provenance_covers_every_current_input(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, snapshot, generated = self.make_provenance_fixture(Path(directory))
+            finalizer.validate_generated_provenance(generated, snapshot)
+
+    def test_generated_provenance_rejects_stale_input_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, snapshot, generated = self.make_provenance_fixture(root)
+            (root / "formal.csv").write_text(
+                "status\nchanged\n", encoding="utf-8")
+            changed = finalizer.paper_input_snapshot([
+                "python", "generator.py",
+                "--amazon-formal-config", str(root / "formal.json"),
+                "--amazon-formal", str(root / "formal.csv"),
+                "--heldout-policy", str(root / "policy.json"),
+            ])
+            with self.assertRaisesRegex(RuntimeError, "stale"):
+                finalizer.validate_generated_provenance(generated, changed)
+
+    def test_input_snapshot_rejects_change_during_finalization(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, snapshot, _ = self.make_provenance_fixture(root)
+            (root / "formal.csv").write_text("changed\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "changed during"):
+                finalizer.verify_input_snapshot(snapshot)
+
+    def test_tectonic_logs_are_required_clean_and_hashed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "main.log").write_text(
+                "Output written on main.xdv.\n", encoding="utf-8")
+            (root / "main.blg").write_text(
+                "Database file #1: references.bib\n", encoding="utf-8")
+            records = finalizer.validate_tectonic_logs(root)
+            self.assertEqual(len(records), 2)
+            self.assertTrue(all(len(row["sha256"]) == 64 for row in records))
+
+            (root / "main.log").write_text(
+                "LaTeX Warning: Citation `missing' on page 1 undefined.\n",
+                encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "publication checks"):
+                finalizer.validate_tectonic_logs(root)
 
 
 if __name__ == "__main__":
