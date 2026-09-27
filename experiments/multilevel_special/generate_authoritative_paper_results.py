@@ -73,6 +73,7 @@ PROFILE_FIELDS = QUERY_FIELDS | {
     "entry_point_distance_calcs_warm_median",
     "graph_search_distance_calcs_warm_median",
     "total_distance_calcs_warm_median",
+    "num_entries_warm_median", "entry_group_matched_points_warm_median",
 }
 
 
@@ -1071,22 +1072,27 @@ def render_profile(
         r"\begin{table*}[t]", r"\centering", r"\scriptsize",
         r"\caption{Search work at the same profiled operating points.}",
         r"\label{tab:query-work}",
-        r"\begin{tabular}{rlrrrrrrr}", r"\toprule",
-        r"Sel. & Method & Visited & Base edges & Special intra & Special inter & Entry dist. & Graph dist. & Total dist. \\",
+        r"\resizebox{\textwidth}{!}{%",
+        r"\begin{tabular}{rlrrrrrrrrrr}", r"\toprule",
+        r"Sel. & Method & Entries & Matched pts. & Visited & Base edges & Special intra & Special inter & Total edges & Entry dist. & Graph dist. & Total dist. \\",
         r"\midrule",
     ])
     for row in rows:
         label = "0-layer" if row["method"] == BASELINE_METHOD else "gated DRH"
         lines.append(
             f"{100.0 * number(row, 'mean_selectivity'):.3f}\\% & {label} & "
+            f"{fmt(row['num_entries_warm_median'], 0)} & "
+            f"{fmt(row['entry_group_matched_points_warm_median'], 0)} & "
             f"{fmt(row['nodes_visited_warm_median'], 0)} & "
             f"{fmt(row['regular_edges_scanned_warm_median'], 0)} & "
             f"{fmt(row['special_intra_edges_scanned_warm_median'], 0)} & "
             f"{fmt(row['special_inter_edges_scanned_warm_median'], 0)} & "
+            f"{fmt(row['total_edges_scanned_warm_median'], 0)} & "
             f"{fmt(row['entry_point_distance_calcs_warm_median'], 0)} & "
             f"{fmt(row['graph_search_distance_calcs_warm_median'], 0)} & "
             f"{fmt(row['total_distance_calcs_warm_median'], 0)} " + r"\\")
-    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
+    lines.extend([
+        r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}", ""])
     return lines
 
 
@@ -1458,9 +1464,10 @@ def generate_markdown_report(
                 f"{fmt(row['graph_ms_warm_median'], 3)} | "
                 f"{fmt(row['residual_ms_warm_median'], 3)} |")
     lines.extend([
-        "", "| 选择率 | 方法 | 访问点 | Base edges | Special intra | "
-        "Special inter | Entry distances | Graph distances | Total distances |",
-        "|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+        "", "| 选择率 | 方法 | Entries | Matched points | 访问点 | Base edges | "
+        "Special intra | Special inter | Total edges | Entry distances | "
+        "Graph distances | Total distances |",
+        "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ])
     for workload in workloads:
         for name in selected_names:
@@ -1470,10 +1477,13 @@ def generate_markdown_report(
             label = "0-layer" if name == BASELINE_METHOD else "gated DRH"
             lines.append(
                 f"| {100.0 * number(row, 'mean_selectivity'):.3f}% | {label} | "
+                f"{fmt(row['num_entries_warm_median'], 0)} | "
+                f"{fmt(row['entry_group_matched_points_warm_median'], 0)} | "
                 f"{fmt(row['nodes_visited_warm_median'], 0)} | "
                 f"{fmt(row['regular_edges_scanned_warm_median'], 0)} | "
                 f"{fmt(row['special_intra_edges_scanned_warm_median'], 0)} | "
                 f"{fmt(row['special_inter_edges_scanned_warm_median'], 0)} | "
+                f"{fmt(row['total_edges_scanned_warm_median'], 0)} | "
                 f"{fmt(row['entry_point_distance_calcs_warm_median'], 0)} | "
                 f"{fmt(row['graph_search_distance_calcs_warm_median'], 0)} | "
                 f"{fmt(row['total_distance_calcs_warm_median'], 0)} |")

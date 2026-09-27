@@ -204,6 +204,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                     "entry_point_distance_calcs_warm_median": 40,
                     "graph_search_distance_calcs_warm_median": 260,
                     "total_distance_calcs_warm_median": 300,
+                    "num_entries_warm_median": 16,
+                    "entry_group_matched_points_warm_median": 1024,
                 })
         depth = []
         for index, (workload, selectivity) in enumerate(WORKLOADS):
@@ -403,6 +405,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             self.assertIn(heading, report)
         self.assertIn("Entry distances", report)
         self.assertIn("Special inter", report)
+        self.assertIn("Total edges", report)
+        self.assertIn("Matched points", report)
         self.assertNotIn("pending", report.lower())
 
     def test_principal_zero_layer_table_marks_missing_trie_crossing(self) -> None:
