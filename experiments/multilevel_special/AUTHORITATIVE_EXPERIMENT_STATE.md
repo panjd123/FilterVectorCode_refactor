@@ -146,6 +146,19 @@ DRH graph-search 约为 167.0 ms/query，plain 约为 34.1 ms/query，而 ELS �
 不是入口组查找。这些仍是 1 cold + 2 warm 的 deadline screen，结论不使用
 显著性语言。
 
+截至 20:13，三个 held-out 数据集的 3 个 automatic build、10 个 priority
+query 和 15 个 frozen manual build 均已完成，manual query 正在串行运行。
+Amazon build 与 detailed-profile supervisor 仍分别等待 query 与 build completion
+marker，没有并发污染。
+
+在查看任何新路由结果前，DRH-v2 已冻结为独立后续消融。它不改变 DRH-v1 的
+层数、阈值或 topology，而是在查询可授权的最高 upper layer 上计算 direct-point
+mass $M_h$，并仅当 $M_h\ge T_{L+1}=\rho T_L$ 时进入 multilevel backend；否则在
+创建 overlay seeds 前走原 zero-layer backend。该规则只读 query labels 与持久化
+block metadata，不读取 query distribution、latency、Recall 或 selectivity。
+协议、源码和 same-binary plain/DRH-v1/DRH-v2 runner 均已在首个 DRH-v2
+measurement 前提交；四个数据集的阈值分别为 262144、65536、131072 和 262144。
+
 ## 公平性协议
 
 - 数据、query、GT、K、entry-point 数、graph backend 和 Recall 判定规则在同一
@@ -199,9 +212,11 @@ DRH graph-search 约为 167.0 ms/query，plain 约为 34.1 ms/query，而 ELS �
 | M28 | measurement | ACTIVE | performance pass 的 light stats 会让 layered special-edge counters 为 0，旧汇总表若不标注会误读为未扫描边 | deadline 汇总器已把 light-pass edge counters 改报 NA；待新 binary detailed profile 提供 base/special intra/inter 边数并同时解决 M13 authorization 归因 |
 | M29 | measurement | RESOLVED | 原 authoritative build campaign 的 5 measured x 15 profile 不能在 deadline 内稳定完成，且缺少逐 case 硬超时与 query/build 隔离门 | 从 frozen configs 生成 1 cold + 2 measured 的 5 base + 5 DRH backend 子集，资源测量独立运行；每 case 独立进程组、3300 秒硬超时、原子 supervisor manifest 和 query completion gate；8 项专项及全量 205/205 测试通过。该结果只标为 deadline screen，不冒充正式 5-repeat 证据 |
 | M30 | measurement | ACTIVE | M13/M28 需要新 binary 的真实 gate timing 与 detailed edge/work counters，但 profile 不得污染主 QPS 或 GPU build timing | 独立 prepare/runner 已于 `5117e76` 提交，两级 completion gate + process-idle gate 保证串行；全量 213/213 测试通过，待 query/build 完成后实测 |
+| M31 | methodology | RESOLVED | DRH-v1 的 nonempty exact gate 无法阻止合法但过小的 upper region 放大 bounded-search work，且直接累计所有 upper layers 会在三层以上重复计点 | DRH-v2 只累计最高可授权层的互斥 direct members，以 DRH 下一未物化尺度作 gate；不足时在 outer router 真正回退 base。协议在测量前冻结，同 binary ablation 使用 plain/DRH-v1 冻结网格的并集 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，但 exact gate 只保证无合法 upper 时回到 base，不保证所有中低选择率无损 | held-out priority screen 在 Genome/Reviews 四点为 0.954--1.014x，VariousImg 10.252% 为 0.205x 且由 graph-search 放大解释；待同 gate 的 5 个 deadline manual alternatives 量化自动方案 regret。四个数据集都导出两层，本轮不宣称实证了自动深度变化 |
+| H4 | hypothesis | ACTIVE | 下一尺度 direct-mass gate 可在不做 query/performance 校准的前提下拒绝规模不足的 upper route，恢复中低选择率接近 plain 的路径，同时保留高选择率可用 overlay | 协议已冻结；待同 binary plain/DRH-v1/DRH-v2 在 Amazon 九档及三个 held-out 数据集上的 screen。无论正负均保留，且不宣称单调加速定理 |
 
 ## 实验阶段
 
@@ -210,8 +225,8 @@ DRH graph-search 约为 167.0 ms/query，plain 约为 34.1 ms/query，而 ELS �
 | E0 | runner 与统计 smoke | provenance、Recall、stage closure、work counters 全通过 | 完成 |
 | E1 | Amazon broad screen | 九档、零/一/多层、Trie/LNG、coarse L 完整 | 进行中 |
 | E2 | Amazon crossing/formal | 每方法每档最小实测 crossing，正式重复完成 | 未开始 |
-| E3 | 多数据集验证 | Reviews/Genome/VariousImg 至少各一个低档和一个较高档或可用代表档 | 配置和预检完成，待运行 |
-| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | gated DRH-v1 与同 gate oracle 协议已冻结；190/190 测试和配置 dry-run 通过，待结果 |
+| E3 | 多数据集验证 | Reviews/Genome/VariousImg 至少各一个低档和一个较高档或可用代表档 | DRH/plain priority screen 完成；5 个 frozen manual alternatives 正在运行 |
+| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | DRH-v1 oracle comparison 正在运行；DRH-v2 next-scale gate 及 same-binary ablation 已预注册并排队 |
 | E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | 同源 fail-closed LaTeX/中文报告生成器及 37 项专项测试完成；中文报告与论文附录均含完整 44x9 screen crossing 矩阵和同源九档共同搜索预算，等待权威输入 |
 
 ## 已知数据

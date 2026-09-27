@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-27 19:25 Asia/Shanghai`
+最后更新：`2026-09-27 20:00 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`4382e77`（push：`不执行，origin 指向用户工作树`）
+检查点：`ad90bf3`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -36,9 +36,12 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
 ## 进行中
 
 - 三段串行证据流水线正在运行：query supervisor 已完成 10 个 priority
-  query 和 9 个 manual build，当前继续 Reviews manual build；Amazon build runner
-  仅等待 query completion；
-  detailed-profile runner 将等待 query 和 build 都完成且相关进程退出后才启动。
+  query 和全部 15 个 manual build，当前运行 manual query；Amazon build runner
+  仅等待 query completion；detailed-profile runner 将等待 query 和 build 都完成
+  且相关进程退出后才启动。
+- 独立 DRH-v2 runner 已在 `fv_drh_v2_20260927` 等待 detailed profile 完成，
+  不与冻结 campaign 争用 CPU/GPU。它将从同一新 binary 对比 plain、DRH-v1 与
+  DRH-v2，覆盖 Amazon 九档和三个 held-out 数据集。
 
 ## 完成历史
 
@@ -48,6 +51,10 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
 - DRH-v1 已在 held-out query 前冻结：`T1=nearestPow2(sqrt(N))`、
   `rho=max(2,round(R/C))`、`N/T<C` 停止、按 `N/T>R` 选择 LNG/Trie；
   exact authorization gate 不读取 query distribution、latency 或 Recall。
+- DRH-v2 已在首个新测量前冻结：在最高可授权 upper layer 上累计不重叠的
+  direct-point mass，并以 DRH 的下一未物化尺度 `T_next=rho*T_L` 为 gate；不足时
+  在进入 multilevel backend 前真正回退 base。源码、C++ 边界测试、独立同 binary
+  运行器和汇总器已提交，协议见 `DRH_V2_PROTOCOL.md`。
 - 查询/build runner 已记录 binary hash、命令、环境、manifest、超时和断点恢复；
   汇总器使用 conservative crossing 并分离 performance/profile pass。
 - 权威生成器已能输出 Recall/QPS、五段 timing、visited points、base/special
@@ -80,9 +87,10 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
 
 ## 下一步
 
-继续轮询现有 query campaign，不重启 PID；保持 build/profile waiter 串行。
-query 完成后生成 held-out strict 汇总，build 完成后汇总 GPU 构建证据，profile
-完成后合并真实边/点/距离计数，再回填中文报告和论文。
+继续轮询现有 query campaign，不重启 PID；保持 build/profile/DRH-v2 waiter
+串行。query 完成后生成 held-out strict 汇总，build 完成后汇总 GPU 构建证据，
+profile 完成后合并真实边/点/距离计数；随后执行 DRH-v2 ablation，再回填中文报告
+和论文。
 
 ## 阻塞与问题
 
@@ -113,6 +121,8 @@ query 完成后生成 held-out strict 汇总，build 完成后汇总 GPU 构建�
   当前只有已生成配置，尚无 timing 运行。
 - `runs/deadline_profile_20260927/` — query 与 build 都完成后用的独立 detailed
   profile root；只能用于机制 breakdown，不能替代 performance-pass QPS。
+- `runs/drh_v2_20260927/` — profile 完成后生成的同 binary plain/DRH-v1/DRH-v2
+  screen 与 route-mass 证据。
 
 ## 恢复说明
 
