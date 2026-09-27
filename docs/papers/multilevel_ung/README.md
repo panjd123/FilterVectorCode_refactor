@@ -4,15 +4,24 @@
 live in `generated_results.tex` so they can be regenerated only from validated
 artifacts instead of being copied from development notes.
 
-Build with an ACM-compatible TeX installation:
+For an informal local check, build with an ACM-compatible TeX installation:
 
 ```bash
 latexmk -pdf main.tex
 ```
 
-The remote benchmark host currently has neither `latexmk` nor `pdflatex` in
-`PATH`; source-level checks therefore run there, while PDF compilation requires
-a TeX environment.
+The benchmark host has a pinned Tectonic binary outside `PATH`.  The
+authoritative finalizer invokes it directly as:
+
+```bash
+/home/sunyahui/.local/opt/tectonic-0.15.0-musl/tectonic -X compile \
+  --keep-logs --keep-intermediates --outdir <paper-output> main.tex
+```
+
+`continue_after_build.py` also hashes the compiler and every direct paper
+input, rejects unresolved references and BibTeX failures, and writes the final
+PDF and provenance manifest.  That path, rather than an ad hoc local build,
+defines the publication artifact.
 
 Before treating the draft as final:
 
