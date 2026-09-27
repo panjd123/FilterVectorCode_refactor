@@ -860,6 +860,95 @@ def compact_method(row: dict[str, str]) -> str:
     return labels.get(category, row.get("method", "method"))
 
 
+def render_screen_appendix(
+    screen: dict[tuple[str, str], dict[str, Any]],
+    config: dict[str, Any], workloads: list[str],
+) -> list[str]:
+    """Render every screen method without mixing screen and formal claims."""
+    methods = [
+        method for method in config["methods"]
+        if any((str(method["name"]), workload) in screen
+               for workload in workloads)
+    ]
+    selectivity = {
+        str(row["name"]): 100.0 * float(row["mean_selectivity"])
+        for row in config["workloads"]
+    }
+    lines = [
+        r"\clearpage", r"\onecolumn", r"\appendix",
+        r"\section{Complete Amazon Screen Matrix}",
+        f"This appendix discloses all {len(methods)} methods across all "
+        f"{len(workloads)} selectivity workloads. Each cell is "
+        r"$L_{search}$/QPS/minimum-warm-Recall at the smallest measured "
+        r"screen crossing. NC:$R$@$L$ reports the highest measured minimum "
+        "warm Recall when no crossing exists. Screen values contain two warm "
+        "repeats and are used for candidate selection only; all performance "
+        "claims in the main text use the 15-repeat formal pass.",
+    ]
+    entry_labels = {
+        "original": "original", "optimized_lng": "opt-LNG", "trie": "Trie",
+    }
+    for chunk_start in range(0, len(methods), 11):
+        chunk = methods[chunk_start:chunk_start + 11]
+        first_id = chunk_start + 1
+        last_id = chunk_start + len(chunk)
+        lines.extend([
+            rf"\paragraph{{Methods M{first_id:02d}--M{last_id:02d}.}}",
+            r"\begin{center}", r"\scriptsize",
+            r"\resizebox{\textwidth}{!}{%",
+            r"\begin{tabular}{rlllll}", r"\toprule",
+            r"ID & Method & Base & Hierarchy & Entry & Routing \\",
+            r"\midrule",
+        ])
+        for offset, method in enumerate(chunk, start=first_id):
+            layers = method.get("hierarchy_layers", [])
+            hierarchy = "; ".join(
+                f"{int(layer['min_points'])}:{str(layer['topology']).upper()}"
+                for layer in layers) or "none"
+            routing = method.get("routing_policy", "always_layered")
+            lines.append(
+                f"M{offset:02d} & {tex_escape(method['name'])} & "
+                f"{tex_escape(str(method['base_topology']).upper())} & "
+                f"{tex_escape(hierarchy)} & "
+                f"{tex_escape(entry_labels.get(str(method['entry_strategy']), str(method['entry_strategy'])))} & "
+                f"{tex_escape(routing)} " + r" \\")
+        lines.extend([
+            r"\bottomrule", r"\end{tabular}%", r"}", r"\end{center}",
+        ])
+
+        for band in (workloads[:5], workloads[5:]):
+            lines.extend([
+                r"\begin{center}", r"\scriptsize",
+                r"\resizebox{\textwidth}{!}{%",
+                r"\begin{tabular}{r" + "r" * len(band) + "}",
+                r"\toprule",
+                "ID & " + " & ".join(
+                    f"{selectivity[workload]:.3f}\\%" for workload in band)
+                + r" \\",
+                r"\midrule",
+            ])
+            for offset, method in enumerate(chunk, start=first_id):
+                name = str(method["name"])
+                cells = []
+                for workload in band:
+                    row = screen.get((name, workload))
+                    if row is None:
+                        cells.append("--")
+                    elif row["status"] == "complete":
+                        cells.append(
+                            f"{row['lsearch']}/{row['qps']:.1f}/"
+                            f"{row['recall_min']:.3f}")
+                    else:
+                        cells.append(
+                            f"NC:{row['recall_min']:.3f}@{row['lsearch']}")
+                lines.append(
+                    f"M{offset:02d} & " + " & ".join(cells) + r" \\")
+            lines.extend([
+                r"\bottomrule", r"\end{tabular}%", r"}", r"\end{center}",
+            ])
+    return lines
+
+
 def render_depth_table(
     depth: dict[tuple[str, str], dict[str, str]], workloads: list[str],
 ) -> list[str]:
@@ -2050,12 +2139,18 @@ def render_indirect_provenance(
 
 
 def generate_document(
-    paths: ResultPaths, amazon_formal_config: dict[str, Any],
+    paths: ResultPaths, amazon_screen_config: dict[str, Any],
+    amazon_screen_points: Path, amazon_formal_config: dict[str, Any],
     amazon_profile_config: dict[str, Any], heldout_configs: list[dict[str, Any]],
     heldout_policies: list[dict[str, Any]],
     build_quality_config: dict[str, Any],
 ) -> str:
     workloads = validate_amazon_workloads(amazon_formal_config)
+    if validate_amazon_workloads(amazon_screen_config) != workloads:
+        raise ValueError("Amazon screen and formal workloads differ")
+    screen_rows = read_csv(amazon_screen_points, SCREEN_POINT_FIELDS)
+    screen = summarize_screen_points(
+        screen_rows, amazon_screen_config, workloads)
     profile_workloads = validate_amazon_workloads(amazon_profile_config)
     if profile_workloads != workloads:
         raise ValueError("Amazon formal and profile workloads differ")
@@ -2153,6 +2248,9 @@ def generate_document(
         "}",
         r"\newcommand{\authoritativeResults}{%",
         *body,
+        "}",
+        r"\newcommand{\authoritativeScreenAppendix}{%",
+        *render_screen_appendix(screen, amazon_screen_config, workloads),
         "}",
     ])
     document = "\n".join(lines).rstrip() + "\n"
@@ -2259,7 +2357,8 @@ def main(argv: list[str] | None = None) -> int:
         build_quality_formal=args.build_quality_formal.resolve(),
     )
     document = generate_document(
-        paths, amazon_formal, amazon_profile, heldout_configs,
+        paths, amazon_screen, args.amazon_screen_points.resolve(),
+        amazon_formal, amazon_profile, heldout_configs,
         [policy for _, _, policy in heldout_policies], build_quality_config)
     figures, figure_inputs = validate_recall_qps_figures(
         args.amazon_figures_dir.resolve(), args.amazon_screen_config.resolve(),

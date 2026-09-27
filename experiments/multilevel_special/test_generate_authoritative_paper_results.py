@@ -333,7 +333,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
 
     def generate(self) -> str:
         return generator.generate_document(
-            self.paths, self.formal_config, self.profile_config,
+            self.paths, self.screen_config, self.screen_points,
+            self.formal_config, self.profile_config,
             self.heldout_configs, list(self.heldout_policies.values()),
             self.formal_config)
 
@@ -349,6 +350,10 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn(r"\newcommand{\authoritativeConclusionResult}", output)
         self.assertIn(r"\newcommand{\authoritativeDatasetTable}", output)
         self.assertIn(r"\newcommand{\authoritativeResults}", output)
+        self.assertIn(r"\newcommand{\authoritativeScreenAppendix}", output)
+        self.assertIn("Complete Amazon Screen Matrix", output)
+        self.assertIn("M01", output)
+        self.assertIn("minimum-warm-Recall", output)
         self.assertIn("9/9 selectivity workloads", output)
         self.assertIn("99.001\\%", output)
         self.assertIn("source-sha256", output)
@@ -745,13 +750,15 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertEqual(main.count(r"\authoritativeDatasetTable"), 1)
         self.assertEqual(main.count(r"\authoritativeResults"), 1)
         self.assertEqual(main.count(r"\authoritativeRecallQPSFigures"), 1)
+        self.assertEqual(main.count(r"\authoritativeScreenAppendix"), 1)
         self.assertNotIn(r"\pending{", main)
         for name in (
                 "authoritativeAbstractResult",
                 "authoritativeConclusionResult",
                 "authoritativeDatasetTable",
                 "authoritativeResults",
-                "authoritativeRecallQPSFigures"):
+                "authoritativeRecallQPSFigures",
+                "authoritativeScreenAppendix"):
             self.assertIn(r"\newcommand{\%s}" % name, placeholder)
 
 

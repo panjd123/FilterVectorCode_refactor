@@ -78,7 +78,7 @@
 - held-out 汇总器现在从方法角色硬性核验 oracle 集合恰为 1 个 DRH 加 35 个
   manual alternatives，并将结果字段命名为 `feasible_oracle_candidates` 和
   `complete_oracle_candidates`；不再保留会把 DRH 误称为 manual 的旧列名。
-- 最终中文报告新增完整 44-method x 9-workload screen crossing 矩阵；每格报告
+- 最终中文报告与论文单栏附录新增完整 44-method x 9-workload screen crossing 矩阵；每格报告
   最小实测 crossing 的 L/QPS/warm-min Recall，或未 crossing 时的最高实测
   Recall 与 L。该矩阵明确标为 2-warm-repeat 候选筛选，并链接逐 L 原始点；
   15-repeat formal 表仍是性能结论的唯一依据。
@@ -180,7 +180,8 @@ Reviews/Genome/VariousImg 留出验证和 GPU 建图 timing/resource/quality 矩
 
 - `cmake --build build_ung_rel --clean-first -j16` — `通过`：`fcb74ad` 前最终构建。
 - `env LC_ALL=C LANG=C ctest --output-on-failure` — `通过`：15/15。
-- 新实验框架测试 — `通过`：Python unittest 176/176，`git diff --check` 通过。
+- 新实验框架测试 — `通过`：Python unittest 176/176，`git diff --check` 通过；
+  含实际生成 screen 附录的完整 `main.tex` 已通过本地 Tectonic 编译。
 - Trie 空谓词回归 — `通过`：root frontier 单元测试覆盖 build/load 两条路径；Amazon
   空谓词单查询 `L=N` 得到 Recall@10=1.0。
 - 12 小时有效 build/search 采集 — `进行中`；manifest 会分别标记单调时钟实测值
