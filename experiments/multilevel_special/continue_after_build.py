@@ -27,18 +27,20 @@ ACTIVE_PATTERN = (
     "run_authoritative_build_campaign.py|run_selection_sweep.py|"
     "search_UNG_index|build_UNG_index|build_special_block_index"
 )
-CONFIG_INPUT_FLAGS = (
+QUERY_CONFIG_INPUT_FLAGS = (
     "--amazon-formal-config", "--amazon-profile-config",
     "--heldout-formal-config", "--build-quality-formal-config",
-    "--build-config",
 )
+BUILD_CONFIG_INPUT_FLAGS = ("--build-config",)
+CONFIG_INPUT_FLAGS = QUERY_CONFIG_INPUT_FLAGS + BUILD_CONFIG_INPUT_FLAGS
 RESULT_INPUT_FLAGS = (
     "--amazon-formal", "--amazon-depth", "--amazon-depth-global",
     "--amazon-profile", "--heldout-workload", "--heldout-global",
     "--build-summary", "--build-end-to-end",
 )
 PROVENANCE_PATTERN = re.compile(
-    r"^% (source-sha256|config-sha256|heldout-policy-sha256) "
+    r"^% (source-sha256|config-sha256|heldout-policy-sha256|"
+    r"validator-sha256|manifest-sha256) "
     r"(\S+) ([0-9a-f]{64})$")
 TECTONIC_FAILURE_PATTERNS = (
     re.compile(r"^!", re.MULTILINE),
@@ -96,6 +98,7 @@ def paper_generation_command(run_root: Path, results: Path) -> list[str]:
         str(HERE / "config.authoritative_amazon_formal_emptyfix.json"),
         "--amazon-profile-config",
         str(HERE / "config.authoritative_amazon_profile_instrumented.json"),
+        "--validator", str(HERE / "validate_selection_sweep.py"),
     ]
     for dataset in ("genome", "reviews", "variousimg"):
         command.extend([
@@ -155,12 +158,31 @@ def paper_input_snapshot(command: list[str]) -> list[dict[str, str]]:
         inputs.append(("config-sha256", path.name, path))
     for _, path in flag_values(command, RESULT_INPUT_FLAGS):
         inputs.append(("source-sha256", path.name, path))
+    for _, path in flag_values(command, ("--validator",)):
+        inputs.append(("validator-sha256", path.name, path))
     for _, path in flag_values(command, ("--heldout-policy",)):
         policy = json.loads(path.read_text(encoding="utf-8"))
         dataset = policy.get("dataset")
         if not isinstance(dataset, str) or not dataset:
             raise ValueError(f"held-out policy lacks dataset: {path}")
         inputs.append(("heldout-policy-sha256", dataset, path))
+    for _, path in flag_values(command, QUERY_CONFIG_INPUT_FLAGS):
+        config = json.loads(path.read_text(encoding="utf-8"))
+        root = Path(config["output_root"])
+        if not root.is_absolute():
+            root = HERE / root
+        pass_name = str(config.get("measurement_pass", "performance"))
+        manifest = root / (f"manifest_{pass_name}.json"
+                           if config.get("pass_subdirs", False)
+                           else "manifest.json")
+        inputs.append(("manifest-sha256", path.name, manifest.resolve()))
+    for _, path in flag_values(command, BUILD_CONFIG_INPUT_FLAGS):
+        config = json.loads(path.read_text(encoding="utf-8"))
+        root = Path(config["output_root"])
+        if not root.is_absolute():
+            root = HERE / root
+        inputs.append((
+            "manifest-sha256", path.name, (root / "manifest.json").resolve()))
 
     snapshot = []
     identities = set()
@@ -277,8 +299,14 @@ def main() -> int:
     validate_generated_provenance(generated, paper_inputs)
     paper_output = run_root / "paper"
     paper_output.mkdir(parents=True, exist_ok=True)
+    paper_sources = [{
+        "path": str(path.resolve()), "sha256": sha256(path),
+    } for path in (
+        PAPER_DIR / "main.tex", PAPER_DIR / "references.bib", generated)]
+    tectonic = args.tectonic.resolve()
+    tectonic_sha256 = sha256(tectonic)
     run([
-        str(args.tectonic.resolve()), "-X", "compile", "--keep-logs",
+        str(tectonic), "-X", "compile", "--keep-logs",
         "--keep-intermediates", "--outdir", str(paper_output), "main.tex",
     ], cwd=PAPER_DIR)
     pdf = paper_output / "main.pdf"
@@ -286,6 +314,9 @@ def main() -> int:
         raise RuntimeError(f"final paper PDF is missing: {pdf}")
     tectonic_logs = validate_tectonic_logs(paper_output)
     verify_input_snapshot(paper_inputs)
+    verify_input_snapshot(paper_sources)
+    if sha256(tectonic) != tectonic_sha256:
+        raise RuntimeError("Tectonic binary changed during finalization")
     run(["git", "diff", "--check"], cwd=REPO)
     write_manifest(run_root / "finalization_manifest.json", {
         "schema_version": 2,
@@ -298,6 +329,9 @@ def main() -> int:
         "paper_inputs": paper_inputs,
         "paper_generator_sha256": sha256(
             HERE / "generate_authoritative_paper_results.py"),
+        "paper_sources": paper_sources,
+        "tectonic": str(tectonic),
+        "tectonic_sha256": tectonic_sha256,
         "tectonic_logs": tectonic_logs,
         "paper_pdf": str(pdf),
         "paper_pdf_sha256": sha256(pdf),

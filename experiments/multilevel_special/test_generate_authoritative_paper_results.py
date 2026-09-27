@@ -323,6 +323,33 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("Genome", output)
         self.assertIn("108,077", output)
 
+    def test_indirect_provenance_hashes_validator_and_manifests(self) -> None:
+        validator = self.root / "validator.py"
+        query_manifest = self.root / "query" / "manifest.json"
+        build_manifest = self.root / "build" / "manifest.json"
+        validator.write_text("# validator\n", encoding="utf-8")
+        query_manifest.parent.mkdir()
+        build_manifest.parent.mkdir()
+        query_manifest.write_text('{"runs": []}\n', encoding="utf-8")
+        build_manifest.write_text('{"runs": []}\n', encoding="utf-8")
+        query_config_path = self.root / "query.json"
+        build_config_path = self.root / "build.json"
+        lines = generator.render_indirect_provenance(
+            validator, [query_config_path],
+            [{"output_root": str(query_manifest.parent)}],
+            [build_config_path],
+            [{"output_root": str(build_manifest.parent)}])
+        rendered = "\n".join(lines)
+        self.assertIn(
+            f"validator-sha256 validator.py {generator.source_digest(validator)}",
+            rendered)
+        self.assertIn(
+            f"manifest-sha256 query.json {generator.source_digest(query_manifest)}",
+            rendered)
+        self.assertIn(
+            f"manifest-sha256 build.json {generator.source_digest(build_manifest)}",
+            rendered)
+
     def test_principal_zero_layer_table_marks_missing_trie_crossing(self) -> None:
         formal_rows = generator.read_csv(self.paths.amazon_formal,
                                          generator.QUERY_FIELDS)

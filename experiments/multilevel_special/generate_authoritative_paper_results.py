@@ -1189,6 +1189,32 @@ def source_digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def render_indirect_provenance(
+    validator: Path,
+    query_config_paths: list[Path],
+    query_configs: list[dict[str, Any]],
+    build_config_paths: list[Path],
+    build_configs: list[dict[str, Any]],
+) -> list[str]:
+    """Bind validation code and every consulted run manifest to the output."""
+    if len(query_config_paths) != len(query_configs):
+        raise ValueError("query config provenance length mismatch")
+    if len(build_config_paths) != len(build_configs):
+        raise ValueError("build config provenance length mismatch")
+    lines = [
+        f"% validator-sha256 {validator.name} {source_digest(validator)}",
+    ]
+    for path, config in zip(query_config_paths, query_configs):
+        lines.append(
+            f"% manifest-sha256 {path.name} "
+            f"{source_digest(manifest_path(config))}")
+    for path, config in zip(build_config_paths, build_configs):
+        manifest = Path(config["output_root"]) / "manifest.json"
+        lines.append(
+            f"% manifest-sha256 {path.name} {source_digest(manifest)}")
+    return lines
+
+
 def generate_document(
     paths: ResultPaths, amazon_formal_config: dict[str, Any],
     amazon_profile_config: dict[str, Any], heldout_configs: list[dict[str, Any]],
@@ -1344,7 +1370,7 @@ def main(argv: list[str] | None = None) -> int:
         heldout_hashes.add(binary_hash)
     heldout_policies = validate_heldout_policy_set(
         args.heldout_policy, heldout_configs)
-    _, build_quality_hash = validated_query_config(
+    build_quality_config, build_quality_hash = validated_query_config(
         args.build_quality_formal_config.resolve(), args.validator.resolve(),
         "formal", 15)
     validate_performance_binary_hashes(
@@ -1386,6 +1412,17 @@ def main(argv: list[str] | None = None) -> int:
         resolved = path.resolve()
         provenance.append(
             f"% config-sha256 {resolved.name} {source_digest(resolved)}")
+    query_config_paths = [
+        args.amazon_formal_config.resolve(),
+        args.amazon_profile_config.resolve(),
+        *(path.resolve() for path in args.heldout_formal_config),
+        args.build_quality_formal_config.resolve(),
+    ]
+    provenance.extend(render_indirect_provenance(
+        args.validator.resolve(), query_config_paths,
+        [amazon_formal, amazon_profile, *heldout_configs,
+         build_quality_config],
+        [path.resolve() for path in args.build_config], build_configs))
     document = "\n".join(provenance) + "\n" + document
     atomic_write(args.output.resolve(), document)
     print(args.output.resolve())

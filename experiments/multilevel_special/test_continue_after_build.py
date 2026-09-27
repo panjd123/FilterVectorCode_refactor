@@ -26,6 +26,7 @@ class ContinueAfterBuildTest(unittest.TestCase):
         rendered = " ".join(command)
         self.assertIn("config.authoritative_amazon_profile_instrumented.json", rendered)
         self.assertIn("amazon_profile_instrumented", rendered)
+        self.assertIn("--validator", command)
         self.assertEqual(command.count("--heldout-formal-config"), 3)
         self.assertEqual(command.count("--heldout-policy"), 3)
         self.assertEqual(command.count("--build-config"), 4)
@@ -55,14 +56,19 @@ class ContinueAfterBuildTest(unittest.TestCase):
         config = root / "formal.json"
         result = root / "formal.csv"
         policy = root / "policy.json"
-        config.write_text('{"phase": "formal"}\n', encoding="utf-8")
+        validator = root / "validator.py"
+        manifest = root / "manifest.json"
+        config.write_text(json.dumps({"output_root": str(root)}), encoding="utf-8")
         result.write_text("status\ncomplete\n", encoding="utf-8")
         policy.write_text(json.dumps({"dataset": "Genome"}), encoding="utf-8")
+        validator.write_text("# validation logic\n", encoding="utf-8")
+        manifest.write_text('{"runs": []}\n', encoding="utf-8")
         command = [
             "python", "generator.py",
             "--amazon-formal-config", str(config),
             "--amazon-formal", str(result),
             "--heldout-policy", str(policy),
+            "--validator", str(validator),
         ]
         snapshot = finalizer.paper_input_snapshot(command)
         generated = root / "generated_results.tex"
@@ -87,6 +93,7 @@ class ContinueAfterBuildTest(unittest.TestCase):
                 "--amazon-formal-config", str(root / "formal.json"),
                 "--amazon-formal", str(root / "formal.csv"),
                 "--heldout-policy", str(root / "policy.json"),
+                "--validator", str(root / "validator.py"),
             ])
             with self.assertRaisesRegex(RuntimeError, "stale"):
                 finalizer.validate_generated_provenance(generated, changed)
