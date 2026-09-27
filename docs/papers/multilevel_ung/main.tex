@@ -350,9 +350,11 @@ group or group pair repeats packing, transfer, launch, and writeback overhead.
 
 \subsection{Intra-Group Graphs}
 The hybrid backend routes small blocks to CPU exact top-$k$ (or bounded
-complete) graphs, medium blocks to sampled CPU Vamana construction, and large
-blocks to GPU GNN-Descent candidate generation followed by RNG-style pruning
-and degree repair.  The authoritative configurations use
+complete) graphs, medium blocks to sampled CPU Vamana
+construction~\cite{subramanya2019diskann}, and large blocks to a GPU adaptation
+of NN-Descent candidate generation~\cite{dong2011nndescent} followed by
+relative-neighborhood-style pruning~\cite{toussaint1980rng} and degree repair.
+The authoritative configurations use
 $n_{\mathrm{small}}=2048$, $n_{\mathrm{large}}=8192$, and 256 sampled
 candidates for the middle route; these are fixed construction-backend settings
 shared by the compared hierarchy structures, not inputs to DRH.  A separate
@@ -369,9 +371,11 @@ For every topology edge, source vectors need nearest target vectors.  The GPU
 path groups descriptors across irregular tasks, keeps base vectors resident
 when capacity permits, addresses queries by global vector identifier, fuses
 distance and top-$k$ selection, and writes identifiers only when distances are
-not consumed downstream.  Large workloads use bounded streaming rather than
-assuming that the full vector array fits device memory.  CPU fallback remains
-explicit and is recorded in build logs.
+not consumed downstream.  This design builds on GPU similarity-search work
+that identifies $k$-selection and memory traffic as central
+bottlenecks~\cite{johnson2021gpu}.  Large workloads use bounded streaming
+rather than assuming that the full vector array fits device memory.  CPU
+fallback remains explicit and is recorded in build logs.
 
 Algorithm~\ref{alg:gpu-build} gives the end-to-end sidecar path.  The routing
 decision depends only on block cardinality and declared memory limits.  In
@@ -541,10 +545,13 @@ orthogonal: we expose multiple independently authorized group-graph scales,
 separate topology from entry discovery, and address the irregular construction
 workload with a hybrid GPU backend.
 
-GPU graph construction and brute-force top-$k$ libraries provide strong dense
-primitives, but per-group invocation can be dominated by packing and launch
-overhead.  Our grouped execution strategy follows the general principle of
-amortizing irregular workloads while preserving the filtered graph's output
+NN-Descent~\cite{dong2011nndescent} provides an efficient iterative basis for
+approximate $k$-NN graph construction, while relative neighborhood
+graphs~\cite{toussaint1980rng} motivate diversity-oriented proximity pruning.
+GPU similarity search supplies high-throughput distance and top-$k$
+primitives~\cite{johnson2021gpu}, but per-group invocation can be dominated by
+packing and launch overhead.  Our grouped execution strategy amortizes these
+costs across irregular tasks while preserving the filtered graph's output
 semantics and measuring quality end to end.
 
 \section{Conclusion}
