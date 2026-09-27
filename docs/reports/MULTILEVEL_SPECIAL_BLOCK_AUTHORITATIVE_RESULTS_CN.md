@@ -14,4 +14,4 @@
 - entry-group、entry-point、authorization、graph search 阶段耗时；
 - visited points、base/special edges 和 distance calculations；
 - GPU 构建时间、资源、索引大小和下游查询质量；
-- 六类完整 Recall-QPS 曲线及负结果、适用区间和限制。
+- 七类完整 Recall-QPS 曲线（含独立阈值尺度消融）及负结果、适用区间和限制。

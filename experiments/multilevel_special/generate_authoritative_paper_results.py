@@ -45,6 +45,7 @@ RECALL_QPS_FIGURES = (
     ("zero_topology_fixed_entry", "Zero-layer topology with fixed entry discovery"),
     ("depth_fixed_lng", "Hierarchy depth with fixed LNG topology and entry discovery"),
     ("two_layer_topology", "Per-layer topology within the two-layer hierarchy"),
+    ("threshold_depth", "Threshold sensitivity within one- and two-layer hierarchies"),
     ("entry_strategy_on_drh", "Entry discovery on the fixed DRH hierarchy"),
     ("upper_authorization", "Exact upper-authorization routing"),
 )
@@ -60,6 +61,12 @@ TWO_LAYER_TOPOLOGY_ABLATION = (
     ("l2_t1024_16384_lt_entry_optimized_lng", "LNG/Trie"),
     ("l2_t1024_16384_tl_entry_optimized_lng", "Trie/LNG"),
     ("l2_t1024_16384_tt_entry_optimized_lng", "Trie/Trie"),
+)
+THRESHOLD_DEPTH_ABLATION = (
+    ("l1_t1024_lng_entry_optimized_lng", "1L: 1,024"),
+    ("l1_t8192_lng_entry_optimized_lng", "1L: 8,192"),
+    ("l2_t1024_16384_lt_entry_optimized_lng", "2L: 1,024/16,384"),
+    ("l2_t8192_131072_lt_entry_optimized_lng", "2L: 8,192/131,072"),
 )
 DRH_ENTRY_ABLATION = (
     ("l2_t1024_16384_lt_entry_original", "Original"),
@@ -907,6 +914,18 @@ def render_drh_entry_table(
         "tab:amazon-drh-entry")
 
 
+def render_threshold_depth_table(
+    formal: dict[tuple[str, str], dict[str, str]],
+    config: dict[str, Any], workloads: list[str],
+) -> list[str]:
+    return render_equal_recall_ablation(
+        formal, config, workloads, THRESHOLD_DEPTH_ABLATION,
+        "Threshold sensitivity for one-layer LNG and two-layer LNG/Trie "
+        "structures with optimized LNG entry discovery. Each cell reports "
+        "$L_{search}$/QPS.",
+        "tab:amazon-threshold-depth")
+
+
 def render_query_interpretation(
     formal: dict[tuple[str, str], dict[str, str]],
     depth: dict[tuple[str, str], dict[str, str]],
@@ -1551,6 +1570,10 @@ def generate_markdown_report(
         "固定 T1=1,024、T2=16,384 和 optimized LNG entry；每格为 "
         "Lsearch/QPS。")
     append_markdown_ablation(
+        "层数与阈值尺度消融", THRESHOLD_DEPTH_ABLATION,
+        "固定 optimized LNG entry；一层使用 LNG，二层使用 LNG/Trie；"
+        "每格为 Lsearch/QPS。")
+    append_markdown_ablation(
         "固定 DRH 的入口策略消融", DRH_ENTRY_ABLATION,
         "固定 1,024:LNG、16,384:Trie 的 ungated hierarchy；每格为 "
         "Lsearch/QPS。")
@@ -1829,6 +1852,8 @@ def generate_document(
     body.extend(render_principal_zero_layer_by_workload(formal, workloads))
     body.extend(render_zero_layer_table(formal, amazon_formal_config, workloads))
     body.extend(render_two_layer_topology_table(
+        formal, amazon_formal_config, workloads))
+    body.extend(render_threshold_depth_table(
         formal, amazon_formal_config, workloads))
     body.extend(render_drh_entry_table(
         formal, amazon_formal_config, workloads))

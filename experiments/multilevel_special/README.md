@@ -124,16 +124,17 @@ python3 plot_authoritative_recall_qps.py \
   ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/figures
 ```
 
-The plotter produces PDF and PNG panels for the principal zero-layer
-comparison, fixed-entry topology, depth, two-layer topology, entry strategy,
-and upper-authorization ablations. It fails closed on missing
+The plotter produces seven PDF and PNG panel families for the principal
+zero-layer comparison, fixed-entry topology, depth, two-layer topology,
+threshold/depth sensitivity, entry strategy, and upper-authorization
+ablations. It fails closed on missing
 method/workload results unless `--allow-partial` is explicitly supplied and
 records input hashes and missing cases in `plot_manifest.json`. Lines follow
 increasing measured `Lsearch`; points are not reordered by Recall or smoothed
 to conceal non-monotone measurements.
 The authoritative paper generator accepts only a complete, non-partial plot
 manifest whose screen-config and `all_points.csv` hashes still match. It embeds
-all six PDF families in the Results section, while finalization records both
+all seven PDF families in the Results section, while finalization records both
 PDF and PNG hashes so the paper figures and downloadable artifacts have one
 auditable source. The same validated inputs atomically replace
 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md`; this is the
@@ -143,9 +144,10 @@ historical.
 The generated LaTeX and Chinese report also contain per-selectivity
 conservative-crossing tables for all four two-layer topology assignments
 (`LNG/LNG`, `LNG/Trie`, `Trie/LNG`, and `Trie/Trie`) at fixed thresholds, and
-for all three entry strategies on the fixed DRH hierarchy. Each cell reports
-the measured `Lsearch/QPS`; configurations without a measured crossing are
-shown as `NC` rather than omitted.
+for both threshold scales at one and two layers and all three entry strategies
+on the fixed DRH hierarchy. Each cell reports the measured `Lsearch/QPS`;
+configurations without a measured crossing are shown as `NC` rather than
+omitted.
 
 After the formal pass, generate the requested plain versus best one-layer
 versus best two-layer table with conservative crossings and bootstrap

@@ -44,7 +44,8 @@ RESULT_INPUT_LABELS = {
 }
 FIGURE_FAMILIES = (
     "principal_zero", "zero_topology_fixed_entry", "depth_fixed_lng",
-    "two_layer_topology", "entry_strategy_on_drh", "upper_authorization",
+    "two_layer_topology", "threshold_depth", "entry_strategy_on_drh",
+    "upper_authorization",
 )
 PROVENANCE_PATTERN = re.compile(
     r"^% (source-sha256|config-sha256|heldout-policy-sha256|"

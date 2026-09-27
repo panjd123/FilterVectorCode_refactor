@@ -39,6 +39,12 @@ FAMILIES = {
         ("l2_t1024_16384_tl_entry_optimized_lng", "Trie/LNG"),
         ("l2_t1024_16384_tt_entry_optimized_lng", "Trie/Trie"),
     ],
+    "threshold_depth": [
+        ("l1_t1024_lng_entry_optimized_lng", "1 layer: 1,024"),
+        ("l1_t8192_lng_entry_optimized_lng", "1 layer: 8,192"),
+        ("l2_t1024_16384_lt_entry_optimized_lng", "2 layers: 1,024/16,384"),
+        ("l2_t8192_131072_lt_entry_optimized_lng", "2 layers: 8,192/131,072"),
+    ],
     "entry_strategy_on_drh": [
         ("l2_t1024_16384_lt_entry_original", "original LNG entry"),
         ("l2_t1024_16384_lt_entry_optimized_lng", "optimized LNG entry"),

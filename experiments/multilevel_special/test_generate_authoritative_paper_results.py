@@ -58,21 +58,30 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             method("gated_drh", 2, "lng", "optimized_lng",
                    generator.ROUTED_DRH_ROLE),
         ]
-        for name, topologies, entry in (
-            ("l2_t1024_16384_ll_entry_optimized_lng", ("lng", "lng"),
+        for name, thresholds, topologies, entry in (
+            ("l1_t1024_lng_entry_optimized_lng", (1024,), ("lng",),
              "optimized_lng"),
-            ("l2_t1024_16384_lt_entry_optimized_lng", ("lng", "trie"),
+            ("l1_t8192_lng_entry_optimized_lng", (8192,), ("lng",),
              "optimized_lng"),
-            ("l2_t1024_16384_tl_entry_optimized_lng", ("trie", "lng"),
-             "optimized_lng"),
-            ("l2_t1024_16384_tt_entry_optimized_lng", ("trie", "trie"),
-             "optimized_lng"),
-            ("l2_t1024_16384_lt_entry_original", ("lng", "trie"),
-             "original"),
-            ("l2_t1024_16384_lt_entry_trie", ("lng", "trie"), "trie"),
+            ("l2_t1024_16384_ll_entry_optimized_lng", (1024, 16384),
+             ("lng", "lng"), "optimized_lng"),
+            ("l2_t1024_16384_lt_entry_optimized_lng", (1024, 16384),
+             ("lng", "trie"), "optimized_lng"),
+            ("l2_t1024_16384_tl_entry_optimized_lng", (1024, 16384),
+             ("trie", "lng"), "optimized_lng"),
+            ("l2_t1024_16384_tt_entry_optimized_lng", (1024, 16384),
+             ("trie", "trie"), "optimized_lng"),
+            ("l2_t8192_131072_lt_entry_optimized_lng", (8192, 131072),
+             ("lng", "trie"), "optimized_lng"),
+            ("l2_t1024_16384_lt_entry_original", (1024, 16384),
+             ("lng", "trie"), "original"),
+            ("l2_t1024_16384_lt_entry_trie", (1024, 16384),
+             ("lng", "trie"), "trie"),
         ):
-            row = method(name, 2, "lng", entry)
-            for layer, topology in zip(row["hierarchy_layers"], topologies):
+            row = method(name, len(topologies), "lng", entry)
+            for layer, threshold, topology in zip(
+                    row["hierarchy_layers"], thresholds, topologies):
+                layer["min_points"] = threshold
                 layer["topology"] = topology
             methods.append(row)
         self.formal_config = {
@@ -348,8 +357,10 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("Downstream query quality", output)
         self.assertIn("Two-layer topology ablation", output)
         self.assertIn("Entry-strategy ablation", output)
+        self.assertIn("Threshold sensitivity", output)
         self.assertIn(r"\label{tab:amazon-two-layer-topology}", output)
         self.assertIn(r"\label{tab:amazon-drh-entry}", output)
+        self.assertIn(r"\label{tab:amazon-threshold-depth}", output)
         self.assertIn("Held-out datasets and query-independent DRH plans", output)
         self.assertIn("Genome", output)
         self.assertIn("108,077", output)
@@ -428,6 +439,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             "无校准 DRH 与冻结人工 Oracle", "查询阶段与工作量 Breakdown",
             "GPU 辅助构建", "Recall-QPS 曲线", "解释边界",
             "两层逐层 topology 消融", "固定 DRH 的入口策略消融",
+            "层数与阈值尺度消融",
         ):
             self.assertIn(heading, report)
         self.assertIn("Entry distances", report)

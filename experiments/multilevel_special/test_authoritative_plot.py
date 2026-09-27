@@ -6,6 +6,16 @@ import plot_authoritative_recall_qps as plotting
 
 
 class AuthoritativePlotTest(unittest.TestCase):
+    def test_threshold_family_fixes_topology_and_entry_strategy(self):
+        self.assertEqual(
+            [name for name, _ in plotting.FAMILIES["threshold_depth"]],
+            [
+                "l1_t1024_lng_entry_optimized_lng",
+                "l1_t8192_lng_entry_optimized_lng",
+                "l2_t1024_16384_lt_entry_optimized_lng",
+                "l2_t8192_131072_lt_entry_optimized_lng",
+            ])
+
     def test_curve_follows_lsearch_when_measured_recall_is_nonmonotone(self):
         points = [
             {"lsearch": "300", "recall": "0.92"},
