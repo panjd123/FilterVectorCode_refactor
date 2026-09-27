@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：`2026-09-27 13:54 Asia/Shanghai`
+最后更新：`2026-09-27 14:15 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
-检查点：`6576cd5`（push：`不执行，origin 指向用户工作树`）
+检查点：`68cee9d`（push：`不执行，origin 指向用户工作树`）
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 - 总体：`进行中`
 - 摘要：新结构已在 `fcb74ad` 完成；Trie entry 对空 containment 谓词的历史错误
-  已修复，并通过 15/15 CTest、168/168 Python tests 和 Amazon 单查询端到端验证。实验框架已
+  已修复，并通过 15/15 CTest、170/170 Python tests 和 Amazon 单查询端到端验证。实验框架已
   迁移到 `orthogonal_v2`，明确分离 hierarchy、逐层 topology 和三种 entry
   strategy，并采用轻量 performance pass 与独立 profile pass。旧 QF-SSL 数据仅作
   候选假设，不能作为本轮结论。
@@ -77,7 +77,12 @@
   SHA-256 完全一致；仅三份 policy 的元数据及 hash 变化。
 - 最终 query validator 现在逐 case 重建完整命令和 `UNG_*` 环境，要求执行文件
   位于该 phase 的 content-addressed snapshot 目录、文件名 hash 与实际内容一致，
-  并将实测 executable hash 与 manifest 逐项绑定。当前 86 个完成项全部通过。
+  并将实测 executable hash 与 manifest 逐项绑定。当前 86 个完成项全部通过；
+  相同文件状态的 executable digest 只计算一次，文件 size/mtime/ctime 变化会使
+  缓存失效，保留 binary mutation 检测。
+- 中文权威报告现在与 LaTeX 使用同一组已验证输入，并补齐九档全局 depth 汇总、
+  零层 2 topology x 3 entry strategy 的完整 crossing 表和 GPU lock/idle 证据。
+  Markdown 入口自身也重复执行 depth、held-out 与 build fail-closed 校验。
 - crossed-entry screen 显示 `Trie topology + optimized-LNG entry` 在
   0.5%--30% 的最高 warm-min Recall 仅为 0.404--0.467，而原生 Trie entry
   在前四档 crossing；较少入口降低搜索工作但无法覆盖 Trie 的全部 prefix 分支。
@@ -164,7 +169,7 @@ Reviews/Genome/VariousImg 留出验证和 GPU 建图 timing/resource/quality 矩
 
 - `cmake --build build_ung_rel --clean-first -j16` — `通过`：`fcb74ad` 前最终构建。
 - `env LC_ALL=C LANG=C ctest --output-on-failure` — `通过`：15/15。
-- 新实验框架测试 — `通过`：Python unittest 168/168，`git diff --check` 通过。
+- 新实验框架测试 — `通过`：Python unittest 170/170，`git diff --check` 通过。
 - Trie 空谓词回归 — `通过`：root frontier 单元测试覆盖 build/load 两条路径；Amazon
   空谓词单查询 `L=N` 得到 Recall@10=1.0。
 - 12 小时有效 build/search 采集 — `进行中`；manifest 会分别标记单调时钟实测值

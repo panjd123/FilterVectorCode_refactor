@@ -200,6 +200,25 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertIsNone(validate_selection_sweep.expected_execution_contract(
                 config, method, workload, run_dir))
 
+    def test_validator_reuses_hash_only_for_unchanged_binary_state(self):
+        with tempfile.TemporaryDirectory() as temp:
+            binary = Path(temp) / "search"
+            binary.write_bytes(b"first")
+            validate_selection_sweep.sha256_file_at_state.cache_clear()
+            first = validate_selection_sweep.executable_sha256(binary)
+            self.assertEqual(
+                validate_selection_sweep.executable_sha256(binary), first)
+            self.assertEqual(
+                validate_selection_sweep.sha256_file_at_state.cache_info().misses, 1)
+            self.assertEqual(
+                validate_selection_sweep.sha256_file_at_state.cache_info().hits, 1)
+
+            binary.write_bytes(b"second-state")
+            second = validate_selection_sweep.executable_sha256(binary)
+            self.assertNotEqual(second, first)
+            self.assertEqual(
+                validate_selection_sweep.sha256_file_at_state.cache_info().misses, 2)
+
     def test_method_can_limit_formal_rerun_to_selected_workloads(self):
         method = {"enabled_workloads": ["a", "c"]}
         self.assertTrue(run_selection_sweep.method_enabled_for_workload(

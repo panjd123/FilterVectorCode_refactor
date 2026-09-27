@@ -439,6 +439,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             "方法与评估口径", "Amazon 层数消融", "零层 Trie 与 LNG",
             "无校准 DRH 与冻结人工 Oracle", "查询阶段与工作量 Breakdown",
             "GPU 辅助构建", "Recall-QPS 曲线", "解释边界",
+            "零层 topology 与入口策略完整消融",
             "两层逐层 topology 消融", "固定 DRH 的入口策略消融",
             "层数与阈值尺度消融",
         ):
@@ -453,7 +454,29 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("grouped fused distance/top-k", report)
         self.assertIn("mode=tf32_wmma", report)
         self.assertIn("预声明 quality cohort", report)
+        self.assertIn("同一个配置覆盖全部九档选择率的汇总", report)
+        self.assertIn("LNG + original", report)
+        self.assertIn("Trie + optimized LNG", report)
+        self.assertIn("GPU evidence", report)
+        self.assertIn("idle-3", report)
         self.assertNotIn("pending", report.lower())
+
+    def test_markdown_report_rejects_invalid_build_evidence(self) -> None:
+        with self.paths.build_summary.open(
+                newline="", encoding="utf-8") as stream:
+            rows = list(csv.DictReader(stream))
+        gpu = next(row for row in rows if row["gpu_required"] == "True")
+        gpu["gpu_idle_samples_min"] = "2"
+        write_csv(self.paths.build_summary, rows)
+        figures = {
+            family: self.root / "figures" / f"{family}.pdf"
+            for family, _ in generator.RECALL_QPS_FIGURES
+        }
+        with self.assertRaisesRegex(ValueError, "idle preflight"):
+            generator.generate_markdown_report(
+                self.paths, self.formal_config, self.profile_config,
+                list(self.heldout_policies.values()), self.formal_config,
+                figures, self.root / "report.md")
 
     def test_principal_zero_layer_table_marks_missing_trie_crossing(self) -> None:
         formal_rows = generator.read_csv(self.paths.amazon_formal,

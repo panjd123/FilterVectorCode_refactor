@@ -56,6 +56,14 @@ DEPTH_CATEGORIES = (
 BASELINE_METHOD = "l0_lng_entry_optimized_lng"
 PRINCIPAL_TRIE_METHOD = "l0_trie_entry_trie"
 ROUTED_DRH_ROLE = "predeclared_degree_ratio_hierarchy_v1_upper_authorization_control"
+ZERO_LAYER_ABLATION = (
+    ("l0_lng_entry_original", "LNG + original"),
+    ("l0_lng_entry_optimized_lng", "LNG + optimized LNG"),
+    ("l0_lng_entry_trie", "LNG + Trie"),
+    ("l0_trie_entry_original", "Trie + original"),
+    ("l0_trie_entry_optimized_lng", "Trie + optimized LNG"),
+    ("l0_trie_entry_trie", "Trie + Trie"),
+)
 TWO_LAYER_TOPOLOGY_ABLATION = (
     ("l2_t1024_16384_ll_entry_optimized_lng", "LNG/LNG"),
     ("l2_t1024_16384_lt_entry_optimized_lng", "LNG/Trie"),
@@ -1427,6 +1435,12 @@ def generate_markdown_report(
         "speedup_ci95_high",
     })
     depth = validate_depth_rows(depth_rows, workloads)
+    depth_global = read_csv(paths.amazon_depth_global, {
+        "dataset", "category", "status", "method", "hierarchy",
+        "entry_strategy", "routing_policy", "geomean_qps",
+        "speedup_vs_plain", "workload_count",
+    })
+    validate_depth_global(depth_global)
     profile_rows = read_csv(paths.amazon_profile, PROFILE_FIELDS)
     profile = validate_profile_rows(
         profile_rows, amazon_profile_config, formal)
@@ -1443,6 +1457,11 @@ def generate_markdown_report(
         "dataset", "status", "workload_count", "automatic_speedup_vs_baseline",
         "automatic_qps_fraction_of_global_oracle",
     })
+    heldout_configs = [
+        {"dataset": policy["dataset"], "workloads": policy["workloads"]}
+        for policy in heldout_policies
+    ]
+    validate_heldout_rows(heldout_rows, heldout_global, heldout_configs)
     build_summary = read_csv(paths.build_summary, {
         "component", "structure", "profile", "measured_repeats",
         "wall_median_seconds", "wall_p95_seconds", "index_median_mib",
@@ -1456,6 +1475,7 @@ def generate_markdown_report(
         "speedup_vs_original_cpu", "speedup_ci95_low", "speedup_ci95_high",
         "overhead_vs_accelerated_base_median", "no_slower_supported",
     })
+    validate_build_rows(build_summary, build_e2e)
     quality_workloads = validate_amazon_workloads(build_quality_config)
     if quality_workloads != workloads:
         raise ValueError("Amazon formal and build-quality workloads differ")
@@ -1529,6 +1549,20 @@ def generate_markdown_report(
         lines.append(f"| {selectivity:.3f}% | " + " | ".join(cells) + " |")
 
     lines.extend([
+        "", "同一个配置覆盖全部九档选择率的汇总：", "",
+        "| 类别 | 方法 | 层次 | 入口策略 | Geomean QPS | vs 0 层 |",
+        "|---|---|---|---|---:|---:|",
+    ])
+    order = {name: index for index, name in enumerate(DEPTH_CATEGORIES)}
+    for row in sorted(depth_global, key=lambda item: order[item["category"]]):
+        complete = row["status"] == "complete"
+        lines.append(
+            f"| {compact_method(row)} | {row['method']} | {row['hierarchy']} | "
+            f"{row['entry_strategy']} | "
+            f"{fmt(row['geomean_qps'], 1) if complete else 'NC'} | "
+            f"{fmt(row['speedup_vs_plain'], 2) + 'x' if complete else 'NC'} |")
+
+    lines.extend([
         "", "## 4. 零层 Trie 与 LNG", "",
         "主比较同时展示系统默认组合；随后给出固定 entry strategy 的完整曲线，"
         "用于把 topology 效应与入口算法效应分开。NC 表示实测范围内未达到 Recall。",
@@ -1574,6 +1608,11 @@ def generate_markdown_report(
             lines.append(
                 f"| {100.0 * number(baseline, 'mean_selectivity'):.3f}% | "
                 + " | ".join(cells) + " |")
+
+    append_markdown_ablation(
+        "零层 topology 与入口策略完整消融", ZERO_LAYER_ABLATION,
+        "六种正交组合在保守 Recall crossing 下的结果；每格为 Lsearch/QPS，"
+        "NC 表示声明的实测网格内未 crossing。")
 
     append_markdown_ablation(
         "两层逐层 topology 消融", TWO_LAYER_TOPOLOGY_ABLATION,
@@ -1726,11 +1765,17 @@ def generate_markdown_report(
         "构建时间是进程端到端 wall time，包含产生并验证磁盘文件；resource pass "
         "与 timing pass 分离，CUDA kernel timing 不替代端到端时间。",
         "", "| 组件 | 结构 | profile | repeats | median s | p95 s | index MiB | "
-        "peak RSS MiB | peak GPU MiB |",
-        "|---|---|---|---:|---:|---:|---:|---:|---:|",
+        "peak RSS MiB | peak GPU MiB | GPU evidence |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---|",
     ])
     for row in sorted(build_summary, key=lambda item: (
             item["component"], item["structure"], item["profile"])):
+        if parse_bool(row["gpu_required"]):
+            evidence = (
+                "lock" if parse_bool(row["gpu_exclusive_lock"]) else
+                f"idle-{integer(row, 'gpu_idle_samples_min')}")
+        else:
+            evidence = "--"
         lines.append(
             f"| {row['component']} | {row['structure']} | {row['profile']} | "
             f"{integer(row, 'measured_repeats')} | "
@@ -1738,7 +1783,8 @@ def generate_markdown_report(
             f"{fmt(row['wall_p95_seconds'], 2)} | "
             f"{fmt(row['index_median_mib'], 1)} | "
             f"{fmt(row['peak_rss_mib'], 1) if row['peak_rss_mib'] else '--'} | "
-            f"{fmt(row['peak_gpu_memory_mib'], 1) if row['peak_gpu_memory_mib'] else '--'} |")
+            f"{fmt(row['peak_gpu_memory_mib'], 1) if row['peak_gpu_memory_mib'] else '--'} | "
+            f"{evidence} |")
     lines.extend([
         "", "端到端构建对比：", "",
         "| 结构 | hierarchy profile | paired repeats | 原始 CPU s | "

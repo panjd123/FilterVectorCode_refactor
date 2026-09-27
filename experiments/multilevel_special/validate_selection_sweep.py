@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import functools
 import json
 import os
 import shlex
@@ -13,6 +14,21 @@ from pathlib import Path
 
 import experiment_core
 import run_selection_sweep
+
+
+@functools.lru_cache(maxsize=16)
+def sha256_file_at_state(
+    path: str, size: int, mtime_ns: int, ctime_ns: int,
+) -> str:
+    """Hash an executable once per observed filesystem state."""
+    del size, mtime_ns, ctime_ns
+    return run_selection_sweep.sha256_file(Path(path))
+
+
+def executable_sha256(path: Path) -> str:
+    state = path.stat()
+    return sha256_file_at_state(
+        str(path), state.st_size, state.st_mtime_ns, state.st_ctime_ns)
 
 
 def expected_lsearch_values(config: dict, method: dict, workload: dict) -> set[int]:
@@ -72,7 +88,7 @@ def expected_execution_contract(
         snapshot_dir = (Path(config["output_root"]) / ".binary_snapshots").resolve()
         if not binary.is_file() or binary.parent != snapshot_dir:
             return None
-        digest = run_selection_sweep.sha256_file(binary)
+        digest = executable_sha256(binary)
         if binary.name != f"search_UNG_index.{digest}":
             return None
         pinned = config.get("expected_search_binary_sha256")
