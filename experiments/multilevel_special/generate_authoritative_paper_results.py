@@ -2105,6 +2105,8 @@ def generate_markdown_report(
         "未达到 Recall 的点按 NC 报告。",
         "- DRH 是 query-independent structural heuristic，而非运行时最优性证明；"
         "其有效性由 held-out oracle regret 衡量。",
+        "- 当前 Amazon 与三个 held-out 数据集都实例化为两层 DRH；因此跨数据集"
+        "结果验证阈值与 topology 的迁移，但不能单独证明层数变化时仍有同等收益。",
         "- 当前 GPU pipeline 仍保留 host adjacency materialization boundary，"
         "不能表述为完全 device-resident construction。",
         "",

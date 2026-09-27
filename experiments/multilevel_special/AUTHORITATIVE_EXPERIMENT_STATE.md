@@ -149,7 +149,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M19 | reporting | RESOLVED | 主表和七类图只显式覆盖 44 个 Amazon screen 方法中的代表性子集，完整方法结果只能从 raw points 手工恢复 | 中文报告和论文单栏附录新增 fail-closed 44x9 crossing 矩阵：crossing 报 L/QPS/warm-min Recall，NC 报最高实测 Recall@L，并明确 2-repeat screen 不替代 15-repeat formal 结论 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
-| H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较 |
+| H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较。四个正式数据集都导出两层，因此本轮不把跨数据集结果表述为深度变化的实证验证 |
 
 ## 实验阶段
 

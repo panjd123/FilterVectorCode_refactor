@@ -639,7 +639,10 @@ learned cost model or query frequencies.  The
 held-out study is required to distinguish genuine structural generalization
 from an Amazon-specific coincidence.  The GPU pipeline retains a host
 adjacency materialization boundary, and full device-resident construction is
-future work.  Finally, the current evaluation covers containment predicates;
+future work.  All four evaluated datasets instantiate two DRH layers, so the
+held-out study tests transfer of thresholds and topology but does not by itself
+establish performance when the derived depth changes.  Finally, the current
+evaluation covers containment predicates;
 other predicate semantics require a new authorization proof.
 
 \section{Related Work}

@@ -82,6 +82,9 @@
   最小实测 crossing 的 L/QPS/warm-min Recall，或未 crossing 时的最高实测
   Recall 与 L。该矩阵明确标为 2-warm-repeat 候选筛选，并链接逐 L 原始点；
   15-repeat formal 表仍是性能结论的唯一依据。
+- Amazon 与三个正式 held-out 数据集的 DRH 都实例化为两层；报告和论文将其明确
+  列为证据边界。Music/Tiktok/Laion 按静态规则会产生三层，但当前缺少本轮协议
+  可直接使用的 exact GT，因此只作为结构性观察，不冒充性能验证。
 - 最终 query validator 现在逐 case 重建完整命令和 `UNG_*` 环境，要求执行文件
   位于该 phase 的 content-addressed snapshot 目录、文件名 hash 与实际内容一致，
   并将实测 executable hash 与 manifest 逐项绑定。当前 86 个完成项全部通过；
