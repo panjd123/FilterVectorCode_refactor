@@ -19,6 +19,7 @@ class ContinueAfterBuildTest(unittest.TestCase):
         self.assertIn("amazon_formal", rendered)
         self.assertIn("heldout_oracle_by_workload.csv", rendered)
         self.assertIn("build_end_to_end.csv", rendered)
+        self.assertIn("quality_screen_crossing_formal", rendered)
 
     def test_paper_command_uses_instrumented_profile_and_all_policies(self) -> None:
         command = finalizer.paper_generation_command(
@@ -33,6 +34,7 @@ class ContinueAfterBuildTest(unittest.TestCase):
         self.assertEqual(command.count("--heldout-formal-config"), 3)
         self.assertEqual(command.count("--heldout-policy"), 3)
         self.assertEqual(command.count("--build-config"), 4)
+        self.assertEqual(command.count("--build-quality-formal"), 1)
 
     def test_active_process_filter_excludes_probe_and_self(self) -> None:
         completed = mock.Mock(stdout=(

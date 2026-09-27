@@ -87,6 +87,7 @@ class ResultPaths:
     heldout_global: Path
     build_summary: Path
     build_end_to_end: Path
+    build_quality_formal: Path
 
 
 def read_csv(path: Path, required: set[str]) -> list[dict[str, str]]:
@@ -1150,6 +1151,52 @@ def render_build(
     return lines
 
 
+def build_quality_identity(name: str) -> tuple[str, str]:
+    if name.startswith("quality_base_"):
+        return "base", name.removeprefix("quality_base_")
+    if name.startswith("quality_"):
+        remainder = name.removeprefix("quality_")
+        profile = next(
+            (candidate for candidate in ("full_gpu_wmma", "full_gpu", "cpu")
+             if remainder.endswith("_" + candidate)), "unknown")
+        return remainder.removesuffix("_" + profile), profile
+    return name, "unknown"
+
+
+def render_build_quality(
+    quality: dict[tuple[str, str], dict[str, str]],
+    config: dict[str, Any], workloads: list[str],
+) -> list[str]:
+    lines = [
+        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\caption{Downstream query quality of independently constructed CPU/GPU indexes. QPS is diagnostic; construction comparisons use wall time.}",
+        r"\label{tab:build-quality}",
+        r"\begin{tabular}{llrrr}", r"\toprule",
+        r"Index method & Build profile & Recall crossings & Min Recall & Geomean QPS \\",
+        r"\midrule",
+    ]
+    for method in config["methods"]:
+        name = str(method["name"])
+        rows = [quality[(name, workload)] for workload in workloads
+                if (name, workload) in quality]
+        crossings = len(rows)
+        minimum = min((number(row, "recall_min") for row in rows), default=None)
+        qps = ([number(row, "qps_warm_median") for row in rows]
+               if crossings == len(workloads) else [])
+        structure, profile = build_quality_identity(name)
+        lines.append(
+            f"{tex_escape(structure)} & {tex_escape(profile)} & "
+            f"{crossings}/{len(workloads)} & "
+            f"{minimum:.4f}" if minimum is not None else
+            f"{tex_escape(structure)} & {tex_escape(profile)} & "
+            f"{crossings}/{len(workloads)} & NC")
+        lines[-1] += (
+            f" & {geometric_mean(qps):.1f} " + r"\\"
+            if qps else " & NC " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
+    return lines
+
+
 def render_claims(
     depth: dict[tuple[str, str], dict[str, str]],
     workloads: list[str], heldout_rows: list[dict[str, str]],
@@ -1263,6 +1310,7 @@ def generate_markdown_report(
     amazon_formal_config: dict[str, Any],
     amazon_profile_config: dict[str, Any],
     heldout_policies: list[dict[str, Any]],
+    build_quality_config: dict[str, Any],
     figures: dict[str, Path],
     report_path: Path,
 ) -> str:
@@ -1307,6 +1355,12 @@ def generate_markdown_report(
         "speedup_vs_original_cpu", "speedup_ci95_low", "speedup_ci95_high",
         "overhead_vs_accelerated_base_median", "no_slower_supported",
     })
+    quality_workloads = validate_amazon_workloads(build_quality_config)
+    if quality_workloads != workloads:
+        raise ValueError("Amazon formal and build-quality workloads differ")
+    quality_rows = read_csv(paths.build_quality_formal, QUERY_FIELDS)
+    quality = validate_formal_rows(
+        quality_rows, build_quality_config, "Build quality formal")
 
     lines = [
         "# ML-UNG 权威实验报告",
@@ -1523,6 +1577,29 @@ def generate_markdown_report(
             f"{fmt(row['overhead_vs_accelerated_base_median'], 2)}x |")
 
     lines.extend([
+        "", "### 构建产物的下游查询质量", "",
+        "每个 CPU/GPU 构建产物均重新加载并执行相同的 formal Recall 协议；"
+        "QPS 仅用于发现构建质量回归，不替代构建 wall time。",
+        "", "| 索引结构 | 构建 profile | Recall crossings | 最低 Recall | "
+        "Geomean QPS |",
+        "|---|---|---:|---:|---:|",
+    ])
+    for method in build_quality_config["methods"]:
+        name = str(method["name"])
+        rows = [quality[(name, workload)] for workload in workloads
+                if (name, workload) in quality]
+        structure, build_profile = build_quality_identity(name)
+        minimum = min((number(row, "recall_min") for row in rows), default=None)
+        qps = ([number(row, "qps_warm_median") for row in rows]
+               if len(rows) == len(workloads) else [])
+        lines.append(
+            f"| {structure} | {build_profile} | {len(rows)}/{len(workloads)} | "
+            f"{minimum:.4f}" if minimum is not None else
+            f"| {structure} | {build_profile} | {len(rows)}/{len(workloads)} | NC")
+        lines[-1] += (
+            f" | {geometric_mean(qps):.1f} |" if qps else " | NC |")
+
+    lines.extend([
         "", "## 8. Recall-QPS 曲线", "",
         "每个 marker 都是 screen 阶段实际执行点；虚线为预声明 Recall 门槛。",
         "",
@@ -1578,6 +1655,7 @@ def generate_document(
     paths: ResultPaths, amazon_formal_config: dict[str, Any],
     amazon_profile_config: dict[str, Any], heldout_configs: list[dict[str, Any]],
     heldout_policies: list[dict[str, Any]],
+    build_quality_config: dict[str, Any],
 ) -> str:
     workloads = validate_amazon_workloads(amazon_formal_config)
     profile_workloads = validate_amazon_workloads(amazon_profile_config)
@@ -1630,6 +1708,12 @@ def generate_document(
         "overhead_vs_accelerated_base_median", "no_slower_supported",
     })
     validate_build_rows(build_summary, build_end_to_end)
+    quality_workloads = validate_amazon_workloads(build_quality_config)
+    if quality_workloads != workloads:
+        raise ValueError("Amazon formal and build-quality workloads differ")
+    build_quality_rows = read_csv(paths.build_quality_formal, QUERY_FIELDS)
+    build_quality = validate_formal_rows(
+        build_quality_rows, build_quality_config, "Build quality formal")
 
     body = []
     body.extend(render_depth_table(depth, workloads))
@@ -1640,6 +1724,8 @@ def generate_document(
     body.extend(render_heldout(heldout_rows, heldout_global))
     body.extend(render_profile(profile, amazon_profile_config, workloads))
     body.extend(render_build(build_summary, build_end_to_end))
+    body.extend(render_build_quality(
+        build_quality, build_quality_config, workloads))
     abstract, conclusion = render_claims(
         depth, workloads, heldout_rows, build_end_to_end)
 
@@ -1706,6 +1792,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--heldout-global", type=Path, required=True)
     parser.add_argument("--build-summary", type=Path, required=True)
     parser.add_argument("--build-end-to-end", type=Path, required=True)
+    parser.add_argument("--build-quality-formal", type=Path, required=True)
     parser.add_argument("--validator", type=Path,
                         default=HERE / "validate_selection_sweep.py")
     parser.add_argument(
@@ -1765,17 +1852,19 @@ def main(argv: list[str] | None = None) -> int:
         heldout_global=args.heldout_global.resolve(),
         build_summary=args.build_summary.resolve(),
         build_end_to_end=args.build_end_to_end.resolve(),
+        build_quality_formal=args.build_quality_formal.resolve(),
     )
     document = generate_document(
         paths, amazon_formal, amazon_profile, heldout_configs,
-        [policy for _, _, policy in heldout_policies])
+        [policy for _, _, policy in heldout_policies], build_quality_config)
     figures, figure_inputs = validate_recall_qps_figures(
         args.amazon_figures_dir.resolve(), args.amazon_screen_config.resolve(),
         args.amazon_screen_points.resolve())
     document = document.rstrip() + "\n" + render_recall_qps_figures(figures) + "\n"
     report = generate_markdown_report(
         paths, amazon_formal, amazon_profile,
-        [policy for _, _, policy in heldout_policies], figures,
+        [policy for _, _, policy in heldout_policies], build_quality_config,
+        figures,
         args.report_output.resolve())
     provenance = [
         f"% query-binary-sha256 formal-heldout-build-quality {formal_hash}",

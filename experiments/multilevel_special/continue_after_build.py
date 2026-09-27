@@ -36,7 +36,7 @@ CONFIG_INPUT_FLAGS = QUERY_CONFIG_INPUT_FLAGS + BUILD_CONFIG_INPUT_FLAGS
 RESULT_INPUT_FLAGS = (
     "--amazon-screen-points", "--amazon-formal", "--amazon-depth", "--amazon-depth-global",
     "--amazon-profile", "--heldout-workload", "--heldout-global",
-    "--build-summary", "--build-end-to-end",
+    "--build-summary", "--build-end-to-end", "--build-quality-formal",
 )
 RESULT_INPUT_LABELS = {
     flag: flag.removeprefix("--").replace("-", "_")
@@ -97,6 +97,8 @@ def required_artifacts(run_root: Path, results: Path) -> list[Path]:
         results / "authoritative_build/build_summary.csv",
         results / "authoritative_build/build_end_to_end.csv",
         run_root / "search/amazon_formal/summary/performance/equal_recall_conservative.csv",
+        run_root / ("build_study/quality_screen_crossing_formal/summary/"
+                    "performance/equal_recall_conservative.csv"),
         figures / "plot_manifest.json",
         *(figures / f"{family}.pdf" for family in FIGURE_FAMILIES),
     ]
@@ -156,6 +158,9 @@ def paper_generation_command(run_root: Path, results: Path) -> list[str]:
         str(results / "authoritative_build/build_summary.csv"),
         "--build-end-to-end",
         str(results / "authoritative_build/build_end_to_end.csv"),
+        "--build-quality-formal",
+        str(run_root / ("build_study/quality_screen_crossing_formal/summary/"
+                        "performance/equal_recall_conservative.csv")),
     ])
     return command
 

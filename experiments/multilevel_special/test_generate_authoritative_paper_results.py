@@ -285,6 +285,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             "amazon_depth_global": depth_global, "amazon_profile": profile,
             "heldout_workload": heldout, "heldout_global": heldout_global,
             "build_summary": build_summary, "build_end_to_end": build_e2e,
+            "build_quality_formal": formal,
         }
         paths = {}
         for name, rows in files.items():
@@ -296,7 +297,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
     def generate(self) -> str:
         return generator.generate_document(
             self.paths, self.formal_config, self.profile_config,
-            self.heldout_configs, list(self.heldout_policies.values()))
+            self.heldout_configs, list(self.heldout_policies.values()),
+            self.formal_config)
 
     def test_complete_fixture_generates_all_sections(self) -> None:
         output = self.generate()
@@ -313,7 +315,9 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("9/9 selectivity workloads", output)
         self.assertIn("99.001\\%", output)
         self.assertIn("source-sha256", output)
-        self.assertEqual(output.count("% source-sha256"), 8)
+        self.assertEqual(
+            output.count("% source-sha256"),
+            len(self.paths.__dataclass_fields__))
         for field in self.paths.__dataclass_fields__:
             self.assertIn(f"% source-sha256 {field} ", output)
         self.assertIn("Special intra", output)
@@ -324,6 +328,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("diagnostic profile ratios", output)
         self.assertIn("DRH/plain [95\\% CI]", output)
         self.assertIn("Host/GPU MiB", output)
+        self.assertIn("Downstream query quality", output)
         self.assertIn("Held-out datasets and query-independent DRH plans", output)
         self.assertIn("Genome", output)
         self.assertIn("108,077", output)
@@ -395,7 +400,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         }
         report = generator.generate_markdown_report(
             self.paths, self.formal_config, self.profile_config,
-            list(self.heldout_policies.values()), figures,
+            list(self.heldout_policies.values()), self.formal_config, figures,
             self.root / "report.md")
         for heading in (
             "方法与评估口径", "Amazon 层数消融", "零层 Trie 与 LNG",
@@ -407,6 +412,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("Special inter", report)
         self.assertIn("Total edges", report)
         self.assertIn("Matched points", report)
+        self.assertIn("构建产物的下游查询质量", report)
         self.assertNotIn("pending", report.lower())
 
     def test_principal_zero_layer_table_marks_missing_trie_crossing(self) -> None:
