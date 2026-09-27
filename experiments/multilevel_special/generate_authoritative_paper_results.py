@@ -578,6 +578,61 @@ def validate_amazon_workloads(config: dict[str, Any]) -> list[str]:
     return [str(row["name"]) for row in workloads]
 
 
+def validate_amazon_formal_selection_provenance(
+    config: dict[str, Any],
+) -> None:
+    """Bind every disabled formal cell to an exhausted shared search budget."""
+    workloads = {str(row["name"]): row for row in config["workloads"]}
+    methods = {str(row["name"]): row for row in config["methods"]}
+    provenance = config.get("selection_provenance")
+    if not isinstance(provenance, dict):
+        raise ValueError("Amazon formal config lacks selection provenance")
+    budgets = provenance.get("shared_max_lsearch_by_workload")
+    if not isinstance(budgets, dict) or set(budgets) != set(workloads):
+        raise ValueError("Amazon formal config lacks complete shared Lsearch budgets")
+    normalized_budgets = {
+        name: integer({"budget": value}, "budget")
+        for name, value in budgets.items()
+    }
+    if any(value <= 0 for value in normalized_budgets.values()):
+        raise ValueError("Amazon formal shared Lsearch budgets must be positive")
+
+    exclusions = []
+    for field in ("upstream_excluded_no_crossing", "excluded_no_crossing"):
+        rows = provenance.get(field)
+        if not isinstance(rows, list):
+            raise ValueError(f"Amazon formal provenance lacks {field}")
+        exclusions.extend(rows)
+    excluded_pairs = set()
+    for row in exclusions:
+        if not isinstance(row, dict):
+            raise ValueError("Amazon formal no-crossing record is not an object")
+        method = str(row.get("method"))
+        workload = str(row.get("workload"))
+        pair = (method, workload)
+        if method not in methods or workload not in workloads:
+            raise ValueError(f"unexpected no-crossing record {pair}")
+        if pair in excluded_pairs:
+            raise ValueError(f"duplicate no-crossing record {pair}")
+        excluded_pairs.add(pair)
+        measured = integer(row, "max_measured_lsearch")
+        if measured != normalized_budgets[workload]:
+            raise ValueError(
+                f"{method}/{workload}: NC budget {measured} differs from "
+                f"shared budget {normalized_budgets[workload]}")
+        if abs(number(row, "target_recall") -
+               number(config["recall_thresholds"], workload)) > 1e-12:
+            raise ValueError(f"{method}/{workload}: NC target Recall mismatch")
+
+    all_pairs = {(method, workload)
+                 for method in methods for workload in workloads}
+    disabled_pairs = all_pairs - expected_pairs(config)
+    if excluded_pairs != disabled_pairs:
+        raise ValueError(
+            "Amazon formal disabled/no-crossing pair mismatch: "
+            f"disabled={len(disabled_pairs)} excluded={len(excluded_pairs)}")
+
+
 def validate_query_thread_count(configs: Iterable[dict[str, Any]]) -> int:
     """Require one explicit query-level parallelism setting everywhere."""
     counts = []
@@ -2460,6 +2515,7 @@ def main(argv: list[str] | None = None) -> int:
         args.amazon_screen_config.resolve(), args.validator.resolve(), "screen", 2)
     amazon_formal, formal_hash = validated_query_config(
         args.amazon_formal_config.resolve(), args.validator.resolve(), "formal", 15)
+    validate_amazon_formal_selection_provenance(amazon_formal)
     amazon_profile, profile_hash = validated_query_config(
         args.amazon_profile_config.resolve(), args.validator.resolve(), "profile", 3)
     heldout_configs = []

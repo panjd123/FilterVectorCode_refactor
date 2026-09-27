@@ -563,6 +563,28 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "inconsistent num_threads"):
             generator.validate_query_thread_count(configs)
 
+    def test_formal_provenance_binds_nc_to_shared_budget(self) -> None:
+        config = copy.deepcopy(self.formal_config)
+        budgets = {name: 1000 for name, _ in WORKLOADS}
+        config["selection_provenance"] = {
+            "shared_max_lsearch_by_workload": budgets,
+            "upstream_excluded_no_crossing": [],
+            "excluded_no_crossing": [],
+        }
+        generator.validate_amazon_formal_selection_provenance(config)
+
+        method_row = config["methods"][0]
+        workload = WORKLOADS[0][0]
+        method_row["enabled_workloads"] = [
+            name for name, _ in WORKLOADS if name != workload]
+        config["selection_provenance"]["excluded_no_crossing"] = [{
+            "method": method_row["name"], "workload": workload,
+            "max_measured_lsearch": 999,
+            "target_recall": 0.9,
+        }]
+        with self.assertRaisesRegex(ValueError, "differs from shared budget"):
+            generator.validate_amazon_formal_selection_provenance(config)
+
     def test_build_claim_must_follow_confidence_interval(self) -> None:
         with self.paths.build_end_to_end.open(
                 newline="", encoding="utf-8") as stream:

@@ -299,6 +299,7 @@ def make_crossing(source: dict) -> dict:
 def make_formal(source: dict) -> dict:
     validate_shared_budget_exhaustion(source)
     config = copy.deepcopy(source)
+    crossing_provenance = source["selection_provenance"]
     config["output_root"] = phase_output_root(source, "formal")
     config["num_repeats"] = 16
     config["campaign_minimum_successful_child_seconds"] = int(
@@ -316,6 +317,10 @@ def make_formal(source: dict) -> dict:
     config["selection_provenance"] = {
         "source_output_root": source["output_root"],
         "rule": "smallest explicitly measured Lsearch whose every warm repeat reaches the Recall threshold",
+        "shared_max_lsearch_by_workload": copy.deepcopy(
+            crossing_provenance["shared_max_lsearch_by_workload"]),
+        "upstream_excluded_no_crossing": copy.deepcopy(
+            crossing_provenance.get("excluded_no_crossing", [])),
         "excluded_no_crossing": no_crossing_cases(source),
     }
     return config

@@ -661,6 +661,12 @@ class OrthogonalExperimentTest(unittest.TestCase):
             self.assertEqual(len(excluded), 1)
             self.assertEqual(excluded[0]["max_measured_lsearch"], 10)
             self.assertEqual(excluded[0]["recall_at_max_lsearch"], 0.8)
+            self.assertEqual(
+                formal["selection_provenance"]
+                ["shared_max_lsearch_by_workload"], {"sel_1": 10})
+            self.assertEqual(
+                formal["selection_provenance"]
+                ["upstream_excluded_no_crossing"], [])
             config["selection_provenance"][
                 "shared_max_lsearch_by_workload"]["sel_1"] = 20
             with self.assertRaisesRegex(ValueError, "shared budget 20"):
