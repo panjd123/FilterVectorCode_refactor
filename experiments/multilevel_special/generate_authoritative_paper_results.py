@@ -38,7 +38,8 @@ HELDOUT_MANUAL_ROLE = "predeclared_manual_oracle_grid"
 HELDOUT_UNROUTED_ROLE = "degree_ratio_hierarchy_v1_unrouted_ablation"
 HELDOUT_BASELINE_ROLE = "zero_layer_baseline"
 HELDOUT_ROUTING_POLICY = "require_upper_authorization"
-EXPECTED_MANUAL_HIERARCHY_CASES = 36
+EXPECTED_FROZEN_HIERARCHY_CASES = 36
+EXPECTED_MANUAL_ALTERNATIVES = EXPECTED_FROZEN_HIERARCHY_CASES - 1
 DEPTH_CATEGORIES = (
     "plain", "best_one_layer", "best_two_layer", "automatic_drh",
     "automatic_routed",
@@ -329,7 +330,7 @@ def validate_heldout_policy_protocol(
     roles = Counter(str(method.get("selection_role")) for method in methods)
     expected_roles = {
         HELDOUT_AUTOMATIC_ROLE: 1,
-        HELDOUT_MANUAL_ROLE: EXPECTED_MANUAL_HIERARCHY_CASES - 1,
+        HELDOUT_MANUAL_ROLE: EXPECTED_MANUAL_ALTERNATIVES,
         HELDOUT_UNROUTED_ROLE: 1,
         HELDOUT_BASELINE_ROLE: 1,
     }
@@ -337,8 +338,10 @@ def validate_heldout_policy_protocol(
         raise ValueError(
             f"{path}: held-out method roles mismatch: "
             f"expected {expected_roles}, got {dict(roles)}")
-    if policy.get("manual_hierarchy_cases") != EXPECTED_MANUAL_HIERARCHY_CASES:
-        raise ValueError(f"{path}: expected 36 frozen hierarchy candidates")
+    if policy.get("manual_hierarchy_cases") != EXPECTED_FROZEN_HIERARCHY_CASES:
+        raise ValueError(
+            f"{path}: expected 36 frozen hierarchy candidates "
+            "(DRH plus 35 manual alternatives)")
 
     by_role = {
         role: [method for method in methods
@@ -387,7 +390,7 @@ def validate_heldout_policy_protocol(
                 or method.get("routing_policy") != HELDOUT_ROUTING_POLICY):
             raise ValueError(f"{path}: frozen candidates do not share one gate")
         signatures.append(signature)
-    if len(set(signatures)) != EXPECTED_MANUAL_HIERARCHY_CASES:
+    if len(set(signatures)) != EXPECTED_FROZEN_HIERARCHY_CASES:
         raise ValueError(f"{path}: frozen hierarchy candidates are not unique")
     observed_depths = sorted({len(signature) for signature in signatures})
     if policy.get("manual_depths") != observed_depths:
@@ -819,10 +822,11 @@ def render_heldout(
 ) -> list[str]:
     lines = [
         r"\subsection{Automatic Versus Manual Hierarchies}",
-        "The manual oracle grid is frozen before held-out queries are read and "
-        "uses the same exact upper-authorization gate as DRH.",
+        "The oracle candidate set (DRH plus 35 manually enumerated alternatives) "
+        "is frozen before held-out queries are read, and every candidate uses "
+        "the same exact upper-authorization gate.",
         r"\begin{table*}[t]", r"\centering", r"\small",
-        r"\caption{Calibration-free gated DRH versus the frozen per-workload manual oracle on held-out datasets.}",
+        r"\caption{Calibration-free gated DRH versus the frozen per-workload configuration oracle on held-out datasets.}",
         r"\label{tab:heldout-oracle}",
         r"\begin{tabular}{llrrll}", r"\toprule",
         r"Dataset & Selectivity & DRH/plain [95\% CI] & DRH/oracle [95\% CI] & DRH hierarchy & Oracle hierarchy \\",

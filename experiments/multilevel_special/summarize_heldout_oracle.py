@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Compare calibration-free gated DRH with a gated held-out manual oracle.
+"""Compare calibration-free gated DRH with a gated held-out oracle.
 
 For each method and workload, the operating point is the smallest measured
 Lsearch whose every measured (non-cold) repeat reaches the Recall threshold.
 The per-workload oracle is then the lowest-latency crossing among the frozen
-manual hierarchy grid. No interpolation or extrapolation is performed.
+candidate set: DRH plus 35 manually enumerated alternatives. No interpolation
+or extrapolation is performed.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ import experiment_core
 import summarize_selection_sweep
 
 
-MANUAL_ROLES = {
+ORACLE_CANDIDATE_ROLES = {
     "predeclared_manual_oracle_grid",
     "predeclared_degree_ratio_hierarchy_v1",
 }
@@ -101,9 +102,9 @@ def evaluate_config(
         name for name, method in methods.items()
         if method.get("selection_role") == AUTOMATIC_ROLE
     ]
-    manual_names = [
+    oracle_candidate_names = [
         name for name, method in methods.items()
-        if method.get("selection_role") in MANUAL_ROLES
+        if method.get("selection_role") in ORACLE_CANDIDATE_ROLES
     ]
     unrouted_names = [
         name for name, method in methods.items()
@@ -113,30 +114,32 @@ def evaluate_config(
         raise ValueError("expected exactly one zero-layer baseline and one DRH method")
     if len(unrouted_names) > 1:
         raise ValueError("expected at most one ungated DRH ablation")
-    if not manual_names:
-        raise ValueError("manual oracle grid is empty")
+    if not oracle_candidate_names:
+        raise ValueError("oracle candidate set is empty")
     baseline_name = baseline_names[0]
     automatic_name = automatic_names[0]
     if methods[automatic_name].get("routing_policy") != ROUTING_POLICY:
         raise ValueError("automatic DRH must use the exact upper-authorization gate")
     if any(methods[name].get("routing_policy") != ROUTING_POLICY
-           for name in manual_names):
-        raise ValueError("automatic and manual hierarchy plans must share routing")
+           for name in oracle_candidate_names):
+        raise ValueError("all oracle candidate plans must share automatic routing")
     dataset = str(config["dataset"])
     output: list[dict[str, Any]] = []
 
     for workload_name, workload in workloads.items():
         baseline = crossings.get((baseline_name, workload_name))
         automatic = crossings.get((automatic_name, workload_name))
-        manual = [
+        oracle_candidates = [
             crossings[(name, workload_name)]
-            for name in manual_names
+            for name in oracle_candidate_names
             if (name, workload_name) in crossings
         ]
-        if baseline is None or not manual:
+        if baseline is None or not oracle_candidates:
             raise ValueError(
                 f"{dataset}/{workload_name}: missing baseline or oracle crossing")
-        oracle = min(manual, key=lambda row: float(row["batch_ms_warm_median"]))
+        oracle = min(
+            oracle_candidates,
+            key=lambda row: float(row["batch_ms_warm_median"]))
         baseline_times = warm_times(
             config, methods[baseline_name], workload, int(baseline["lsearch"]))
         oracle_times = warm_times(
@@ -173,7 +176,8 @@ def evaluate_config(
             "automatic_qps_fraction_of_oracle": "",
             "automatic_oracle_fraction_ci95_low": "",
             "automatic_oracle_fraction_ci95_high": "",
-            "manual_feasible_methods": len(manual),
+            # Preserve the existing CSV field name for artifact compatibility.
+            "manual_feasible_methods": len(oracle_candidates),
         }
         if automatic is not None:
             automatic_times = warm_times(
@@ -208,17 +212,18 @@ def evaluate_config(
                 int(unrouted["lsearch"]) if unrouted else "")
         output.append(result)
 
-    complete_manual = []
-    for name in manual_names:
+    complete_candidates = []
+    for name in oracle_candidate_names:
         selected = [crossings.get((name, workload)) for workload in workloads]
         if all(row is not None for row in selected):
-            complete_manual.append((
+            complete_candidates.append((
                 name,
                 geometric_mean([float(row["qps_warm_median"]) for row in selected]),
             ))
-    if not complete_manual:
-        raise ValueError(f"{dataset}: no manual method crosses on every workload")
-    global_oracle_name, global_oracle_qps = max(complete_manual, key=lambda item: item[1])
+    if not complete_candidates:
+        raise ValueError(f"{dataset}: no oracle candidate crosses on every workload")
+    global_oracle_name, global_oracle_qps = max(
+        complete_candidates, key=lambda item: item[1])
     automatic_rows = [crossings.get((automatic_name, workload))
                       for workload in workloads]
     auto_feasible = all(row is not None for row in automatic_rows)
@@ -242,7 +247,8 @@ def evaluate_config(
         "baseline_geomean_qps": baseline_qps,
         "automatic_speedup_vs_baseline": (
             auto_qps / baseline_qps if auto_feasible else ""),
-        "complete_manual_methods": len(complete_manual),
+        # Preserve the existing CSV field name for artifact compatibility.
+        "complete_manual_methods": len(complete_candidates),
     }
     return output, global_row
 
@@ -268,8 +274,9 @@ def write_markdown(
     lines = [
         "# Calibration-free gated hierarchy versus held-out oracle", "",
         "Each operating point is the smallest measured L whose every warm repeat "
-        "meets the declared Recall threshold. The oracle grid was frozen before "
-        "held-out search results were read; no interpolation is used.", "",
+        "meets the declared Recall threshold. The 36-candidate oracle set "
+        "contains DRH and 35 manually enumerated alternatives, was frozen before "
+        "held-out search results were read, and uses no interpolation.", "",
         "| Dataset | Selectivity | Gated DRH hierarchy | Oracle hierarchy | DRH/plain | DRH/oracle |",
         "|---|---:|---|---|---:|---:|",
     ]

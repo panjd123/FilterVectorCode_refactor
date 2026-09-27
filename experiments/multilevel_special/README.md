@@ -148,12 +148,12 @@ is reported separately from the always-layered two-layer factorial.
 
 `generate_auto_policy_cross_dataset_configs.py` derives DRH-v1 only from
 `N`, `R`, and `C` and combines it with the fixed exact upper-authorization
-gate. It freezes a 36-case one/two/three-layer manual grid before reading
-held-out query results. Every manual candidate uses the same gate, so the
-oracle tunes only depth, thresholds, and per-layer topology; ungated DRH is a
-separate ablation. The generator emits build, screen, and policy files for
-Genome, Reviews, and VariousImg. Build commands can be preflighted without
-starting construction:
+gate. It freezes a 36-candidate one/two/three-layer set before reading held-out
+query results: DRH itself and 35 manually enumerated alternatives. Every
+candidate uses the same gate, so the oracle varies only depth, thresholds, and
+per-layer topology; ungated DRH is a separate ablation. The generator emits
+build, screen, and policy files for Genome, Reviews, and VariousImg. Build
+commands can be preflighted without starting construction:
 
 ```bash
 python3 generate_auto_policy_cross_dataset_configs.py \
