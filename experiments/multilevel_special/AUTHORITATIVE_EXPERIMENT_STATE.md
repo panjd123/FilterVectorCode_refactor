@@ -12,8 +12,9 @@ entry-point setup、block authorization、graph search 以及点/边/距离计�
 bounded crossing、正式重复和独立 profile。修复前 campaign 使用的 Trie entry
 错误地把空标签集解释为“无结果”，其 99% 结果只保留作缺陷诊断。详细计数会给主
 吞吐测量增加分支和计数开销，因此不能把 profile wall time 混入主 QPS。
-截至 2026-09-27 08:40，零层 LNG/Trie 共 18 个 case 已完成；manifest
-已完成 45/396，runner 已进入 `1024:lng` 单层设置。
+截至 2026-09-27 13:36，manifest 已完成 80/396，另有 1 个 case 运行中；
+当前为 `l1_t8192_trie_entry_optimized_lng / sel_99`，仍使用 SHA-256 为
+`4c99a51c...a81` 的冻结 binary snapshot。
 零层 LNG 95% 的
 conservative crossing 为 $L=320000$，warm Recall 最小值 0.9134，
 warm-median QPS 1.50268；99% crossing 为 $L=400000$，两次 warm Recall
@@ -120,19 +121,20 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M1 | measurement | RESOLVED | 旧 runner 使用五种历史 provider 名且限制两层 | 已迁移到 original/optimized_lng/trie 与任意 hierarchy plan；118 个 Python tests 通过 |
 | M2 | measurement | RESOLVED | detail counters 会污染主吞吐 | 已分离 performance/profile pass，并在 manifest 标注用途 |
 | M3 | measurement | ACTIVE | 旧 QF-SSL 数据与新 binary/语义不一致 | 所有主表继续只采用 `fcb74ad` 后重测结果 |
-| M4 | correctness | RESOLVED | Trie entry 将合法空 containment 谓词返回为空，污染含空谓词的 99% workload | build/load 时预计算 root terminal frontier；C++ 15/15、Python 118/118，真实空谓词 `L=N` Recall@10=1.0；修复前 campaign 标记无效并以新 hash 重跑 |
+| M4 | correctness | RESOLVED | Trie entry 将合法空 containment 谓词返回为空，污染含空谓词的 99% workload | build/load 时预计算 root terminal frontier；C++ 15/15、Python 167/167，真实空谓词 `L=N` Recall@10=1.0；修复前 campaign 标记无效并以新 hash 重跑 |
 | M5 | measurement | RESOLVED | 通用汇总器的 `recall_min` 曾包含 cold repeat，与 crossing 协议不一致 | `recall`/`recall_min`/`recall_max` 和 warm timing 统一按声明的 `cold_repeats` 切分；增加冷启动 Recall 不影响 crossing 的回归测试 |
 | M6 | measurement | RESOLVED | 旧辅助汇总在多个达标点中按最快时间选点，可能受噪声影响而偏离 crossing 定义 | 改为每个方法选择所有 warm repeat 达标的最小实测 `Lsearch`；禁止插值或按延迟回选更大 L |
 | M7 | measurement | RESOLVED | formal performance 与 profile 共享 output root 时，旧汇总路径可能互相覆盖 | `pass_subdirs` 配置下将汇总隔离到 `summary/performance` 与 `summary/profile` |
 | M8 | output schema | CONTAINED | 当前 snapshot 的 `search_time_summary.csv` 数据行含 `AverageNodesVisited`，但表头漏写该列，导致后续工作量列错位 | 主 Recall/latency 前四列不受影响；论文工作量只读取列宽正确的 `search_work_details.csv`。源码表头已修复，但为保持 screen/crossing/formal binary hash 一致，在本轮 campaign 完成前不重编译 |
 | M9 | reporting | RESOLVED | `results.md` 曾使用 mean-Recall crossing，而严格协议要求所有 warm repeat 均达标 | Markdown 主表改用 conservative crossing，同时显示 warm mean、warm min 和 `min-target` margin；CSV 仍同时保留 mean 与 conservative 版本 |
 | M10 | reporting | RESOLVED | 通用 Markdown 只展示 Recall/QPS，用户要求的阶段和工作量证据需另行解析 CSV | 每个 conservative crossing 现自动报告五段 timing、visited points、base/special edges、entry/graph/total distance calculations 和 entry 数；profile pass 使用同一格式 |
-| M11 | provenance | RESOLVED | profile 的 measurement pass 曾被记为 formal protocol phase，证据语义含混 | 新增显式 `profile` phase，并强制 measurement pass 与 protocol phase 成对；118/118 Python tests 通过 |
+| M11 | provenance | RESOLVED | profile 的 measurement pass 曾被记为 formal protocol phase，证据语义含混 | 新增显式 `profile` phase，并强制 measurement pass 与 protocol phase 成对；167/167 Python tests 通过 |
 | M12 | measurement | RESOLVED | GPU build 无外部锁时只有一次手工空闲检查，不足以支撑权威 timing | runner 优先在 `gpulock perf` 下重执行；当前主机无 `gpulock` 时，每个 GPU case 强制三次连续空闲预检并在 manifest 明示 no-lock 限制，缺证据的 artifact 校验失败 |
 | M13 | measurement | ACTIVE | 当前 immutable query snapshot 在 exact upper-authorization gate 之前开始总计时，但没有把 gate 本身计入 `BlockAuthorizationTime_ms`；该时间落入 residual，主 QPS/Recall 不受影响 | 源码已把 gate 与后续 coverage 时间累加为完整 authorization stage；`run_authoritative_instrumented_profile.py` 已实现独立 build、活跃进程拒绝、formal-L 复用及 manifest hash 校验，待当前 query/build 流水线退出后执行 |
+| M14 | provenance | RESOLVED | held-out policy 的 `manual_hierarchy_cases=36` 会把包含 DRH 的总候选数误读成 36 个额外人工方案 | policy 改为 `frozen_hierarchy_candidates=36` 与 `manual_alternatives=35`，validator 同时核对字段、角色计数和闭合关系并拒绝旧字段；六份冻结 build/search config hash 未变 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | UNKNOWN | Trie 与 LNG topology 的优劣由标签包含结构而非选择率单独决定 | 固定其他维度，比较 topology 与 crossed entry combinations |
-| H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 36-case 人工网格 oracle 比较 |
+| H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较 |
 
 ## 实验阶段
 
@@ -142,7 +144,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | E1 | Amazon broad screen | 九档、零/一/多层、Trie/LNG、coarse L 完整 | 进行中 |
 | E2 | Amazon crossing/formal | 每方法每档最小实测 crossing，正式重复完成 | 未开始 |
 | E3 | 多数据集验证 | Reviews/Genome/VariousImg 至少各一个低档和一个较高档或可用代表档 | 配置和预检完成，待运行 |
-| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | gated DRH-v1 与同 gate oracle 协议已冻结；119/119 测试和配置 dry-run 通过，待结果 |
+| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | gated DRH-v1 与同 gate oracle 协议已冻结；167/167 测试和配置 dry-run 通过，待结果 |
 | E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | fail-closed 九档 LaTeX 生成器及 7 项 fixture 测试完成；等待权威输入 |
 
 ## 已知数据
@@ -152,8 +154,10 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 - Genome：108,077 points，DRH-v1=`256:lng,4096:trie`，3.365% 和 6.292%。
 - Reviews：288,065 points，DRH-v1=`512:lng,8192:trie`，0.200% 和 4.115%。
 - VariousImg：758,935 points，DRH-v1=`1024:lng,16384:trie`，10.252%。
-- 三个 held-out 数据集均固定 36 个 hierarchy case 和 38 个查询方法；该网格在读取
-  held-out Recall/latency 前生成，自动方案不读取 query distribution。
+- 三个 held-out 数据集均固定 36 个 hierarchy candidates（1 DRH + 35 manual
+  alternatives）和 38 个查询方法；其余两个方法是零层 baseline 与 DRH ungated
+  ablation。该网格在读取 held-out Recall/latency 前生成，自动方案不读取 query
+  distribution。
 - 机器：2 x Intel Xeon Platinum 8360Y，144 logical CPUs；NVIDIA L20 46,068 MiB。
 
 ## 修复前仅作诊断的 screen 观测
