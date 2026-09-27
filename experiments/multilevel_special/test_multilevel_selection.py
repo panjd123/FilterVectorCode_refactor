@@ -639,12 +639,28 @@ class SelectionSweepTest(unittest.TestCase):
                 "1,100,11,6,5,21,31,19,12,52,27,6,21,4,41\n")
             (root / "search_work_details.csv").write_text(
                 work_header + work_rows)
+            query_header = (
+                "Repeat,Lsearch,QueryID,Time_ms,EntryGroupSearchTime_ms,"
+                "EntryPointSetupTime_ms,BlockAuthorizationTime_ms,GraphSearchTime_ms,"
+                "ResidualTime_ms,NumNodeVisited,RegularEdgesScanned,"
+                "SpecialIntraEdgesScanned,SpecialInterEdgesScanned,TotalEdgesScanned,"
+                "TotalDistanceCalcs,EntryPointDistanceCalcs,GraphSearchDistanceCalcs,"
+                "NumEntries,EntryGroupMatchedPoints,SpecialBlockSearchUsed\n")
+            query_rows = (
+                "0,100,0,1,.1,.1,.1,.6,.1,10,20,18,12,50,25,5,20,3,40,1\n"
+                "0,100,1,1,.1,.1,.1,.6,.1,11,21,19,12,52,27,6,21,4,41,0\n"
+                "1,100,0,1.1,.1,.1,.1,.7,.1,12,22,20,12,54,29,7,22,5,42,1\n"
+                "1,100,1,1.1,.1,.1,.1,.7,.1,13,23,21,12,56,31,8,23,6,43,0\n")
+            (root / "query_details_repeat2.csv").write_text(
+                query_header + query_rows)
             self.assertTrue(run_selection_sweep.result_is_complete(
                 root, [100], require_stage_breakdown=True,
-                require_work_breakdown=True, expected_repeats=2))
+                require_work_breakdown=True, expected_repeats=2,
+                expected_num_queries=2))
             self.assertTrue(validate_selection_sweep.result_evidence_is_complete(
                 {
                     "num_repeats": 2,
+                    "expected_num_queries": 2,
                     "require_stage_breakdown": True,
                     "require_work_breakdown": True,
                     "lsearch_values": [100],
@@ -658,10 +674,22 @@ class SelectionSweepTest(unittest.TestCase):
             self.assertFalse(validate_selection_sweep.result_evidence_is_complete(
                 {
                     "num_repeats": 2,
+                    "expected_num_queries": 2,
                     "require_stage_breakdown": True,
                     "require_work_breakdown": True,
                     "lsearch_values": [100],
                 }, {"name": "method"}, {"name": "workload"}, root))
+
+            (root / "search_stage_details.csv").write_text(
+                stage_header +
+                "0,100,1,.1,.1,.1,.6,.1,0\n"
+                "1,100,1.1,.1,.1,.1,.7,.1,0\n")
+            (root / "query_details_repeat2.csv").write_text(
+                query_header + query_rows.rsplit("\n", 2)[0] + "\n")
+            self.assertFalse(run_selection_sweep.result_is_complete(
+                root, [100], require_stage_breakdown=True,
+                require_work_breakdown=True, expected_repeats=2,
+                expected_num_queries=2))
 
             (root / "search_stage_details.csv").write_text(
                 stage_header +

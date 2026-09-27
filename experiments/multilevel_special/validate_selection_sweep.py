@@ -42,6 +42,8 @@ def result_evidence_is_complete(
 ) -> bool:
     """Apply the runner's full repeat and breakdown integrity contract."""
     pass_name = str(config.get("measurement_pass", "performance"))
+    num_queries = workload.get(
+        "num_queries", config.get("expected_num_queries"))
     return run_selection_sweep.result_is_complete(
         run_dir,
         run_selection_sweep.lsearch_values_for(config, method, workload),
@@ -49,6 +51,7 @@ def result_evidence_is_complete(
         require_work_breakdown=bool(
             config.get("require_work_breakdown", False) or pass_name == "profile"),
         expected_repeats=int(config["num_repeats"]),
+        expected_num_queries=(int(num_queries) if num_queries is not None else None),
     )
 
 

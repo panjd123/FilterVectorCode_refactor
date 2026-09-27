@@ -257,7 +257,8 @@ def result_is_complete(path: Path, expected_lsearch: list[int],
                        expected_repeats: int | None = None,
                        expected_command: list[str] | None = None,
                        expected_environment: dict[str, str] | None = None,
-                       expected_binary_sha256: str | None = None) -> bool:
+                       expected_binary_sha256: str | None = None,
+                       expected_num_queries: int | None = None) -> bool:
     summary = path / "search_time_summary.csv"
     if not summary.exists():
         return False
@@ -391,6 +392,69 @@ def result_is_complete(path: Path, expected_lsearch: list[int],
                             "AverageGraphSearchDistanceCalcs")):
                     return False
         except (KeyError, TypeError, ValueError):
+            return False
+    if expected_repeats is not None and expected_num_queries is not None:
+        query_details = path / f"query_details_repeat{expected_repeats}.csv"
+        if not query_details.exists():
+            return False
+        with query_details.open(newline="") as stream:
+            query_rows = list(csv.DictReader(stream))
+        required_query_columns = {
+            "Repeat", "Lsearch", "QueryID", "Time_ms",
+            "EntryGroupSearchTime_ms", "EntryPointSetupTime_ms",
+            "BlockAuthorizationTime_ms", "GraphSearchTime_ms", "ResidualTime_ms",
+            "NumNodeVisited", "RegularEdgesScanned", "SpecialIntraEdgesScanned",
+            "SpecialInterEdgesScanned", "TotalEdgesScanned", "TotalDistanceCalcs",
+            "EntryPointDistanceCalcs", "GraphSearchDistanceCalcs", "NumEntries",
+            "EntryGroupMatchedPoints", "SpecialBlockSearchUsed",
+        }
+        expected_query_rows = (
+            expected_repeats * len(expected_lsearch) * expected_num_queries)
+        if (not query_rows or len(query_rows) != expected_query_rows or
+                not required_query_columns.issubset(query_rows[0])):
+            return False
+        observed_queries: set[tuple[int, int, int]] = set()
+        try:
+            for row in query_rows:
+                repeat = int(row["Repeat"])
+                lsearch = int(row["Lsearch"])
+                query_id = int(row["QueryID"])
+                if (not 0 <= repeat < expected_repeats or
+                        lsearch not in expected_lsearch or
+                        not 0 <= query_id < expected_num_queries):
+                    return False
+                observed_queries.add((repeat, lsearch, query_id))
+                activation = float(row["SpecialBlockSearchUsed"])
+                if activation not in (0.0, 1.0):
+                    return False
+                time_fields = (
+                    "Time_ms", "EntryGroupSearchTime_ms", "EntryPointSetupTime_ms",
+                    "BlockAuthorizationTime_ms", "GraphSearchTime_ms", "ResidualTime_ms",
+                )
+                times = {field: float(row[field]) for field in time_fields}
+                if not all(math.isfinite(value) and value >= 0
+                           for value in times.values()):
+                    return False
+                if not math.isclose(
+                        times["Time_ms"],
+                        sum(times[field] for field in time_fields[1:]),
+                        rel_tol=2e-5, abs_tol=0.05):
+                    return False
+                count_fields = required_query_columns - set(time_fields) - {
+                    "Repeat", "Lsearch", "QueryID", "SpecialBlockSearchUsed"}
+                counts = {field: float(row[field]) for field in count_fields}
+                if not all(math.isfinite(value) and value >= 0
+                           for value in counts.values()):
+                    return False
+                if not math.isclose(
+                        counts["TotalDistanceCalcs"],
+                        counts["EntryPointDistanceCalcs"] +
+                        counts["GraphSearchDistanceCalcs"],
+                        rel_tol=2e-5, abs_tol=0.05):
+                    return False
+        except (KeyError, TypeError, ValueError):
+            return False
+        if len(observed_queries) != expected_query_rows:
             return False
     return True
 
@@ -548,7 +612,8 @@ def main() -> int:
                     expected_repeats=int(config["num_repeats"]),
                     expected_command=expected_command,
                     expected_environment=effective_env,
-                    expected_binary_sha256=search_binary_sha256) and not args.force:
+                    expected_binary_sha256=search_binary_sha256,
+                    expected_num_queries=num_queries) and not args.force:
                 reused_record = {
                     "method": method["name"],
                     "workload": workload["name"],
@@ -647,7 +712,8 @@ def main() -> int:
                     expected_repeats=int(config["num_repeats"]),
                     expected_command=expected_command,
                     expected_environment=effective_env,
-                    expected_binary_sha256=search_binary_sha256):
+                    expected_binary_sha256=search_binary_sha256,
+                    expected_num_queries=num_queries):
                 run_record["status"] = "incomplete"
                 update_manifest(manifest_path, run_record)
                 raise RuntimeError(f"incomplete summary for {method['name']}/{workload['name']}")
