@@ -126,6 +126,12 @@ pass，再对选中的 Recall crossing 做独立 profile pass。主结论使用 
 pass 的 wall time，profile pass 只用于机制解释。profile 同时显式标记
 `measurement_pass=profile` 与 `protocol.phase=profile`，不再复用 formal 相位名。
 
+截至 2026-09-27 18:51，修复后的 held-out campaign 正在 Genome 第二个 baseline
+workload 上运行。独立 Amazon 构建 deadline 子集已经冻结为 40 个 case：base 与
+`auto_drh_v1` hierarchy 分别比较 5 个 backend profile，每个 timing profile 使用
+1 cold + 2 measured，resource profile 独立运行 1 次。每个 case 有 3300 秒硬超时；
+query supervisor 未写入完成标记前，构建 runner fail closed，因而两类测量不会并发。
+
 ## 公平性协议
 
 - 数据、query、GT、K、entry-point 数、graph backend 和 Recall 判定规则在同一
@@ -177,6 +183,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M26 | reporting | RESOLVED | 共同 Recall 搜索预算仅存在于 formal provenance，论文和中文报告中的 NC 无法直接对应具体 workload 上限 | LaTeX 与 Markdown 生成入口现在都直接校验 formal selection provenance，并从同一个 `shared_max_lsearch_by_workload` 动态生成九档预算表；缺失、不完整或与 disabled/NC cell 不闭合时拒绝生成。一项双入口回归使全量测试增至 190 项，含真实动态表的 Tectonic fixture 编译通过 |
 | M27 | measurement | RESOLVED | deadline held-out case 声明为 CPU profile，但继承的 size-routed intra path 仍调用 Jasper/Tagore CUDA | 保留 fail-closed validator；生成器显式把 legacy intra/inter 与 `UNG_SPECIAL_INTRA_ROUTE` 全部置 0；Reviews/VariousImg 真实 automatic build 均通过且 verified GPU counters 为 0 |
 | M28 | measurement | ACTIVE | performance pass 的 light stats 会让 layered special-edge counters 为 0，旧汇总表若不标注会误读为未扫描边 | deadline 汇总器已把 light-pass edge counters 改报 NA；待新 binary detailed profile 提供 base/special intra/inter 边数并同时解决 M13 authorization 归因 |
+| M29 | measurement | RESOLVED | 原 authoritative build campaign 的 5 measured x 15 profile 不能在 deadline 内稳定完成，且缺少逐 case 硬超时与 query/build 隔离门 | 从 frozen configs 生成 1 cold + 2 measured 的 5 base + 5 DRH backend 子集，资源测量独立运行；每 case 独立进程组、3300 秒硬超时、原子 supervisor manifest 和 query completion gate；8 项专项及全量 205/205 测试通过。该结果只标为 deadline screen，不冒充正式 5-repeat 证据 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较。四个正式数据集都导出两层，因此本轮不把跨数据集结果表述为深度变化的实证验证 |
@@ -227,6 +234,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 
 ## 下一最小实验
 
-从新 root 启动 6 点、1 cold + 2 warm、3300 秒硬超时的 held-out campaign，
-优先完成三个数据集的 baseline/DRH，再运行五个冻结 manual alternatives。旧
-44-method full screen 不再恢复，已有 88 个完成 case 只作为补充 screen 证据。
+继续轮询已在 tmux 中运行的新 root held-out campaign，不重启现有进程。完成后先
+生成 held-out conservative crossing 与 breakdown，再启动已准备好的独立 Amazon
+构建 deadline 子集；旧 44-method full screen 不再恢复，已有 88 个完成 case 只
+作为补充 screen 证据。

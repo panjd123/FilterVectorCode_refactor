@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "purpose": "Bounded end-to-end Amazon construction evidence.",
+  "run_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_build_20260927",
+  "evidence_tier": "deadline_screen",
+  "generated_at_utc": "2026-09-27T10:50:43.344927+00:00",
+  "protocol": {
+    "cold_repeats": 1,
+    "measured_repeats": 2,
+    "resource_repeats": 1,
+    "case_timeout_seconds": 3300,
+    "timing_statistic": "median of measured wall-clock repeats",
+    "kernel_time_is_not_end_to_end_time": true
+  },
+  "stages": [
+    {
+      "phase": "base_timing",
+      "runner": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/run_base_topology_build.py",
+      "config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_amazon_base_build_timing.json",
+      "source_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.authoritative_amazon_base_build_timing.json",
+      "source_config_sha256": "24a4df1a14bf026f65711df5fd48e0d63cc8b793f3b07e58977bb7690834b221",
+      "cases": [
+        "original_cpu_cold_r0",
+        "current_cpu_cold_r0",
+        "naive_gpu_cold_r0",
+        "paper_fused_cold_r0",
+        "accelerated_gpu_cold_r0",
+        "original_cpu_measured_r0",
+        "current_cpu_measured_r0",
+        "naive_gpu_measured_r0",
+        "paper_fused_measured_r0",
+        "accelerated_gpu_measured_r0",
+        "original_cpu_measured_r1",
+        "current_cpu_measured_r1",
+        "naive_gpu_measured_r1",
+        "paper_fused_measured_r1",
+        "accelerated_gpu_measured_r1"
+      ]
+    },
+    {
+      "phase": "hierarchy_timing",
+      "runner": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/run_build_sweep.py",
+      "config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_amazon_hierarchy_build_timing.json",
+      "source_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.authoritative_amazon_hierarchy_build_timing.json",
+      "source_config_sha256": "8ae926a7da3493fdab1643a2f844e618683bb5b402f8765bf00c42764b9bdd19",
+      "cases": [
+        "auto_drh_v1_cpu_cold_r0",
+        "auto_drh_v1_hybrid_gpu_intra_cold_r0",
+        "auto_drh_v1_hybrid_gpu_intra_inter_cold_r0",
+        "auto_drh_v1_full_gpu_cold_r0",
+        "auto_drh_v1_full_gpu_wmma_cold_r0",
+        "auto_drh_v1_cpu_measured_r0",
+        "auto_drh_v1_hybrid_gpu_intra_measured_r0",
+        "auto_drh_v1_hybrid_gpu_intra_inter_measured_r0",
+        "auto_drh_v1_full_gpu_measured_r0",
+        "auto_drh_v1_full_gpu_wmma_measured_r0",
+        "auto_drh_v1_cpu_measured_r1",
+        "auto_drh_v1_hybrid_gpu_intra_measured_r1",
+        "auto_drh_v1_hybrid_gpu_intra_inter_measured_r1",
+        "auto_drh_v1_full_gpu_measured_r1",
+        "auto_drh_v1_full_gpu_wmma_measured_r1"
+      ]
+    },
+    {
+      "phase": "base_resource",
+      "runner": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/run_base_topology_build.py",
+      "config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_amazon_base_build_resource.json",
+      "source_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.authoritative_amazon_base_build_resource.json",
+      "source_config_sha256": "967d769140f866ec666f9cfce245cf04a011f5733a5dda701ef2d3c75bd900a7",
+      "cases": [
+        "original_cpu_measured_r0",
+        "current_cpu_measured_r0",
+        "naive_gpu_measured_r0",
+        "paper_fused_measured_r0",
+        "accelerated_gpu_measured_r0"
+      ]
+    },
+    {
+      "phase": "hierarchy_resource",
+      "runner": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/run_build_sweep.py",
+      "config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_amazon_hierarchy_build_resource.json",
+      "source_config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.authoritative_amazon_hierarchy_build_resource.json",
+      "source_config_sha256": "fa38cf4e7245059bb73cfb2226f8ed344a1378f5697912b07d7954426e5aa310",
+      "cases": [
+        "auto_drh_v1_cpu_measured_r0",
+        "auto_drh_v1_hybrid_gpu_intra_measured_r0",
+        "auto_drh_v1_hybrid_gpu_intra_inter_measured_r0",
+        "auto_drh_v1_full_gpu_measured_r0",
+        "auto_drh_v1_full_gpu_wmma_measured_r0"
+      ]
+    }
+  ]
+}

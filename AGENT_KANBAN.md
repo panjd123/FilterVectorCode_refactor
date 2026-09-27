@@ -1,6 +1,6 @@
 # Agent 看板
 
-最后更新：`2026-09-27 18:36 Asia/Shanghai`
+最后更新：`2026-09-27 18:51 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
 检查点：`ed22c63`（push：`不执行，origin 指向用户工作树`）
 
@@ -30,9 +30,13 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
 
 ## 进行中
 
-- 从独立 root `runs/deadline_evidence_20260927_cpufix/` 恢复 bounded campaign；
-  automatic build 会复用已验证 Reviews/VariousImg artifact，并先补建 Genome，随后
-  优先运行三个数据集的 baseline/DRH query，再运行 5 个 manual alternatives。
+- `fv_deadline_cpufix_20260927` 正在独立 root
+  `runs/deadline_evidence_20260927_cpufix/` 串行运行。三个 automatic build 已完成；
+  Genome 首个 baseline workload 已完成，当前第二个 baseline workload 仍在运行。
+- Amazon 构建 deadline 子集已生成但尚未启动：base 与 DRH hierarchy 各含 5 个
+  backend profile 的 1 cold + 2 measured timing，另各有 1 次独立 resource pass；
+  每个 case 使用独立进程组和 3300 秒硬超时。runner 会在 query supervisor 尚无
+  `finished_at_utc` 时 fail closed，避免污染 100-thread QPS。
 
 ## 完成历史
 
@@ -62,12 +66,15 @@ strategy 与 routing；报告 Recall-QPS、阶段耗时、点/边/距离计算�
   special-edge 0 是“计数关闭”而非“未扫描边”。deadline 汇总器现把这类边计数
   输出为 NA 并标记 light；真实 base/special intra/inter 边数必须来自后续独立
   detailed profile。当前 snapshot 的 exact-gate 时间也仍在 residual 中。
+- deadline Amazon 构建 prepare/runner 已实现并生成 40 个 case（15 base timing、
+  15 DRH hierarchy timing、5 base resource、5 hierarchy resource）；8 项专项测试
+  与全量 `205/205` Python tests 通过，查询未结束时的真实启动尝试被隔离门拒绝。
 
 ## 下一步
 
-跑完整 Python 套件并提交 CPU route 修复；随后在 tmux 中从新 root 启动 bounded
-campaign，持续检查超时、Recall crossing 和 provenance。查询完成后汇总 held-out、
-breakdown 和 GPU build 数据并生成报告/论文。
+继续轮询现有 query campaign，不重启 PID；其结束后立即生成 held-out partial/strict
+汇总并审计缺失 case。随后启动独立 deadline Amazon build campaign，汇总端到端
+wall time、阶段计时、资源与质量，再回填中文报告和论文结果。
 
 ## 阻塞与问题
 
@@ -79,12 +86,14 @@ breakdown 和 GPU build 数据并生成报告/论文。
 
 ## 验证
 
-- `197/197` Python tests — `待全量复跑`：新增 light/detail counter 语义回归后
-  专项 5/5 已通过。
+- `205/205` Python tests — `通过`；新增 deadline build prepare/runner 8 项专项
+  测试均通过。
 - 当前 deadline Reviews/VariousImg build — `失败且已解释`：环境虽有
   `GPU_INTRA=0`，但日志记录 `gpu_intra_blocks=19/20`，来自独立 size route。
 - 新 CPU route 修复 — `通过`：18/18 case 静态为 `cpu/0/0/0`；两项单元测试及
   Reviews/VariousImg 真实 automatic build 通过，metadata backend 证据为 0。
+- 构建/query 隔离门 — `通过`：query supervisor 未完成时，deadline build runner
+  在启动任何 case 前以非零状态拒绝执行。
 
 ## 仅在需要时阅读的细节
 
@@ -93,6 +102,8 @@ breakdown 和 GPU build 数据并生成报告/论文。
 - `runs/deadline_evidence_20260927/` — 已停止的首轮 bounded campaign 原始日志；
   仅用于诊断，不与修复后 run root 混合。
 - `runs/deadline_evidence_20260927_cpufix/` — 修复后的权威 bounded campaign root。
+- `runs/deadline_build_20260927/` — 查询结束后使用的 Amazon bounded 构建 root；
+  当前只有已生成配置，尚无 timing 运行。
 
 ## 恢复说明
 
