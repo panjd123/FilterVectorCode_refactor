@@ -24,7 +24,7 @@
 | 任意多层统一结构 | hierarchy、base/per-layer topology、entry strategy、routing 四维独立；候选只扫描自身层边；无隐式晋级或 edge fallthrough | **实现完成**：experiment_core.py、uni_nav_graph_search_backend.cpp 及 C++/Python 回归测试 |
 | Trie vs LNG 公平消融 | Amazon 九档、六个零层 topology-entry 组合，以及固定 entry 下的逐层 topology 曲线；同一 immutable performance binary | **采集中**：44 methods x 9 workloads screen 正在串行运行 |
 | 0/1/2 层与参数消融 | 每档 plain、best one-layer、best two-layer、ungated DRH、gated DRH；同时给单一固定配置的九档 geomean | **脚本完成，结果待采集**：summarize_depth_ablation.py |
-| Recall-QPS 曲线 | screen 的全部离散实测点，缺失 case 必须失败；PDF/PNG 与输入 hash manifest | **脚本完成，结果待采集**：plot_authoritative_recall_qps.py |
+| Recall-QPS 曲线 | screen 的全部离散实测点，缺失 case 必须失败；PDF/PNG 与输入 hash manifest；完整曲线嵌入最终论文 | **脚本与论文接口完成，结果待采集**：plot_authoritative_recall_qps.py；paper generator 拒绝 partial/stale plot manifest |
 | 查询阶段 breakdown | entry-group、entry-point setup、完整 block authorization、graph search、residual，单位统一为 ms/query，并验证 closure | **采集链完成，正确口径待重跑**：旧 immutable binary 未把 exact gate 计入 authorization；源码已修复 |
 | 查询工作量 breakdown | visited points、base/special intra/special inter edges、entry/graph/total distance calculations，以及 layered-path activation rate | **采集链完成，结果待 profile**：summarize_selection_sweep.py |
 | 自动决定层数、阈值、topology | DRH 仅从 N、R、C 推导，无 query distribution、latency 或 Recall 校准；exact gate 只读当前 predicate 和持久化 root labels | **方法与协议完成**：derive_static_hierarchy.py、AUTOMATIC_HIERARCHY_PROTOCOL.md |

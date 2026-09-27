@@ -25,7 +25,9 @@ class ContinueAfterBuildTest(unittest.TestCase):
             Path("/run"), Path("/results"))
         rendered = " ".join(command)
         self.assertIn("config.authoritative_amazon_profile_instrumented.json", rendered)
+        self.assertIn("config.authoritative_amazon_screen_emptyfix.json", rendered)
         self.assertIn("amazon_profile_instrumented", rendered)
+        self.assertIn("amazon_screen/summary/performance/figures", rendered)
         self.assertIn("--validator", command)
         self.assertEqual(command.count("--heldout-formal-config"), 3)
         self.assertEqual(command.count("--heldout-policy"), 3)
@@ -58,17 +60,25 @@ class ContinueAfterBuildTest(unittest.TestCase):
         policy = root / "policy.json"
         validator = root / "validator.py"
         manifest = root / "manifest.json"
+        figures = root / "figures"
         config.write_text(json.dumps({"output_root": str(root)}), encoding="utf-8")
         result.write_text("status\ncomplete\n", encoding="utf-8")
         policy.write_text(json.dumps({"dataset": "Genome"}), encoding="utf-8")
         validator.write_text("# validation logic\n", encoding="utf-8")
         manifest.write_text('{"runs": []}\n', encoding="utf-8")
+        figures.mkdir()
+        for name in ("plot_manifest.json",
+                     *(f"{family}.{suffix}"
+                       for family in finalizer.FIGURE_FAMILIES
+                       for suffix in ("pdf", "png"))):
+            (figures / name).write_text(f"{name}\n", encoding="utf-8")
         command = [
             "python", "generator.py",
             "--amazon-formal-config", str(config),
             "--amazon-formal", str(result),
             "--heldout-policy", str(policy),
             "--validator", str(validator),
+            "--amazon-figures-dir", str(figures),
         ]
         snapshot = finalizer.paper_input_snapshot(command)
         generated = root / "generated_results.tex"
@@ -94,6 +104,7 @@ class ContinueAfterBuildTest(unittest.TestCase):
                 "--amazon-formal", str(root / "formal.csv"),
                 "--heldout-policy", str(root / "policy.json"),
                 "--validator", str(root / "validator.py"),
+                "--amazon-figures-dir", str(root / "figures"),
             ])
             with self.assertRaisesRegex(RuntimeError, "stale"):
                 finalizer.validate_generated_provenance(generated, changed)

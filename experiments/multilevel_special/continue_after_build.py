@@ -28,19 +28,27 @@ ACTIVE_PATTERN = (
     "search_UNG_index|build_UNG_index|build_special_block_index"
 )
 QUERY_CONFIG_INPUT_FLAGS = (
-    "--amazon-formal-config", "--amazon-profile-config",
+    "--amazon-screen-config", "--amazon-formal-config", "--amazon-profile-config",
     "--heldout-formal-config", "--build-quality-formal-config",
 )
 BUILD_CONFIG_INPUT_FLAGS = ("--build-config",)
 CONFIG_INPUT_FLAGS = QUERY_CONFIG_INPUT_FLAGS + BUILD_CONFIG_INPUT_FLAGS
 RESULT_INPUT_FLAGS = (
-    "--amazon-formal", "--amazon-depth", "--amazon-depth-global",
+    "--amazon-screen-points", "--amazon-formal", "--amazon-depth", "--amazon-depth-global",
     "--amazon-profile", "--heldout-workload", "--heldout-global",
     "--build-summary", "--build-end-to-end",
 )
+RESULT_INPUT_LABELS = {
+    flag: flag.removeprefix("--").replace("-", "_")
+    for flag in RESULT_INPUT_FLAGS
+}
+FIGURE_FAMILIES = (
+    "principal_zero", "zero_topology_fixed_entry", "depth_fixed_lng",
+    "two_layer_topology", "entry_strategy_on_drh", "upper_authorization",
+)
 PROVENANCE_PATTERN = re.compile(
     r"^% (source-sha256|config-sha256|heldout-policy-sha256|"
-    r"validator-sha256|manifest-sha256) "
+    r"validator-sha256|manifest-sha256|figure-sha256) "
     r"(\S+) ([0-9a-f]{64})$")
 TECTONIC_FAILURE_PATTERNS = (
     re.compile(r"^!", re.MULTILINE),
@@ -82,23 +90,32 @@ def active_experiment_processes() -> list[str]:
 
 
 def required_artifacts(run_root: Path, results: Path) -> list[Path]:
+    figures = run_root / "search/amazon_screen/summary/performance/figures"
     return [
         results / "heldout_oracle/heldout_oracle_by_workload.csv",
         results / "heldout_oracle/heldout_oracle_global.csv",
         results / "authoritative_build/build_summary.csv",
         results / "authoritative_build/build_end_to_end.csv",
         run_root / "search/amazon_formal/summary/performance/equal_recall_conservative.csv",
+        figures / "plot_manifest.json",
+        *(figures / f"{family}.pdf" for family in FIGURE_FAMILIES),
     ]
 
 
 def paper_generation_command(run_root: Path, results: Path) -> list[str]:
     command = [
         sys.executable, str(HERE / "generate_authoritative_paper_results.py"),
+        "--amazon-screen-config",
+        str(HERE / "config.authoritative_amazon_screen_emptyfix.json"),
         "--amazon-formal-config",
         str(HERE / "config.authoritative_amazon_formal_emptyfix.json"),
         "--amazon-profile-config",
         str(HERE / "config.authoritative_amazon_profile_instrumented.json"),
         "--validator", str(HERE / "validate_selection_sweep.py"),
+        "--amazon-screen-points",
+        str(run_root / "search/amazon_screen/summary/performance/all_points.csv"),
+        "--amazon-figures-dir",
+        str(run_root / "search/amazon_screen/summary/performance/figures"),
     ]
     for dataset in ("genome", "reviews", "variousimg"):
         command.extend([
@@ -156,8 +173,8 @@ def paper_input_snapshot(command: list[str]) -> list[dict[str, str]]:
     inputs: list[tuple[str, str, Path]] = []
     for _, path in flag_values(command, CONFIG_INPUT_FLAGS):
         inputs.append(("config-sha256", path.name, path))
-    for _, path in flag_values(command, RESULT_INPUT_FLAGS):
-        inputs.append(("source-sha256", path.name, path))
+    for flag, path in flag_values(command, RESULT_INPUT_FLAGS):
+        inputs.append(("source-sha256", RESULT_INPUT_LABELS[flag], path))
     for _, path in flag_values(command, ("--validator",)):
         inputs.append(("validator-sha256", path.name, path))
     for _, path in flag_values(command, ("--heldout-policy",)):
@@ -183,6 +200,14 @@ def paper_input_snapshot(command: list[str]) -> list[dict[str, str]]:
             root = HERE / root
         inputs.append((
             "manifest-sha256", path.name, (root / "manifest.json").resolve()))
+    figure_directories = flag_values(command, ("--amazon-figures-dir",))
+    if len(figure_directories) != 1:
+        raise ValueError("paper generator requires one --amazon-figures-dir")
+    figure_dir = figure_directories[0][1]
+    for name in ("plot_manifest.json",
+                 *(f"{family}.{suffix}" for family in FIGURE_FAMILIES
+                   for suffix in ("pdf", "png"))):
+        inputs.append(("figure-sha256", name, figure_dir / name))
 
     snapshot = []
     identities = set()

@@ -311,6 +311,9 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("9/9 selectivity workloads", output)
         self.assertIn("99.001\\%", output)
         self.assertIn("source-sha256", output)
+        self.assertEqual(output.count("% source-sha256"), 8)
+        for field in self.paths.__dataclass_fields__:
+            self.assertIn(f"% source-sha256 {field} ", output)
         self.assertIn("Special intra", output)
         self.assertIn("Entry dist.", output)
         self.assertIn("Principal zero-layer comparison", output)
@@ -349,6 +352,38 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn(
             f"manifest-sha256 build.json {generator.source_digest(build_manifest)}",
             rendered)
+
+    def test_recall_qps_figures_require_complete_bound_artifacts(self) -> None:
+        figure_dir = self.root / "figures"
+        figure_dir.mkdir()
+        screen_config = self.root / "screen.json"
+        screen_points = self.root / "all_points.csv"
+        screen_config.write_text('{"phase": "screen"}\n', encoding="utf-8")
+        screen_points.write_text("recall,qps\n0.9,100\n", encoding="utf-8")
+        families = {}
+        for family, _ in generator.RECALL_QPS_FIGURES:
+            families[family] = {"missing_method_workloads": []}
+            for suffix in ("pdf", "png"):
+                (figure_dir / f"{family}.{suffix}").write_bytes(
+                    f"{family}.{suffix}".encode())
+        manifest = {
+            "allow_partial": False,
+            "config_sha256": generator.source_digest(screen_config),
+            "all_points_sha256": generator.source_digest(screen_points),
+            "families": families,
+        }
+        (figure_dir / "plot_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8")
+        pdfs, inputs = generator.validate_recall_qps_figures(
+            figure_dir, screen_config, screen_points)
+        self.assertEqual(set(pdfs), set(families))
+        self.assertEqual(len(inputs), 1 + 2 * len(families))
+        manifest["allow_partial"] = True
+        (figure_dir / "plot_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "partial"):
+            generator.validate_recall_qps_figures(
+                figure_dir, screen_config, screen_points)
 
     def test_principal_zero_layer_table_marks_missing_trie_crossing(self) -> None:
         formal_rows = generator.read_csv(self.paths.amazon_formal,
@@ -507,12 +542,14 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertEqual(main.count(r"\authoritativeConclusionResult"), 1)
         self.assertEqual(main.count(r"\authoritativeDatasetTable"), 1)
         self.assertEqual(main.count(r"\authoritativeResults"), 1)
+        self.assertEqual(main.count(r"\authoritativeRecallQPSFigures"), 1)
         self.assertNotIn(r"\pending{", main)
         for name in (
                 "authoritativeAbstractResult",
                 "authoritativeConclusionResult",
                 "authoritativeDatasetTable",
-                "authoritativeResults"):
+                "authoritativeResults",
+                "authoritativeRecallQPSFigures"):
             self.assertIn(r"\newcommand{\%s}" % name, placeholder)
 
 

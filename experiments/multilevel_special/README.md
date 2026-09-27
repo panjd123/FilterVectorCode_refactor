@@ -129,6 +129,11 @@ comparison, fixed-entry topology, depth, two-layer topology, entry strategy,
 and upper-authorization ablations. It fails closed on missing
 method/workload results unless `--allow-partial` is explicitly supplied and
 records input hashes and missing cases in `plot_manifest.json`.
+The authoritative paper generator accepts only a complete, non-partial plot
+manifest whose screen-config and `all_points.csv` hashes still match. It embeds
+all six PDF families in the Results section, while finalization records both
+PDF and PNG hashes so the paper figures and downloadable artifacts have one
+auditable source.
 
 After the formal pass, generate the requested plain versus best one-layer
 versus best two-layer table with conservative crossings and bootstrap
