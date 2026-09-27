@@ -108,8 +108,9 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 
 ## 公平性协议
 
-- 数据、query、GT、K、线程数、entry-point 数、graph backend 和 Recall 判定规则
-  在同一对比中保持一致。
+- 数据、query、GT、K、entry-point 数、graph backend 和 Recall 判定规则在同一
+  对比中保持一致；QPS 是 `num_threads=100` 的 query-level parallel batch
+  throughput，不是单查询、单线程延迟。
 - 零层 LNG：base topology=`lng`，entry strategy=`optimized_lng`。
 - 零层 Trie：base topology=`trie`，entry strategy=`trie`。
 - topology 消融按完整方法比较，也追加 crossed combinations 以分离 topology 与
@@ -151,6 +152,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M21 | reporting | RESOLVED | 构建报告曾只要求至少一个 base 与一个 hierarchy 行，部分 backend profile 或整个结构缺失时仍可能生成 | 生成器现在精确要求 5 个 base profile、2x5 个 hierarchy profile 和对应 10 个 stage-composed 行；两项缺行回归使专项测试增至 32 项、全量测试增至 181 项 |
 | M22 | provenance | RESOLVED | build manifest 虽记录 binary hash，但最终报告验证未核对 command 实际执行的 snapshot，也未禁止 timing/resource pass 混用不同 builder binary | 逐 case 解析 command、重算 snapshot SHA256 并与 manifest 绑定；同一 component 两种 pass 的 binary hash 必须唯一；两项回归使专项测试增至 34 项、全量测试增至 183 项 |
 | M23 | provenance | RESOLVED | build runner 断点续跑时只验证 artifact 结构，可能用当前 provenance 覆盖由旧 binary 生成的既有产物 | 自产 build artifact 只有在旧 manifest 存在且原始 builder hash 与当前 snapshot 相同时才允许复用；缺失 provenance 或 binary drift 均 fail closed，三项回归使全量测试增至 186 项 |
+| M24 | reporting | RESOLVED | 论文只写“相同线程数”，可能把权威 QPS 误读为单查询单线程延迟 | 论文与中文报告明确标注 100 个查询工作线程的 query-level parallel batch throughput；同源生成器要求 screen/formal/profile/held-out/build-quality 的 `num_threads` 完全一致，一项回归使全量测试增至 187 项 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较。四个正式数据集都导出两层，因此本轮不把跨数据集结果表述为深度变化的实证验证 |
@@ -163,8 +165,8 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | E1 | Amazon broad screen | 九档、零/一/多层、Trie/LNG、coarse L 完整 | 进行中 |
 | E2 | Amazon crossing/formal | 每方法每档最小实测 crossing，正式重复完成 | 未开始 |
 | E3 | 多数据集验证 | Reviews/Genome/VariousImg 至少各一个低档和一个较高档或可用代表档 | 配置和预检完成，待运行 |
-| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | gated DRH-v1 与同 gate oracle 协议已冻结；186/186 测试和配置 dry-run 通过，待结果 |
-| E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | 同源 fail-closed LaTeX/中文报告生成器及 34 项专项测试完成；中文报告与论文附录均含完整 44x9 screen crossing 矩阵，等待权威输入 |
+| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | gated DRH-v1 与同 gate oracle 协议已冻结；187/187 测试和配置 dry-run 通过，待结果 |
+| E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | 同源 fail-closed LaTeX/中文报告生成器及 35 项专项测试完成；中文报告与论文附录均含完整 44x9 screen crossing 矩阵，等待权威输入 |
 
 ## 已知数据
 

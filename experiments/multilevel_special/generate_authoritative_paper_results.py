@@ -578,6 +578,19 @@ def validate_amazon_workloads(config: dict[str, Any]) -> list[str]:
     return [str(row["name"]) for row in workloads]
 
 
+def validate_query_thread_count(configs: Iterable[dict[str, Any]]) -> int:
+    """Require one explicit query-level parallelism setting everywhere."""
+    counts = []
+    for config in configs:
+        value = config.get("num_threads")
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError("every query config must declare positive integer num_threads")
+        counts.append(value)
+    if not counts or len(set(counts)) != 1:
+        raise ValueError(f"query configs use inconsistent num_threads: {counts}")
+    return counts[0]
+
+
 def unique_rows(
     rows: list[dict[str, str]], keys: tuple[str, ...], source: str,
 ) -> dict[tuple[str, ...], dict[str, str]]:
@@ -1732,12 +1745,17 @@ def generate_markdown_report(
     amazon_screen_points: Path,
     amazon_formal_config: dict[str, Any],
     amazon_profile_config: dict[str, Any],
+    heldout_configs: list[dict[str, Any]],
     heldout_policies: list[dict[str, Any]],
     build_quality_config: dict[str, Any],
     figures: dict[str, Path],
     report_path: Path,
 ) -> str:
     """Render the presentation report from the same already-validated inputs."""
+    query_threads = validate_query_thread_count([
+        amazon_screen_config, amazon_formal_config, amazon_profile_config,
+        *heldout_configs, build_quality_config,
+    ])
     workloads = validate_amazon_workloads(amazon_formal_config)
     if validate_amazon_workloads(amazon_screen_config) != workloads:
         raise ValueError("Amazon screen and formal workloads differ")
@@ -1808,6 +1826,8 @@ def generate_markdown_report(
         "> 本文由最终 fail-closed 流水线从已验证实验文件自动生成。所有 QPS "
         "比较均使用相同数据、查询、精确 ground truth、K、线程数、查询二进制、"
         "graph backend 与 Recall 协议。",
+        f"> 查询性能口径是 {query_threads} 个查询工作线程上的 query-level "
+        "parallel batch throughput；不是单查询、单线程延迟。",
         "",
         "## 1. 方法与评估口径",
         "",
@@ -2258,6 +2278,10 @@ def generate_document(
     heldout_policies: list[dict[str, Any]],
     build_quality_config: dict[str, Any],
 ) -> str:
+    query_threads = validate_query_thread_count([
+        amazon_screen_config, amazon_formal_config, amazon_profile_config,
+        *heldout_configs, build_quality_config,
+    ])
     workloads = validate_amazon_workloads(amazon_formal_config)
     if validate_amazon_workloads(amazon_screen_config) != workloads:
         raise ValueError("Amazon screen and formal workloads differ")
@@ -2358,6 +2382,11 @@ def generate_document(
         "}",
         r"\newcommand{\authoritativeDatasetTable}{%",
         *render_heldout_dataset_table(heldout_policies),
+        "}",
+        r"\newcommand{\authoritativeQueryExecution}{%",
+        "All reported query QPS values are query-level parallel batch "
+        f"throughput with {query_threads} worker threads; they are not "
+        "single-query, single-thread latency measurements.",
         "}",
         r"\newcommand{\authoritativeResults}{%",
         *body,
@@ -2479,7 +2508,7 @@ def main(argv: list[str] | None = None) -> int:
     document = document.rstrip() + "\n" + render_recall_qps_figures(figures) + "\n"
     report = generate_markdown_report(
         paths, amazon_screen, args.amazon_screen_points.resolve(),
-        amazon_formal, amazon_profile,
+        amazon_formal, amazon_profile, heldout_configs,
         [policy for _, _, policy in heldout_policies], build_quality_config,
         figures,
         args.report_output.resolve())

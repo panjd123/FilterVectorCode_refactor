@@ -86,6 +86,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             methods.append(row)
         self.formal_config = {
             "dataset": "Amazon", "methods": methods,
+            "num_threads": 100,
             "workloads": [
                 {"name": name, "mean_selectivity": selectivity}
                 for name, selectivity in WORKLOADS
@@ -160,6 +161,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                 })
             config = {
                 "dataset": dataset,
+                "num_threads": 100,
                 "expected_num_points": num_points[dataset],
                 "methods": methods,
                 "workloads": [workload],
@@ -460,7 +462,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         }
         report = generator.generate_markdown_report(
             self.paths, self.screen_config, self.screen_points,
-            self.formal_config, self.profile_config,
+            self.formal_config, self.profile_config, self.heldout_configs,
             list(self.heldout_policies.values()), self.formal_config, figures,
             self.root / "report.md")
         for heading in (
@@ -488,6 +490,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("GPU evidence", report)
         self.assertIn("idle-3", report)
         self.assertIn("逐 Lsearch 原始点", report)
+        self.assertIn("100 个查询工作线程", report)
+        self.assertIn("query-level parallel batch throughput", report)
         self.assertIn("L/Q/R", report)
         self.assertIn("先在单个 warm repeat 内取每查询均值", report)
         self.assertIn("不由表中四舍五入后的分项相加", report)
@@ -548,9 +552,15 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "idle preflight"):
             generator.generate_markdown_report(
                 self.paths, self.screen_config, self.screen_points,
-                self.formal_config, self.profile_config,
+                self.formal_config, self.profile_config, self.heldout_configs,
                 list(self.heldout_policies.values()), self.formal_config,
                 figures, self.root / "report.md")
+
+    def test_query_protocol_rejects_mixed_thread_counts(self) -> None:
+        configs = [copy.deepcopy(self.formal_config) for _ in range(2)]
+        configs[1]["num_threads"] = 99
+        with self.assertRaisesRegex(ValueError, "inconsistent num_threads"):
+            generator.validate_query_thread_count(configs)
 
     def test_build_claim_must_follow_confidence_interval(self) -> None:
         with self.paths.build_end_to_end.open(
@@ -841,6 +851,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertEqual(main.count(r"\authoritativeAbstractResult"), 1)
         self.assertEqual(main.count(r"\authoritativeConclusionResult"), 1)
         self.assertEqual(main.count(r"\authoritativeDatasetTable"), 1)
+        self.assertEqual(main.count(r"\authoritativeQueryExecution"), 1)
         self.assertEqual(main.count(r"\authoritativeResults"), 1)
         self.assertEqual(main.count(r"\authoritativeRecallQPSFigures"), 1)
         self.assertEqual(main.count(r"\authoritativeScreenAppendix"), 1)
@@ -849,6 +860,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                 "authoritativeAbstractResult",
                 "authoritativeConclusionResult",
                 "authoritativeDatasetTable",
+                "authoritativeQueryExecution",
                 "authoritativeResults",
                 "authoritativeRecallQPSFigures",
                 "authoritativeScreenAppendix"):
