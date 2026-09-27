@@ -13,18 +13,26 @@
 namespace ANNS
 {
 
+struct SpecialBlockUpperAuthorization
+{
+   uint8_t level = 0;
+   size_t block_count = 0;
+   size_t direct_points = 0;
+};
+
 // Query-free index construction can still make a deterministic per-query
-// routing decision: use a multilevel overlay only when the containment
-// predicate fully authorizes at least one upper block.  This asks no latency,
-// Recall, or selectivity model; it reuses the exact root-label condition that
-// guards upper-level traversal.
-inline bool special_block_query_authorizes_upper(
+// routing decision from persisted block metadata. Measure only the highest
+// upper layer authorized by the query: direct members form a disjoint
+// partition within that layer, so their mass does not double-count points
+// represented again at finer layers.
+inline SpecialBlockUpperAuthorization special_block_query_upper_authorization(
     const std::string &scenario,
     const std::vector<LabelType> &query_labels,
     const std::vector<SpecialBlock> &blocks)
 {
+   SpecialBlockUpperAuthorization result;
    if (scenario != "containment")
-      return false;
+      return result;
    std::vector<LabelType> sorted_query = query_labels;
    std::sort(sorted_query.begin(), sorted_query.end());
    for (const SpecialBlock &block : blocks)
@@ -33,9 +41,37 @@ inline bool special_block_query_authorizes_upper(
          continue;
       if (std::includes(block.root_labels.begin(), block.root_labels.end(),
                         sorted_query.begin(), sorted_query.end()))
-         return true;
+      {
+         if (block.level > result.level)
+         {
+            result.level = block.level;
+            result.block_count = 0;
+            result.direct_points = 0;
+         }
+         if (block.level != result.level)
+            continue;
+         ++result.block_count;
+         result.direct_points += static_cast<size_t>(block.point_count);
+      }
    }
-   return false;
+   return result;
+}
+
+inline bool special_block_upper_route_allowed(
+    const SpecialBlockUpperAuthorization &authorization,
+    size_t minimum_direct_points)
+{
+   return authorization.block_count > 0 &&
+          authorization.direct_points >= minimum_direct_points;
+}
+
+inline bool special_block_query_authorizes_upper(
+    const std::string &scenario,
+    const std::vector<LabelType> &query_labels,
+    const std::vector<SpecialBlock> &blocks)
+{
+   return special_block_upper_route_allowed(
+       special_block_query_upper_authorization(scenario, query_labels, blocks), 0);
 }
 
 inline bool special_block_member_is_free(const std::string &scenario,

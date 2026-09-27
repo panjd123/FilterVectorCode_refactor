@@ -42,8 +42,14 @@ namespace ANNS
       if (runtime.special_block_search && require_upper_authorization)
       {
          const auto authorization_start = std::chrono::high_resolution_clock::now();
-         upper_authorized = special_block_query_authorizes_upper(
+         const SpecialBlockUpperAuthorization authorization =
+             special_block_query_upper_authorization(
              runtime.scenario, query_labels, _special_blocks);
+         upper_authorized = special_block_upper_route_allowed(
+             authorization, runtime.special_upper_min_covered_points);
+         stats.special_query_upper_block_count = authorization.block_count;
+         stats.special_query_upper_covered_points = authorization.direct_points;
+         stats.special_query_upper_enabled = upper_authorized;
          stats.special_cover_time_ms +=
              std::chrono::duration<double, std::milli>(
                  std::chrono::high_resolution_clock::now() - authorization_start)

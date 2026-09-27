@@ -19,11 +19,26 @@ void expect(bool condition, const char *message)
 
 int main()
 {
-   std::vector<ANNS::SpecialBlock> routing_blocks(2);
+   std::vector<ANNS::SpecialBlock> routing_blocks(3);
    routing_blocks[0].level = 0;
    routing_blocks[0].root_labels = {1, 2};
    routing_blocks[1].level = 1;
    routing_blocks[1].root_labels = {1, 3, 5};
+   routing_blocks[1].point_count = 12000;
+   routing_blocks[2].level = 2;
+   routing_blocks[2].root_labels = {1, 3, 6};
+   routing_blocks[2].point_count = 70000;
+   const auto upper_authorization =
+       ANNS::special_block_query_upper_authorization(
+           "containment", {1, 3}, routing_blocks);
+   expect(upper_authorization.level == 2 &&
+              upper_authorization.block_count == 1 &&
+              upper_authorization.direct_points == 70000,
+          "upper authorization must expose exact highest-layer direct mass");
+   expect(ANNS::special_block_upper_route_allowed(upper_authorization, 70000),
+          "the upper route must be allowed at the declared mass boundary");
+   expect(!ANNS::special_block_upper_route_allowed(upper_authorization, 70001),
+          "the upper route must fall back below the declared mass boundary");
    expect(ANNS::special_block_query_authorizes_upper(
               "containment", {1, 3}, routing_blocks),
           "a containment query covered by an upper root must authorize multilevel search");
