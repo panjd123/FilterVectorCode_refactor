@@ -59,6 +59,8 @@ float calculate_single_query_recall(const std::pair<ANNS::IdxType, float> *gt,
 
 double query_block_authorization_time_ms(const ANNS::QueryStats &stats)
 {
+   // Includes the exact upper-layer route gate and, when the overlay is used,
+   // the subsequent per-block coverage propagation.
    return stats.special_cover_time_ms;
 }
 

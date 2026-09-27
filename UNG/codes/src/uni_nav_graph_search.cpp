@@ -38,11 +38,20 @@ namespace ANNS
       const auto &query_labels = _query_storage->get_label_set(id);
       const bool require_upper_authorization =
           ung_env_flag_enabled("UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION");
+      bool upper_authorized = true;
+      if (runtime.special_block_search && require_upper_authorization)
+      {
+         const auto authorization_start = std::chrono::high_resolution_clock::now();
+         upper_authorized = special_block_query_authorizes_upper(
+             runtime.scenario, query_labels, _special_blocks);
+         stats.special_cover_time_ms +=
+             std::chrono::duration<double, std::milli>(
+                 std::chrono::high_resolution_clock::now() - authorization_start)
+                 .count();
+      }
       const bool use_special_block_search =
           runtime.special_block_search &&
-          (!require_upper_authorization ||
-           special_block_query_authorizes_upper(runtime.scenario, query_labels,
-                                                _special_blocks));
+          (!require_upper_authorization || upper_authorized);
 
       std::vector<IdxType> entry_group_ids;
       QueryRouteDecision decision = decide_query_route(query_labels, runtime.idea2_available,

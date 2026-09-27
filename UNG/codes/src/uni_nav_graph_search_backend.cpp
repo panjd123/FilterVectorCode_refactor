@@ -547,7 +547,11 @@ namespace ANNS
          }
       }
       const std::vector<uint8_t> &query_seed_block = query_free_block;
-      stats.special_cover_time_ms = elapsed_ms(cover_time_start);
+      // The exact upper-authorization router runs before this backend.  Add
+      // coverage propagation to that pre-route time so the public block-
+      // authorization stage remains complete for both routed and fallback
+      // queries.
+      stats.special_cover_time_ms += elapsed_ms(cover_time_start);
       std::vector<uint8_t> searched_blocks(_special_blocks.size() + 1, 0);
       std::vector<size_t> free_nodes_expanded_by_block(
           free_node_expansions_per_block != std::numeric_limits<size_t>::max() &&
