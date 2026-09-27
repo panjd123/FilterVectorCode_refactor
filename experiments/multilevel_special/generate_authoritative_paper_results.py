@@ -787,6 +787,33 @@ def render_zero_layer_table(
     return lines
 
 
+def render_heldout_dataset_table(policies: list[dict[str, Any]]) -> list[str]:
+    lines = [
+        r"\begin{table*}[t]", r"\centering", r"\scriptsize",
+        r"\caption{Held-out datasets and query-independent DRH plans. Selectivity is measured from the fixed workload before timing; it is reported for characterization and is not an input to DRH.}",
+        r"\label{tab:heldout-datasets}",
+        r"\begin{tabular}{lrrlrrl}", r"\toprule",
+        r"Dataset & $N$ & $d$ & Workload & Queries & Mean selectivity & DRH plan \\",
+        r"\midrule",
+    ]
+    for policy in sorted(policies, key=lambda row: str(row["dataset"])):
+        inputs = policy["inputs"]
+        plan = ", ".join(
+            f"{layer['min_points']}:{str(layer['topology']).upper()}"
+            for layer in policy["automatic_hierarchy_layers"])
+        for workload in sorted(
+                policy["workloads"], key=lambda row: float(row["mean_selectivity"])):
+            lines.append(
+                f"{tex_escape(policy['dataset'])} & "
+                f"{int(inputs['num_points']):,} & {int(inputs['dimension'])} & "
+                f"{tex_escape(workload['name'])} & "
+                f"{int(workload['num_queries']):,} & "
+                f"{100.0 * float(workload['mean_selectivity']):.3f}\\% & "
+                f"{tex_escape(plan)} " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""])
+    return lines
+
+
 def render_heldout(
     workload_rows: list[dict[str, str]], global_rows: list[dict[str, str]],
 ) -> list[str]:
@@ -1010,6 +1037,7 @@ def source_digest(path: Path) -> str:
 def generate_document(
     paths: ResultPaths, amazon_formal_config: dict[str, Any],
     amazon_profile_config: dict[str, Any], heldout_configs: list[dict[str, Any]],
+    heldout_policies: list[dict[str, Any]],
 ) -> str:
     workloads = validate_amazon_workloads(amazon_formal_config)
     profile_workloads = validate_amazon_workloads(amazon_profile_config)
@@ -1087,6 +1115,9 @@ def generate_document(
         "}",
         r"\newcommand{\authoritativeConclusionResult}{%",
         conclusion,
+        "}",
+        r"\newcommand{\authoritativeDatasetTable}{%",
+        *render_heldout_dataset_table(heldout_policies),
         "}",
         r"\newcommand{\authoritativeResults}{%",
         *body,
@@ -1182,7 +1213,8 @@ def main(argv: list[str] | None = None) -> int:
         build_end_to_end=args.build_end_to_end.resolve(),
     )
     document = generate_document(
-        paths, amazon_formal, amazon_profile, heldout_configs)
+        paths, amazon_formal, amazon_profile, heldout_configs,
+        [policy for _, _, policy in heldout_policies])
     provenance = [
         f"% query-binary-sha256 formal-heldout-build-quality {formal_hash}",
         f"% query-binary-sha256 profile {profile_hash}",

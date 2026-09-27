@@ -292,7 +292,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
     def generate(self) -> str:
         return generator.generate_document(
             self.paths, self.formal_config, self.profile_config,
-            self.heldout_configs)
+            self.heldout_configs, list(self.heldout_policies.values()))
 
     def test_complete_fixture_generates_all_sections(self) -> None:
         output = self.generate()
@@ -304,6 +304,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             self.assertIn(heading, output)
         self.assertIn(r"\newcommand{\authoritativeAbstractResult}", output)
         self.assertIn(r"\newcommand{\authoritativeConclusionResult}", output)
+        self.assertIn(r"\newcommand{\authoritativeDatasetTable}", output)
         self.assertIn(r"\newcommand{\authoritativeResults}", output)
         self.assertIn("9/9 selectivity workloads", output)
         self.assertIn("99.001\\%", output)
@@ -312,6 +313,9 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("Entry dist.", output)
         self.assertIn("DRH/plain [95\\% CI]", output)
         self.assertIn("Host/GPU MiB", output)
+        self.assertIn("Held-out datasets and query-independent DRH plans", output)
+        self.assertIn("Genome", output)
+        self.assertIn("108,077", output)
 
     def test_missing_depth_cell_fails(self) -> None:
         with self.paths.amazon_depth.open(newline="", encoding="utf-8") as stream:
@@ -457,11 +461,13 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertEqual(main.count(r"\input{generated_results}"), 1)
         self.assertEqual(main.count(r"\authoritativeAbstractResult"), 1)
         self.assertEqual(main.count(r"\authoritativeConclusionResult"), 1)
+        self.assertEqual(main.count(r"\authoritativeDatasetTable"), 1)
         self.assertEqual(main.count(r"\authoritativeResults"), 1)
         self.assertNotIn(r"\pending{", main)
         for name in (
                 "authoritativeAbstractResult",
                 "authoritativeConclusionResult",
+                "authoritativeDatasetTable",
                 "authoritativeResults"):
             self.assertIn(r"\newcommand{\%s}" % name, placeholder)
 
