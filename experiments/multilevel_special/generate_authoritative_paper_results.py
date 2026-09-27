@@ -1674,6 +1674,45 @@ def generate_markdown_report(
 
     lines.extend([
         "", "## 7. GPU 辅助构建", "",
+        "构建由 base graph 和独立 hierarchy sidecar 两部分组成。base graph 依次"
+        "构建 exact-label group 内图、group-to-group LNG、descendant/coverage "
+        "metadata 和 vector-level cross-group edges；sidecar 再按层独立构建"
+        " block topology、intra-block graph 与 inter-block edges。两者最终都"
+        "物化为查询端直接加载的 host adjacency，不能表述为完全 device-resident "
+        "construction。",
+        "",
+        "Base graph 的五个冻结 profile：",
+        "",
+        "| profile | group 内图 | metadata | cross-group edges |",
+        "|---|---|---|---|",
+        "| original_cpu | CPU Vamana | 原始 sort/LNG、hash-BFS descendants、"
+        "topological coverage | 原始 CPU builder |",
+        "| current_cpu | CPU Vamana | 优化后的 bucket/LNG/descendants/coverage | "
+        "CPU Vamana builder |",
+        "| naive_gpu | CPU Vamana | 优化 metadata | batched SGEMM + 独立 top-k |",
+        "| paper_fused | CPU Vamana | 优化 metadata | grouped fused distance/top-k "
+        "+ ID-only writeback |",
+        "| accelerated_gpu | FastGrnnd CUDA | 优化 metadata | fused GPU cross edges "
+        "+ CPU exact-scan additional edges |",
+        "",
+        "Fused cross-edge backend 在容量允许时常驻 base vectors 与 norms；否则按"
+        "声明的显存预算流式处理 vector/query chunks。它消除逐 group-pair 调用和"
+        "不需要的 distance writeback，但保留并计入 host adjacency materialization。",
+        "",
+        "Hierarchy sidecar 的 intra 与 inter backend 独立控制：",
+        "",
+        "| profile | intra-block route | inter-block route |",
+        "|---|---|---|",
+        "| cpu | small exact/complete；medium sampled Vamana；large CPU Vamana | CPU |",
+        "| hybrid_gpu_intra | small/medium CPU；large FastGrnnd-style CUDA | CPU |",
+        "| hybrid_gpu_intra_inter | 同上 | fused CUDA top-k |",
+        "| full_gpu | bounded completion 后走 CUDA | fused CUDA-core top-k |",
+        "| full_gpu_wmma | bounded completion 后走 CUDA | fused TF32-WMMA top-k |",
+        "",
+        "GPU case 必须在日志中证明请求的 intra/inter 工作确实发生，GPU intra "
+        "fallback 必须为 0；full_gpu_wmma 还必须观测到 `mode=tf32_wmma`。每层"
+        "序列化后都会 reload 并做结构验证。",
+        "",
         "构建时间是进程端到端 wall time，包含产生并验证磁盘文件；resource pass "
         "与 timing pass 分离，CUDA kernel timing 不替代端到端时间。",
         "", "| 组件 | 结构 | profile | repeats | median s | p95 s | index MiB | "
@@ -1708,7 +1747,8 @@ def generate_markdown_report(
 
     lines.extend([
         "", "### 构建产物的下游查询质量", "",
-        "每个 CPU/GPU 构建产物均重新加载并执行相同的 formal Recall 协议；"
+        "预声明 quality cohort 中的每个 CPU/GPU 构建产物均重新加载并执行相同的"
+        " formal Recall 协议；"
         "QPS 仅用于发现构建质量回归，不替代构建 wall time。",
         "", "| 索引结构 | 构建 profile | Recall crossings | 最低 Recall | "
         "Geomean QPS |",

@@ -447,6 +447,11 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertIn("Total edges", report)
         self.assertIn("Matched points", report)
         self.assertIn("构建产物的下游查询质量", report)
+        self.assertIn("Base graph 的五个冻结 profile", report)
+        self.assertIn("Hierarchy sidecar 的 intra 与 inter backend 独立控制", report)
+        self.assertIn("grouped fused distance/top-k", report)
+        self.assertIn("mode=tf32_wmma", report)
+        self.assertIn("预声明 quality cohort", report)
         self.assertNotIn("pending", report.lower())
 
     def test_principal_zero_layer_table_marks_missing_trie_crossing(self) -> None:
