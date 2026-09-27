@@ -115,6 +115,15 @@ PROFILE_NONNEGATIVE_FIELDS = {
     "total_distance_calcs_warm_median",
     "num_entries_warm_median", "entry_group_matched_points_warm_median",
 }
+BASE_BUILD_PROFILES = (
+    "original_cpu", "current_cpu", "naive_gpu", "paper_fused",
+    "accelerated_gpu",
+)
+HIERARCHY_BUILD_STRUCTURES = ("single_t1024_lng", "auto_drh_v1")
+HIERARCHY_BUILD_PROFILES = (
+    "cpu", "hybrid_gpu_intra", "hybrid_gpu_intra_inter", "full_gpu",
+    "full_gpu_wmma",
+)
 
 
 @dataclass(frozen=True)
@@ -822,8 +831,18 @@ def validate_build_rows(
     summary: list[dict[str, str]], end_to_end: list[dict[str, str]],
 ) -> None:
     seen = unique_rows(summary, ("component", "structure", "profile"), "build summary")
-    if not {"base", "hierarchy"}.issubset({key[0] for key in seen}):
-        raise ValueError("build summary must contain base and hierarchy components")
+    expected_summary = {
+        ("base", "zero_layer", profile) for profile in BASE_BUILD_PROFILES
+    } | {
+        ("hierarchy", structure, profile)
+        for structure in HIERARCHY_BUILD_STRUCTURES
+        for profile in HIERARCHY_BUILD_PROFILES
+    }
+    if set(seen) != expected_summary:
+        raise ValueError(
+            "build summary matrix mismatch; missing="
+            f"{sorted(expected_summary - set(seen))} extra="
+            f"{sorted(set(seen) - expected_summary)}")
     for key, row in seen.items():
         if integer(row, "measured_repeats") < 5:
             raise ValueError(f"build result has fewer than five repeats: {key}")
@@ -842,7 +861,18 @@ def validate_build_rows(
                 raise ValueError(f"GPU build lacks lock or idle preflight: {key}")
     if not end_to_end:
         raise ValueError("end-to-end build summary is empty")
-    unique_rows(end_to_end, ("structure", "hierarchy_profile"), "end-to-end build")
+    composed = unique_rows(
+        end_to_end, ("structure", "hierarchy_profile"), "end-to-end build")
+    expected_composed = {
+        (structure, profile)
+        for structure in HIERARCHY_BUILD_STRUCTURES
+        for profile in HIERARCHY_BUILD_PROFILES
+    }
+    if set(composed) != expected_composed:
+        raise ValueError(
+            "end-to-end build matrix mismatch; missing="
+            f"{sorted(expected_composed - set(composed))} extra="
+            f"{sorted(set(composed) - expected_composed)}")
     for row in end_to_end:
         if integer(row, "stage_repeats") < 5:
             raise ValueError(

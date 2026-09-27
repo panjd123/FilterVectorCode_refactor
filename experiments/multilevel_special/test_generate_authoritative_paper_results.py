@@ -284,37 +284,47 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                 "automatic_speedup_vs_baseline": 2.0,
                 "automatic_qps_fraction_of_global_oracle": 0.9,
             })
-        build_summary = [
-            {
+        build_summary = []
+        for profile_name in generator.BASE_BUILD_PROFILES:
+            gpu = profile_name in {
+                "naive_gpu", "paper_fused", "accelerated_gpu"}
+            build_summary.append({
                 "component": "base", "structure": "zero_layer",
-                "profile": "original_cpu", "measured_repeats": 5,
+                "profile": profile_name, "measured_repeats": 5,
                 "wall_median_seconds": 10, "wall_p95_seconds": 11,
                 "index_median_mib": 100, "peak_rss_mib": 512,
-                "peak_gpu_memory_mib": "",
-                "gpu_required": "False", "gpu_exclusive_lock": "",
-                "gpu_idle_samples_min": "",
-            },
-            {
-                "component": "hierarchy", "structure": "auto_drh_v1",
-                "profile": "full_gpu", "measured_repeats": 5,
-                "wall_median_seconds": 2, "wall_p95_seconds": 2.2,
-                "index_median_mib": 20, "peak_rss_mib": 256,
-                "peak_gpu_memory_mib": 1024,
-                "gpu_required": "True", "gpu_exclusive_lock": "False",
-                "gpu_idle_samples_min": 3,
-            },
-        ]
-        build_e2e = [{
-            "structure": "auto_drh_v1", "hierarchy_profile": "full_gpu",
-            "stage_repeats": 5,
-            "composition_method": "sum_of_stage_medians_independent_bootstrap",
-            "original_cpu_base_median_seconds": 10,
-            "composed_base_plus_hierarchy_seconds": 8,
-            "speedup_vs_original_cpu": 1.25, "speedup_ci95_low": 1.1,
-            "speedup_ci95_high": 1.4,
-            "overhead_vs_accelerated_base_median": 1.2,
-            "no_slower_supported": "True",
-        }]
+                "peak_gpu_memory_mib": 1024 if gpu else "",
+                "gpu_required": str(gpu), "gpu_exclusive_lock": "False",
+                "gpu_idle_samples_min": 3 if gpu else "",
+            })
+        build_e2e = []
+        for structure in generator.HIERARCHY_BUILD_STRUCTURES:
+            for profile_name in generator.HIERARCHY_BUILD_PROFILES:
+                gpu = profile_name != "cpu"
+                build_summary.append({
+                    "component": "hierarchy", "structure": structure,
+                    "profile": profile_name, "measured_repeats": 5,
+                    "wall_median_seconds": 2, "wall_p95_seconds": 2.2,
+                    "index_median_mib": 20, "peak_rss_mib": 256,
+                    "peak_gpu_memory_mib": 1024 if gpu else "",
+                    "gpu_required": str(gpu),
+                    "gpu_exclusive_lock": "False",
+                    "gpu_idle_samples_min": 3 if gpu else "",
+                })
+                build_e2e.append({
+                    "structure": structure,
+                    "hierarchy_profile": profile_name,
+                    "stage_repeats": 5,
+                    "composition_method":
+                        "sum_of_stage_medians_independent_bootstrap",
+                    "original_cpu_base_median_seconds": 10,
+                    "composed_base_plus_hierarchy_seconds": 8,
+                    "speedup_vs_original_cpu": 1.25,
+                    "speedup_ci95_low": 1.1,
+                    "speedup_ci95_high": 1.4,
+                    "overhead_vs_accelerated_base_median": 1.2,
+                    "no_slower_supported": "True",
+                })
         files = {
             "amazon_formal": formal, "amazon_depth": depth,
             "amazon_depth_global": depth_global, "amazon_profile": profile,
@@ -615,6 +625,21 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         rows[0]["measured_repeats"] = "4"
         write_csv(self.paths.build_summary, rows)
         with self.assertRaisesRegex(ValueError, "fewer than five"):
+            self.generate()
+
+    def test_build_summary_requires_complete_frozen_matrix(self) -> None:
+        with self.paths.build_summary.open(newline="", encoding="utf-8") as stream:
+            rows = list(csv.DictReader(stream))
+        write_csv(self.paths.build_summary, rows[:-1])
+        with self.assertRaisesRegex(ValueError, "build summary matrix mismatch"):
+            self.generate()
+
+    def test_composed_build_requires_complete_frozen_matrix(self) -> None:
+        with self.paths.build_end_to_end.open(
+                newline="", encoding="utf-8") as stream:
+            rows = list(csv.DictReader(stream))
+        write_csv(self.paths.build_end_to_end, rows[:-1])
+        with self.assertRaisesRegex(ValueError, "end-to-end build matrix mismatch"):
             self.generate()
 
     def test_atomic_output_is_unchanged_after_validation_failure(self) -> None:
