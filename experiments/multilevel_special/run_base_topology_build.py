@@ -261,6 +261,10 @@ def main() -> int:
             except ValueError:
                 pass
             else:
+                previous = experiment_core.existing_manifest_record(
+                    manifest, {"name": case["name"]})
+                experiment_core.require_matching_build_binary_for_reuse(
+                    previous, binary_hash)
                 print(f"[SKIP] {case['name']} validated at {final}", flush=True)
                 reused_record = {
                     "name": case["name"], "base_topology": topology,
@@ -269,9 +273,7 @@ def main() -> int:
                     "provenance": provenance,
                 }
                 experiment_core.retain_elapsed_evidence(
-                    reused_record,
-                    experiment_core.existing_manifest_record(
-                        manifest, {"name": case["name"]}),
+                    reused_record, previous,
                     final, "command.txt", "build.log")
                 update_manifest(manifest, reused_record)
                 continue

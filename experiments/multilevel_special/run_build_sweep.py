@@ -361,6 +361,11 @@ def main() -> int:
         try:
             meta = validate_case(config, case, final_root)
             if not args.force:
+                previous = experiment_core.existing_manifest_record(
+                    manifest, {"name": case["name"]})
+                if not case.get("existing_path"):
+                    experiment_core.require_matching_build_binary_for_reuse(
+                        previous, build_binary_sha256)
                 print(f"[SKIP] {case['name']} validated at {final_root}", flush=True)
                 reused_record = {
                     "name": case["name"], "min_points": minimum,
@@ -370,9 +375,7 @@ def main() -> int:
                     "source_provenance": source_provenance,
                 }
                 experiment_core.retain_elapsed_evidence(
-                    reused_record,
-                    experiment_core.existing_manifest_record(
-                        manifest, {"name": case["name"]}),
+                    reused_record, previous,
                     final_root, "command.txt", "build.log")
                 update_manifest(manifest, reused_record)
                 continue

@@ -200,6 +200,24 @@ class OrthogonalExperimentTest(unittest.TestCase):
             self.assertFalse(gpu_isolation.has_perf_lock(0))
             self.assertTrue(gpu_isolation.has_perf_lock(1))
 
+    def test_build_reuse_requires_prior_binary_provenance(self):
+        with self.assertRaisesRegex(RuntimeError, "without a prior manifest"):
+            experiment_core.require_matching_build_binary_for_reuse(
+                None, "a" * 64)
+
+    def test_build_reuse_rejects_binary_drift(self):
+        previous = {
+            "provenance": {"build_binary_sha256": "a" * 64},
+        }
+        with self.assertRaisesRegex(RuntimeError, "different or unknown binary"):
+            experiment_core.require_matching_build_binary_for_reuse(
+                previous, "b" * 64)
+
+    def test_build_reuse_accepts_base_and_hierarchy_provenance(self):
+        for field in ("provenance", "source_provenance"):
+            experiment_core.require_matching_build_binary_for_reuse(
+                {field: {"build_binary_sha256": "a" * 64}}, "a" * 64)
+
     def test_composed_build_claim_uses_speedup_lower_bound(self):
         rows = []
         for repeat in range(3):

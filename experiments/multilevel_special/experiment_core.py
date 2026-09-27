@@ -492,6 +492,24 @@ def existing_manifest_record(path: Path, identity: dict[str, Any]) -> dict[str, 
                  if all(row.get(key) == value for key, value in identity.items())), None)
 
 
+def require_matching_build_binary_for_reuse(
+    existing: dict[str, Any] | None, expected_sha256: str,
+) -> None:
+    """Reject artifact reuse unless its original builder identity is explicit."""
+    if existing is None:
+        raise RuntimeError(
+            "refusing to reuse build artifact without a prior manifest record")
+    provenance = existing.get("provenance")
+    if not isinstance(provenance, dict):
+        provenance = existing.get("source_provenance")
+    observed = (provenance.get("build_binary_sha256")
+                if isinstance(provenance, dict) else None)
+    if observed != expected_sha256:
+        raise RuntimeError(
+            "refusing to reuse build artifact from a different or unknown "
+            f"binary: expected {expected_sha256}, observed {observed}")
+
+
 def recovered_artifact_elapsed_seconds(run_dir: Path, command_name: str,
                                        log_name: str) -> float | None:
     """Approximate duration for legacy artifacts that predate elapsed ledgers."""
