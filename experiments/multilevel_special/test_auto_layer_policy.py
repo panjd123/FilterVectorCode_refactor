@@ -2,10 +2,18 @@
 """Focused tests for the query-free structural scale ladder."""
 
 import unittest
+from pathlib import Path
 
 from analyze_auto_layer_policy import derive_mass_ladder, next_power_of_two, partition_row
 from derive_static_hierarchy import derive_plan
-from generate_auto_policy_cross_dataset_configs import declared_candidate_plans
+from generate_auto_policy_cross_dataset_configs import (
+    AUTOMATIC_ROLE,
+    MANUAL_ROLE,
+    ROUTING_POLICY,
+    UNROUTED_ABLATION_ROLE,
+    declared_candidate_plans,
+    make_search_methods,
+)
 import gpu_isolation
 from summarize_heldout_oracle import first_crossings, geometric_mean
 
@@ -98,6 +106,35 @@ class DegreeRatioHeldoutProtocolTest(unittest.TestCase):
         # remain query-independent and common to all held-out datasets.
         self.assertNotIn("query", gpu_isolation.DEFAULT_POLICY)
         self.assertEqual(gpu_isolation.DEFAULT_POLICY["device"], 0)
+
+    def test_automatic_and_manual_searches_share_exact_authorization_gate(self):
+        cases = [
+            {
+                "name": "auto",
+                "hierarchy_layers": [{"min_points": 256, "topology": "lng"}],
+                "selection_role": AUTOMATIC_ROLE,
+            },
+            {
+                "name": "manual",
+                "hierarchy_layers": [{"min_points": 512, "topology": "trie"}],
+                "selection_role": MANUAL_ROLE,
+            },
+        ]
+        methods = make_search_methods(Path("/index"), Path("/run"), cases)
+        automatic = [m for m in methods if m.get("selection_role") == AUTOMATIC_ROLE]
+        manual = [m for m in methods if m.get("selection_role") == MANUAL_ROLE]
+        unrouted = [m for m in methods
+                    if m.get("selection_role") == UNROUTED_ABLATION_ROLE]
+        self.assertEqual(len(automatic), 1)
+        self.assertEqual(len(manual), 1)
+        self.assertEqual(len(unrouted), 1)
+        for method in automatic + manual:
+            self.assertEqual(method["routing_policy"], ROUTING_POLICY)
+            self.assertEqual(
+                method["env"]["UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION"], "1")
+        self.assertNotIn("routing_policy", unrouted[0])
+        self.assertNotIn(
+            "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION", unrouted[0]["env"])
 
     def test_first_crossing_uses_smallest_l_and_all_repeat_recall(self):
         rows = [

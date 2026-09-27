@@ -1,6 +1,6 @@
 # Agent 看板
 
-最后更新：`2026-09-27 06:25 Asia/Shanghai`
+最后更新：`2026-09-27 08:04 Asia/Shanghai`
 分支：`codex/multilevel-special-block-20260905`
 检查点：`2951062`（push：`不执行，origin 指向用户工作树`）
 
@@ -54,6 +54,12 @@
   routed 版在 0.5%--10% 恢复 crossing，但相对 LNG-0 仍有约
   `14%/1%/15%/36%` 开销，30% 在 `L<=45000` 未 crossing。这些数据
   反驳“增层天然不损低选择率”，也说明 router 成本必须显式报告。
+- 根据这一 development-set 证据，held-out 的最终自动方案已严格定义为
+  “DRH 静态层级 + 无参数精确 upper-authorization gate”。为公平比较，
+  35 个人工 hierarchy 候选也全部使用相同 gate；无 gate DRH 仅作消融。
+  Genome/Reviews/VariousImg 配置已重新生成，每个仍为 38 个方法；
+  119/119 Python tests、三套 build dry-run、三套零层 search dry-run 和
+  本地 Tectonic 论文编译通过。
 - profile 证据现显式使用 `measurement_pass=profile` 和
   `protocol.phase=profile`；两者不一致时配置校验直接失败。
 - screen 接续 watcher PID 为 `25189`；query 完成后串行启动

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Generate query-free DRH and manual-oracle configs for held-out datasets.
+"""Generate gated DRH and fair manual-oracle configs for held-out datasets.
 
-The automatic plan is derived only from N, R, and C.  The surrounding manual
-grid is declared from that plan before any held-out query result is read.
+The automatic hierarchy is derived only from N, R, and C. Every hierarchy uses
+the same parameter-free exact authorization gate, and the surrounding manual
+grid is declared before any held-out query result is read.
 """
 
 from __future__ import annotations
@@ -31,6 +32,10 @@ DATASETS = {
     "VariousImg": ("query_minlen2_cov5k",),
 }
 SCREEN_LSEARCH = [40, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 40000]
+AUTOMATIC_ROLE = "predeclared_degree_ratio_hierarchy_v1"
+MANUAL_ROLE = "predeclared_manual_oracle_grid"
+UNROUTED_ABLATION_ROLE = "degree_ratio_hierarchy_v1_unrouted_ablation"
+ROUTING_POLICY = "require_upper_authorization"
 
 
 def sha256_file(path: Path) -> str:
@@ -124,9 +129,9 @@ def declared_candidate_plans(
                 "base_topology": "lng",
                 "hierarchy_layers": layers,
                 "selection_role": (
-                    "predeclared_degree_ratio_hierarchy_v1"
+                    AUTOMATIC_ROLE
                     if signature == automatic_signature
-                    else "predeclared_manual_oracle_grid"
+                    else MANUAL_ROLE
                 ),
                 "benchmark_profile": "hybrid_gpu_intra",
                 "env": {
@@ -136,7 +141,7 @@ def declared_candidate_plans(
                     "UNG_SPECIAL_BLOCK_GPU_INTER": "0",
                 },
             })
-    if sum(case["selection_role"] == "predeclared_degree_ratio_hierarchy_v1"
+    if sum(case["selection_role"] == AUTOMATIC_ROLE
            for case in result) != 1:
         raise AssertionError("manual grid must contain the automatic plan exactly once")
     return result
@@ -168,6 +173,53 @@ def common_search_env() -> dict[str, str]:
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
         "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
     }
+
+
+def make_search_methods(
+    source: Path, dataset_run_root: Path, cases: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Use one exact authorization gate for DRH and every manual candidate."""
+    methods: list[dict[str, Any]] = [{
+        "name": "l0_lng_entry_optimized_lng",
+        "main_index": str(source),
+        "base_topology": "lng",
+        "entry_strategy": "optimized_lng",
+        "hierarchy_layers": [],
+        "special_block_search": False,
+        "lsearch_values": SCREEN_LSEARCH,
+        "selection_role": "zero_layer_baseline",
+        "env": common_search_env(),
+    }]
+    for case in cases:
+        common = {
+            "main_index": str(source),
+            "base_topology": "lng",
+            "entry_strategy": "optimized_lng",
+            "hierarchy_layers": case["hierarchy_layers"],
+            "special_block_search": True,
+            "block_index": str(dataset_run_root / "hierarchy" /
+                               case["name"] / "block_index"),
+            "lsearch_values": SCREEN_LSEARCH,
+        }
+        routed = {
+            **common,
+            "name": case["name"] + "_entry_optimized_lng_upper_routed",
+            "selection_role": case["selection_role"],
+            "routing_policy": ROUTING_POLICY,
+            "env": {
+                **common_search_env(),
+                "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1",
+            },
+        }
+        methods.append(routed)
+        if case["selection_role"] == AUTOMATIC_ROLE:
+            methods.append({
+                **common,
+                "name": case["name"] + "_entry_optimized_lng",
+                "selection_role": UNROUTED_ABLATION_ROLE,
+                "env": common_search_env(),
+            })
+    return methods
 
 
 def make_dataset_configs(
@@ -211,40 +263,7 @@ def make_dataset_configs(
         "cases": cases,
     }
 
-    methods: list[dict[str, Any]] = [{
-        "name": "l0_lng_entry_optimized_lng",
-        "main_index": str(source),
-        "base_topology": "lng",
-        "entry_strategy": "optimized_lng",
-        "hierarchy_layers": [],
-        "special_block_search": False,
-        "lsearch_values": SCREEN_LSEARCH,
-        "selection_role": "zero_layer_baseline",
-        "env": common_search_env(),
-    }]
-    for case in cases:
-        method = {
-            "name": case["name"] + "_entry_optimized_lng",
-            "main_index": str(source),
-            "base_topology": "lng",
-            "entry_strategy": "optimized_lng",
-            "hierarchy_layers": case["hierarchy_layers"],
-            "special_block_search": True,
-            "block_index": str(dataset_run_root / "hierarchy" /
-                               case["name"] / "block_index"),
-            "selection_role": case["selection_role"],
-            "lsearch_values": SCREEN_LSEARCH,
-            "env": common_search_env(),
-        }
-        methods.append(method)
-        if case["selection_role"] == "predeclared_degree_ratio_hierarchy_v1":
-            routed = dict(method)
-            routed["name"] += "_upper_routed"
-            routed["selection_role"] = "automatic_upper_authorization_control"
-            routed["routing_policy"] = "require_upper_authorization"
-            routed["env"] = dict(method["env"])
-            routed["env"]["UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION"] = "1"
-            methods.append(routed)
+    methods = make_search_methods(source, dataset_run_root, cases)
 
     workloads = []
     for task in tasks:
@@ -262,7 +281,7 @@ def make_dataset_configs(
     search = {
         "schema_version": 2,
         "method_schema": "orthogonal_v2",
-        "purpose": "Held-out DRH-v1 versus a predeclared manual hierarchy oracle.",
+        "purpose": "Held-out gated DRH-v1 versus a gated manual hierarchy oracle.",
         "measurement_pass": "performance",
         "pass_subdirs": True,
         "search_app": str(REPO / "build_ung_rel/apps/search_UNG_index"),
@@ -300,7 +319,7 @@ def make_dataset_configs(
     policy = {
         "schema_version": 2,
         "dataset": dataset,
-        "policy": "degree_ratio_hierarchy_v1",
+        "policy": "gated_degree_ratio_hierarchy_v1",
         "query_calibrated": False,
         "inputs": {
             "num_points": num_points,
@@ -310,8 +329,13 @@ def make_dataset_configs(
             "scale_ratio": scale_ratio,
         },
         "automatic_hierarchy_layers": automatic,
-        "automatic_method": plan_name(automatic) + "_entry_optimized_lng",
+        "automatic_method": (
+            plan_name(automatic) + "_entry_optimized_lng_upper_routed"),
+        "automatic_routing_policy": ROUTING_POLICY,
+        "unrouted_ablation_method": (
+            plan_name(automatic) + "_entry_optimized_lng"),
         "manual_grid_frozen_before_search": True,
+        "manual_grid_uses_automatic_routing_policy": True,
         "manual_hierarchy_cases": len(cases),
         "manual_depths": sorted({len(case["hierarchy_layers"]) for case in cases}),
         "workloads": workloads,

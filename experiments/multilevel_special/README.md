@@ -147,8 +147,11 @@ is reported separately from the always-layered two-layer factorial.
 ## Query-free held-out hierarchy study
 
 `generate_auto_policy_cross_dataset_configs.py` derives DRH-v1 only from
-`N`, `R`, and `C`, then freezes a 36-case one/two/three-layer manual grid before
-reading held-out query results. It emits build, screen, and policy files for
+`N`, `R`, and `C` and combines it with the fixed exact upper-authorization
+gate. It freezes a 36-case one/two/three-layer manual grid before reading
+held-out query results. Every manual candidate uses the same gate, so the
+oracle tunes only depth, thresholds, and per-layer topology; ungated DRH is a
+separate ablation. The generator emits build, screen, and policy files for
 Genome, Reviews, and VariousImg. Build commands can be preflighted without
 starting construction:
 

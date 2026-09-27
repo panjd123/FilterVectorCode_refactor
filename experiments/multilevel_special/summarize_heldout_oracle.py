@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare query-free DRH with a predeclared held-out manual oracle.
+"""Compare calibration-free gated DRH with a gated held-out manual oracle.
 
 For each method and workload, the operating point is the smallest measured
 Lsearch whose every measured (non-cold) repeat reaches the Recall threshold.
@@ -26,6 +26,9 @@ MANUAL_ROLES = {
     "predeclared_manual_oracle_grid",
     "predeclared_degree_ratio_hierarchy_v1",
 }
+AUTOMATIC_ROLE = "predeclared_degree_ratio_hierarchy_v1"
+UNROUTED_ABLATION_ROLE = "degree_ratio_hierarchy_v1_unrouted_ablation"
+ROUTING_POLICY = "require_upper_authorization"
 
 
 def stable_seed(*parts: str) -> int:
@@ -96,22 +99,29 @@ def evaluate_config(
     ]
     automatic_names = [
         name for name, method in methods.items()
-        if method.get("selection_role") == "predeclared_degree_ratio_hierarchy_v1"
+        if method.get("selection_role") == AUTOMATIC_ROLE
     ]
     manual_names = [
         name for name, method in methods.items()
         if method.get("selection_role") in MANUAL_ROLES
     ]
-    routed_names = [
+    unrouted_names = [
         name for name, method in methods.items()
-        if method.get("selection_role") == "automatic_upper_authorization_control"
+        if method.get("selection_role") == UNROUTED_ABLATION_ROLE
     ]
     if len(baseline_names) != 1 or len(automatic_names) != 1:
         raise ValueError("expected exactly one zero-layer baseline and one DRH method")
+    if len(unrouted_names) > 1:
+        raise ValueError("expected at most one ungated DRH ablation")
     if not manual_names:
         raise ValueError("manual oracle grid is empty")
     baseline_name = baseline_names[0]
     automatic_name = automatic_names[0]
+    if methods[automatic_name].get("routing_policy") != ROUTING_POLICY:
+        raise ValueError("automatic DRH must use the exact upper-authorization gate")
+    if any(methods[name].get("routing_policy") != ROUTING_POLICY
+           for name in manual_names):
+        raise ValueError("automatic and manual hierarchy plans must share routing")
     dataset = str(config["dataset"])
     output: list[dict[str, Any]] = []
 
@@ -189,12 +199,13 @@ def evaluate_config(
                 "automatic_oracle_fraction_ci95_low": regret_ci[0],
                 "automatic_oracle_fraction_ci95_high": regret_ci[1],
             })
-        if routed_names:
-            routed = crossings.get((routed_names[0], workload_name))
-            result["routed_control_method"] = routed_names[0]
-            result["routed_control_qps"] = (
-                float(routed["qps_warm_median"]) if routed else "")
-            result["routed_control_lsearch"] = int(routed["lsearch"]) if routed else ""
+        if unrouted_names:
+            unrouted = crossings.get((unrouted_names[0], workload_name))
+            result["unrouted_ablation_method"] = unrouted_names[0]
+            result["unrouted_ablation_qps"] = (
+                float(unrouted["qps_warm_median"]) if unrouted else "")
+            result["unrouted_ablation_lsearch"] = (
+                int(unrouted["lsearch"]) if unrouted else "")
         output.append(result)
 
     complete_manual = []
@@ -255,11 +266,11 @@ def write_markdown(
         return f"{float(value):.3f}{suffix}" if value != "" else "NA"
 
     lines = [
-        "# Query-free hierarchy versus held-out oracle", "",
+        "# Calibration-free gated hierarchy versus held-out oracle", "",
         "Each operating point is the smallest measured L whose every warm repeat "
         "meets the declared Recall threshold. The oracle grid was frozen before "
         "held-out search results were read; no interpolation is used.", "",
-        "| Dataset | Selectivity | DRH hierarchy | Oracle hierarchy | DRH/plain | DRH/oracle |",
+        "| Dataset | Selectivity | Gated DRH hierarchy | Oracle hierarchy | DRH/plain | DRH/oracle |",
         "|---|---:|---|---|---:|---:|",
     ]
     for row in workload_rows:

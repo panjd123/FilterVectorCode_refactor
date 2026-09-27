@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "method_schema": "orthogonal_v2",
-  "purpose": "Held-out DRH-v1 versus a predeclared manual hierarchy oracle.",
+  "purpose": "Held-out gated DRH-v1 versus a gated manual hierarchy oracle.",
   "measurement_pass": "performance",
   "pass_subdirs": true,
   "search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
@@ -71,7 +71,6 @@
       }
     },
     {
-      "name": "l1_t512_l_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -83,7 +82,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l1_t512_l/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -96,14 +94,17 @@
         25000,
         40000
       ],
+      "name": "l1_t512_l_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t512_t_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -115,7 +116,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l1_t512_t/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -128,14 +128,17 @@
         25000,
         40000
       ],
+      "name": "l1_t512_t_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t1024_l_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -147,7 +150,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l1_t1024_l/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -160,14 +162,17 @@
         25000,
         40000
       ],
+      "name": "l1_t1024_l_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t1024_t_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -179,7 +184,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l1_t1024_t/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -192,14 +196,17 @@
         25000,
         40000
       ],
+      "name": "l1_t1024_t_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t2048_l_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -211,7 +218,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l1_t2048_l/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -224,14 +230,17 @@
         25000,
         40000
       ],
+      "name": "l1_t2048_l_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t2048_t_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -243,7 +252,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l1_t2048_t/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -256,14 +264,17 @@
         25000,
         40000
       ],
+      "name": "l1_t2048_t_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t16384_l_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -275,7 +286,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l1_t16384_l/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -288,14 +298,17 @@
         25000,
         40000
       ],
+      "name": "l1_t16384_l_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t16384_t_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -307,7 +320,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l1_t16384_t/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -320,14 +332,17 @@
         25000,
         40000
       ],
+      "name": "l1_t16384_t_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_8192_ll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -343,7 +358,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t512_8192_ll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -356,14 +370,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_8192_ll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_8192_lt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -379,7 +396,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t512_8192_lt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -392,14 +408,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_8192_lt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_8192_tl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -415,7 +434,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t512_8192_tl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -428,14 +446,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_8192_tl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_8192_tt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -451,7 +472,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t512_8192_tt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -464,14 +484,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_8192_tt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t1024_8192_ll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -487,7 +510,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_8192_ll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -500,14 +522,17 @@
         25000,
         40000
       ],
+      "name": "l2_t1024_8192_ll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t1024_8192_lt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -523,7 +548,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_8192_lt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -536,14 +560,17 @@
         25000,
         40000
       ],
+      "name": "l2_t1024_8192_lt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t1024_8192_tl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -559,7 +586,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_8192_tl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -572,14 +598,17 @@
         25000,
         40000
       ],
+      "name": "l2_t1024_8192_tl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t1024_8192_tt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -595,7 +624,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_8192_tt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -608,14 +636,17 @@
         25000,
         40000
       ],
+      "name": "l2_t1024_8192_tt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t1024_16384_ll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -631,101 +662,103 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_16384_ll/block_index",
+      "lsearch_values": [
+        40,
+        100,
+        250,
+        500,
+        1000,
+        2500,
+        5000,
+        10000,
+        25000,
+        40000
+      ],
+      "name": "l2_t1024_16384_ll_entry_optimized_lng_upper_routed",
       "selection_role": "predeclared_manual_oracle_grid",
-      "lsearch_values": [
-        40,
-        100,
-        250,
-        500,
-        1000,
-        2500,
-        5000,
-        10000,
-        25000,
-        40000
-      ],
-      "env": {
-        "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
-      }
-    },
-    {
-      "name": "l2_t1024_16384_lt_entry_optimized_lng",
-      "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
-      "base_topology": "lng",
-      "entry_strategy": "optimized_lng",
-      "hierarchy_layers": [
-        {
-          "min_points": 1024,
-          "topology": "lng"
-        },
-        {
-          "min_points": 16384,
-          "topology": "trie"
-        }
-      ],
-      "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_16384_lt/block_index",
-      "selection_role": "predeclared_degree_ratio_hierarchy_v1",
-      "lsearch_values": [
-        40,
-        100,
-        250,
-        500,
-        1000,
-        2500,
-        5000,
-        10000,
-        25000,
-        40000
-      ],
-      "env": {
-        "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
-      }
-    },
-    {
-      "name": "l2_t1024_16384_lt_entry_optimized_lng_upper_routed",
-      "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
-      "base_topology": "lng",
-      "entry_strategy": "optimized_lng",
-      "hierarchy_layers": [
-        {
-          "min_points": 1024,
-          "topology": "lng"
-        },
-        {
-          "min_points": 16384,
-          "topology": "trie"
-        }
-      ],
-      "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_16384_lt/block_index",
-      "selection_role": "automatic_upper_authorization_control",
-      "lsearch_values": [
-        40,
-        100,
-        250,
-        500,
-        1000,
-        2500,
-        5000,
-        10000,
-        25000,
-        40000
-      ],
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
         "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
         "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
-      },
-      "routing_policy": "require_upper_authorization"
+      }
     },
     {
-      "name": "l2_t1024_16384_tl_entry_optimized_lng",
+      "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_16384_lt/block_index",
+      "lsearch_values": [
+        40,
+        100,
+        250,
+        500,
+        1000,
+        2500,
+        5000,
+        10000,
+        25000,
+        40000
+      ],
+      "name": "l2_t1024_16384_lt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_degree_ratio_hierarchy_v1",
+      "routing_policy": "require_upper_authorization",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
+      }
+    },
+    {
+      "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 1024,
+          "topology": "lng"
+        },
+        {
+          "min_points": 16384,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_16384_lt/block_index",
+      "lsearch_values": [
+        40,
+        100,
+        250,
+        500,
+        1000,
+        2500,
+        5000,
+        10000,
+        25000,
+        40000
+      ],
+      "name": "l2_t1024_16384_lt_entry_optimized_lng",
+      "selection_role": "degree_ratio_hierarchy_v1_unrouted_ablation",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -741,7 +774,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_16384_tl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -754,14 +786,17 @@
         25000,
         40000
       ],
+      "name": "l2_t1024_16384_tl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t1024_16384_tt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -777,7 +812,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t1024_16384_tt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -790,14 +824,17 @@
         25000,
         40000
       ],
+      "name": "l2_t1024_16384_tt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t2048_16384_ll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -813,7 +850,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t2048_16384_ll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -826,14 +862,17 @@
         25000,
         40000
       ],
+      "name": "l2_t2048_16384_ll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t2048_16384_lt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -849,7 +888,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t2048_16384_lt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -862,14 +900,17 @@
         25000,
         40000
       ],
+      "name": "l2_t2048_16384_lt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t2048_16384_tl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -885,7 +926,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t2048_16384_tl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -898,14 +938,17 @@
         25000,
         40000
       ],
+      "name": "l2_t2048_16384_tl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t2048_16384_tt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -921,7 +964,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t2048_16384_tt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -934,14 +976,17 @@
         25000,
         40000
       ],
+      "name": "l2_t2048_16384_tt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t2048_32768_ll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -957,7 +1002,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t2048_32768_ll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -970,14 +1014,17 @@
         25000,
         40000
       ],
+      "name": "l2_t2048_32768_ll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t2048_32768_lt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -993,7 +1040,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t2048_32768_lt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1006,14 +1052,17 @@
         25000,
         40000
       ],
+      "name": "l2_t2048_32768_lt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t2048_32768_tl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1029,7 +1078,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t2048_32768_tl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1042,14 +1090,17 @@
         25000,
         40000
       ],
+      "name": "l2_t2048_32768_tl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t2048_32768_tt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1065,7 +1116,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l2_t2048_32768_tt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1078,14 +1128,17 @@
         25000,
         40000
       ],
+      "name": "l2_t2048_32768_tt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t1024_16384_262144_lll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1105,7 +1158,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l3_t1024_16384_262144_lll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1118,14 +1170,17 @@
         25000,
         40000
       ],
+      "name": "l3_t1024_16384_262144_lll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t1024_16384_262144_llt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1145,7 +1200,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l3_t1024_16384_262144_llt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1158,14 +1212,17 @@
         25000,
         40000
       ],
+      "name": "l3_t1024_16384_262144_llt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t1024_16384_262144_ltl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1185,7 +1242,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l3_t1024_16384_262144_ltl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1198,14 +1254,17 @@
         25000,
         40000
       ],
+      "name": "l3_t1024_16384_262144_ltl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t1024_16384_262144_ltt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1225,7 +1284,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l3_t1024_16384_262144_ltt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1238,14 +1296,17 @@
         25000,
         40000
       ],
+      "name": "l3_t1024_16384_262144_ltt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t1024_16384_262144_tll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1265,7 +1326,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l3_t1024_16384_262144_tll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1278,14 +1338,17 @@
         25000,
         40000
       ],
+      "name": "l3_t1024_16384_262144_tll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t1024_16384_262144_tlt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1305,7 +1368,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l3_t1024_16384_262144_tlt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1318,14 +1380,17 @@
         25000,
         40000
       ],
+      "name": "l3_t1024_16384_262144_tlt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t1024_16384_262144_ttl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1345,7 +1410,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l3_t1024_16384_262144_ttl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1358,14 +1422,17 @@
         25000,
         40000
       ],
+      "name": "l3_t1024_16384_262144_ttl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t1024_16384_262144_ttt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1385,7 +1452,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/hierarchy/l3_t1024_16384_262144_ttt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1398,10 +1464,14 @@
         25000,
         40000
       ],
+      "name": "l3_t1024_16384_262144_ttt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     }
   ]

@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "method_schema": "orthogonal_v2",
-  "purpose": "Held-out DRH-v1 versus a predeclared manual hierarchy oracle.",
+  "purpose": "Held-out gated DRH-v1 versus a gated manual hierarchy oracle.",
   "measurement_pass": "performance",
   "pass_subdirs": true,
   "search_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/search_UNG_index",
@@ -78,7 +78,6 @@
       }
     },
     {
-      "name": "l1_t128_l_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -90,7 +89,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l1_t128_l/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -103,14 +101,17 @@
         25000,
         40000
       ],
+      "name": "l1_t128_l_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t128_t_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -122,7 +123,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l1_t128_t/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -135,14 +135,17 @@
         25000,
         40000
       ],
+      "name": "l1_t128_t_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t256_l_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -154,7 +157,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l1_t256_l/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -167,14 +169,17 @@
         25000,
         40000
       ],
+      "name": "l1_t256_l_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t256_t_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -186,7 +191,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l1_t256_t/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -199,14 +203,17 @@
         25000,
         40000
       ],
+      "name": "l1_t256_t_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t512_l_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -218,7 +225,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l1_t512_l/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -231,14 +237,17 @@
         25000,
         40000
       ],
+      "name": "l1_t512_l_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t512_t_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -250,7 +259,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l1_t512_t/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -263,14 +271,17 @@
         25000,
         40000
       ],
+      "name": "l1_t512_t_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t4096_l_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -282,7 +293,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l1_t4096_l/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -295,14 +305,17 @@
         25000,
         40000
       ],
+      "name": "l1_t4096_l_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l1_t4096_t_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -314,7 +327,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l1_t4096_t/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -327,14 +339,17 @@
         25000,
         40000
       ],
+      "name": "l1_t4096_t_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t128_2048_ll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -350,7 +365,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t128_2048_ll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -363,14 +377,17 @@
         25000,
         40000
       ],
+      "name": "l2_t128_2048_ll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t128_2048_lt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -386,7 +403,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t128_2048_lt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -399,14 +415,17 @@
         25000,
         40000
       ],
+      "name": "l2_t128_2048_lt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t128_2048_tl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -422,7 +441,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t128_2048_tl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -435,14 +453,17 @@
         25000,
         40000
       ],
+      "name": "l2_t128_2048_tl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t128_2048_tt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -458,7 +479,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t128_2048_tt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -471,14 +491,17 @@
         25000,
         40000
       ],
+      "name": "l2_t128_2048_tt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t256_2048_ll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -494,7 +517,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_2048_ll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -507,14 +529,17 @@
         25000,
         40000
       ],
+      "name": "l2_t256_2048_ll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t256_2048_lt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -530,7 +555,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_2048_lt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -543,14 +567,17 @@
         25000,
         40000
       ],
+      "name": "l2_t256_2048_lt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t256_2048_tl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -566,7 +593,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_2048_tl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -579,14 +605,17 @@
         25000,
         40000
       ],
+      "name": "l2_t256_2048_tl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t256_2048_tt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -602,7 +631,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_2048_tt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -615,14 +643,17 @@
         25000,
         40000
       ],
+      "name": "l2_t256_2048_tt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t256_4096_ll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -638,101 +669,103 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_4096_ll/block_index",
+      "lsearch_values": [
+        40,
+        100,
+        250,
+        500,
+        1000,
+        2500,
+        5000,
+        10000,
+        25000,
+        40000
+      ],
+      "name": "l2_t256_4096_ll_entry_optimized_lng_upper_routed",
       "selection_role": "predeclared_manual_oracle_grid",
-      "lsearch_values": [
-        40,
-        100,
-        250,
-        500,
-        1000,
-        2500,
-        5000,
-        10000,
-        25000,
-        40000
-      ],
-      "env": {
-        "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
-      }
-    },
-    {
-      "name": "l2_t256_4096_lt_entry_optimized_lng",
-      "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
-      "base_topology": "lng",
-      "entry_strategy": "optimized_lng",
-      "hierarchy_layers": [
-        {
-          "min_points": 256,
-          "topology": "lng"
-        },
-        {
-          "min_points": 4096,
-          "topology": "trie"
-        }
-      ],
-      "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_4096_lt/block_index",
-      "selection_role": "predeclared_degree_ratio_hierarchy_v1",
-      "lsearch_values": [
-        40,
-        100,
-        250,
-        500,
-        1000,
-        2500,
-        5000,
-        10000,
-        25000,
-        40000
-      ],
-      "env": {
-        "UNG_DISABLE_ELS_REUSE": "1",
-        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
-      }
-    },
-    {
-      "name": "l2_t256_4096_lt_entry_optimized_lng_upper_routed",
-      "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
-      "base_topology": "lng",
-      "entry_strategy": "optimized_lng",
-      "hierarchy_layers": [
-        {
-          "min_points": 256,
-          "topology": "lng"
-        },
-        {
-          "min_points": 4096,
-          "topology": "trie"
-        }
-      ],
-      "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_4096_lt/block_index",
-      "selection_role": "automatic_upper_authorization_control",
-      "lsearch_values": [
-        40,
-        100,
-        250,
-        500,
-        1000,
-        2500,
-        5000,
-        10000,
-        25000,
-        40000
-      ],
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
         "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
         "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
-      },
-      "routing_policy": "require_upper_authorization"
+      }
     },
     {
-      "name": "l2_t256_4096_tl_entry_optimized_lng",
+      "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 256,
+          "topology": "lng"
+        },
+        {
+          "min_points": 4096,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_4096_lt/block_index",
+      "lsearch_values": [
+        40,
+        100,
+        250,
+        500,
+        1000,
+        2500,
+        5000,
+        10000,
+        25000,
+        40000
+      ],
+      "name": "l2_t256_4096_lt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_degree_ratio_hierarchy_v1",
+      "routing_policy": "require_upper_authorization",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
+      }
+    },
+    {
+      "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
+      "base_topology": "lng",
+      "entry_strategy": "optimized_lng",
+      "hierarchy_layers": [
+        {
+          "min_points": 256,
+          "topology": "lng"
+        },
+        {
+          "min_points": 4096,
+          "topology": "trie"
+        }
+      ],
+      "special_block_search": true,
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_4096_lt/block_index",
+      "lsearch_values": [
+        40,
+        100,
+        250,
+        500,
+        1000,
+        2500,
+        5000,
+        10000,
+        25000,
+        40000
+      ],
+      "name": "l2_t256_4096_lt_entry_optimized_lng",
+      "selection_role": "degree_ratio_hierarchy_v1_unrouted_ablation",
+      "env": {
+        "UNG_DISABLE_ELS_REUSE": "1",
+        "UNG_DISABLE_CPU_ELS_WARMUP": "1",
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+      }
+    },
+    {
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -748,7 +781,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_4096_tl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -761,14 +793,17 @@
         25000,
         40000
       ],
+      "name": "l2_t256_4096_tl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t256_4096_tt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -784,7 +819,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t256_4096_tt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -797,14 +831,17 @@
         25000,
         40000
       ],
+      "name": "l2_t256_4096_tt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_4096_ll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -820,7 +857,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t512_4096_ll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -833,14 +869,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_4096_ll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_4096_lt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -856,7 +895,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t512_4096_lt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -869,14 +907,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_4096_lt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_4096_tl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -892,7 +933,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t512_4096_tl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -905,14 +945,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_4096_tl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_4096_tt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -928,7 +971,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t512_4096_tt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -941,14 +983,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_4096_tt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_8192_ll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -964,7 +1009,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t512_8192_ll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -977,14 +1021,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_8192_ll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_8192_lt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1000,7 +1047,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t512_8192_lt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1013,14 +1059,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_8192_lt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_8192_tl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1036,7 +1085,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t512_8192_tl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1049,14 +1097,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_8192_tl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l2_t512_8192_tt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1072,7 +1123,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l2_t512_8192_tt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1085,14 +1135,17 @@
         25000,
         40000
       ],
+      "name": "l2_t512_8192_tt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t256_4096_65536_lll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1112,7 +1165,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l3_t256_4096_65536_lll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1125,14 +1177,17 @@
         25000,
         40000
       ],
+      "name": "l3_t256_4096_65536_lll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t256_4096_65536_llt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1152,7 +1207,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l3_t256_4096_65536_llt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1165,14 +1219,17 @@
         25000,
         40000
       ],
+      "name": "l3_t256_4096_65536_llt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t256_4096_65536_ltl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1192,7 +1249,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l3_t256_4096_65536_ltl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1205,14 +1261,17 @@
         25000,
         40000
       ],
+      "name": "l3_t256_4096_65536_ltl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t256_4096_65536_ltt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1232,7 +1291,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l3_t256_4096_65536_ltt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1245,14 +1303,17 @@
         25000,
         40000
       ],
+      "name": "l3_t256_4096_65536_ltt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t256_4096_65536_tll_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1272,7 +1333,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l3_t256_4096_65536_tll/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1285,14 +1345,17 @@
         25000,
         40000
       ],
+      "name": "l3_t256_4096_65536_tll_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t256_4096_65536_tlt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1312,7 +1375,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l3_t256_4096_65536_tlt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1325,14 +1387,17 @@
         25000,
         40000
       ],
+      "name": "l3_t256_4096_65536_tlt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t256_4096_65536_ttl_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1352,7 +1417,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l3_t256_4096_65536_ttl/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1365,14 +1429,17 @@
         25000,
         40000
       ],
+      "name": "l3_t256_4096_65536_ttl_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     },
     {
-      "name": "l3_t256_4096_65536_ttt_entry_optimized_lng",
       "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
       "base_topology": "lng",
       "entry_strategy": "optimized_lng",
@@ -1392,7 +1459,6 @@
       ],
       "special_block_search": true,
       "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/hierarchy/l3_t256_4096_65536_ttt/block_index",
-      "selection_role": "predeclared_manual_oracle_grid",
       "lsearch_values": [
         40,
         100,
@@ -1405,10 +1471,14 @@
         25000,
         40000
       ],
+      "name": "l3_t256_4096_65536_ttt_entry_optimized_lng_upper_routed",
+      "selection_role": "predeclared_manual_oracle_grid",
+      "routing_policy": "require_upper_authorization",
       "env": {
         "UNG_DISABLE_ELS_REUSE": "1",
         "UNG_DISABLE_CPU_ELS_WARMUP": "1",
-        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1"
+        "UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE": "1",
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": "1"
       }
     }
   ]

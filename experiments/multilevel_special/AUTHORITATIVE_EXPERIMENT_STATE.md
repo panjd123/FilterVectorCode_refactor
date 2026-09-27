@@ -52,6 +52,11 @@ routed control 在 0.5%/1%/5%/10% 的 crossing QPS 为
 60%/80%/95%/99% QPS 为 58.579/43.669/40.125/14.775，相对 LNG-0
 为 14.40x/24.22x/26.70x/18.78x。因此 router 能恢复部分低档 Recall，
 但额外授权与路由并非免费，不能把中低选择率宣称为严格不变。
+据此，held-out 最终自动方案定义为“DRH 静态层级 + 无参数精确
+upper-authorization gate”：层数、阈值和 topology 仅由 $N/R/C$ 生成，
+gate 仅比较当前谓词与持久化 block-root label，不读取 selectivity、延迟或
+Recall。所有 35 个人工 hierarchy 候选使用同一 gate，使 oracle 只调整
+层数、阈值和逐层 topology；无 gate DRH 仅作消融。
 
 零层 screen 的 conservative crossing 对比如下。`Trie/LNG` 小于 1 表示
 Trie 较慢；这些是 1 cold + 2 warm 的 screen 数据，不替代 formal pass。
@@ -109,7 +114,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M12 | measurement | RESOLVED | GPU build 无外部锁时只有一次手工空闲检查，不足以支撑权威 timing | runner 优先在 `gpulock perf` 下重执行；当前主机无 `gpulock` 时，每个 GPU case 强制三次连续空闲预检并在 manifest 明示 no-lock 限制，缺证据的 artifact 校验失败 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | UNKNOWN | Trie 与 LNG topology 的优劣由标签包含结构而非选择率单独决定 | 固定其他维度，比较 topology 与 crossed entry combinations |
-| H3 | hypothesis | UNKNOWN | query-free DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology | 三个 held-out 数据集上与查询前冻结的 36-case 人工网格 oracle 比较 |
+| H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 36-case 人工网格 oracle 比较 |
 
 ## 实验阶段
 
@@ -119,7 +124,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | E1 | Amazon broad screen | 九档、零/一/多层、Trie/LNG、coarse L 完整 | 进行中 |
 | E2 | Amazon crossing/formal | 每方法每档最小实测 crossing，正式重复完成 | 未开始 |
 | E3 | 多数据集验证 | Reviews/Genome/VariousImg 至少各一个低档和一个较高档或可用代表档 | 配置和预检完成，待运行 |
-| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | DRH-v1 与 oracle 协议冻结，待结果 |
+| E4 | 自动策略 | query-free 输出层数、阈值、逐层 topology，并与声明网格 oracle 比较 | gated DRH-v1 与同 gate oracle 协议已冻结；119/119 测试和配置 dry-run 通过，待结果 |
 | E5 | 报告 | 原始证据可追溯，表格/曲线/限制完整 | 未开始 |
 
 ## 已知数据

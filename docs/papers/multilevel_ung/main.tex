@@ -31,7 +31,8 @@ layer, and tags candidates with an activation level.  A candidate scans only
 edges owned by that level, which prevents implicit promotion or cross-level
 edge mixing.  We further propose Degree-Ratio Hierarchy (DRH), a
 query-calibration-free rule that derives both layer count and block thresholds
-from the dataset size and the graph's existing degree budgets.  Finally, we
+from the dataset size and the graph's existing degree budgets, and pairs the
+result with an exact predicate-authorization gate.  Finally, we
 describe a GPU construction pipeline for the irregular intra-group and
 cross-group workloads and retain end-to-end quality checks at the index
 boundary.  Our evaluation uses measured Recall@10 crossings rather than curve
@@ -78,8 +79,8 @@ This paper makes the following contributions.
   authorization and an optional structural fallback that leaves the base-only
   search unchanged when no upper block is authorized.
   \item We introduce DRH, a deterministic rule that chooses the first scale,
-  scale ratio, stopping depth, and topology without query traces, latency
-  measurements, or Recall calibration.
+  scale ratio, stopping depth, topology, and exact structural activation gate
+  without query traces, latency measurements, or Recall calibration.
   \item We adapt GPU group-graph and grouped top-$k$ construction to the
   hierarchy sidecar and define an end-to-end measurement protocol that does not
   confuse kernel time with index construction time.
@@ -193,10 +194,12 @@ A query authorizes block $b$ precisely when
   Q\subseteq R_b,
 \end{equation}
 where $R_b$ is the block root's sorted label set.  This test is independent of
-estimated selectivity and observed latency.  The optional
+estimated selectivity and observed latency.  The
 \emph{upper-authorization router} executes the unchanged base-only algorithm
 when no block above the first overlay layer is authorized.  Otherwise all
-authorized layers are eligible to seed the multilevel search.
+authorized layers are eligible to seed the multilevel search. The modular
+system permits this gate to be disabled for ablation, but the automatic DRH
+policy enables it by default.
 
 \subsection{Level-Isolated Bounded Search}
 Each candidate is a tuple $(i,d,\ell)$ containing a vector identifier, its
@@ -273,12 +276,15 @@ the top:
 \end{equation}
 For the authoritative Amazon setup, $N=602{,}453$, $R=64$, and $C=4$, so DRH
 selects $1024{:}\mathrm{LNG},16384{:}\mathrm{Trie}$ before examining query
-performance.  We emphasize that $\Phi$ is a query-independent structural cost
-proxy, not a proof of runtime optimality; held-out oracle regret tests whether
-the proxy transfers without query calibration.
+performance. DRH also enables the exact upper-authorization gate from the
+preceding section. The gate has no learned parameter: it evaluates only
+$Q\subseteq R_b$ against persisted block roots and otherwise falls back to the
+unchanged base search. We emphasize that $\Phi$ is a query-independent
+structural cost proxy, not a proof of runtime optimality; held-out oracle
+regret tests whether the complete policy transfers without query calibration.
 
 \begin{algorithm}[t]
-\caption{Degree-Ratio Hierarchy (DRH)}
+\caption{Gated Degree-Ratio Hierarchy (DRH)}
 \label{alg:drh}
 \begin{algorithmic}[1]
 \Require $N$, local degree $R$, cross-block degree $C$
@@ -289,14 +295,18 @@ the proxy transfers without query calibration.
   \State append $(T,\tau)$ to the hierarchy plan
   \State $T\gets\rho T$
 \EndWhile
-\State \Return hierarchy plan
+\State attach exact upper-authorization gate to the hierarchy plan
+\State \Return gated hierarchy plan
 \end{algorithmic}
 \end{algorithm}
 
-DRH is intentionally not trained on query selectivity.  Its evaluation must
+DRH is intentionally not trained on query selectivity. Its evaluation must
 therefore separate the development dataset from held-out datasets and compare
 it with both the best per-workload method and the best single manual
-configuration used unchanged across workloads.
+configuration used unchanged across workloads. Every held-out manual
+configuration receives the same exact authorization gate, so oracle regret
+measures only the cost of automatic depth, thresholds, and topology. Ungated
+DRH is retained solely as an ablation.
 
 \section{GPU-Assisted Construction}
 \subsection{Irregular Construction Workload}
@@ -425,7 +435,9 @@ discovery versus Trie topology with Trie entry discovery.  The factorial
 ablation independently varies zero/one/two layers, thresholds, LNG/Trie at each
 layer, and the three legal entry strategies: original LNG, optimized LNG, and
 Trie.  Routed controls are outside the factorial because routing changes which
-search algorithm executes.
+search algorithm executes. For held-out automatic-policy evaluation, however,
+the exact gate is fixed for DRH and every manual-oracle hierarchy; the ungated
+DRH variant is reported separately.
 
 All query methods use the same data, query vectors, labels, exact ground truth,
 $K$, thread count, immutable search binary, graph backend, and Recall protocol.
@@ -471,8 +483,9 @@ regions.  We therefore report no-crossing outcomes explicitly and pair Recall
 with visited-node and scanned-edge counts.
 
 \subsection{Limitations}
-DRH's first version uses a symmetric static cost proxy and existing degree
-budgets; it does not yet use a learned cost model or query frequencies.  The
+DRH's first version uses a symmetric static cost proxy, existing degree
+budgets, and a parameter-free exact authorization gate; it does not use a
+learned cost model or query frequencies.  The
 held-out study is required to distinguish genuine structural generalization
 from an Amazon-specific coincidence.  The GPU pipeline retains a host
 adjacency materialization boundary, and full device-resident construction is
