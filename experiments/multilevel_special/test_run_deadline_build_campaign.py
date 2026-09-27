@@ -34,6 +34,13 @@ class DeadlineBuildRunnerTest(unittest.TestCase):
             path.write_text(json.dumps({"finished_at_utc": "done"}))
             deadline.require_finished_query_campaign(path)
 
+    def test_wait_for_query_gate_times_out_without_completion(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "query.json"
+            path.write_text(json.dumps({"runs": []}))
+            with self.assertRaisesRegex(TimeoutError, "did not open"):
+                deadline.wait_for_finished_query_campaign(path, 0.001, 0.003)
+
     def test_run_bounded_reports_timeout(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / "run.log"

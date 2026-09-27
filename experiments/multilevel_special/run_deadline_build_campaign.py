@@ -79,6 +79,28 @@ def require_finished_query_campaign(path: Path) -> None:
             "must not overlap the 100-thread query campaign")
 
 
+def wait_for_finished_query_campaign(
+    path: Path, poll_seconds: float, timeout_seconds: float,
+) -> None:
+    start = time.monotonic()
+    while True:
+        try:
+            require_finished_query_campaign(path)
+            return
+        except RuntimeError as error:
+            elapsed = time.monotonic() - start
+            if elapsed >= timeout_seconds:
+                raise TimeoutError(
+                    f"query completion gate did not open within "
+                    f"{timeout_seconds:.0f} seconds: {error}") from error
+            print(
+                f"[WAIT] query campaign not finished after {elapsed:.0f}s; "
+                f"polling again in {poll_seconds:.0f}s",
+                flush=True,
+            )
+            time.sleep(min(poll_seconds, timeout_seconds - elapsed))
+
+
 def load_or_initialize(path: Path, campaign_path: Path,
                        timeout_seconds: float) -> dict[str, Any]:
     if path.is_file():
@@ -132,12 +154,18 @@ def main() -> int:
     parser.add_argument("--stop-after", choices=PHASES, default=PHASES[-1])
     parser.add_argument("--skip-prepare", action="store_true")
     parser.add_argument("--skip-query-gate", action="store_true")
+    parser.add_argument("--wait-for-query", action="store_true")
+    parser.add_argument("--query-poll-seconds", type=float, default=30.0)
+    parser.add_argument("--query-wait-timeout-seconds", type=float,
+                        default=43200.0)
     parser.add_argument("--retry-failed", action="store_true")
     parser.add_argument("--query-supervisor", type=Path,
                         default=DEFAULT_QUERY_SUPERVISOR)
     args = parser.parse_args()
     if args.case_timeout_seconds <= 0:
         parser.error("--case-timeout-seconds must be positive")
+    if args.query_poll_seconds <= 0 or args.query_wait_timeout_seconds <= 0:
+        parser.error("query poll and wait timeout must be positive")
     start = PHASES.index(args.start_at)
     stop = PHASES.index(args.stop_after)
     if stop < start:
@@ -145,7 +173,12 @@ def main() -> int:
     if not args.skip_prepare:
         subprocess.run([sys.executable, str(PREPARE)], cwd=HERE, check=True)
     if not args.skip_query_gate:
-        require_finished_query_campaign(args.query_supervisor.resolve())
+        if args.wait_for_query:
+            wait_for_finished_query_campaign(
+                args.query_supervisor.resolve(), args.query_poll_seconds,
+                args.query_wait_timeout_seconds)
+        else:
+            require_finished_query_campaign(args.query_supervisor.resolve())
 
     campaign_path = CAMPAIGN_CONFIG.resolve()
     campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
