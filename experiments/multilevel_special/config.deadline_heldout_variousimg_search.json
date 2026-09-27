@@ -9,7 +9,7 @@
   "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
   "data_root": "/home/graphdb/FilterVectorData/VariousImg",
   "gt_root": "/home/graphdb/FilterVectorResult/VariousImg/GroundTruth",
-  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/variousimg/search",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/variousimg/search",
   "dataset": "VariousImg",
   "expected_num_points": 758935,
   "expected_source_fingerprint": "31332117e049fea8",
@@ -87,7 +87,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/variousimg/hierarchy/l2_t1024_16384_lt/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/variousimg/hierarchy/l2_t1024_16384_lt/block_index",
       "lsearch_values": [
         40,
         100,
@@ -117,7 +117,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/variousimg/hierarchy/l1_t1024_l/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/variousimg/hierarchy/l1_t1024_l/block_index",
       "lsearch_values": [
         40,
         100,
@@ -151,7 +151,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/variousimg/hierarchy/l2_t1024_16384_ll/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/variousimg/hierarchy/l2_t1024_16384_ll/block_index",
       "lsearch_values": [
         40,
         100,
@@ -185,7 +185,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/variousimg/hierarchy/l2_t1024_16384_tt/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/variousimg/hierarchy/l2_t1024_16384_tt/block_index",
       "lsearch_values": [
         40,
         100,
@@ -219,7 +219,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/variousimg/hierarchy/l2_t512_8192_lt/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/variousimg/hierarchy/l2_t512_8192_lt/block_index",
       "lsearch_values": [
         40,
         100,
@@ -253,7 +253,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/variousimg/hierarchy/l2_t2048_32768_lt/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/variousimg/hierarchy/l2_t2048_32768_lt/block_index",
       "lsearch_values": [
         40,
         100,

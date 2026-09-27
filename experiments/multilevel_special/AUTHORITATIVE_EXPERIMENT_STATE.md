@@ -3,6 +3,23 @@
 本文档用于维护 `fcb74ad` 之后的实验协议、问题状态、假设和证据。只有本轮固定
 binary、固定数据 provenance、完整 manifest 产生的结果可以进入最终主表。
 
+## 2026-09-27 18:12 State Sync
+
+1. 当前事实：旧 396-case Amazon campaign 已停止，保留 88 个完成 case；新的
+   deadline-bounded 协议使用 6 点 `Lsearch`、1 cold + 2 warm 和 3300 秒 case
+   超时，优先取得三个 held-out 数据集上的 DRH 与 5 个冻结人工替代方案。
+2. 已过时判断：仅把 `benchmark_profile` 改为 `cpu` 并设置旧
+   `UNG_SPECIAL_BLOCK_GPU_INTRA=0`，不能保证纯 CPU 构建。
+3. 已解决问题 M27：size-routed intra path 由 `UNG_SPECIAL_INTRA_ROUTE` 独立控制；
+   Reviews/VariousImg 的失败日志分别记录 19/20 个 GPU intra blocks，validator
+   正确拒绝了 profile 与实际 backend 不一致的 artifact。
+4. 当前根因：deadline 生成器继承了 frozen held-out grid 的
+   `UNG_SPECIAL_INTRA_ROUTE=1` 和 `jasper_style` large backend，却把 profile 改成
+   CPU，形成 provenance 矛盾。
+5. 验证结果：生成器同时关闭 legacy intra、inter 和 size-routed intra；新 root
+   中 Reviews/VariousImg automatic DRH 分别用 120.44/633.16 秒构建完成，metadata
+   和日志均记录 GPU intra blocks/inter use 为 0。下一步恢复 bounded query campaign。
+
 ## 当前状态
 
 目标指标：在相同 Recall 门槛下比较 batch wall-time/QPS，并独立解释 entry-group、
@@ -155,6 +172,7 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 | M24 | reporting | RESOLVED | 论文只写“相同线程数”，可能把权威 QPS 误读为单查询单线程延迟 | 论文与中文报告明确标注 100 个查询工作线程的 query-level parallel batch throughput；同源生成器要求 screen/formal/profile/held-out/build-quality 的 `num_threads` 完全一致，一项回归使全量测试增至 187 项 |
 | M25 | methodology | RESOLVED | screen 的逐方法 Lsearch 网格上限不同，旧 crossing 仅将未过线方法末点扩展 1.5x，可能在低于同 workload 其他方法已测预算处过早宣告 NC | crossing 现在为每个 workload 计算共同预算：默认取所有方法已测最大 Lsearch，显式 `max_lsearch` 则作为统一上限；未过线方法一次细化到该共同预算，formal 与最终报告均拒绝未实际测到共同预算的 NC，并核对 disabled cell 与 NC 记录一一对应；相关回归使全量测试增至 189 项 |
 | M26 | reporting | RESOLVED | 共同 Recall 搜索预算仅存在于 formal provenance，论文和中文报告中的 NC 无法直接对应具体 workload 上限 | LaTeX 与 Markdown 生成入口现在都直接校验 formal selection provenance，并从同一个 `shared_max_lsearch_by_workload` 动态生成九档预算表；缺失、不完整或与 disabled/NC cell 不闭合时拒绝生成。一项双入口回归使全量测试增至 190 项，含真实动态表的 Tectonic fixture 编译通过 |
+| M27 | measurement | RESOLVED | deadline held-out case 声明为 CPU profile，但继承的 size-routed intra path 仍调用 Jasper/Tagore CUDA | 保留 fail-closed validator；生成器显式把 legacy intra/inter 与 `UNG_SPECIAL_INTRA_ROUTE` 全部置 0；Reviews/VariousImg 真实 automatic build 均通过且 verified GPU counters 为 0 |
 | H1 | hypothesis | PARTIAL | 无条件多层在高选择率降低 graph work，但低选择率未必保持零层 Recall；结构授权 router 可能恢复零层路径 | Amazon routed control 九档验证 |
 | H2 | hypothesis | PARTIAL | Trie 与 LNG topology 的优劣由标签包含结构及 entry frontier 的 reachability 交互决定，而非选择率单独决定 | crossed `Trie topology + optimized-LNG entry` 在 0.5%--30% 均未 crossing，但原生 Trie entry 在前四档 crossing；待其余 topology/entry combinations 和 formal pass |
 | H3 | hypothesis | PARTIAL | gated DRH-v1 可由 `N/R/C` 决定层数、阈值和逐层 topology，并用无参数精确授权 gate 避免无可用上层时的扰动 | Amazon 已完成 gated/ungated 开发集对照；待三个 held-out 数据集上与查询前冻结、使用同 gate 的 35 个 manual alternatives 比较。四个正式数据集都导出两层，因此本轮不把跨数据集结果表述为深度变化的实证验证 |
@@ -205,6 +223,6 @@ pass 的 wall time，profile pass 只用于机制解释。profile 同时显式�
 
 ## 下一最小实验
 
-以修复后内容寻址 binary 完整重跑 Amazon 44-method screen，优先取得两个
-query-independent routed controls；随后生成 bounded crossing 配置，并只对合格
-crossing 做正式重复和独立 profile。
+从新 root 启动 6 点、1 cold + 2 warm、3300 秒硬超时的 held-out campaign，
+优先完成三个数据集的 baseline/DRH，再运行五个冻结 manual alternatives。旧
+44-method full screen 不再恢复，已有 88 个完成 case 只作为补充 screen 证据。

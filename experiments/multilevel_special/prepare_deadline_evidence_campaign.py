@@ -19,12 +19,19 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
-RUN_ROOT = REPO / "runs/deadline_evidence_20260927"
+RUN_ROOT = REPO / "runs/deadline_evidence_20260927_cpufix"
 DATASETS = ("genome", "reviews", "variousimg")
 LSEARCH_VALUES = (40, 100, 500, 2500, 10000, 40000)
 BASELINE_ROLE = "zero_layer_baseline"
 AUTOMATIC_ROLE = "predeclared_degree_ratio_hierarchy_v1"
 MANUAL_ROLE = "predeclared_manual_oracle_grid"
+CPU_BACKEND_ENV = {
+    "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
+    "UNG_SPECIAL_BLOCK_GPU_INTER": "0",
+    # The size-routed path can invoke Jasper/Tagore CUDA independently of the
+    # legacy global GPU_INTRA switch, so it must also be disabled explicitly.
+    "UNG_SPECIAL_INTRA_ROUTE": "0",
+}
 
 
 def atomic_json(path: Path, payload: Any) -> None:
@@ -60,6 +67,27 @@ def one(rows: list[dict[str, Any]], description: str) -> dict[str, Any]:
     if len(rows) != 1:
         raise ValueError(f"expected one {description}, got {[r['name'] for r in rows]}")
     return rows[0]
+
+
+def force_cpu_backend(case: dict[str, Any]) -> None:
+    case["benchmark_profile"] = "cpu"
+    environment = case.setdefault("env", {})
+    environment.update(CPU_BACKEND_ENV)
+
+
+def validate_cpu_backend(case: dict[str, Any]) -> None:
+    if case.get("benchmark_profile") != "cpu":
+        raise ValueError(f"deadline hierarchy case is not CPU-only: {case['name']}")
+    environment = case.get("env", {})
+    mismatches = {
+        key: (environment.get(key), expected)
+        for key, expected in CPU_BACKEND_ENV.items()
+        if environment.get(key) != expected
+    }
+    if mismatches:
+        raise ValueError(
+            f"deadline hierarchy case has active GPU route {case['name']}: "
+            f"{mismatches}")
 
 
 def select_methods(config: dict[str, Any]) -> list[dict[str, Any]]:
@@ -122,9 +150,10 @@ def prepare_dataset(dataset: str) -> dict[str, Any]:
     for case in build["cases"]:
         # These sidecars exist only to evaluate held-out query behavior.  GPU
         # construction performance is measured by the separate Amazon build
-        # study, so the backend declaration must match the CPU-disabled env
-        # inherited from the frozen held-out grid.
-        case["benchmark_profile"] = "cpu"
+        # study.  Disable both the legacy GPU switches and the independent
+        # size-routed CUDA path so the profile and observed backend agree.
+        force_cpu_backend(case)
+        validate_cpu_backend(case)
     build["purpose"] = (
         "Deadline-bounded held-out structural oracle: query-independent DRH "
         "plus five frozen manual alternatives.")

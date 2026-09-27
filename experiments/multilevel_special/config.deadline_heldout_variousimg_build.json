@@ -5,7 +5,7 @@
   "main_index": "/home/graphdb/FilterVectorResult/VariousImg/index/Trie_block_hybrid/index_files",
   "base_bin_file": "/home/graphdb/FilterVectorData/VariousImg/VariousImg_base.bin",
   "base_label_file": "/home/graphdb/FilterVectorData/VariousImg/VariousImg_base_labels.txt",
-  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/variousimg/hierarchy",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/variousimg/hierarchy",
   "expected_num_points": 758935,
   "expected_num_groups": 293903,
   "expected_source_fingerprint": "31332117e049fea8",
@@ -55,7 +55,7 @@
       "selection_role": "predeclared_manual_oracle_grid",
       "benchmark_profile": "cpu",
       "env": {
-        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_ROUTE": "0",
         "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
         "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
         "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
@@ -77,7 +77,7 @@
       "selection_role": "predeclared_manual_oracle_grid",
       "benchmark_profile": "cpu",
       "env": {
-        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_ROUTE": "0",
         "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
         "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
         "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
@@ -99,7 +99,7 @@
       "selection_role": "predeclared_manual_oracle_grid",
       "benchmark_profile": "cpu",
       "env": {
-        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_ROUTE": "0",
         "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
         "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
         "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
@@ -121,7 +121,7 @@
       "selection_role": "predeclared_degree_ratio_hierarchy_v1",
       "benchmark_profile": "cpu",
       "env": {
-        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_ROUTE": "0",
         "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
         "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
         "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
@@ -143,7 +143,7 @@
       "selection_role": "predeclared_manual_oracle_grid",
       "benchmark_profile": "cpu",
       "env": {
-        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_ROUTE": "0",
         "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
         "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
         "UNG_SPECIAL_BLOCK_GPU_INTER": "0"
@@ -165,7 +165,7 @@
       "selection_role": "predeclared_manual_oracle_grid",
       "benchmark_profile": "cpu",
       "env": {
-        "UNG_SPECIAL_INTRA_ROUTE": "1",
+        "UNG_SPECIAL_INTRA_ROUTE": "0",
         "UNG_SPECIAL_INTRA_LARGE_BACKEND": "jasper_style",
         "UNG_SPECIAL_BLOCK_GPU_INTRA": "0",
         "UNG_SPECIAL_BLOCK_GPU_INTER": "0"

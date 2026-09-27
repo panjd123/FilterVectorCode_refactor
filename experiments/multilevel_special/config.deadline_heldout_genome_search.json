@@ -9,7 +9,7 @@
   "main_index": "/home/graphdb/FilterVectorResult/Genome/index/Trie_block_hybrid/index_files",
   "data_root": "/home/graphdb/FilterVectorData/Genome",
   "gt_root": "/home/graphdb/FilterVectorResult/Genome/GroundTruth",
-  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/genome/search",
+  "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/search",
   "dataset": "Genome",
   "expected_num_points": 108077,
   "expected_source_fingerprint": "fb2275537792ce23",
@@ -94,7 +94,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/genome/hierarchy/l2_t256_4096_lt/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/hierarchy/l2_t256_4096_lt/block_index",
       "lsearch_values": [
         40,
         100,
@@ -124,7 +124,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/genome/hierarchy/l1_t256_l/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/hierarchy/l1_t256_l/block_index",
       "lsearch_values": [
         40,
         100,
@@ -158,7 +158,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/genome/hierarchy/l2_t256_4096_ll/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/hierarchy/l2_t256_4096_ll/block_index",
       "lsearch_values": [
         40,
         100,
@@ -192,7 +192,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/genome/hierarchy/l2_t256_4096_tt/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/hierarchy/l2_t256_4096_tt/block_index",
       "lsearch_values": [
         40,
         100,
@@ -226,7 +226,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/genome/hierarchy/l2_t128_2048_lt/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/hierarchy/l2_t128_2048_lt/block_index",
       "lsearch_values": [
         40,
         100,
@@ -260,7 +260,7 @@
         }
       ],
       "special_block_search": true,
-      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927/heldout/genome/hierarchy/l2_t512_8192_lt/block_index",
+      "block_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/hierarchy/l2_t512_8192_lt/block_index",
       "lsearch_values": [
         40,
         100,
