@@ -44,14 +44,21 @@ class AnalyzeDrhRouteMassTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "expected one method"):
                 target.analyze_config(path, "missing", 16)
 
-    def test_query_reader_accepts_comma_and_space_delimiters(self) -> None:
+    def test_query_reader_matches_storage_comma_format(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "queries.txt"
-            path.write_text("1,2,3\n4 5\n\n", encoding="utf-8")
+            path.write_text("1,2,3\n4,5\n\n", encoding="utf-8")
             self.assertEqual(
                 target.read_queries(path),
                 [(1, 2, 3), (4, 5), ()],
             )
+
+    def test_query_reader_rejects_profile_space_format(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "queries.txt"
+            path.write_text("4 5\n", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                target.read_queries(path)
 
     def test_duplicate_labels_match_cpp_includes_semantics(self) -> None:
         self.assertTrue(target.sorted_includes((1, 1, 2), (1, 1)))

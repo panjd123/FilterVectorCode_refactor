@@ -59,15 +59,20 @@ def read_upper_blocks(path: Path) -> list[dict[str, Any]]:
     return blocks
 
 
-def parse_label_row(line: str) -> tuple[int, ...]:
-    # Storage::load_from_file splits on commas. Existing generated workloads
-    # also use spaces in their profiling CSV, so accept both delimiters while
-    # preserving duplicates exactly as std::includes does.
+def parse_query_label_row(line: str) -> tuple[int, ...]:
+    """Parse the canonical comma format used by Storage::load_from_file."""
+    if not line:
+        return ()
+    return tuple(sorted(int(value) for value in line.split(",")))
+
+
+def parse_profile_label_row(line: str) -> tuple[int, ...]:
+    """Parse the profiler's human-readable space-separated label column."""
     return tuple(sorted(int(value) for value in line.replace(",", " ").split()))
 
 
 def read_queries(path: Path) -> list[tuple[int, ...]]:
-    return [parse_label_row(line)
+    return [parse_query_label_row(line)
             for line in path.read_text(encoding="utf-8").splitlines()]
 
 
@@ -82,7 +87,7 @@ def read_coverage_profile(path: Path) -> list[tuple[tuple[int, ...], int]]:
         coverage = int(row["coverage_count"])
         if coverage < 0:
             raise ValueError(f"negative coverage at row {index}: {path}")
-        result.append((parse_label_row(row["labels"]), coverage))
+        result.append((parse_profile_label_row(row["labels"]), coverage))
     return result
 
 
