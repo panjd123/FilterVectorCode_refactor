@@ -217,6 +217,17 @@ def validate_build_config_set(configs: list[dict[str, Any]]) -> None:
             f"got {sorted(observed)}")
 
 
+def validate_performance_binary_hashes(
+    formal_hash: str, heldout_hashes: set[str], build_quality_hash: str,
+) -> None:
+    """Require every result-bearing performance pass to use one binary."""
+    hashes = heldout_hashes | {formal_hash, build_quality_hash}
+    if len(hashes) != 1:
+        raise ValueError(
+            "Amazon formal, held-out formal, and build-quality formal runs "
+            "must use one immutable query binary")
+
+
 def validate_config_dataset(
     config: dict[str, Any], expected_dataset: str,
 ) -> None:
@@ -935,12 +946,11 @@ def main(argv: list[str] | None = None) -> int:
             path.resolve(), args.validator.resolve(), "formal", 15)
         heldout_configs.append(config)
         heldout_hashes.add(binary_hash)
-    validated_query_config(
+    _, build_quality_hash = validated_query_config(
         args.build_quality_formal_config.resolve(), args.validator.resolve(),
         "formal", 15)
-    if len(heldout_hashes | {formal_hash}) != 1:
-        raise ValueError(
-            "Amazon formal and held-out formal runs must use one immutable query binary")
+    validate_performance_binary_hashes(
+        formal_hash, heldout_hashes, build_quality_hash)
     # A dedicated instrumented profile binary is permitted, but its provenance
     # remains explicit through the validated manifest and this diagnostic.
     if profile_hash != formal_hash:
@@ -964,7 +974,7 @@ def main(argv: list[str] | None = None) -> int:
     document = generate_document(
         paths, amazon_formal, amazon_profile, heldout_configs)
     provenance = [
-        f"% query-binary-sha256 formal-and-heldout {formal_hash}",
+        f"% query-binary-sha256 formal-heldout-build-quality {formal_hash}",
         f"% query-binary-sha256 profile {profile_hash}",
     ]
     for path in (

@@ -275,6 +275,14 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                 self.root / "missing-config.json",
                 self.root / "missing-validator.py", "formal", 15)
 
+    def test_build_quality_must_use_performance_binary(self) -> None:
+        generator.validate_performance_binary_hashes(
+            "same", {"same"}, "same")
+        with self.assertRaisesRegex(
+                ValueError, "build-quality formal runs must use one immutable"):
+            generator.validate_performance_binary_hashes(
+                "performance", {"performance"}, "different")
+
     def test_paper_shell_uses_one_generated_macro_contract(self) -> None:
         paper = SCRIPT_DIR.parent.parent / "docs/papers/multilevel_ung"
         if not paper.is_dir():
