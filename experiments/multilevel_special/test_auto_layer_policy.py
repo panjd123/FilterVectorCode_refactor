@@ -11,6 +11,7 @@ from generate_auto_policy_cross_dataset_configs import (
     MANUAL_ROLE,
     ROUTING_POLICY,
     UNROUTED_ABLATION_ROLE,
+    candidate_count_metadata,
     declared_candidate_plans,
     make_search_methods,
 )
@@ -100,6 +101,13 @@ class DegreeRatioHeldoutProtocolTest(unittest.TestCase):
             for case in cases
         }
         self.assertEqual(len(signatures), len(cases))
+        self.assertEqual(
+            candidate_count_metadata(cases),
+            {
+                "frozen_hierarchy_candidates": 36,
+                "manual_alternatives": 35,
+            },
+        )
 
     def test_heldout_builds_declare_gpu_isolation_policy(self):
         # Full config generation needs dataset files; the policy itself must

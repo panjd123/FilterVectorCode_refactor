@@ -147,6 +147,22 @@ def declared_candidate_plans(
     return result
 
 
+def candidate_count_metadata(cases: list[dict[str, Any]]) -> dict[str, int]:
+    """Describe the frozen candidate set without conflating DRH and controls."""
+    automatic_candidates = sum(
+        case["selection_role"] == AUTOMATIC_ROLE for case in cases)
+    manual_alternatives = sum(
+        case["selection_role"] == MANUAL_ROLE for case in cases)
+    if automatic_candidates != 1:
+        raise AssertionError("the frozen hierarchy set must contain one DRH plan")
+    if automatic_candidates + manual_alternatives != len(cases):
+        raise AssertionError("the frozen hierarchy set contains an unknown role")
+    return {
+        "frozen_hierarchy_candidates": len(cases),
+        "manual_alternatives": manual_alternatives,
+    }
+
+
 def common_build_env() -> dict[str, str]:
     return {
         "UNG_SPECIAL_BLOCK_DATA_MODE": "x1",
@@ -237,6 +253,7 @@ def make_dataset_configs(
     automatic = derive_plan(num_points, max_degree, cross_edges)
     scale_ratio = max(2, round(max_degree / cross_edges))
     cases = declared_candidate_plans(automatic, num_points, scale_ratio)
+    candidate_counts = candidate_count_metadata(cases)
     dataset_run_root = run_root / dataset.lower()
 
     build = {
@@ -338,7 +355,7 @@ def make_dataset_configs(
             plan_name(automatic) + "_entry_optimized_lng"),
         "manual_grid_frozen_before_search": True,
         "manual_grid_uses_automatic_routing_policy": True,
-        "manual_hierarchy_cases": len(cases),
+        **candidate_counts,
         "manual_depths": sorted({len(case["hierarchy_layers"]) for case in cases}),
         "workloads": workloads,
     }

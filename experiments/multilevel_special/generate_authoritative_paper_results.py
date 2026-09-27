@@ -370,10 +370,20 @@ def validate_heldout_policy_protocol(
         raise ValueError(
             f"{path}: held-out method roles mismatch: "
             f"expected {expected_roles}, got {dict(roles)}")
-    if policy.get("manual_hierarchy_cases") != EXPECTED_FROZEN_HIERARCHY_CASES:
+    frozen_candidates = policy.get("frozen_hierarchy_candidates")
+    if (type(frozen_candidates) is not int
+            or frozen_candidates != EXPECTED_FROZEN_HIERARCHY_CASES):
         raise ValueError(
             f"{path}: expected 36 frozen hierarchy candidates "
             "(DRH plus 35 manual alternatives)")
+    manual_alternatives = policy.get("manual_alternatives")
+    if (type(manual_alternatives) is not int
+            or manual_alternatives != EXPECTED_MANUAL_ALTERNATIVES):
+        raise ValueError(f"{path}: expected exactly 35 manual alternatives")
+    if frozen_candidates != manual_alternatives + roles[HELDOUT_AUTOMATIC_ROLE]:
+        raise ValueError(f"{path}: frozen candidate counts do not close")
+    if "manual_hierarchy_cases" in policy:
+        raise ValueError(f"{path}: ambiguous legacy manual_hierarchy_cases field")
 
     by_role = {
         role: [method for method in methods

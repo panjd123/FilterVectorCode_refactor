@@ -175,7 +175,8 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
                 "unrouted_ablation_method": unrouted_name,
                 "manual_grid_frozen_before_search": True,
                 "manual_grid_uses_automatic_routing_policy": True,
-                "manual_hierarchy_cases": 36,
+                "frozen_hierarchy_candidates": 36,
+                "manual_alternatives": 35,
                 "manual_depths": [1, 2, 3],
                 "workloads": [workload],
             }
@@ -591,6 +592,33 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         path = self.root / "changed-layers-policy.json"
         path.write_text(json.dumps(policy), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "does not match DRH derivation"):
+            generator.validate_heldout_policy_protocol(path, config)
+
+    def test_heldout_policy_rejects_wrong_frozen_candidate_count(self) -> None:
+        config = self.heldout_configs[0]
+        policy = copy.deepcopy(self.heldout_policies[config["dataset"]])
+        policy["frozen_hierarchy_candidates"] = 35
+        path = self.root / "wrong-frozen-candidate-count-policy.json"
+        path.write_text(json.dumps(policy), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "36 frozen hierarchy candidates"):
+            generator.validate_heldout_policy_protocol(path, config)
+
+    def test_heldout_policy_rejects_wrong_manual_alternative_count(self) -> None:
+        config = self.heldout_configs[0]
+        policy = copy.deepcopy(self.heldout_policies[config["dataset"]])
+        policy["manual_alternatives"] = 36
+        path = self.root / "wrong-manual-alternative-count-policy.json"
+        path.write_text(json.dumps(policy), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "exactly 35 manual alternatives"):
+            generator.validate_heldout_policy_protocol(path, config)
+
+    def test_heldout_policy_rejects_ambiguous_legacy_count(self) -> None:
+        config = self.heldout_configs[0]
+        policy = copy.deepcopy(self.heldout_policies[config["dataset"]])
+        policy["manual_hierarchy_cases"] = 36
+        path = self.root / "legacy-candidate-count-policy.json"
+        path.write_text(json.dumps(policy), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "ambiguous legacy"):
             generator.validate_heldout_policy_protocol(path, config)
 
     def test_heldout_policy_requires_one_gate_for_manual_grid(self) -> None:
