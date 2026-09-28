@@ -88,6 +88,7 @@ def main() -> int:
         "test_summarize_deadline_evidence.py",
         "test_generate_deadline_paper_results.py",
         "test_prepare_deadline_profile_campaign.py",
+        "test_run_remaining_evidence_campaign.py",
     ], HERE)
     run([str(args.tectonic), "main.tex", "--keep-logs"], PAPER)
     log = (PAPER / "main.log").read_text(encoding="utf-8", errors="replace")
