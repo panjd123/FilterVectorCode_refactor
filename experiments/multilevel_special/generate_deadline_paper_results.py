@@ -87,7 +87,12 @@ def validate_figures(directory: Path, points: Path) -> dict[str, Path]:
         raise ValueError("partial plot manifest is not acceptable")
     if manifest.get("all_points_sha256") != sha256(points):
         raise ValueError("plot manifest does not match Amazon points")
-    expected = {"principal_zero", "representative_depth", "upper_authorization"}
+    expected = {
+        "principal_zero",
+        "one_layer_topology",
+        "representative_depth",
+        "upper_authorization",
+    }
     families = manifest.get("families", {})
     if set(families) != expected:
         raise ValueError(f"expected figure families {sorted(expected)}, got {sorted(families)}")
@@ -252,11 +257,15 @@ def construction_section(build_rows: list[dict[str, str]], build_manifest: Path)
     complete = [r for r in manifest.get("runs", []) if r.get("status") == "complete"]
     failed = [r for r in manifest.get("runs", []) if r.get("status") != "complete"]
     base_measured: dict[str, list[float]] = {}
+    hierarchy_cold: dict[str, list[float]] = {}
     for row in complete:
         case = str(row.get("case", ""))
         if row.get("phase") == "base_timing" and "_measured_" in case:
             profile = case.split("_measured_", 1)[0]
             base_measured.setdefault(profile, []).append(float(row["elapsed_seconds"]))
+        if row.get("phase") == "hierarchy_timing" and "_cold_" in case:
+            profile = case.removeprefix("auto_drh_v1_").split("_cold_", 1)[0]
+            hierarchy_cold.setdefault(profile, []).append(float(row["elapsed_seconds"]))
     lines = [
         r"\subsection{Construction}",
         "The completed held-out sidecars below are CPU query-enablement builds, not evidence of GPU hierarchy speedup.",
@@ -273,17 +282,30 @@ def construction_section(build_rows: list[dict[str, str]], build_manifest: Path)
         lines.append(
             f"For context, the completed base-index timing stage measured {cpu:.2f}s for original CPU and {gpu_time:.2f}s for {tex(gpu_name)}, a {cpu / gpu_time:.2f}$\\times$ base-stage speedup. "
             f"The campaign manifest is {tex(manifest.get('status'))} ({len(complete)} complete, {len(failed)} failed/interrupted cases); hierarchy GPU repeats are therefore deferred and no end-to-end multilevel construction speedup is claimed.")
+    if hierarchy_cold and "cpu" in hierarchy_cold:
+        cpu = statistics.median(hierarchy_cold["cpu"])
+        gpu_name, gpu_time = min(
+            ((name, statistics.median(values)) for name, values in hierarchy_cold.items()
+             if name != "cpu"),
+            key=lambda item: item[1],
+        )
+        lines.append(
+            f"A separate single-cold-run sidecar screen completed for {len(hierarchy_cold)} backends: "
+            f"CPU took {cpu:.2f}s and the fastest completed backend, {tex(gpu_name)}, took "
+            f"{gpu_time:.2f}s ({cpu / gpu_time:.2f}$\\times$). This is bounded exploratory "
+            "evidence rather than a repeated timing claim, and it excludes base-index construction.")
     return "\n".join(lines)
 
 
 def figures_macro(figures: dict[str, Path]) -> str:
     captions = {
         "principal_zero": "the zero-layer LNG/Trie comparison",
+        "one_layer_topology": "one-layer LNG/Trie topology at fixed threshold and entry provider",
         "representative_depth": "the representative zero/one/two-layer comparison",
         "upper_authorization": "the upper-layer authorization ablation",
     }
     lines = [r"\newcommand{\authoritativeRecallQPSFigures}{%"]
-    for name in ("principal_zero", "representative_depth", "upper_authorization"):
+    for name in ("principal_zero", "one_layer_topology", "representative_depth", "upper_authorization"):
         lines.extend([r"\begin{figure*}[t]", r"\centering",
                       rf"\includegraphics[width=0.98\textwidth]{{\detokenize{{{figures[name]}}}}}",
                       f"\\caption{{Measured Recall@10--QPS curves for {captions[name]}. Markers are executed points; curves are not interpolated.}}",
@@ -368,7 +390,7 @@ ML-UNG 将三个维度解耦：层数与阈值、每层 group topology（LNG 或
 - DRH-v1 在 Genome/Reviews 为 plain 的 0.954--1.014x，且为最佳人工配置的 0.980--1.008；VariousImg 只有 plain 的 0.205x，是必须保留的反例。
 - DRH-v2 当前结果：{v2_sentence}
 - DRH-v2 将 Genome 两档恢复到 plain 的 0.992--1.005x，也把 VariousImg 从 v1 的约 0.21x 提升到 0.336x；但它在 Reviews 4.115% 过度回退到 0.972x，说明该 gate 能限制灾难性开销，却仍不能保证逐 workload 单调更优。
-- GPU base-stage 最佳初步时间可从论文构建段落读取；hierarchy repeats 尚未完成，因此不宣称端到端 GPU 多层构建加速。
+- GPU base-stage 最佳初步时间可从论文构建段落读取。hierarchy cold sidecar 中 CPU 为 986.12 s，hybrid GPU intra 为 85.75 s（11.50x），hybrid GPU intra+inter 为 136.08 s，full GPU 为 105.83 s；这些均为单次 cold screen，repeats 尚未完成，因此不宣称端到端 GPU 多层构建加速。
 
 ## Amazon：0/1/2 层与 topology
 
@@ -419,7 +441,7 @@ Reviews 的较宽 workload 中 DRH 将 visited 从 4415.8 降至 3500.1、distan
 
 ## 构建证据
 
-自动 DRH 的 CPU sidecar wall time 分别为 Genome 44.2 s、Reviews 120.4 s、VariousImg 633.2 s。独立 base-index timing 的原始 CPU 中位数为 190.61 s，最快 GPU profile 为 53.18 s（3.58x），但这只证明 base stage；hierarchy GPU campaign 尚未完成，不能据此给出完整多层端到端加速比。
+自动 DRH 的 CPU sidecar wall time 分别为 Genome 44.2 s、Reviews 120.4 s、VariousImg 633.2 s。独立 base-index timing 的原始 CPU 中位数为 190.61 s，最快 GPU profile 为 53.18 s（3.58x），但这只证明 base stage。另一个 Amazon hierarchy cold sidecar 完成了 CPU 986.12 s、hybrid GPU intra 85.75 s、hybrid GPU intra+inter 136.08 s 和 full GPU 105.83 s；最快完成项相对 CPU 为 11.50x。该横向比较只有单次 cold run，且不含 base-index construction，因此只能作为 GPU hierarchy 可行性证据，不能当作重复测量的端到端构建加速比。
 
 ## 学术边界
 

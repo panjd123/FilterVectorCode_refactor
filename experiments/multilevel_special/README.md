@@ -118,6 +118,9 @@ visited-point, scanned-edge, distance-calculation, and entry-count breakdowns.
 Recall/QPS figures are generated only from measured screen points:
 
 ```bash
+python3 summarize_selection_sweep.py \
+  config.authoritative_amazon_screen_emptyfix.json \
+  --baseline l0_lng_entry_optimized_lng --targets 0.9
 python3 plot_authoritative_recall_qps.py \
   config.authoritative_amazon_screen_emptyfix.json \
   ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv \
@@ -125,11 +128,11 @@ python3 plot_authoritative_recall_qps.py \
 ```
 
 By default the plotter emits the complete paper subset: the principal
-zero-layer comparison, a representative zero/one/two-layer comparison, and
-the upper-authorization ablation. The fixed-threshold one-layer LNG/Trie
-comparison remains available through `--family one_layer_topology`, but the
-current screen covers only its two lowest-selectivity workloads and therefore
-does not qualify as a complete paper panel. Additional factorial families remain available through repeated
+zero-layer comparison, the fixed-threshold one-layer LNG/Trie comparison, a
+representative zero/one/two-layer comparison, and the upper-authorization
+ablation. The one-layer topology family covers all nine workloads after the
+Amazon summary is regenerated from the completed raw cases. Additional
+factorial families remain available through repeated
 `--family` options, but are not promoted to paper figures until every declared
 method/workload point exists. The plotter fails closed on missing results
 unless `--allow-partial` is explicitly supplied and records input hashes and
@@ -303,7 +306,7 @@ matrix leave the existing LaTeX file unchanged.
 
 The smaller deadline artifact does not relax or replace the full generator
 above. `generate_deadline_paper_results.py` has a separate evidence contract:
-the three complete registered Amazon figure families, the complete bounded
+the four complete registered Amazon figure families, the complete bounded
 held-out summary, the separate detailed-profile campaign, and the build
 supervisor manifest. It reports `1 cold + 2 warm` screen-level results, keeps
 the five pre-registered manual alternatives distinct from a full oracle, and

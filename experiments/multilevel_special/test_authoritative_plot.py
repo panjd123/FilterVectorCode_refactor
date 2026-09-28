@@ -11,6 +11,7 @@ class AuthoritativePlotTest(unittest.TestCase):
             plotting.PAPER_FAMILY_NAMES,
             (
                 "principal_zero",
+                "one_layer_topology",
                 "representative_depth",
                 "upper_authorization",
             ),

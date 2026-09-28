@@ -15,7 +15,7 @@ ML-UNG 将三个维度解耦：层数与阈值、每层 group topology（LNG 或
 - DRH-v1 在 Genome/Reviews 为 plain 的 0.954--1.014x，且为最佳人工配置的 0.980--1.008；VariousImg 只有 plain 的 0.205x，是必须保留的反例。
 - DRH-v2 当前结果：Genome 3.365%: v2/plain=0.992x; Genome 6.292%: v2/plain=1.005x; Reviews 0.200%: v2/plain=1.007x; Reviews 4.115%: v2/plain=0.972x; VariousImg 10.252%: v2/plain=0.336x.
 - DRH-v2 将 Genome 两档恢复到 plain 的 0.992--1.005x，也把 VariousImg 从 v1 的约 0.21x 提升到 0.336x；但它在 Reviews 4.115% 过度回退到 0.972x，说明该 gate 能限制灾难性开销，却仍不能保证逐 workload 单调更优。
-- GPU base-stage 最佳初步时间可从论文构建段落读取；hierarchy repeats 尚未完成，因此不宣称端到端 GPU 多层构建加速。
+- GPU base-stage 最佳初步时间可从论文构建段落读取。hierarchy cold sidecar 中 CPU 为 986.12 s，hybrid GPU intra 为 85.75 s（11.50x），hybrid GPU intra+inter 为 136.08 s，full GPU 为 105.83 s；这些均为单次 cold screen，repeats 尚未完成，因此不宣称端到端 GPU 多层构建加速。
 
 ## Amazon：0/1/2 层与 topology
 
@@ -63,7 +63,7 @@ Reviews 的较宽 workload 中 DRH 将 visited 从 4415.8 降至 3500.1、distan
 
 ## 构建证据
 
-自动 DRH 的 CPU sidecar wall time 分别为 Genome 44.2 s、Reviews 120.4 s、VariousImg 633.2 s。独立 base-index timing 的原始 CPU 中位数为 190.61 s，最快 GPU profile 为 53.18 s（3.58x），但这只证明 base stage；hierarchy GPU campaign 尚未完成，不能据此给出完整多层端到端加速比。
+自动 DRH 的 CPU sidecar wall time 分别为 Genome 44.2 s、Reviews 120.4 s、VariousImg 633.2 s。独立 base-index timing 的原始 CPU 中位数为 190.61 s，最快 GPU profile 为 53.18 s（3.58x），但这只证明 base stage。另一个 Amazon hierarchy cold sidecar 完成了 CPU 986.12 s、hybrid GPU intra 85.75 s、hybrid GPU intra+inter 136.08 s 和 full GPU 105.83 s；最快完成项相对 CPU 为 11.50x。该横向比较只有单次 cold run，且不含 base-index construction，因此只能作为 GPU hierarchy 可行性证据，不能当作重复测量的端到端构建加速比。
 
 ## 学术边界
 

@@ -3,6 +3,7 @@
 
 PAPER_RECALL_QPS_FIGURES = (
     ("principal_zero", "Principal zero-layer systems"),
+    ("one_layer_topology", "One-layer LNG/Trie topology"),
     ("representative_depth",
      "Representative zero-, one-, and two-layer indexes"),
     ("upper_authorization", "Exact upper-authorization routing"),

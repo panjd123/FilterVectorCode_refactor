@@ -177,7 +177,8 @@ VariousImg & 633.2 & 190 & 10 & 80,034,774 \\
 \end{tabular}
 }
 \end{table}
-For context, the completed base-index timing stage measured 190.61s for original CPU and 53.18s for accelerated\_gpu, a 3.58$\times$ base-stage speedup. The campaign manifest is complete\_with\_failures (20 complete, 21 failed/interrupted cases); hierarchy GPU repeats are therefore deferred and no end-to-end multilevel construction speedup is claimed.
+For context, the completed base-index timing stage measured 190.61s for original CPU and 53.18s for accelerated\_gpu, a 3.58$\times$ base-stage speedup. The campaign manifest is complete\_with\_failures (24 complete, 17 failed/interrupted cases); hierarchy GPU repeats are therefore deferred and no end-to-end multilevel construction speedup is claimed.
+A separate single-cold-run sidecar screen completed for 4 backends: CPU took 986.12s and the fastest completed backend, hybrid\_gpu\_intra, took 85.75s (11.50$\times$). This is bounded exploratory evidence rather than a repeated timing claim, and it excludes base-index construction.
 }
 \newcommand{\authoritativeRecallQPSFigures}{%
 \begin{figure*}[t]
@@ -185,6 +186,12 @@ For context, the completed base-index timing stage measured 190.61s for original
 \includegraphics[width=0.98\textwidth]{\detokenize{generated_figures/principal_zero.pdf}}
 \caption{Measured Recall@10--QPS curves for the zero-layer LNG/Trie comparison. Markers are executed points; curves are not interpolated.}
 \label{fig:principal-zero}
+\end{figure*}
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{\detokenize{generated_figures/one_layer_topology.pdf}}
+\caption{Measured Recall@10--QPS curves for one-layer LNG/Trie topology at fixed threshold and entry provider. Markers are executed points; curves are not interpolated.}
+\label{fig:one-layer-topology}
 \end{figure*}
 \begin{figure*}[t]
 \centering
@@ -200,5 +207,5 @@ For context, the completed base-index timing stage measured 190.61s for original
 \end{figure*}
 }
 \newcommand{\authoritativeScreenAppendix}{%
-\paragraph{Evidence provenance.} Full paths and SHA256 digests for 16 validated inputs are stored in the deadline artifact manifest; their ordered aggregate digest begins \texttt{da0ef8058f4a95ee}.
+\paragraph{Evidence provenance.} Full paths and SHA256 digests for 17 validated inputs are stored in the deadline artifact manifest; their ordered aggregate digest begins \texttt{30c45c21e9ac7592}.
 }

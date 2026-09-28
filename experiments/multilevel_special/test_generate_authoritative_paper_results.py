@@ -50,6 +50,7 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             tuple(name for name, _ in generator.RECALL_QPS_FIGURES),
             (
                 "principal_zero",
+                "one_layer_topology",
                 "representative_depth",
                 "upper_authorization",
             ),
