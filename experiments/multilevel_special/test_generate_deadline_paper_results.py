@@ -53,6 +53,7 @@ class DeadlinePaperResultsTest(unittest.TestCase):
                 "original_cpu_base_median_seconds": "200",
                 "composed_base_plus_hierarchy_seconds": "60",
                 "speedup_vs_original_cpu": "3.333",
+                "speedup_ci95_low": "3.1", "speedup_ci95_high": "3.5",
             })
 
         rendered, markdown = deadline_results.construction_summary_tables(
@@ -79,6 +80,7 @@ class DeadlinePaperResultsTest(unittest.TestCase):
                 "original_cpu_base_median_seconds": "200",
                 "composed_base_plus_hierarchy_seconds": "60",
                 "speedup_vs_original_cpu": "3.333",
+                "speedup_ci95_low": "3.1", "speedup_ci95_high": "3.5",
             })
         rows[0]["peak_rss_mib"] = ""
         with self.assertRaisesRegex(ValueError, "missing peak RSS"):
@@ -88,6 +90,9 @@ class DeadlinePaperResultsTest(unittest.TestCase):
             deadline_results.construction_summary_tables(rows[:-1], end_to_end)
         with self.assertRaisesRegex(ValueError, "five hierarchy profiles"):
             deadline_results.construction_summary_tables(rows, end_to_end[:-1])
+        end_to_end[0]["speedup_ci95_low"] = ""
+        with self.assertRaisesRegex(ValueError, "missing bootstrap confidence"):
+            deadline_results.construction_summary_tables(rows, end_to_end)
 
     def test_complete_build_manifest_is_required(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

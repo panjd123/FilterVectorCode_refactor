@@ -580,6 +580,12 @@ def construction_summary_tables(
             f"got {sorted(end_to_end_profiles)}")
     if any(int(row["stage_repeats"]) < 2 for row in end_to_end_rows):
         raise ValueError("composed construction requires two repeats per stage")
+    if any(
+        row.get("speedup_ci95_low", "") == ""
+        or row.get("speedup_ci95_high", "") == ""
+        for row in end_to_end_rows
+    ):
+        raise ValueError("composed construction is missing bootstrap confidence intervals")
     hierarchy.sort(key=lambda row: row["profile"])
     tex_lines = [
         r"\begin{table*}[t]", r"\centering", r"\small",
@@ -614,26 +620,30 @@ def construction_summary_tables(
         tex_lines.extend([
             r"\begin{table*}[t]", r"\centering", r"\small",
             r"\caption{Composed end-to-end construction: accelerated base stage plus hierarchy sidecar versus the original CPU base builder. Stage medians are measured independently.}",
-            r"\label{tab:end-to-end-build}", r"\begin{tabular}{lrrrr}", r"\toprule",
-            r"Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup \\",
+            r"\label{tab:end-to-end-build}", r"\begin{tabular}{lrrrrr}", r"\toprule",
+            r"Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup & 95\% CI \\",
             r"\midrule",
         ])
         md_lines.extend([
             "", "### Composed end-to-end construction", "",
-            "| Hierarchy backend | Stage repeats | Original CPU s | Composed s | Speedup |",
-            "|---|---:|---:|---:|---:|",
+            "| Hierarchy backend | Stage repeats | Original CPU s | Composed s | Speedup | Bootstrap 95% CI |",
+            "|---|---:|---:|---:|---:|---:|",
         ])
         for row in sorted(end_to_end_rows, key=lambda item: item["hierarchy_profile"]):
             tex_lines.append(
                 f"{tex(row['hierarchy_profile'])} & {row['stage_repeats']} & "
                 f"{float(row['original_cpu_base_median_seconds']):.2f} & "
                 f"{float(row['composed_base_plus_hierarchy_seconds']):.2f} & "
-                f"{float(row['speedup_vs_original_cpu']):.2f}$\\times$ " + r"\\")
+                f"{float(row['speedup_vs_original_cpu']):.2f}$\\times$ & "
+                f"[{float(row['speedup_ci95_low']):.2f}, "
+                f"{float(row['speedup_ci95_high']):.2f}] " + r"\\")
             md_lines.append(
                 f"| {row['hierarchy_profile']} | {row['stage_repeats']} | "
                 f"{float(row['original_cpu_base_median_seconds']):.2f} | "
                 f"{float(row['composed_base_plus_hierarchy_seconds']):.2f} | "
-                f"{float(row['speedup_vs_original_cpu']):.2f}x |")
+                f"{float(row['speedup_vs_original_cpu']):.2f}x | "
+                f"[{float(row['speedup_ci95_low']):.2f}, "
+                f"{float(row['speedup_ci95_high']):.2f}] |")
         tex_lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}"])
     return "\n".join(tex_lines), "\n".join(md_lines)
 
@@ -747,10 +757,16 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
         build_conclusion = (
             "Repeated construction measurements show that the fastest composed "
             f"base-plus-hierarchy path is {float(best_build['speedup_vs_original_cpu']):.2f}$\\times$ "
-            "the original CPU base builder; stage medians are measured independently.")
+            f"the original CPU base builder (bootstrap 95\\% CI "
+            f"[{float(best_build['speedup_ci95_low']):.2f}, "
+            f"{float(best_build['speedup_ci95_high']):.2f}]); stage medians are "
+            "measured independently.")
         build_report_bullet = (
             f"- 重复构建实验中，最佳 composed base+hierarchy 路径为原始 CPU base builder 的 "
-            f"{float(best_build['speedup_vs_original_cpu']):.2f}x；该结果是独立 stage median 的和，不冒充单次联合 wall-clock。")
+            f"{float(best_build['speedup_vs_original_cpu']):.2f}x（bootstrap 95% CI "
+            f"[{float(best_build['speedup_ci95_low']):.2f}, "
+            f"{float(best_build['speedup_ci95_high']):.2f}]）；该结果是独立 stage "
+            "median 的和，不冒充单次联合 wall-clock。")
         build_report_boundary = (
             "构建端到端数值采用独立测量的 base 与 hierarchy stage median 相加；"
             "resource profile 独立运行，不进入 timing median。")
