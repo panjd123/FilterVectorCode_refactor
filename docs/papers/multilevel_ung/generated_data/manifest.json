@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "lng_half": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/equal_recall_conservative.csv",
+  "trie_half": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/summary/performance/equal_recall_conservative.csv",
+  "inputs": [
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/equal_recall_conservative.csv",
+      "sha256": "104251d065279de0f49705f8f91535a64fc595503061f145b120b8d16093c842"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/summary/performance/equal_recall_conservative.csv",
+      "sha256": "886a04d3034349b91beb122dd76aa0adddf919054a6edc7590da787232766177"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv",
+      "sha256": "16d1b52936d9d80f86416a56e870fbe51a93c6aa5892b325dd152cb039ded70b"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/summary/performance/all_points.csv",
+      "sha256": "4706bbe14f8c013d03a6c1faaeb60d8b4aa22133598caa0f0c9a7d7467d9076e"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/manifest_performance.json",
+      "sha256": "13116b1baae78110a3e2c605803da2a05b9f745c2b20049691f3f7b2eb0279c3"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/manifest_performance.json",
+      "sha256": "9803c9ad2b7177126dd43085957e8753838150e4ec22f24859592ca5ac9045e4"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/manifest.json",
+      "sha256": "12cd38961e283870294556ca2b15558eb51052dde304d9e38a52e1b0f5ebb62b"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/hierarchy/amazon_base_trie/manifest.json",
+      "sha256": "86706a9e10494b9f262de19a781d585055ddf3e156f2a40093335ae744f07df5"
+    }
+  ],
+  "expected_rows": 126,
+  "observed_rows": 126,
+  "missing_rows": [],
+  "pending_rows": [],
+  "inference_scope": "descriptive_screen",
+  "search_binary_sha256": "4c99a51c0f74b187d37f7070f73017b6230935126275560fff1061fa90830a81",
+  "build_binary_sha256": "3b146add04dd98066d39d9f1ff3694c24246b7f9e62563a8418c861112d9a5c1"
+}

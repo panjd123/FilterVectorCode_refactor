@@ -19,6 +19,21 @@ class DeadlinePaperResultsTest(unittest.TestCase):
         self.assertNotIn("{construction_report_intro}", source)
         self.assertNotIn("{build_report_boundary}", source)
 
+    def test_amazon_table_names_overlay_count_and_ratio_columns(self) -> None:
+        rows = []
+        for workload in deadline_results.WORKLOAD_ORDER:
+            for method, _ in deadline_results.AMAZON_METHODS:
+                rows.append({
+                    "workload": workload,
+                    "method": method,
+                    "mean_selectivity": "0.1",
+                    "qps_warm_median": "100",
+                    "speedup_vs_baseline": "1.0",
+                })
+        rendered, _ = deadline_results.amazon_table(rows)
+        self.assertIn("Plain QPS & 0L-Trie/plain & 1L-LNG/plain", rendered)
+        self.assertIn("2L-LT ungated/plain & 2L-LT DRH-v1/plain", rendered)
+
     def test_two_layer_topology_table_fails_on_missing_method(self) -> None:
         methods = (
             "l2_t1024_16384_ll_entry_optimized_lng",
@@ -37,8 +52,11 @@ class DeadlinePaperResultsTest(unittest.TestCase):
                 })
         rendered, markdown = deadline_results.two_layer_topology_tables(
             points, points)
-        self.assertIn("LL QPS & LT QPS & TL QPS & TT QPS", rendered)
-        self.assertIn("## 两层 topology 公平消融", markdown)
+        self.assertIn(
+            "2L-LL QPS & 2L-LT QPS & 2L-TL QPS & 2L-TT QPS", rendered)
+        self.assertIn("## 2L overlay topology 公平消融", markdown)
+        self.assertIn(
+            "2L-XY 的 X/Y 依次表示 level 1/2 topology", markdown)
         with self.assertRaisesRegex(ValueError, "missing two-layer topology points"):
             deadline_results.two_layer_topology_tables(points, points[:-1])
 
@@ -314,6 +332,49 @@ class DeadlinePaperResultsTest(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "partial plot manifest"):
                 deadline_results.validate_figures(root, points)
+
+    def test_topology_factorial_report_requires_and_renders_full_matrix(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            codes = ["L", "T", "LL", "LT", "TL", "TT", "LLL", "LLT",
+                     "LTL", "LTT", "TLL", "TLT", "TTL", "TTT"]
+            matrix_fields = ["topology_code", "workload", "warm_median_qps", "max_recall"]
+            with (root / "factorial_equal_recall.csv").open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=matrix_fields)
+                writer.writeheader()
+                for code in codes:
+                    for workload in deadline_results.WORKLOAD_ORDER:
+                        writer.writerow({"topology_code": code, "workload": workload,
+                                         "warm_median_qps": "100", "max_recall": "0.95"})
+            (root / "best_by_selectivity.csv").write_text(
+                "workload,mean_selectivity,best_topology,best_qps,best_0L_topology,best_1L_topology,best_2L_topology\n"
+                + "".join(
+                    f"{workload},0.1,2L[T|LT],100,0L[L],1L[T|L],2L[T|LT]\n"
+                    for workload in deadline_results.WORKLOAD_ORDER
+                ))
+            (root / "global_configuration_summary.csv").write_text(
+                "full_grid_rank,configuration,oracle_wins,full_grid_geomean_fraction_of_oracle,full_grid_worst_fraction_of_oracle,full_grid_geomean_speedup_vs_L0_LNG\n"
+                "1,2L[T|LT],4,0.868,0.482,24.589\n")
+            with (root / "upper_trie_pairwise.csv").open("w", newline="") as stream:
+                fields = ["workload", "lng_code", "trie_code", "trie_over_lng"]
+                writer = csv.DictWriter(stream, fieldnames=fields)
+                writer.writeheader()
+                for index, workload in enumerate(deadline_results.WORKLOAD_ORDER):
+                    writer.writerow({"workload": workload, "lng_code": "TLL",
+                                     "trie_code": "TLT", "trie_over_lng": "0.998" if index == 6 else "1.1"})
+                    writer.writerow({"workload": workload, "lng_code": "TLL",
+                                     "trie_code": "TTL", "trie_over_lng": "1.1" if index < 5 else "0.5"})
+            (root / "manifest.json").write_text(json.dumps({
+                "expected_rows": 126, "observed_rows": 126,
+                "missing_rows": [], "pending_rows": [],
+            }))
+
+            rendered, evidence = deadline_results.topology_factorial_report(root)
+
+            self.assertIn("完整 L0 x overlay topology factorial", rendered)
+            self.assertIn("| 2L[T|LT] |", rendered)
+            self.assertIn("8/9 档加速", rendered)
+            self.assertEqual(5, len(evidence))
 
 
 if __name__ == "__main__":

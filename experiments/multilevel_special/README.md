@@ -156,6 +156,47 @@ on the fixed DRH hierarchy. Each cell reports the measured `Lsearch/QPS`;
 configurations without a measured crossing are shown as `NC` rather than
 omitted.
 
+### Complete base-by-overlay topology factorial
+
+The base topology is not implicitly fixed to LNG. The controlled Amazon
+factorial uses `T1=1024`, `T2=16384`, ungated level-local search, and enumerates
+the 2 zero-overlay, 4 one-overlay, and 8 two-overlay L/T topology strings. LNG
+bases use optimized-LNG entry discovery and Trie bases use Trie entry discovery.
+Consequently, a one-letter upper-level replacement is a controlled topology
+comparison, while changing the base is a matched-provider system comparison.
+
+```bash
+python3 experiment_cli.py validate \
+  config.authoritative_amazon_base_trie_query_grid.json
+python3 summarize_selection_sweep.py \
+  config.authoritative_amazon_base_trie_query_grid.json \
+  --baseline l1_base_trie_t1024_lng_entry_trie --targets 0.9
+python3 summarize_base_topology_factorial.py \
+  ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/equal_recall_conservative.csv \
+  ../../runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/summary/performance/equal_recall_conservative.csv \
+  ../../runs/base_topology_factorial_20260929/summary \
+  --lng-all-points ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv \
+  --trie-all-points ../../runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/summary/performance/all_points.csv \
+  --lng-manifest ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/manifest_performance.json \
+  --trie-manifest ../../runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/manifest_performance.json \
+  --lng-hierarchy-manifest ../../runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/manifest.json \
+  --trie-hierarchy-manifest ../../runs/base_topology_factorial_20260929/hierarchy/amazon_base_trie/manifest.json
+```
+
+`factorial_equal_recall.csv` is the complete 14-by-9 matrix.
+`upper_trie_pairwise.csv` isolates an L-to-T replacement at one upper level.
+`base_matched_pairwise.csv` compares L0=LNG/optimized-LNG-entry with
+L0=Trie/Trie-entry under the same upper plan. `trie_effect_summary.csv` reports
+per-workload win counts without hiding NC cells.
+`global_configuration_summary.csv` ranks only configurations that cross the
+Recall target on all nine workloads, using the geometric mean of QPS normalized
+to the per-workload measured oracle; incomplete configurations remain unranked.
+The matched-provider base comparison is deliberately not presented as a pure
+base-edge causal effect; the available campaign does not contain a same-entry
+cross-base hierarchy control. The LaTeX table is generated as
+`generated_topology_factorial.tex` and copied into the paper by
+`finalize_complete_evidence.py`.
+
 After the formal pass, generate the requested plain versus best one-layer
 versus best two-layer table with conservative crossings and bootstrap
 intervals:

@@ -32,6 +32,15 @@ The deadline generator copies validated figures into `generated_figures/`,
 writes `generated_results.tex` and the Chinese report atomically, and records
 full input hashes in `runs/deadline_paper_20260928/manifest.json`.
 
+The complete Amazon base-by-overlay topology factorial is generated separately
+from same-search-binary and same-builder inputs. Its LaTeX table lives in
+`generated_topology_factorial.tex`; the complete 14-by-9 equal-Recall matrix,
+best configurations, controlled upper-level replacements, matched-provider
+base comparisons, full-grid fixed-configuration ranking, and input manifest
+live in `generated_data/`. Cross-base
+ratios are system comparisons because each base uses its compatible entry
+provider; only one-letter upper-level replacements hold the provider fixed.
+
 `continue_after_build.py` also hashes the compiler and every direct paper
 input, rejects unresolved references and BibTeX failures, and writes the final
 PDF and provenance manifest.  That path, rather than an ad hoc local build,

@@ -7,6 +7,8 @@
 \usepackage[noend]{algpseudocode}
 \usepackage{graphicx}
 \usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
 
 \newcommand{\system}{\textsc{ML-UNG}}
 \newcommand{\ung}{\textsc{UNG}}
@@ -15,6 +17,7 @@
 \newcommand{\labels}{\mathcal{A}}
 \newcommand{\eligible}{\mathcal{E}}
 \input{generated_results}
+\input{generated_topology_factorial}
 
 \title{\system: Metadata-Aware Multilevel Graph Navigation for Calibration-Free Filtered Approximate Nearest-Neighbor Search}
 
@@ -30,19 +33,20 @@ granularity: as filter selectivity increases, a query must traverse many small
 groups and cross-group edges, and its graph work approaches a full-index
 search.
 
-We present \system, which augments the exact-group graph with independently
-constructed metadata-aware overlays.  At level $\ell$, a point-mass threshold
+We present \system, which augments a configurable exact-group base graph with
+independently constructed metadata-aware overlays.  The base can use UNG's LNG
+or a materialized prefix-Trie topology.  At level $\ell$, a point-mass threshold
 $T_\ell$ partitions compatible label-Trie subtrees into coarser blocks; each
 block owns a local proximity graph, and blocks are connected by an LNG or a
 prefix-Trie topology.  A query authorizes a block only when its labels are
 contained in the block root.  Every search state carries an activation level
 and expands only edges owned by that level; if no useful upper block is
-authorized, \system invokes the unchanged level-zero search.  The hierarchy
+authorized, \system invokes the unchanged level-0 base search.  The hierarchy
 therefore reduces redundant fine-group traversal without weakening predicate
 eligibility or mixing edges across levels.
 
-To eliminate manual choices of layer count and block size, Degree-Ratio
-Hierarchy derives thresholds, depth, topology, and a next-scale routing gate
+To eliminate manual choices of overlay count and block size, Degree-Ratio
+Hierarchy derives thresholds, overlay depth, topology, and a next-scale routing gate
 from dataset cardinality and existing graph-degree budgets.  It requires no
 query distribution, learned model, latency measurement, or Recall calibration.
 We further batch irregular intra-block and cross-block construction on the GPU.
@@ -66,7 +70,8 @@ an LNG, and realizes those group edges as vector edges.  For a containment
 query, a label Trie helps locate minimal observed supersets, after which one
 bounded graph search follows only predicate-compatible directions.  This is
 the right starting point for our work: we retain UNG's exact groups, its
-containment direction, and its unified vector-search interface.
+containment direction, and its unified vector-search interface, while making
+the group topology an explicit design choice rather than an implicit constant.
 
 The limitation we address is different from predicate correctness.  UNG has
 one label-navigation granularity: every vertex of its LNG denotes one exact
@@ -80,16 +85,28 @@ vectors; at 95.02\% selectivity the measured UNG-style base search visits
 does not solve the problem: it can remove the containment paths needed for
 Recall.
 
+Recent SIGMOD and PVLDB systems make range-filtered search robust across query
+widths by compressing, composing, or selecting among range-specialized graph
+structures~\cite{zuo2024serf,xu2024irangegraph,liang2024unify,peng2025dynamic}.
+Their filters live in an ordered scalar domain.  Containment over arbitrary
+label sets has a different partial order: two eligible supersets need not lie
+on one prefix branch, and a coarsened region is safe only when every point it
+admits satisfies the whole query label set.  Our objective is therefore not to
+transfer a range index, but to expose multiple safe navigation scales inside
+UNG's label-containment model.
+
 Our key observation is that containment admits \emph{safe coarse navigation}.
 Suppose a node of the canonical label Trie represents prefix $R_b$.  Every
 exact-label group in its subtree contains $R_b$.  Therefore, when
 $Q\subseteq R_b$, all direct members of a block rooted there satisfy the query.
 This gives a query-independent way to aggregate fine groups without weakening
 the filter.  The resulting coarse graph is an overlay, not a replacement: the
-original exact-group graph remains available whenever no coarse block is
-useful.
+configured exact-group graph remains available whenever no coarse block is
+useful.  Our calibration-free default preserves UNG's LNG at this base, while
+the complete topology factorial also measures a Trie base.
 
-\system turns this observation into a multiscale UNG.  Increasing mass
+\system turns this observation into a multiscale UNG through three separable
+mechanisms.  Increasing mass
 thresholds independently partition the label Trie into blocks.  Each overlay
 connects its blocks using either the LNG cover relation or a prefix-Trie
 sparsifier.  Exact authorization selects legal overlays, while candidates carry
@@ -105,19 +122,21 @@ therefore derive them with Degree-Ratio Hierarchy (DRH), a deterministic rule
 based only on dataset size and the graph's existing degree budgets.  DRH never
 observes query frequencies, latency, Recall, or a selectivity histogram.  A
 structural mass gate decides whether a legal overlay is large enough to use;
-rejected queries invoke the unchanged level-zero search.
+rejected queries invoke the unchanged level-0 base search.
 
 This paper makes the following contributions.
 \begin{itemize}
   \item \textbf{Multiscale label navigation.} We extend UNG's single exact-group
   navigation plane with independently constructed, predicate-safe block
-  overlays.  The base UNG graph is preserved rather than repartitioned.
+  overlays.  The exact-group partition is preserved; its topology and every
+  overlay topology are explicit LNG/Trie choices, and the default policy keeps
+  the UNG LNG base as a robust fallback.
   \item \textbf{Auditable query semantics.} Exact block authorization,
   level-tagged states, level-local edge expansion, and structural fallback make
   it explicit when an overlay may participate and prevent hidden cross-level
   behavior.  Topology and entry discovery remain separate experimental axes.
-  \item \textbf{Calibration-free structure selection.} DRH derives layer
-  count, block thresholds, per-layer topology, and the next-scale routing gate
+  \item \textbf{Calibration-free structure selection.} DRH derives overlay
+  count, block thresholds, per-overlay topology, and the next-scale routing gate
   from $N$, $R$, and $C$, eliminating query-trace and performance calibration.
   \item \textbf{End-to-end evidence.} We evaluate measured equal-Recall
   crossings, expose both substantial high-selectivity gains and held-out
@@ -169,7 +188,7 @@ groups, and searches the unified vector graph toward more specific label sets.
 Two distinctions matter for the rest of this paper.  First, the Trie in UNG is
 an index for label-set organization and entry discovery; the LNG, not Trie
 parenthood, defines cross-group connectivity.  Second, all LNG vertices are
-exact-label groups, so UNG provides one navigation scale.  Our level-zero LNG
+exact-label groups, so UNG provides one navigation scale.  Our level-0 LNG
 configuration preserves that organization and the same minimal-superset entry
 definition.  We focus on containment predicates; extending the overlays to the
 other predicate families supported by UNG requires separate authorization
@@ -186,7 +205,7 @@ UNG's Trie-assisted entry lookup.}
 \toprule
 Component & UNG~\cite{cai2024ung} & \system{} (this work) \\
 \midrule
-Navigation unit & One group per exact label set & Exact groups at level zero plus independently partitioned coarse blocks \\
+Navigation unit & One group per exact label set & Exact groups at level 0 plus independently partitioned coarse blocks \\
 Group/block connectivity & One LNG over exact groups & Per-layer LNG or prefix-Trie topology; every edge has one owner level \\
 Entry discovery & Trie-assisted minimal-superset groups & Original/optimized LNG-semantic provider or topology-aware Trie frontier \\
 Query routing & Start from matching entry groups and search one unified graph & Exact overlay authorization, optional structural mass gate, and base fallback \\
@@ -205,11 +224,12 @@ where search starts.  Treating a Trie entry provider as a Trie graph, or
 changing block size while claiming to isolate layer count, confounds these
 effects.  Our method schema therefore records
 \begin{equation}
-  M=(H,\tau_0,\tau_1,\ldots,\tau_L,e,r),
+  M=(m,\mathbf{T},\boldsymbol{\tau},e,r),
 \end{equation}
-where $H$ is the threshold sequence, $\tau_0$ is the base topology,
-$\tau_\ell$ is layer $\ell$'s topology, $e$ is the entry strategy, and $r$ is
-the routing policy.
+where $m$ is the number of upper overlays,
+$\mathbf{T}=(T_1,\ldots,T_m)$ contains their partition thresholds,
+$\boldsymbol{\tau}=(\tau_0,\ldots,\tau_m)$ contains the base and overlay
+topologies, $e$ is the entry strategy, and $r$ is the routing policy.
 
 Orthogonality here is an interface and experimental property, not a claim that
 the factors have no interaction.  An LNG entry routine returns minimal
@@ -222,24 +242,141 @@ can lose Recall on the other.  We therefore report Recall before comparing
 their QPS rather than treating entry discovery as a constant-time plug-in.
 
 \section{Multilevel Index}
-\subsection{Method Overview}
-\system consists of the unchanged level-zero exact-group graph plus zero or
-more independently serialized overlays.  Building one overlay has three
-steps: partition the canonical label Trie by point mass, select one
-inter-block topology, and materialize intra-block and cross-block vector
-edges.  Processing a query also has three steps: obtain the normal base entry
-groups, authorize blocks by exact containment, and run one bounded queue whose
-states remember their owning level.  If routing rejects all overlays, \system
-calls the level-zero routine before creating any overlay seed.  If an overlay
-is active, its states never descend into base edges or ascend into another
-overlay.  The hierarchy therefore changes navigation granularity without
-changing predicate semantics or silently changing the base graph.
+\subsection{Level and Configuration Notation}
+We reserve \emph{physical level} for a search graph and use $m$\texttt{L} to
+count only the $m$ upper overlays above the mandatory base.  Thus the number
+of physical levels is $m+1$, not $m$.  Physical level 0 is always the
+exact-label-group graph; physical level $\ell>0$ is the independently
+partitioned block overlay built at threshold $T_\ell$.  Because
+$T_1<T_2<\cdots$, level 1 is the finest overlay and increasing level numbers
+denote progressively coarser overlays.  Table~\ref{tab:level-notation} fixes
+the convention used in every method label, table, and figure.
 
-This separation is central to our evaluation.  A zero-layer Trie experiment
-changes actual group connectivity.  A Trie entry-provider experiment changes
-only the initial frontier.  A one- versus two-layer experiment changes the
-number of available granularities while holding the finer partition fixed.
-These are different interventions and are not labeled interchangeably.
+\begin{table*}[t]
+\caption{Level-count and topology notation.  ``Absent'' means that the
+physical level is not materialized; it does not mean that the level exists
+but is skipped for a particular query.  The separator makes the base topology
+explicit instead of silently assuming an LNG base.}
+\label{tab:level-notation}
+\centering
+\small
+\begin{tabular}{lp{0.27\textwidth}p{0.27\textwidth}p{0.27\textwidth}}
+\toprule
+Label & Physical level 0 & Physical level 1 & Physical level 2 \\
+\midrule
+\texttt{0L[$B$]} & Exact-label groups connected by $B$ & Absent & Absent \\
+\texttt{1L[$B|X$]} ($T_1$) & Exact-label groups connected by $B$ & Blocks partitioned at $T_1$, connected by $X$ & Absent \\
+\texttt{2L[$B|XY$]} ($T_1,T_2$) & Exact-label groups connected by $B$ & Finer blocks at $T_1$, connected by $X$ & Coarser blocks at $T_2$, connected by $Y$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Here \texttt{L} means LNG topology and \texttt{T} means materialized
+prefix-Trie topology.  $B$ denotes level 0; letters after the vertical bar are
+ordered from the finest to the coarsest overlay.  For example,
+\texttt{2L[L|LT]} ($T_1=1024,T_2=16384$) contains an exact-group LNG at level
+0, a threshold-1024 LNG overlay at level 1, and a threshold-16384 Trie overlay
+at level 2.  \texttt{2L[T|LT]} changes only the level-0 topology and uses the
+same two overlays.  In earlier fixed-base figures, the shorter label
+\texttt{2L-LT} is retained and means \texttt{2L[L|LT]}.
+
+\paragraph{Base-topology convention.}
+The implementation independently configures the base topology $\tau_0$ as
+either LNG or Trie and combines either base with every upper topology.  We
+report two complementary controls.  The fixed-base ablation holds
+$\tau_0=\mathrm{LNG}$ and the optimized-LNG entry provider constant, so it
+isolates upper-overlay depth and topology.  The complete binary factorial then
+evaluates all 14 topology strings through two overlays at
+$T_1=1024,T_2=16384$.  Because a Trie base and an LNG base require different
+entry semantics to attain comparable Recall, the latter uses matched
+providers: optimized-LNG for $B=L$ and Trie frontier for $B=T$.  Cross-base
+ratios are therefore end-to-end system comparisons, whereas comparisons that
+change one upper letter while holding $B$ fixed isolate the upper topology.
+This distinction is essential: prefix-derived connectivity is not the same
+reachability relation as the LNG.
+
+Entry discovery and routing are separate suffixes rather than topology
+letters.  We write $e\in\{\texttt{orig-LNG},\texttt{opt-LNG},\texttt{Trie}\}$
+for the original LNG-semantic, optimized but semantically equivalent LNG, and
+Trie-frontier entry providers.  \texttt{ungated} means that every query enters
+the multilevel backend, although exact block authorization still controls
+which overlay blocks can seed search.  For the evaluated 2L configurations,
+\texttt{DRH-v1} (also called \texttt{gated} in older artifacts) enters that
+backend only if at least one level-2 block is authorized; otherwise it invokes
+the unchanged level-0 search.  \texttt{DRH-v2} additionally requires the sum
+of direct-member points in the authorized level-2 blocks to reach the derived
+next-scale threshold $T_3$.  Unless a caption states otherwise, hierarchy
+ablations use $e=\texttt{opt-LNG}$.
+
+\subsection{Method Overview}
+\system is organized around one invariant: a query may use a coarse block only
+when every direct member of that block satisfies the predicate.  Everything
+else is a performance choice---how many safe scales to materialize, how to
+connect blocks within a scale, where to seed search, and when to fall back.
+Figure~\ref{fig:method-overview} separates these choices into an offline index
+path and an online query path.
+
+Offline, \system first constructs the configured level-0 exact-group
+topology; the UNG-compatible default is LNG, while the factorial also evaluates
+a Trie base.  For
+each $T_\ell$, it independently partitions the canonical label Trie, chooses
+one inter-block topology, and materializes an overlay without rewriting a
+finer level.  Online, the entry provider finds base groups, exact containment
+marks legal blocks, and the router either invokes the unchanged 0L routine or
+inserts authorized overlay seeds into a shared bounded queue.  A queue state
+stores $(i,d,\ell)$, so expanding it reads only adjacency owned by physical
+level $\ell$.  The membership relation used to build two overlays is not a
+search edge: candidates neither promote nor fall through between levels.
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  box/.style={draw, rounded corners=2pt, align=center, minimum height=0.82cm,
+              text width=2.8cm, inner sep=4pt},
+  level/.style={draw, align=left, minimum height=0.72cm,
+                text width=4.05cm, inner sep=4pt},
+  flow/.style={-{Latex[length=2mm]}, semithick},
+  build/.style={-{Latex[length=2mm]}, semithick, dashed}
+]
+\node[font=\bfseries, anchor=west] at (-0.2,1.75) {Offline index path};
+\node[box] (groups) at (1.25,0.35) {Exact-label groups\\and canonical label Trie};
+\node[box] (partition) at (4.55,0.35) {Independent mass partitions\\at $T_1<T_2$};
+\node[level] (l2) at (8.65,1.25) {Physical level 2: coarse $T_2$ blocks; Trie topology};
+\node[level] (l1) at (8.65,0.20) {Physical level 1: finer $T_1$ blocks; LNG topology};
+\node[level] (l0) at (8.65,-0.85) {Physical level 0: exact groups; LNG base};
+\draw[flow] (groups) -- (partition);
+\draw[build] (partition.east) -- (l2.west);
+\draw[build] (partition.east) -- (l1.west);
+\draw[flow] (groups.south east) -- (l0.west);
+\node[anchor=west, font=\footnotesize] at (11.0,0.18)
+  {Dashed links are build-time partitions, not query edges.};
+
+\node[font=\bfseries, anchor=west] at (-0.2,-2.15) {Online query path};
+\node[box] (query) at (0.9,-3.35) {Query $(q,Q)$};
+\node[box] (entry) at (4.0,-3.35) {Entry provider $e$\\returns base group IDs};
+\node[box] (route) at (7.2,-3.35) {Exact authorization\\and router $r$};
+\node[box] (multi) at (10.55,-2.75) {Multilevel queue\\state $(i,d,\ell)$\\level-$\ell$ edges only};
+\node[box] (base) at (10.55,-4.15) {Unchanged 0L\\base search};
+\node[box] (answer) at (13.7,-3.35) {Predicate check\\and top-$K$};
+\draw[flow] (query) -- (entry);
+\draw[flow] (entry) -- (route);
+\draw[flow] (route.east) -- node[above,sloped,font=\footnotesize] {accept} (multi.west);
+\draw[flow] (route.east) -- node[below,sloped,font=\footnotesize] {reject} (base.west);
+\draw[flow] (multi.east) -- (answer.west);
+\draw[flow] (base.east) -- (answer.west);
+\end{tikzpicture}
+\caption{\system architecture for the authoritative 2L-LT example.  Level 0,
+level 1, and level 2 are three physical graphs.  The router chooses between
+the multilevel backend and exact 0L fallback; inside the multilevel backend,
+each state expands only edges owned by its tag.}
+\label{fig:method-overview}
+\end{figure*}
+
+This separation also determines the ablations.  A 0L-Trie experiment changes
+level-0 connectivity.  A Trie entry-provider experiment changes only the
+initial frontier.  A 1L-versus-2L experiment adds level 2 while preserving the
+level-1 partition.  These interventions are not labeled interchangeably.
 
 \subsection{Predicate-Safe Coarsening by Trie Mass}
 We build a canonical prefix trie over sorted group label sets.  Each terminal
@@ -352,29 +489,29 @@ A query authorizes block $b$ precisely when
   Q\subseteq R_b,
 \end{equation}
 where $R_b$ is the block root's sorted label set.  This test is independent of
-estimated selectivity and observed latency. Let $h$ be the highest upper layer
-with at least one authorized block and let
+estimated selectivity and observed latency.  Let $m$ be the coarsest
+materialized overlay and let
 \begin{equation}
-  \mathcal{A}_h(Q)=\{b\mid \mathrm{level}(b)=h,\ Q\subseteq R_b\}.
+  \mathcal{A}_m(Q)=\{b\mid \mathrm{level}(b)=m,\ Q\subseteq R_b\}.
 \end{equation}
 Because direct members partition each layer, the authorized direct mass
 \begin{equation}
-  M_h(Q)=\sum_{b\in\mathcal{A}_h(Q)} |P_b|
+  M_m(Q)=\sum_{b\in\mathcal{A}_m(Q)} |P_b|
 \end{equation}
 does not count a point once at a coarse layer and again at a finer layer.
 
 We distinguish two query-free routing policies. DRH-v1 executes the
-multilevel backend whenever $\mathcal{A}_h(Q)$ is nonempty. DRH-v2 additionally
-requires $M_h(Q)\ge T_{L+1}$, where $T_{L+1}$ is the next scale implied by the
-same recurrence that constructs the $L$ materialized layers. If either test
+multilevel backend whenever $\mathcal{A}_m(Q)$ is nonempty. DRH-v2 additionally
+requires $M_m(Q)\ge T_{m+1}$, where $T_{m+1}$ is the next scale implied by the
+same recurrence that constructs the $m$ upper overlays. If either test
 fails, the router invokes the unchanged base-only algorithm before any overlay
-seed is created. Otherwise the authorized layers are eligible to seed the
+seed is created. Otherwise all authorized overlays are eligible to seed the
 multilevel search. Neither policy reads query frequencies, latency, Recall,
 or a learned selectivity estimate.
 
 \subsection{Level-Isolated Bounded Search}
 Each candidate is a tuple $(i,d,\ell)$ containing a vector identifier, its
-distance, and an activation level.  Level zero denotes the base graph; level
+distance, and an activation level.  Level 0 denotes the base graph; level
 $\ell>0$ denotes one materialized overlay.  Every authorized block contributes
 its stored entry point, and entry groups contribute vector entry points tagged
 with the level that owns them.  All seeds share one queue of capacity
@@ -387,10 +524,10 @@ $L_{search}$.
 \Require Query $(q,Q)$, entry provider $e$, hierarchy $H$, budget $L_s$,
 optional mass threshold $T_{\mathrm{gate}}$
 \State $B_Q\gets\{b\in H:Q\subseteq R_b\}$
-\If{$B_Q$ has no upper block}
+\State $h\gets\max\{\mathrm{level}(b):b\in H\}$
+\If{$B_Q$ has no block at level $h$}
   \State \Return \Call{BaseSearch}{$q,Q,e,L_s$}
 \EndIf
-\State $h\gets\max\{\mathrm{level}(b):b\in B_Q,\ \mathrm{level}(b)>0\}$
 \State $M_h\gets\sum_{b\in B_Q:\mathrm{level}(b)=h}|P_b|$
 \If{$M_h<T_{\mathrm{gate}}$}
   \State \Return \Call{BaseSearch}{$q,Q,e,L_s$}
@@ -435,7 +572,7 @@ authorized layer or the base search.
 Every expansion descended from a seed tagged $\ell$ scans only edges owned by
 $\ell$.  The invariant holds initially because each seed is tagged with its
 owning level.  During expansion, a special edge is accepted only when its owner
-level equals the current tag, and its successor retains that tag; a level-zero
+level equals the current tag, and its successor retains that tag; a level-0
 candidate reads only base edges.  Induction over queue removals therefore
 excludes both implicit promotion and fallthrough.  Separate visited sets per
 level ensure that the same vector identifier in two layers does not collapse
@@ -444,7 +581,7 @@ the two search states.
 \paragraph{Fallback equivalence.}
 When the router rejects the overlay, the implementation invokes the same
 base-search routine with the same entry provider, entry groups, and
-$L_{search}$ as the corresponding zero-layer method. Under deterministic
+$L_{search}$ as the corresponding 0L method. Under deterministic
 execution, its returned neighbors and post-route search-work trace are
 therefore identical. Total latency can still increase by the authorization
 and mass tests themselves; we measure that cost rather than claiming that an
@@ -469,9 +606,9 @@ Successive thresholds use the existing degree ratio
   \qquad T_{\ell+1}=\rho T_\ell.
 \end{equation}
 A scale is materialized while $N/T_\ell\ge C$.  Ignoring only the implementation
-depth cap, the resulting number of layers is therefore
+depth cap, the resulting number of upper overlays is therefore
 \begin{equation}
-  L=\max\left(0,
+  m=\max\left(0,
     1+\left\lfloor\log_\rho\frac{N}{C T_1}\right\rfloor\right).
 \end{equation}
 Thus the depth is derived, not configured separately.  The predeclared topology rule is LNG while the
@@ -488,7 +625,7 @@ selects $1024{:}\mathrm{LNG},16384{:}\mathrm{Trie}$ before examining query
 performance. DRH-v2 sets its routing mass threshold to the next unmaterialized
 scale,
 \begin{equation}
-  T_{\mathrm{gate}}=T_{L+1}=\rho T_L.
+  T_{\mathrm{gate}}=T_{m+1}=\rho T_m.
 \end{equation}
 This does not introduce an empirical knob: the value is already determined by
 $N$, $R$, and $C$. DRH-v1, retained as an ablation, is equivalent to
@@ -496,6 +633,21 @@ $T_{\mathrm{gate}}=0$ with the nonempty-authorization requirement. We
 emphasize that $\Phi$ and the mass gate are query-independent structural
 proxies, not proofs of runtime optimality; held-out oracle regret tests whether
 the complete policy transfers without query calibration.
+
+DRH treats level 0 differently from an overlay: it selects
+$\tau_0=\mathrm{LNG}$ as the reachability anchor and applies the degree-ratio
+rule only to $\ell>0$.  This is a policy choice rather than an implementation
+restriction.
+Tables~\ref{tab:base-topology-factorial-a}--\ref{tab:base-topology-factorial-b}
+evaluate both possible bases with
+all upper assignments.  The matched-provider 0L screen shows that Trie is
+substantially faster at 0.5--5\%, but slower at 10\% and 60--99\%, and it does
+not reach the Recall target at 30\% within the shared budget.  Overlays recover
+that robustness and make several Trie-base systems the fastest measured
+choices at both narrow and broad selectivities, but a static Trie-base choice
+still loses to 0L LNG at 10--30\%.  Retaining LNG as the calibration-free base
+therefore provides a conservative fallback; a dual-base query-time selector is
+a useful extension, but is not silently folded into the reported policy.
 
 \begin{algorithm}[t]
 \caption{Degree-Ratio hierarchy with the DRH-v2 router}
@@ -776,16 +928,21 @@ predicates $\{1\}$.  We retain this mixture because both are legal containment
 queries, and validate the empty-predicate path separately before timing.
 
 \subsection{Methods and Fairness}
-The zero-layer principal comparison is LNG topology with optimized-LNG entry
-discovery versus Trie topology with Trie entry discovery.  The factorial
-ablation independently varies zero/one/two layers, thresholds, LNG/Trie at each
-layer, and the three legal entry strategies: original LNG, optimized LNG, and
-Trie.  Routed controls are outside the factorial because routing changes which
-search algorithm executes. For held-out automatic-policy evaluation, however,
+The principal 0L comparison is LNG topology with optimized-LNG entry
+discovery versus Trie topology with Trie entry discovery.  The topology
+factorial fixes $T_1=1024$, $T_2=16384$, and ungated routing while enumerating
+both base topologies and every LNG/Trie upper-layer assignment through 2L.
+Within either base, replacing one upper letter is a controlled topology
+comparison because its entry provider is unchanged.  Across bases we instead
+report a matched-provider system comparison, not a pure edge-topology effect.
+A separate compatibility ablation crosses the three legal entry strategies
+(original LNG, optimized LNG, and Trie) with selected topologies.  Routed
+controls are outside the factorial because routing changes which search
+algorithm executes. For held-out automatic-policy evaluation, however,
 the exact gate is fixed for DRH and every manual-alternative hierarchy; the
 ungated DRH variant is reported separately.
 
-We call the zero-layer LNG configuration \emph{Plain} or \emph{0L-LNG}.  It
+We call the 0L LNG configuration \emph{Plain} or \emph{0L-LNG}.  It
 preserves UNG's exact-label groups, LNG cover relation, and unified vector
 graph, but it is not the unmodified upstream release: it uses our optimized,
 semantically equivalent minimal-superset provider and the common refactored
@@ -813,12 +970,38 @@ shared budget is reported as no crossing.
 \authoritativeSharedSearchBudgetTable
 
 \subsection{Metrics}
-Primary query metrics are warm-median batch latency and QPS. Bootstrap 95\%
-confidence intervals are reserved for the later formal pass and are not claimed
-by the current deadline artifact. We additionally report entry-group search, entry-point
-setup, block authorization, graph search, residual time, visited nodes, scanned
-base/special edges, and distance computations.  Build results use process wall
-time through validated files on disk. The full protocol requires one cold build followed by at least five
+Table~\ref{tab:metric-definitions} defines every quantity used in the query
+tables.  The batch size is $B=1000$ queries.  Primary query metrics are
+warm-median batch latency and QPS. Bootstrap 95\% confidence intervals are
+reserved for the later formal pass and are not claimed by the current deadline
+artifact.
+
+\begin{table*}[t]
+\caption{Measurement definitions.  A ``warm median'' is taken across the two
+warm repeats in the current screen-level artifact; it is not a confidence
+interval.  Per-query stage times and work counters are first averaged over all
+queries in one repeat and then summarized across warm repeats.}
+\label{tab:metric-definitions}
+\centering
+\small
+\begin{tabular}{p{0.19\textwidth}p{0.73\textwidth}}
+\toprule
+Reported quantity & Definition \\
+\midrule
+Mean selectivity & $B^{-1}\sum_{j=1}^{B}|\eligible(Q_j)|/N$ for the frozen query batch; it describes the workload and is not an input to DRH. \\
+Recall@10 & For one repeat, the mean over queries of $|R_{10}(q_j,Q_j)\cap R^*_{10}(q_j,Q_j)|/10$.  A crossing requires every warm repeat at that executed point to reach 0.90. \\
+$L_{search}$ & Capacity of the bounded candidate queue.  An equal-Recall operating point is the smallest executed $L_{search}$ that crosses the Recall target; values between executed points are not interpolated. \\
+Batch latency / QPS & Wall time to complete all $B$ queries with 100 query threads, after the cold repeat is discarded; $\mathrm{QPS}=1000B/\mathrm{batch\ latency\ (ms)}$. \\
+$A/B$ speedup & $\mathrm{QPS}_A/\mathrm{QPS}_B$, using each method's selected equal-Recall crossing.  A ratio above one favors $A$. \\
+NC / $R_{\max}$ & NC means no Recall crossing within the workload-wide measured $L_{search}$ budget.  $R_{\max}$ is the largest minimum-over-warm-repeats batch Recall observed in that budget. \\
+ELS / entry / authorization & Mean milliseconds per query for Entry Label Set (entry-group) discovery, vector entry-point setup, and exact block-authorization plus routing work, respectively. \\
+Graph / residual & Mean milliseconds per query inside bounded graph traversal, and the remaining measured query time outside the named stages. \\
+Visited / edges / distances & Mean per-query counts of popped graph states, scanned adjacency entries, and vector-distance evaluations.  Base and overlay edges are counted separately where enabled. \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Build results use process wall time through validated files on disk. The full protocol requires one cold build followed by at least five
 measured builds, interleaved CPU/GPU order, and peak host/device memory in a separate
 pass, and index bytes.  Full-index cost is the sum of independently measured
 base and hierarchy stage medians; confidence intervals independently resample
@@ -834,6 +1017,8 @@ the remaining hierarchy repeats finish.
 
 \section{Results}
 \authoritativeResults
+\baseTopologyFactorialTables
+\baseTopologyFactorialFindings
 \authoritativeRecallQPSFigures
 
 \section{Discussion}
@@ -851,12 +1036,15 @@ profitable.
 \subsection{Trie Topology Is a Sparsifier, Not an LNG Alias}
 Canonical prefix adjacency is cheaper and can be highly effective when query
 entries align with its branches.  It omits non-prefix subset relations,
-however, so large $L_{search}$ cannot recover vectors in unreachable graph
-regions.  This also explains why crossing an LNG-style minimal-superset entry
-frontier with a Trie topology can reduce work yet lower Recall: fewer seeds do
-not cover every prefix branch that the Trie graph keeps disconnected.  We
-therefore report no-crossing outcomes explicitly and pair Recall with entry
-count, visited-node, scanned-edge, and distance-computation counts.
+however, so increasing $L_{search}$ is not guaranteed to expose every region
+from a fixed entry frontier before the search becomes effectively exhaustive.
+This also explains why crossing an LNG-style minimal-superset entry frontier
+with a Trie topology can reduce work yet lower Recall: fewer seeds do not cover
+every prefix branch retained by the Trie graph.  A full-budget run can still
+cross by exhausting most candidates, which is correctness evidence but not an
+efficient operating point.  We therefore report no-crossing outcomes within
+the shared budget explicitly and pair Recall with entry count, visited-node,
+scanned-edge, and distance-computation counts.
 
 \subsection{Limitations}
 DRH uses a symmetric static cost proxy, existing degree budgets, exact
@@ -865,7 +1053,8 @@ or query frequencies. The
 held-out study is required to distinguish genuine structural generalization
 from an Amazon-specific coincidence.  The GPU pipeline retains a host
 adjacency materialization boundary, and full device-resident construction is
-future work.  All four evaluated datasets instantiate two DRH layers, so the
+future work.  All four evaluated datasets instantiate two upper DRH overlays
+(2L), so the
 held-out study tests transfer of thresholds and topology but does not by itself
 establish performance when the derived depth changes.  Finally, the current
 evaluation covers containment predicates;
@@ -878,6 +1067,18 @@ DiskANN~\cite{subramanya2019diskann} use navigable proximity graphs to obtain
 high-recall search with bounded expansion.  Filtered-DiskANN~\cite{gollapudi2023filtereddiskann}
 and ACORN~\cite{patel2024acorn} integrate metadata constraints through
 filter-aware construction or predicate-agnostic graph expansion.
+
+Range-filtered systems expose a related granularity problem in an ordered
+attribute domain.  SeRF compresses range-dedicated graphs into segment
+graphs~\cite{zuo2024serf}; iRangeGraph composes a query-time graph from
+materialized elemental ranges~\cite{xu2024irangegraph}; and UNIFY supports
+pre-, post-, and hybrid filtering from a segmented inclusive
+graph~\cite{liang2024unify}.  Subsequent work extends range-specialized
+structures to streaming arrivals and efficient updates
+~\cite{peng2025dynamic,zhang2025rangepq}.  These systems motivate making
+granularity explicit, but their interval decompositions do not directly solve
+set containment: label sets form a partial order, and prefix adjacency does
+not contain every subset edge.
 
 UNG~\cite{cai2024ung} is our closest baseline.  Its contribution is an LNG
 whose vertices are observed exact label sets and whose edges encode minimal
@@ -896,11 +1097,18 @@ Trie-assisted entry lookup.
 NN-Descent~\cite{dong2011nndescent} provides an efficient iterative basis for
 approximate $k$-NN graph construction, while relative neighborhood
 graphs~\cite{toussaint1980rng} motivate diversity-oriented proximity pruning.
-GPU similarity search supplies high-throughput distance and top-$k$
-primitives~\cite{johnson2021gpu}, but per-group invocation can be dominated by
-packing and launch overhead.  Our grouped execution strategy amortizes these
-costs across irregular tasks while preserving the filtered graph's output
-semantics and measuring quality end to end.
+Recent database work attacks construction cost through tree/graph hybrids,
+LSH-assisted insertion, monotonic neighborhoods, or revised pruning
+~\cite{azizi2023elpis,zhao2023lshapg,peng2023taumng,yang2025pgbuild}.
+Starling instead co-designs an in-memory navigator, disk layout, and block
+search for I/O efficiency~\cite{wang2024starling}.  GPU similarity search
+supplies high-throughput distance and top-$k$ primitives~\cite{johnson2021gpu},
+but per-group invocation can be dominated by packing and launch overhead.  Our
+construction contribution is narrower: it batches the many irregular
+intra-block and cross-block tasks of a predicate hierarchy while preserving
+the CPU-compatible adjacency format.  We therefore report both stage time and
+composed full-index wall time rather than equating a fast kernel with a fast
+builder.
 
 \section{Conclusion}
 UNG established exact-label groups and containment-directed cross-group edges

@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -57,6 +58,56 @@ def main() -> int:
     remaining_manifest = RUNS / "remaining_evidence_20260928/supervisor_manifest.json"
     generator_manifest = RUNS / "deadline_paper_20260928/manifest.json"
     generator = HERE / "generate_deadline_paper_results.py"
+    topology_config = HERE / "config.authoritative_amazon_base_trie_query_grid.json"
+    topology_run = RUNS / "base_topology_factorial_20260929"
+    topology_summary = topology_run / "summary"
+    trie_summary = topology_run / "search/amazon_base_trie_4c99/summary/performance"
+    run([
+        sys.executable, str(HERE / "experiment_cli.py"), "validate",
+        str(topology_config),
+    ], HERE)
+    run([
+        sys.executable, str(HERE / "summarize_selection_sweep.py"),
+        str(topology_config),
+        "--baseline", "l1_base_trie_t1024_lng_entry_trie",
+        "--targets", "0.9",
+    ], HERE)
+    run([
+        sys.executable, str(HERE / "summarize_base_topology_factorial.py"),
+        str(amazon_summary / "equal_recall_conservative.csv"),
+        str(trie_summary / "equal_recall_conservative.csv"),
+        str(topology_summary),
+        "--lng-all-points", str(amazon_summary / "all_points.csv"),
+        "--trie-all-points", str(trie_summary / "all_points.csv"),
+        "--lng-manifest", str(
+            RUNS / "authoritative_multilevel_20260926_emptyfix/search/amazon_screen/manifest_performance.json"
+        ),
+        "--trie-manifest", str(
+            topology_run / "search/amazon_base_trie_4c99/manifest_performance.json"
+        ),
+        "--lng-hierarchy-manifest", str(
+            RUNS / "authoritative_multilevel_20260925/hierarchy/amazon_base_lng/manifest.json"
+        ),
+        "--trie-hierarchy-manifest", str(
+            topology_run / "hierarchy/amazon_base_trie/manifest.json"
+        ),
+    ], HERE)
+    shutil.copy2(
+        topology_summary / "generated_topology_factorial.tex",
+        PAPER / "generated_topology_factorial.tex",
+    )
+    paper_data = PAPER / "generated_data"
+    paper_data.mkdir(parents=True, exist_ok=True)
+    for name in (
+        "factorial_equal_recall.csv",
+        "best_by_selectivity.csv",
+        "upper_trie_pairwise.csv",
+        "base_matched_pairwise.csv",
+        "trie_effect_summary.csv",
+        "global_configuration_summary.csv",
+        "manifest.json",
+    ):
+        shutil.copy2(topology_summary / name, paper_data / name)
     command = [
         sys.executable, str(generator),
         "--amazon-equal-recall", str(amazon_summary / "equal_recall_conservative.csv"),
@@ -76,6 +127,7 @@ def main() -> int:
         "--build-manifest", str(build_root / "deadline_build_supervisor_manifest.json"),
         "--build-summary", str(build_root / "build_study/summary/build_summary.csv"),
         "--build-end-to-end", str(build_root / "build_study/summary/build_end_to_end.csv"),
+        "--topology-factorial-dir", str(topology_summary),
         "--require-two-layer-topology",
         "--figure-output-dir", str(PAPER / "generated_figures"),
         "--manifest-output", str(generator_manifest),
@@ -88,7 +140,7 @@ def main() -> int:
         sys.executable, "-m", "unittest", "discover",
         "-s", str(HERE), "-p", "test_*.py",
     ], REPO)
-    run([str(args.tectonic), "main.tex", "--keep-logs"], PAPER)
+    run([str(args.tectonic), "main.tex", "--keep-logs", "--keep-intermediates"], PAPER)
     log = (PAPER / "main.log").read_text(encoding="utf-8", errors="replace")
     forbidden = re.compile(
         r"undefined (reference|citation)|there were undefined|Emergency stop|Fatal error",
@@ -98,8 +150,22 @@ def main() -> int:
         raise RuntimeError(f"fatal or unresolved TeX diagnostic: {match.group(0)}")
     outputs = [
         PAPER / "generated_results.tex",
+        PAPER / "generated_topology_factorial.tex",
+        paper_data / "factorial_equal_recall.csv",
+        paper_data / "best_by_selectivity.csv",
+        paper_data / "upper_trie_pairwise.csv",
+        paper_data / "base_matched_pairwise.csv",
+        paper_data / "trie_effect_summary.csv",
+        paper_data / "global_configuration_summary.csv",
+        paper_data / "manifest.json",
         PAPER / "main.pdf",
         REPO / "docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md",
+        topology_summary / "README.md",
+        topology_summary / "factorial_equal_recall.csv",
+        topology_summary / "upper_trie_pairwise.csv",
+        topology_summary / "base_matched_pairwise.csv",
+        topology_summary / "trie_effect_summary.csv",
+        topology_summary / "global_configuration_summary.csv",
         generator_manifest,
     ]
     for path in outputs:

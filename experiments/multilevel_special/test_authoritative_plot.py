@@ -26,6 +26,13 @@ class AuthoritativePlotTest(unittest.TestCase):
                 "l1_t1024_lng_entry_optimized_lng",
                 "l2_t1024_16384_lt_entry_optimized_lng",
             ])
+        self.assertEqual(
+            [label for _, label in plotting.FAMILIES["representative_depth"]],
+            [
+                "0L-LNG",
+                "1L-LNG: T1=1,024",
+                "2L-LT: T1=1,024, T2=16,384",
+            ])
 
     def test_one_layer_topology_fixes_threshold_and_entry(self):
         self.assertEqual(

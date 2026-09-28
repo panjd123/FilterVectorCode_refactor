@@ -21,39 +21,39 @@ from authoritative_figure_registry import PAPER_FAMILY_NAMES
 
 FAMILIES = {
     "principal_zero": [
-        ("l0_lng_entry_optimized_lng", "LNG-0 + optimized LNG entry"),
-        ("l0_trie_entry_trie", "Trie-0 + Trie entry"),
+        ("l0_lng_entry_optimized_lng", "0L-LNG + opt-LNG entry"),
+        ("l0_trie_entry_trie", "0L-Trie + Trie entry"),
     ],
     "representative_depth": [
-        ("l0_lng_entry_optimized_lng", "0 layer"),
-        ("l1_t1024_lng_entry_optimized_lng", "1 layer: 1,024/LNG"),
-        ("l2_t1024_16384_lt_entry_optimized_lng", "2 layers: LNG/Trie"),
+        ("l0_lng_entry_optimized_lng", "0L-LNG"),
+        ("l1_t1024_lng_entry_optimized_lng", "1L-LNG: T1=1,024"),
+        ("l2_t1024_16384_lt_entry_optimized_lng", "2L-LT: T1=1,024, T2=16,384"),
     ],
     "one_layer_topology": [
-        ("l1_t1024_lng_entry_optimized_lng", "1 layer: LNG"),
-        ("l1_t1024_trie_entry_optimized_lng", "1 layer: Trie"),
+        ("l1_t1024_lng_entry_optimized_lng", "1L-LNG"),
+        ("l1_t1024_trie_entry_optimized_lng", "1L-Trie"),
     ],
     "zero_topology_fixed_entry": [
         ("l0_lng_entry_optimized_lng", "LNG-0"),
         ("l0_trie_entry_optimized_lng", "Trie-0"),
     ],
     "depth_fixed_lng": [
-        ("l0_lng_entry_optimized_lng", "0 layer"),
-        ("l1_t1024_lng_entry_optimized_lng", "1 layer: 1024/LNG"),
-        ("l2_t1024_16384_ll_entry_optimized_lng", "2 layers: LNG/LNG"),
-        ("l2_t1024_16384_lt_entry_optimized_lng", "2 layers: LNG/Trie (DRH)"),
+        ("l0_lng_entry_optimized_lng", "0L-LNG"),
+        ("l1_t1024_lng_entry_optimized_lng", "1L-LNG: T1=1,024"),
+        ("l2_t1024_16384_ll_entry_optimized_lng", "2L-LL"),
+        ("l2_t1024_16384_lt_entry_optimized_lng", "2L-LT (DRH topology)"),
     ],
     "two_layer_topology": [
-        ("l2_t1024_16384_ll_entry_optimized_lng", "LNG/LNG"),
-        ("l2_t1024_16384_lt_entry_optimized_lng", "LNG/Trie"),
-        ("l2_t1024_16384_tl_entry_optimized_lng", "Trie/LNG"),
-        ("l2_t1024_16384_tt_entry_optimized_lng", "Trie/Trie"),
+        ("l2_t1024_16384_ll_entry_optimized_lng", "2L-LL"),
+        ("l2_t1024_16384_lt_entry_optimized_lng", "2L-LT"),
+        ("l2_t1024_16384_tl_entry_optimized_lng", "2L-TL"),
+        ("l2_t1024_16384_tt_entry_optimized_lng", "2L-TT"),
     ],
     "threshold_depth": [
-        ("l1_t1024_lng_entry_optimized_lng", "1 layer: 1,024"),
-        ("l1_t8192_lng_entry_optimized_lng", "1 layer: 8,192"),
-        ("l2_t1024_16384_lt_entry_optimized_lng", "2 layers: 1,024/16,384"),
-        ("l2_t8192_131072_lt_entry_optimized_lng", "2 layers: 8,192/131,072"),
+        ("l1_t1024_lng_entry_optimized_lng", "1L-LNG: T1=1,024"),
+        ("l1_t8192_lng_entry_optimized_lng", "1L-LNG: T1=8,192"),
+        ("l2_t1024_16384_lt_entry_optimized_lng", "2L-LT: 1,024/16,384"),
+        ("l2_t8192_131072_lt_entry_optimized_lng", "2L-LT: 8,192/131,072"),
     ],
     "entry_strategy_on_drh": [
         ("l2_t1024_16384_lt_entry_original", "original LNG entry"),
@@ -61,8 +61,8 @@ FAMILIES = {
         ("l2_t1024_16384_lt_entry_trie", "Trie entry"),
     ],
     "upper_authorization": [
-        ("l2_t1024_16384_lt_entry_optimized_lng", "always layered"),
-        ("l2_t1024_16384_lt_entry_optimized_lng_upper_routed", "upper authorized"),
+        ("l2_t1024_16384_lt_entry_optimized_lng", "2L-LT, ungated"),
+        ("l2_t1024_16384_lt_entry_optimized_lng_upper_routed", "2L-LT, DRH-v1"),
     ],
 }
 
