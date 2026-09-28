@@ -29,7 +29,10 @@ SEARCH_RUNNER = HERE / "run_selection_sweep.py"
 VALIDATOR = HERE / "validate_selection_sweep.py"
 SUMMARIZER = HERE / "summarize_selection_sweep.py"
 CAMPAIGN_SUMMARIZER = HERE / "summarize_drh_v2_ablation.py"
-DATASET_PRIORITY = {"VariousImg": 0, "Amazon": 1, "Genome": 2, "Reviews": 3}
+# Put the compact held-out workloads before the nine-workload development set.
+# This makes interrupted deadline runs yield cross-dataset transfer evidence
+# without changing any dataset's methods, queries, or measurement protocol.
+DATASET_PRIORITY = {"Genome": 0, "Reviews": 1, "Amazon": 2, "VariousImg": 3}
 
 
 def manifest_finished(path: Path) -> bool:
