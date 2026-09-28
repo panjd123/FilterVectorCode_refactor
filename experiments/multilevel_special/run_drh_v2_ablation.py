@@ -127,17 +127,6 @@ def main() -> int:
     )
     for dataset in datasets:
         config = Path(dataset["config"])
-        status, returncode, elapsed = bounded.run_bounded(
-            [sys.executable, str(VALIDATOR), str(config)], log_path,
-            min(args.case_timeout_seconds, 600.0))
-        append_record(supervisor, state, {
-            "stage": "validate", "dataset": dataset["dataset"],
-            "status": status, "returncode": returncode,
-            "elapsed_seconds": elapsed,
-        })
-        if status != "complete":
-            continue
-
         methods = [
             dataset["baseline_method"], dataset["drh_v1_method"],
             dataset["drh_v2_method"],
@@ -154,6 +143,17 @@ def main() -> int:
                     "status": status, "returncode": returncode,
                     "elapsed_seconds": elapsed,
                 })
+
+        status, returncode, elapsed = bounded.run_bounded(
+            [sys.executable, str(VALIDATOR), str(config)], log_path,
+            min(args.case_timeout_seconds, 600.0))
+        append_record(supervisor, state, {
+            "stage": "validate", "dataset": dataset["dataset"],
+            "status": status, "returncode": returncode,
+            "elapsed_seconds": elapsed,
+        })
+        if status != "complete":
+            continue
 
         status, returncode, elapsed = bounded.run_bounded(
             [sys.executable, str(SUMMARIZER), str(config), "--baseline",
