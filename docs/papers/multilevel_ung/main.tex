@@ -31,11 +31,12 @@ group-to-group topology within each layer, and entry-group discovery.  Each
 query authorizes blocks by exact label containment, seeds every authorized
 layer, and tags candidates with an activation level.  A candidate scans only
 edges owned by that level, which prevents implicit promotion or cross-level
-edge mixing.  We further propose Degree-Ratio Hierarchy (DRH), a
-query-calibration-free rule that derives both layer count and block thresholds
-from the dataset size and the graph's existing degree budgets.  Its router
-combines exact predicate authorization with a next-scale direct-mass test,
-without observing query frequencies or performance.  Finally, we
+edge mixing.  We further propose the Degree-Ratio Hierarchy (DRH) family.  Its
+query-calibration-free structural rule derives layer count, block thresholds,
+and topology from dataset size and existing graph-degree budgets.  DRH-v1
+routes on exact predicate authorization; DRH-v2 additionally requires
+next-scale direct mass.  Neither variant observes query frequencies or
+performance.  Finally, we
 describe a GPU construction pipeline for the irregular intra-group and
 cross-group workloads and retain end-to-end quality checks at the index
 boundary.  Our evaluation uses measured Recall@10 crossings rather than curve
@@ -81,8 +82,9 @@ This paper makes the following contributions.
   authorization and a structural fallback that leaves the base-only search
   unchanged when no upper block is authorized or its direct mass is below the
   next hierarchy scale.
-  \item We introduce DRH, a deterministic rule that chooses the first scale,
-  scale ratio, stopping depth, topology, and exact structural activation gate
+  \item We introduce the DRH family: one deterministic structural plan chooses
+  the first scale, scale ratio, stopping depth, and topology, while the v1 and
+  v2 routers respectively add exact authorization and a next-scale mass gate,
   without query traces, latency measurements, or Recall calibration.
   \item We adapt GPU group-graph and grouped top-$k$ construction to the
   hierarchy sidecar and define a construction measurement protocol that does not
@@ -90,7 +92,8 @@ This paper makes the following contributions.
   \item We evaluate all methods at the smallest measured search budget whose
   every warm repeat reaches the target Recall, and compare the automatic plan
   with both a fixed zero-layer baseline and a frozen candidate set composed of
-  DRH plus five manually enumerated alternatives.
+  DRH-v1 plus five manually enumerated alternatives; DRH-v2 is reported as a
+  separate same-binary routing ablation.
 \end{itemize}
 
 \section{Problem Definition}
@@ -403,7 +406,7 @@ proxies, not proofs of runtime optimality; held-out oracle regret tests whether
 the complete policy transfers without query calibration.
 
 \begin{algorithm}[t]
-\caption{Gated Degree-Ratio Hierarchy (DRH)}
+\caption{Degree-Ratio hierarchy with the DRH-v2 router}
 \label{alg:drh}
 \begin{algorithmic}[1]
 \Require $N$, local degree $R$, cross-block degree $C$
@@ -420,7 +423,11 @@ the complete policy transfers without query calibration.
 \end{algorithmic}
 \end{algorithm}
 
-DRH is intentionally not trained on query selectivity. Its evaluation must
+Neither DRH variant is trained on query selectivity.  The frozen held-out
+automatic-versus-manual comparison uses DRH-v1, because that candidate set was
+pre-registered before the DRH-v2 routing ablation; the same-binary DRH-v2
+results are reported separately and are not retroactively substituted into
+the manual comparison.  Evaluation must
 therefore separate the development dataset from held-out datasets and compare
 it with both the best per-workload method and the best single manual
 configuration used unchanged across workloads. Every held-out manual
