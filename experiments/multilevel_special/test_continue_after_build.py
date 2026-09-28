@@ -21,8 +21,8 @@ class ContinueAfterBuildTest(unittest.TestCase):
         self.assertIn("heldout_oracle_by_workload.csv", rendered)
         self.assertIn("build_end_to_end.csv", rendered)
         self.assertIn("quality_formal", rendered)
-        self.assertIn("representative_depth.pdf", rendered)
-        self.assertNotIn("one_layer_topology.pdf", rendered)
+        for family in finalizer.FIGURE_FAMILIES:
+            self.assertIn(f"{family}.pdf", rendered)
         self.assertNotIn("quality_screen_crossing_formal", rendered)
 
     def test_figure_families_share_the_paper_generator_registry(self) -> None:
