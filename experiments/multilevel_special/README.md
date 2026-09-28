@@ -310,7 +310,7 @@ the four complete registered Amazon figure families, the complete bounded
 held-out summary, the separate detailed-profile campaign, and the build
 supervisor manifest. It reports `1 cold + 2 warm` screen-level results, keeps
 the five pre-registered manual alternatives distinct from a full oracle, and
-states that hierarchy GPU repeats are incomplete.
+derives its construction claim from the current build-manifest state.
 
 ```bash
 python3 generate_deadline_paper_results.py \
@@ -374,8 +374,10 @@ per-case timeout, writes a supervisor manifest, refreshes summaries and plots,
 then validates and summarizes the profile. It must not be run concurrently
 with another query supervisor. When every stage succeeds, it invokes
 `finalize_complete_evidence.py`, which requires complete two-layer topology,
-nonzero detailed edge counters, two measured hierarchy-build repeats, and the
-composed construction summary before regenerating and compiling the paper.
+nonzero detailed edge counters, all five hierarchy backends with two measured
+timing repeats, an independent resource profile with peak RSS and GPU memory,
+five composed construction rows, and an all-success build manifest before
+regenerating and compiling the paper.
 
 For a long unattended campaign, `continue_after_build.py` waits for the
 held-out and build summaries and for every query/build process to exit. It then
