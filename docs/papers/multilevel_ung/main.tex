@@ -16,32 +16,36 @@
 \newcommand{\eligible}{\mathcal{E}}
 \input{generated_results}
 
-\title{\system: Multilevel Label Navigation for Filtered Approximate Nearest-Neighbor Search}
+\title{\system: Metadata-Aware Multilevel Graph Navigation for Calibration-Free Filtered Approximate Nearest-Neighbor Search}
 
 \begin{document}
 
 \begin{abstract}
-Unified Navigating Graph (UNG)~\cite{cai2024ung} makes filtered approximate
-nearest-neighbor search predicate aware by grouping vectors with identical
-label sets and connecting those groups through a label navigating graph
-(LNG).  This exact-group organization provides containment-aware paths, but
-only at one navigation scale.  Broad predicates can still require a large
-bounded search over many fine groups.
+Filtered approximate nearest-neighbor search must reconcile vector proximity
+with metadata predicates.  Unified Navigating Graph (UNG)~\cite{cai2024ung}
+supports containment predicates by grouping vectors with identical label sets
+and connecting these groups through a label navigating graph.  Because every
+navigation unit remains an exact-label group, however, UNG exposes only one
+granularity: as filter selectivity increases, a query must traverse many small
+groups and cross-group edges, and its graph work approaches a full-index
+search.
 
-We present \system, a multiscale extension of UNG for containment predicates.
-Its central idea is \emph{predicate-safe coarsening}: if the query labels are
-contained in a prefix-trie block root, every direct member of that block is
-eligible.  Independently partitioned overlays leave the exact-group base graph
-unchanged.  Exact containment authorizes an overlay, and each candidate expands
-only edges owned by its activation level; rejected overlays invoke the original
-base search.  We also distinguish materialized block topology from entry-group
-discovery, supporting LNG or prefix-Trie connectivity at each layer.
+We present \system, which augments the exact-group graph with independently
+constructed metadata-aware overlays.  At level $\ell$, a point-mass threshold
+$T_\ell$ partitions compatible label-Trie subtrees into coarser blocks; each
+block owns a local proximity graph, and blocks are connected by an LNG or a
+prefix-Trie topology.  A query authorizes a block only when its labels are
+contained in the block root.  Every search state carries an activation level
+and expands only edges owned by that level; if no useful upper block is
+authorized, \system invokes the unchanged level-zero search.  The hierarchy
+therefore reduces redundant fine-group traversal without weakening predicate
+eligibility or mixing edges across levels.
 
-Degree-Ratio Hierarchy (DRH) removes the need to tune depth and block size
-separately.  It derives layer count, thresholds, topology, and a routing gate from
-dataset cardinality and existing graph-degree budgets.  It uses no query
-distribution, latency, or Recall calibration.  A GPU-assisted builder batches
-the irregular hierarchy workload.
+To eliminate manual choices of layer count and block size, Degree-Ratio
+Hierarchy derives thresholds, depth, topology, and a next-scale routing gate
+from dataset cardinality and existing graph-degree budgets.  It requires no
+query distribution, learned model, latency measurement, or Recall calibration.
+We further batch irregular intra-block and cross-block construction on the GPU.
 \authoritativeAbstractResult
 \end{abstract}
 
