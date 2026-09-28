@@ -29,6 +29,13 @@ AMAZON_METHODS = [
 WORKLOAD_ORDER = ["sel_0p5", "sel_1", "sel_5", "sel_10", "sel_30", "sel_60", "sel_80", "sel_95", "sel_99"]
 DRH_V1_SUFFIX = "_upper_routed"
 DRH_V2_SUFFIX = "_upper_routed_next_scale_mass"
+REQUIRED_HIERARCHY_BUILD_PROFILES = {
+    "cpu",
+    "hybrid_gpu_intra",
+    "hybrid_gpu_intra_inter",
+    "full_gpu",
+    "full_gpu_wmma",
+}
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -520,14 +527,45 @@ def construction_section(build_rows: list[dict[str, str]], build_manifest: Path)
     return "\n".join(lines)
 
 
+def require_complete_build_manifest(path: Path) -> None:
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    runs = manifest.get("runs", [])
+    incomplete = [
+        f"{row.get('phase', '')}/{row.get('case', '')}:{row.get('status', '')}"
+        for row in runs if row.get("status") != "complete"
+    ]
+    if manifest.get("status") != "complete" or not runs or incomplete:
+        raise ValueError(
+            "build campaign is not complete: "
+            f"status={manifest.get('status')}, incomplete={incomplete}")
+
+
 def construction_summary_tables(
     summary_rows: list[dict[str, str]], end_to_end_rows: list[dict[str, str]],
 ) -> tuple[str, str]:
     hierarchy = [row for row in summary_rows if row["component"] == "hierarchy"]
-    if not hierarchy:
-        raise ValueError("construction summary has no hierarchy rows")
+    profiles = [row["profile"] for row in hierarchy]
+    if set(profiles) != REQUIRED_HIERARCHY_BUILD_PROFILES or len(profiles) != len(set(profiles)):
+        raise ValueError(
+            "construction summary requires exactly the five hierarchy profiles; "
+            f"got {sorted(profiles)}")
     if any(int(row["measured_repeats"]) < 2 for row in hierarchy):
         raise ValueError("hierarchy timing requires two measured repeats")
+    if any(row.get("peak_rss_mib", "") == "" for row in hierarchy):
+        raise ValueError("hierarchy resource profile is missing peak RSS")
+    if any(
+        row["profile"] != "cpu" and row.get("peak_gpu_memory_mib", "") == ""
+        for row in hierarchy
+    ):
+        raise ValueError("GPU hierarchy resource profile is missing peak GPU memory")
+    end_to_end_profiles = [row["hierarchy_profile"] for row in end_to_end_rows]
+    if (set(end_to_end_profiles) != REQUIRED_HIERARCHY_BUILD_PROFILES
+            or len(end_to_end_profiles) != len(set(end_to_end_profiles))):
+        raise ValueError(
+            "end-to-end summary requires exactly the five hierarchy profiles; "
+            f"got {sorted(end_to_end_profiles)}")
+    if any(int(row["stage_repeats"]) < 2 for row in end_to_end_rows):
+        raise ValueError("composed construction requires two repeats per stage")
     hierarchy.sort(key=lambda row: row["profile"])
     tex_lines = [
         r"\begin{table*}[t]", r"\centering", r"\small",
@@ -646,6 +684,7 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
     build_summary_rows: list[dict[str, str]] = []
     build_end_to_end_rows: list[dict[str, str]] = []
     if build_summary:
+        require_complete_build_manifest(args.build_manifest)
         build_summary_rows = read_csv(build_summary)
         build_end_to_end_rows = read_csv(build_end_to_end)
         construction_tables_tex, construction_tables_markdown = (

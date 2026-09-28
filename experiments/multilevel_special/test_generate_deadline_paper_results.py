@@ -1,5 +1,6 @@
 import csv
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -37,27 +38,73 @@ class DeadlinePaperResultsTest(unittest.TestCase):
             deadline_results.two_layer_topology_tables(points, points[:-1])
 
     def test_construction_summary_requires_repeats_and_renders_resources(self) -> None:
-        rows = [{
-            "component": "hierarchy", "profile": "gpu", "measured_repeats": "2",
-            "wall_median_seconds": "10", "wall_cv": "0.1",
-            "speedup_vs_component_cpu": "4", "peak_rss_mib": "100",
-            "peak_gpu_memory_mib": "200",
-        }]
-        end_to_end = [{
-            "hierarchy_profile": "gpu", "stage_repeats": "2",
-            "original_cpu_base_median_seconds": "200",
-            "composed_base_plus_hierarchy_seconds": "60",
-            "speedup_vs_original_cpu": "3.333",
-        }]
+        rows = []
+        end_to_end = []
+        for profile in sorted(deadline_results.REQUIRED_HIERARCHY_BUILD_PROFILES):
+            rows.append({
+                "component": "hierarchy", "profile": profile,
+                "measured_repeats": "2", "wall_median_seconds": "10",
+                "wall_cv": "0.1", "speedup_vs_component_cpu": "4",
+                "peak_rss_mib": "100",
+                "peak_gpu_memory_mib": "" if profile == "cpu" else "200",
+            })
+            end_to_end.append({
+                "hierarchy_profile": profile, "stage_repeats": "2",
+                "original_cpu_base_median_seconds": "200",
+                "composed_base_plus_hierarchy_seconds": "60",
+                "speedup_vs_original_cpu": "3.333",
+            })
 
         rendered, markdown = deadline_results.construction_summary_tables(
             rows, end_to_end)
 
-        self.assertIn("gpu & 2 & 10.00", rendered)
-        self.assertIn("| gpu | 2 | 10.00", markdown)
+        self.assertIn("full\\_gpu & 2 & 10.00", rendered)
+        self.assertIn("| full_gpu | 2 | 10.00", markdown)
         rows[0]["measured_repeats"] = "1"
         with self.assertRaisesRegex(ValueError, "two measured repeats"):
             deadline_results.construction_summary_tables(rows, end_to_end)
+
+    def test_construction_summary_requires_resource_and_complete_profile_sets(self) -> None:
+        rows = []
+        end_to_end = []
+        for profile in sorted(deadline_results.REQUIRED_HIERARCHY_BUILD_PROFILES):
+            rows.append({
+                "component": "hierarchy", "profile": profile,
+                "measured_repeats": "2", "wall_median_seconds": "10",
+                "wall_cv": "0.1", "speedup_vs_component_cpu": "4",
+                "peak_rss_mib": "100", "peak_gpu_memory_mib": "200",
+            })
+            end_to_end.append({
+                "hierarchy_profile": profile, "stage_repeats": "2",
+                "original_cpu_base_median_seconds": "200",
+                "composed_base_plus_hierarchy_seconds": "60",
+                "speedup_vs_original_cpu": "3.333",
+            })
+        rows[0]["peak_rss_mib"] = ""
+        with self.assertRaisesRegex(ValueError, "missing peak RSS"):
+            deadline_results.construction_summary_tables(rows, end_to_end)
+        rows[0]["peak_rss_mib"] = "100"
+        with self.assertRaisesRegex(ValueError, "five hierarchy profiles"):
+            deadline_results.construction_summary_tables(rows[:-1], end_to_end)
+        with self.assertRaisesRegex(ValueError, "five hierarchy profiles"):
+            deadline_results.construction_summary_tables(rows, end_to_end[:-1])
+
+    def test_complete_build_manifest_is_required(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "manifest.json"
+            path.write_text(json.dumps({
+                "status": "complete_with_failures",
+                "runs": [{"phase": "hierarchy_resource", "case": "cpu",
+                          "status": "failed"}],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "build campaign is not complete"):
+                deadline_results.require_complete_build_manifest(path)
+            path.write_text(json.dumps({
+                "status": "complete",
+                "runs": [{"phase": "hierarchy_resource", "case": "cpu",
+                          "status": "complete"}],
+            }), encoding="utf-8")
+            deadline_results.require_complete_build_manifest(path)
 
     def test_amazon_profile_table_requires_edges_and_preserves_status(self) -> None:
         methods = (
