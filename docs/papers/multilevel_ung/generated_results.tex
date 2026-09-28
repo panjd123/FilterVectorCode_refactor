@@ -116,19 +116,24 @@ VariousImg & 1 & 543.74 & 0.218 \\
 
 \subsection{Structural Router Ablation}
 DRH-v2 is a same-binary ablation: it rejects an upper layer when direct mass at the highest authorized layer is below the next derived scale.
-\begin{table}[t]
+\begin{table*}[t]
 \centering
 \small
 \caption{Available same-binary DRH-v2 screen results.}
 \label{tab:drh-v2}
-\begin{tabular}{lrrr}
+\begin{tabular}{lrrrr}
 \toprule
-Dataset & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\
+Dataset & Selectivity & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\
 \midrule
-VariousImg & 547.01 & 884.18 & 0.336$\times$ \\
+Genome & 3.365\% & 144.50 & 142.57 & 0.992$\times$ \\
+Genome & 6.292\% & 83.73 & 83.16 & 1.005$\times$ \\
+Reviews & 0.200\% & 17445.16 & 18335.39 & 1.007$\times$ \\
+Reviews & 4.115\% & 368.07 & 351.49 & 0.972$\times$ \\
+VariousImg & 10.252\% & 547.01 & 884.18 & 0.336$\times$ \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
+The next-scale gate restores near-plain behavior on Genome and the 0.2\% Reviews workload, and improves VariousImg over DRH-v1, but it also rejects the useful overlay at 4.115\% Reviews. Thus it reduces catastrophic overhead without establishing monotone dominance.
 
 \subsection{Mechanism Breakdown}
 The separate detailed-profile binary is explanatory only and does not contribute primary QPS. Edge counts are measured here; disabled light-stat counters are never interpreted as zero.

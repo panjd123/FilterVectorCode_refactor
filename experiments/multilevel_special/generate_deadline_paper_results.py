@@ -210,31 +210,39 @@ def drh_v2_table(root: Path) -> tuple[str, list[dict[str, str]]]:
     rows: list[dict[str, str]] = []
     for path in sorted(root.glob("*/search/summary/performance/equal_recall_conservative.csv")):
         rows.extend(read_csv(path))
-    by_dataset: dict[str, dict[str, dict[str, str]]] = {}
+    by_workload: dict[tuple[str, str], dict[str, dict[str, str]]] = {}
     for row in rows:
         summary = row["summary_path"].lower()
         dataset = next((name for name in ("Genome", "Reviews", "VariousImg", "Amazon") if name.lower() in summary), "")
         if dataset:
-            by_dataset.setdefault(dataset, {})[row["method"]] = row
+            by_workload.setdefault((dataset, row["workload"]), {})[row["method"]] = row
     output = [
         r"\subsection{Structural Router Ablation}",
         "DRH-v2 is a same-binary ablation: it rejects an upper layer when direct mass at the highest authorized layer is below the next derived scale.",
-        r"\begin{table}[t]", r"\centering", r"\small",
+        r"\begin{table*}[t]", r"\centering", r"\small",
         r"\caption{Available same-binary DRH-v2 screen results.}", r"\label{tab:drh-v2}",
-        r"\begin{tabular}{lrrr}", r"\toprule", r"Dataset & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\", r"\midrule",
+        r"\begin{tabular}{lrrrr}", r"\toprule", r"Dataset & Selectivity & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\", r"\midrule",
     ]
     usable = []
-    for dataset, methods in sorted(by_dataset.items()):
+    for (dataset, workload), methods in sorted(
+            by_workload.items(),
+            key=lambda item: (item[0][0], float(next(iter(item[1].values()))["mean_selectivity"]))):
         base = next((r for name, r in methods.items() if name == "l0_lng_entry_optimized_lng"), None)
         v1 = next((r for name, r in methods.items() if name.endswith(DRH_V1_SUFFIX)), None)
         v2 = next((r for name, r in methods.items() if name.endswith(DRH_V2_SUFFIX)), None)
         if not (base and v1 and v2):
             continue
-        usable.append({"dataset": dataset, "base": base, "v1": v1, "v2": v2})
-        output.append(f"{dataset} & {float(v1['qps_warm_median']):.2f} & {float(v2['qps_warm_median']):.2f} & {float(v2['qps_warm_median']) / float(base['qps_warm_median']):.3f}$\\times$ " + r"\\")
+        usable.append({"dataset": dataset, "workload": workload, "base": base, "v1": v1, "v2": v2})
+        output.append(f"{dataset} & {100.0 * float(base['mean_selectivity']):.3f}\\% & {float(v1['qps_warm_median']):.2f} & {float(v2['qps_warm_median']):.2f} & {float(v2['qps_warm_median']) / float(base['qps_warm_median']):.3f}$\\times$ " + r"\\")
     if not usable:
-        output.append(r"No completed dataset & -- & -- & -- \\")
-    output.extend([r"\bottomrule", r"\end{tabular}", r"\end{table}"])
+        output.append(r"No completed dataset & -- & -- & -- & -- \\")
+    output.extend([
+        r"\bottomrule", r"\end{tabular}", r"\end{table*}",
+        "The next-scale gate restores near-plain behavior on Genome and the "
+        "0.2\\% Reviews workload, and improves VariousImg over DRH-v1, but it "
+        "also rejects the useful overlay at 4.115\\% Reviews. Thus it reduces "
+        "catastrophic overhead without establishing monotone dominance.",
+    ])
     return "\n".join(output), usable
 
 
@@ -342,7 +350,7 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
     ])
     v2_sentence = "No DRH-v2 dataset had completed when this artifact was generated."
     if drh_v2_rows:
-        v2_sentence = "; ".join(f"{r['dataset']}: v2/plain={float(r['v2']['qps_warm_median']) / float(r['base']['qps_warm_median']):.3f}x" for r in drh_v2_rows) + "."
+        v2_sentence = "; ".join(f"{r['dataset']} {100.0 * float(r['base']['mean_selectivity']):.3f}%: v2/plain={float(r['v2']['qps_warm_median']) / float(r['base']['qps_warm_median']):.3f}x" for r in drh_v2_rows) + "."
     report = f"""# ML-UNG 截止版实验报告
 
 > 证据级别：screen-level。每点 1 次 cold + 2 次 warm；100 个 query worker；固定查询集；Recall@10 crossing 是两次 warm 都达到 0.90 的最小实测 Lsearch，不插值。人工比较只含 5 个预注册替代方案，不称为 35-case oracle。
@@ -359,6 +367,7 @@ ML-UNG 将三个维度解耦：层数与阈值、每层 group topology（LNG 或
 - 0 层 Trie 在 0.5%、1%、5% 分别达到 6.03x、2.77x、18.43x，但 10% 仅 0.60x，说明收益来自 group topology 与入口覆盖的组合，而不是层数单调性。
 - DRH-v1 在 Genome/Reviews 为 plain 的 0.954--1.014x，且为最佳人工配置的 0.980--1.008；VariousImg 只有 plain 的 0.205x，是必须保留的反例。
 - DRH-v2 当前结果：{v2_sentence}
+- DRH-v2 将 Genome 两档恢复到 plain 的 0.992--1.005x，也把 VariousImg 从 v1 的约 0.21x 提升到 0.336x；但它在 Reviews 4.115% 过度回退到 0.972x，说明该 gate 能限制灾难性开销，却仍不能保证逐 workload 单调更优。
 - GPU base-stage 最佳初步时间可从论文构建段落读取；hierarchy repeats 尚未完成，因此不宣称端到端 GPU 多层构建加速。
 
 ## Amazon：0/1/2 层与 topology

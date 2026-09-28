@@ -13,7 +13,8 @@ ML-UNG 将三个维度解耦：层数与阈值、每层 group topology（LNG 或
 - Amazon 在 60%--99% 选择率出现明确多层收益，最佳已测加速为 27.99x；30% 的多层方法在共同预算内未 crossing。
 - 0 层 Trie 在 0.5%、1%、5% 分别达到 6.03x、2.77x、18.43x，但 10% 仅 0.60x，说明收益来自 group topology 与入口覆盖的组合，而不是层数单调性。
 - DRH-v1 在 Genome/Reviews 为 plain 的 0.954--1.014x，且为最佳人工配置的 0.980--1.008；VariousImg 只有 plain 的 0.205x，是必须保留的反例。
-- DRH-v2 当前结果：VariousImg: v2/plain=0.336x.
+- DRH-v2 当前结果：Genome 3.365%: v2/plain=0.992x; Genome 6.292%: v2/plain=1.005x; Reviews 0.200%: v2/plain=1.007x; Reviews 4.115%: v2/plain=0.972x; VariousImg 10.252%: v2/plain=0.336x.
+- DRH-v2 将 Genome 两档恢复到 plain 的 0.992--1.005x，也把 VariousImg 从 v1 的约 0.21x 提升到 0.336x；但它在 Reviews 4.115% 过度回退到 0.972x，说明该 gate 能限制灾难性开销，却仍不能保证逐 workload 单调更优。
 - GPU base-stage 最佳初步时间可从论文构建段落读取；hierarchy repeats 尚未完成，因此不宣称端到端 GPU 多层构建加速。
 
 ## Amazon：0/1/2 层与 topology
