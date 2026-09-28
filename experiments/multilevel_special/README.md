@@ -349,6 +349,31 @@ manifest against the new executable's SHA256. A different profile binary is
 allowed because profile timing is explanatory and never contributes to QPS;
 the generated paper records both hashes.
 
+For a bounded representative profile, derive selected methods and workloads
+from an already completed performance sweep instead of editing JSON by hand:
+
+```bash
+python3 prepare_selected_profile_campaign.py \
+  --source-config config.authoritative_amazon_screen_emptyfix.json \
+  --search-binary ../../build_ung_profile_instrumented_deadline/apps/search_UNG_index \
+  --source-commit <instrumented-source-commit> \
+  --output-config config.amazon_representative_profile.json \
+  --output-root ../../runs/amazon_representative_profile_20260928 \
+  --manifest ../../runs/amazon_representative_profile_20260928/selection_manifest.json \
+  --method l0_lng_entry_optimized_lng \
+  --method l1_t1024_lng_entry_optimized_lng \
+  --workload sel_10 --workload sel_60
+```
+
+The derivation selects the smallest conservative Recall crossing, or the best
+measured point when no crossing exists, and records the source details hash for
+every case. `run_remaining_evidence_campaign.py` is the resumable bounded
+orchestrator used for the remaining two-layer topology cases and the selected
+Amazon profile. It waits for construction processes to quiesce, applies the
+per-case timeout, writes a supervisor manifest, refreshes summaries and plots,
+then validates and summarizes the profile. It must not be run concurrently
+with another query supervisor.
+
 For a long unattended campaign, `continue_after_build.py` waits for the
 held-out and build summaries and for every query/build process to exit. It then
 runs the isolated instrumented profile, invokes the fail-closed paper generator,

@@ -136,6 +136,84 @@ def amazon_table(rows: list[dict[str, str]]) -> tuple[str, dict[str, dict[str, d
     return "\n".join(lines), selected
 
 
+def one_layer_topology_table(
+    crossing_rows: list[dict[str, str]], all_points: list[dict[str, str]],
+) -> tuple[str, list[dict[str, object]]]:
+    methods = (
+        "l1_t1024_lng_entry_optimized_lng",
+        "l1_t1024_trie_entry_optimized_lng",
+    )
+    crossings = {
+        (row["workload"], row["method"]): row
+        for row in crossing_rows if row["method"] in methods
+    }
+    points: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in all_points:
+        if row["method"] in methods:
+            points.setdefault((row["workload"], row["method"]), []).append(row)
+    records: list[dict[str, object]] = []
+    lines = [
+        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\caption{Fixed-$T_1=1024$ one-layer topology ablation with the same optimized-LNG entry provider. QPS is reported only at a measured Recall@10 $\geq0.90$ crossing; $R_{\max}$ exposes the quality reached when a crossing is absent.}",
+        r"\label{tab:one-layer-topology}",
+        r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{rrrrrr}", r"\toprule",
+        r"Selectivity & LNG QPS & Trie QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\max}$ \\",
+        r"\midrule",
+    ]
+    for workload in WORKLOAD_ORDER:
+        maxima = {}
+        for method in methods:
+            candidates = points.get((workload, method), [])
+            if not candidates:
+                raise ValueError(
+                    f"missing one-layer topology points: {workload}/{method}")
+            maxima[method] = max(
+                candidates,
+                key=lambda row: (float(row["recall_min"]), -int(float(row["lsearch"]))),
+            )
+        lng = crossings.get((workload, methods[0]))
+        trie = crossings.get((workload, methods[1]))
+        ratio = (float(trie["qps_warm_median"]) / float(lng["qps_warm_median"])) if lng and trie else None
+        record = {
+            "workload": workload,
+            "mean_selectivity": float(maxima[methods[0]]["mean_selectivity"]),
+            "lng_qps": float(lng["qps_warm_median"]) if lng else None,
+            "trie_qps": float(trie["qps_warm_median"]) if trie else None,
+            "trie_over_lng": ratio,
+            "lng_max_recall": float(maxima[methods[0]]["recall_min"]),
+            "trie_max_recall": float(maxima[methods[1]]["recall_min"]),
+        }
+        records.append(record)
+        qps = lambda value: "NC" if value is None else f"{value:.2f}"
+        ratio_text = "--" if ratio is None else f"{ratio:.3f}$\\times$"
+        lines.append(
+            f"{100.0 * record['mean_selectivity']:.3f}\\% & "
+            f"{qps(record['lng_qps'])} & {qps(record['trie_qps'])} & {ratio_text} & "
+            f"{record['lng_max_recall']:.4f} & {record['trie_max_recall']:.4f} " + r"\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}"])
+    return "\n".join(lines), records
+
+
+def one_layer_topology_markdown(rows: list[dict[str, object]]) -> str:
+    lines = [
+        "## 单层 topology 公平消融",
+        "",
+        "固定 T1=1024 和 optimized-LNG entry provider；只有两种 topology 都达到 Recall@10 >= 0.90 时才给出 QPS 比。",
+        "",
+        "| Selectivity | LNG QPS@0.90 | Trie QPS@0.90 | Trie/LNG | LNG max Recall | Trie max Recall |",
+        "|---:|---:|---:|---:|---:|---:|",
+    ]
+    for row in rows:
+        qps = lambda value: "NC" if value is None else f"{float(value):.2f}"
+        ratio = row["trie_over_lng"]
+        lines.append(
+            f"| {100.0 * float(row['mean_selectivity']):.3f}% | "
+            f"{qps(row['lng_qps'])} | {qps(row['trie_qps'])} | "
+            f"{'--' if ratio is None else f'{float(ratio):.3f}x'} | "
+            f"{float(row['lng_max_recall']):.4f} | {float(row['trie_max_recall']):.4f} |")
+    return "\n".join(lines)
+
+
 def dataset_table(policies: list[dict]) -> str:
     lines = [
         r"\begin{table*}[t]", r"\centering", r"\small",
@@ -338,6 +416,7 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
     global_rows = read_csv(args.deadline_summary / "automatic_vs_global_manual.csv")
     build_rows = read_csv(args.deadline_summary / "build_cases.csv")
     amazon, amazon_index = amazon_table(amazon_rows)
+    topology, topology_rows = one_layer_topology_table(amazon_rows, all_points)
     profile = profile_table(args.profile)
     drh_v2, drh_v2_rows = drh_v2_table(args.drh_v2_root)
     construction = construction_section(build_rows, args.build_manifest)
@@ -353,6 +432,7 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
         r"\subsection{Amazon Query Performance}",
         r"These are bounded screen-level results (one discarded cold repeat and two warm repeats), not formal confidence-interval estimates. At low selectivity the zero-layer Trie changes group connectivity and can be substantially faster; its loss at 10\% and above shows that this is not a monotone hierarchy effect. The ungated one- and two-layer methods do not cross the target at 30\%, while high-selectivity gains reach 27.99$\times$ and 27.57$\times$. Exact upper routing preserves low-selectivity crossings but remains 0.64--0.99$\times$ of plain over 0.5--10\%.",
         amazon,
+        topology,
         heldout_tables(heldout, global_rows),
         drh_v2,
         profile,
@@ -409,6 +489,8 @@ ML-UNG 将三个维度解耦：层数与阈值、每层 group topology（LNG 或
     report += """
 
 NC 表示在该 workload 的实测共同预算内未达到 Recall@10 >= 0.90，不表示算法无法在任意更大预算下达到该质量。低选择率下 gated 两层为 plain 的 0.86x、0.99x、0.85x、0.64x，因此“额外层不用时必然无成本”在当前共享入口、授权和队列实现上不成立。
+
+""" + one_layer_topology_markdown(topology_rows) + """
 
 ## 自动 DRH 与人工调优
 

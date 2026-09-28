@@ -95,6 +95,45 @@ class DeadlineProfilePreparationTest(unittest.TestCase):
             self.assertEqual(result["lsearch_values"], [100])
             self.assertEqual(len(cases), 2)
 
+    def test_profile_can_select_explicit_methods_and_workloads(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = root / "source.json"
+            binary = root / "search"
+            binary.write_bytes(b"binary")
+            source = {
+                "dataset": "D", "output_root": str(root / "performance_root"),
+                "measurement_pass": "performance", "pass_subdirs": True,
+                "protocol": {"cold_repeats": 1, "measured_repeats": 2},
+                "recall_thresholds": {"narrow": 0.9, "broad": 0.9},
+                "workloads": [{"name": "narrow"}, {"name": "broad"}],
+                "methods": [
+                    {"name": "plain", "selection_role": "zero_layer_baseline"},
+                    {"name": "trie", "selection_role": "manual_grid"},
+                    {"name": "unused", "selection_role": "manual_grid"},
+                ],
+                "lsearch_values": [100],
+            }
+            source_path.write_text("{}\n")
+            for method in ("plain", "trie"):
+                write_details(
+                    root / "performance_root/performance" / method / "broad" /
+                    "search_time_details.csv",
+                    {100: (0.8, 0.91, 0.92)},
+                )
+
+            result, cases = profile.make_profile_config(
+                source, source_path, binary, profile.sha256_file(binary),
+                "commit", root / "profile_root",
+                selected_method_names={"plain", "trie"},
+                selected_workload_names={"broad"},
+            )
+
+            self.assertEqual([m["name"] for m in result["methods"]], ["plain", "trie"])
+            self.assertEqual([w["name"] for w in result["workloads"]], ["broad"])
+            self.assertEqual(result["recall_thresholds"], {"broad": 0.9})
+            self.assertEqual(2, len(cases))
+
 
 if __name__ == "__main__":
     unittest.main()

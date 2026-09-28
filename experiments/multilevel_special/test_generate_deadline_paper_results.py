@@ -13,6 +13,37 @@ SPEC.loader.exec_module(deadline_results)
 
 
 class DeadlinePaperResultsTest(unittest.TestCase):
+    def test_one_layer_topology_table_keeps_nc_and_max_recall(self) -> None:
+        methods = (
+            "l1_t1024_lng_entry_optimized_lng",
+            "l1_t1024_trie_entry_optimized_lng",
+        )
+        points = []
+        crossings = []
+        for workload_index, workload in enumerate(deadline_results.WORKLOAD_ORDER):
+            for method_index, method in enumerate(methods):
+                row = {
+                    "workload": workload,
+                    "method": method,
+                    "mean_selectivity": str((workload_index + 1) / 100),
+                    "lsearch": "100",
+                    "recall_min": str(0.80 + method_index / 100),
+                    "qps_warm_median": str(100 + method_index),
+                }
+                points.append(row)
+                if workload_index >= 5:
+                    crossing = dict(row)
+                    crossing["recall_min"] = "0.91"
+                    crossings.append(crossing)
+
+        rendered, rows = deadline_results.one_layer_topology_table(
+            crossings, points)
+
+        self.assertEqual(9, len(rows))
+        self.assertIsNone(rows[0]["trie_over_lng"])
+        self.assertAlmostEqual(1.01, rows[-1]["trie_over_lng"])
+        self.assertIn("NC & NC & -- & 0.8000 & 0.8100", rendered)
+
     def test_drh_v2_table_keeps_each_workload(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

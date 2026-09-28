@@ -117,25 +117,48 @@ def measurement_root(config: dict[str, Any]) -> Path:
 def make_profile_config(
     source: dict[str, Any], source_path: Path, binary: Path,
     binary_hash: str, source_commit: str, output_root: Path,
+    selected_method_names: set[str] | None = None,
+    selected_workload_names: set[str] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     protocol = source["protocol"]
     cold = int(protocol["cold_repeats"])
     measured = int(protocol["measured_repeats"])
     source_root = measurement_root(source)
-    methods = [
-        copy.deepcopy(method) for method in source["methods"]
-        if method.get("selection_role") in SELECTED_ROLES
+    if selected_method_names is None:
+        methods = [
+            copy.deepcopy(method) for method in source["methods"]
+            if method.get("selection_role") in SELECTED_ROLES
+        ]
+        roles = {str(method.get("selection_role")) for method in methods}
+        if roles != SELECTED_ROLES or len(methods) != len(SELECTED_ROLES):
+            raise ValueError(
+                f"expected exactly one method for each selected role, got {roles}")
+    else:
+        methods = [
+            copy.deepcopy(method) for method in source["methods"]
+            if str(method["name"]) in selected_method_names
+        ]
+        found = {str(method["name"]) for method in methods}
+        if found != selected_method_names:
+            raise ValueError(
+                f"selected methods are missing: {sorted(selected_method_names - found)}")
+
+    workloads = [
+        copy.deepcopy(workload) for workload in source["workloads"]
+        if selected_workload_names is None
+        or str(workload["name"]) in selected_workload_names
     ]
-    roles = {str(method.get("selection_role")) for method in methods}
-    if roles != SELECTED_ROLES or len(methods) != len(SELECTED_ROLES):
+    found_workloads = {str(workload["name"]) for workload in workloads}
+    if selected_workload_names is not None and found_workloads != selected_workload_names:
         raise ValueError(
-            f"expected exactly one method for each selected role, got {roles}")
+            "selected workloads are missing: "
+            f"{sorted(selected_workload_names - found_workloads)}")
 
     cases = []
     lsearch_union = set()
     for method in methods:
         by_workload = {}
-        for workload in source["workloads"]:
+        for workload in workloads:
             workload_name = str(workload["name"])
             target = float(source["recall_thresholds"][workload_name])
             detail_path = (
@@ -170,6 +193,11 @@ def make_profile_config(
     result["num_repeats"] = 3
     result["lsearch_values"] = sorted(lsearch_union)
     result["methods"] = methods
+    result["workloads"] = workloads
+    result["recall_thresholds"] = {
+        name: value for name, value in source["recall_thresholds"].items()
+        if name in found_workloads
+    }
     result["require_stage_breakdown"] = True
     result["require_work_breakdown"] = True
     result["minimum_successful_child_seconds"] = 0
