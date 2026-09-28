@@ -11,19 +11,33 @@ latexmk -pdf main.tex
 ```
 
 The benchmark host has a pinned Tectonic binary outside `PATH`.  The
-authoritative finalizer invokes it directly as:
+working static binary can be invoked directly as:
 
 ```bash
-/home/sunyahui/.local/opt/tectonic-0.15.0-musl/tectonic -X compile \
-  --keep-logs --keep-intermediates --outdir <paper-output> main.tex
+/home/sunyahui/.local/opt/tectonic-0.15.0-musl/tectonic \
+  --keep-logs --keep-intermediates main.tex
 ```
+
+Two evidence contracts are intentionally separate:
+
+- `generate_authoritative_paper_results.py` is the publication gate for the
+  complete formal and repeated-build protocol. It remains fail-closed.
+- `generate_deadline_paper_results.py` accepts only the completed bounded
+  campaign: three complete Amazon figure families, five held-out workloads,
+  independent detailed profiles, and the explicit incomplete-build manifest.
+  It labels query numbers as `1 cold + 2 warm` screen-level values and refuses
+  to claim end-to-end GPU hierarchy speedup.
+
+The deadline generator copies validated figures into `generated_figures/`,
+writes `generated_results.tex` and the Chinese report atomically, and records
+full input hashes in `runs/deadline_paper_20260928/manifest.json`.
 
 `continue_after_build.py` also hashes the compiler and every direct paper
 input, rejects unresolved references and BibTeX failures, and writes the final
 PDF and provenance manifest.  That path, rather than an ad hoc local build,
 defines the publication artifact.
 
-Before treating the draft as final:
+Before treating the full-protocol draft as final:
 
 1. Complete and validate screen, crossing, formal, and profile query passes.
 2. Complete held-out automatic-versus-oracle experiments.
