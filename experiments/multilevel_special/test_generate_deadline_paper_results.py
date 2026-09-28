@@ -106,6 +106,44 @@ class DeadlinePaperResultsTest(unittest.TestCase):
             }), encoding="utf-8")
             deadline_results.require_complete_build_manifest(path)
 
+    def test_construction_text_does_not_call_completed_repeats_deferred(self) -> None:
+        build_rows = [{
+            "selection_role": "predeclared_degree_ratio_hierarchy_v1",
+            "dataset": "Genome", "elapsed_seconds": "1",
+            "special_block_count": "2", "special_block_upper_count": "1",
+            "special_edge_count": "3",
+        }]
+        runs = [
+            {"phase": "base_timing", "case": "original_cpu_measured_r0",
+             "status": "complete", "elapsed_seconds": 200},
+            {"phase": "base_timing", "case": "accelerated_gpu_measured_r0",
+             "status": "complete", "elapsed_seconds": 50},
+            {"phase": "hierarchy_timing", "case": "auto_drh_v1_cpu_cold_r0",
+             "status": "complete", "elapsed_seconds": 100},
+            {"phase": "hierarchy_timing",
+             "case": "auto_drh_v1_full_gpu_cold_r0",
+             "status": "complete", "elapsed_seconds": 10},
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "manifest.json"
+            path.write_text(json.dumps({
+                "status": "complete", "runs": runs,
+            }), encoding="utf-8")
+            complete = deadline_results.construction_section(build_rows, path)
+            self.assertIn("repeated hierarchy and composed results follow", complete)
+            self.assertNotIn("repeats are therefore deferred", complete)
+
+            runs.append({
+                "phase": "hierarchy_resource", "case": "cpu",
+                "status": "failed", "elapsed_seconds": 1,
+            })
+            path.write_text(json.dumps({
+                "status": "complete_with_failures", "runs": runs,
+            }), encoding="utf-8")
+            partial = deadline_results.construction_section(build_rows, path)
+            self.assertIn("repeats are therefore deferred", partial)
+            self.assertIn("single-cold-run sidecar screen", partial)
+
     def test_amazon_profile_table_requires_edges_and_preserves_status(self) -> None:
         methods = (
             "l0_lng_entry_optimized_lng",

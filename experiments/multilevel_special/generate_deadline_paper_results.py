@@ -509,16 +509,30 @@ def construction_section(build_rows: list[dict[str, str]], build_manifest: Path)
     if base_measured:
         cpu = statistics.median(base_measured.get("original_cpu", [math.nan]))
         gpu_name, gpu_time = min(((name, statistics.median(values)) for name, values in base_measured.items() if "gpu" in name), key=lambda x: x[1])
-        lines.append(
-            f"For context, the completed base-index timing stage measured {cpu:.2f}s for original CPU and {gpu_time:.2f}s for {tex(gpu_name)}, a {cpu / gpu_time:.2f}$\\times$ base-stage speedup. "
-            f"The campaign manifest is {tex(manifest.get('status'))} ({len(complete)} complete, {len(failed)} failed/interrupted cases); hierarchy GPU repeats are therefore deferred and no end-to-end multilevel construction speedup is claimed.")
-    if hierarchy_cold and "cpu" in hierarchy_cold:
+        base_sentence = (
+            f"For context, the completed base-index timing stage measured {cpu:.2f}s "
+            f"for original CPU and {gpu_time:.2f}s for {tex(gpu_name)}, a "
+            f"{cpu / gpu_time:.2f}$\\times$ base-stage speedup. ")
+        if manifest.get("status") == "complete" and not failed:
+            lines.append(
+                base_sentence
+                + f"The campaign manifest contains {len(complete)} completed cases; "
+                "the repeated hierarchy and composed results follow.")
+        else:
+            lines.append(
+                base_sentence
+                + f"The campaign manifest is {tex(manifest.get('status'))} "
+                f"({len(complete)} complete, {len(failed)} failed/interrupted cases); "
+                "hierarchy GPU repeats are therefore deferred and no end-to-end "
+                "multilevel construction speedup is claimed.")
+    gpu_cold = [
+        (name, statistics.median(values))
+        for name, values in hierarchy_cold.items() if name != "cpu"
+    ]
+    if ((manifest.get("status") != "complete" or failed)
+            and "cpu" in hierarchy_cold and gpu_cold):
         cpu = statistics.median(hierarchy_cold["cpu"])
-        gpu_name, gpu_time = min(
-            ((name, statistics.median(values)) for name, values in hierarchy_cold.items()
-             if name != "cpu"),
-            key=lambda item: item[1],
-        )
+        gpu_name, gpu_time = min(gpu_cold, key=lambda item: item[1])
         lines.append(
             f"A separate single-cold-run sidecar screen completed for {len(hierarchy_cold)} backends: "
             f"CPU took {cpu:.2f}s and the fastest completed backend, {tex(gpu_name)}, took "
