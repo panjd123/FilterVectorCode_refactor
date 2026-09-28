@@ -81,6 +81,23 @@ def is_complete(state: dict[str, Any], stage: str, method: str = "",
     )
 
 
+def record_key(row: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(row.get("stage", "")),
+        str(row.get("method", "")),
+        str(row.get("workload", "")),
+    )
+
+
+def replace_record(state: dict[str, Any], record: dict[str, Any]) -> None:
+    key = record_key(record)
+    prior = [row for row in state["runs"] if record_key(row) == key]
+    record["attempt"] = 1 + max(
+        (int(row.get("attempt", 1)) for row in prior), default=0)
+    state["runs"] = [row for row in state["runs"] if record_key(row) != key]
+    state["runs"].append(record)
+
+
 def run_stage(
     state: dict[str, Any], manifest: Path, log: Path, timeout: float,
     stage: str, command: list[str], method: str = "", workload: str = "",
@@ -89,7 +106,7 @@ def run_stage(
         print(f"[SKIP] {stage}/{method}/{workload}", flush=True)
         return True
     status, returncode, elapsed = bounded.run_bounded(command, log, timeout)
-    state["runs"].append({
+    replace_record(state, {
         "stage": stage,
         "method": method,
         "workload": workload,
