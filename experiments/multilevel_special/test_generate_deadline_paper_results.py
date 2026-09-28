@@ -13,6 +13,29 @@ SPEC.loader.exec_module(deadline_results)
 
 
 class DeadlinePaperResultsTest(unittest.TestCase):
+    def test_construction_summary_requires_repeats_and_renders_resources(self) -> None:
+        rows = [{
+            "component": "hierarchy", "profile": "gpu", "measured_repeats": "2",
+            "wall_median_seconds": "10", "wall_cv": "0.1",
+            "speedup_vs_component_cpu": "4", "peak_rss_mib": "100",
+            "peak_gpu_memory_mib": "200",
+        }]
+        end_to_end = [{
+            "hierarchy_profile": "gpu", "stage_repeats": "2",
+            "original_cpu_base_median_seconds": "200",
+            "composed_base_plus_hierarchy_seconds": "60",
+            "speedup_vs_original_cpu": "3.333",
+        }]
+
+        rendered, markdown = deadline_results.construction_summary_tables(
+            rows, end_to_end)
+
+        self.assertIn("gpu & 2 & 10.00", rendered)
+        self.assertIn("| gpu | 2 | 10.00", markdown)
+        rows[0]["measured_repeats"] = "1"
+        with self.assertRaisesRegex(ValueError, "two measured repeats"):
+            deadline_results.construction_summary_tables(rows, end_to_end)
+
     def test_amazon_profile_table_requires_edges_and_preserves_status(self) -> None:
         methods = (
             "l0_lng_entry_optimized_lng",

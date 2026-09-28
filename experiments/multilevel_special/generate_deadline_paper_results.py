@@ -462,6 +462,72 @@ def construction_section(build_rows: list[dict[str, str]], build_manifest: Path)
     return "\n".join(lines)
 
 
+def construction_summary_tables(
+    summary_rows: list[dict[str, str]], end_to_end_rows: list[dict[str, str]],
+) -> tuple[str, str]:
+    hierarchy = [row for row in summary_rows if row["component"] == "hierarchy"]
+    if not hierarchy:
+        raise ValueError("construction summary has no hierarchy rows")
+    if any(int(row["measured_repeats"]) < 2 for row in hierarchy):
+        raise ValueError("hierarchy timing requires two measured repeats")
+    hierarchy.sort(key=lambda row: row["profile"])
+    tex_lines = [
+        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\caption{Repeated Amazon hierarchy-sidecar construction measurements. Resource values come from a separate profiling run and do not enter timing medians.}",
+        r"\label{tab:hierarchy-build}", r"\resizebox{\textwidth}{!}{%",
+        r"\begin{tabular}{lrrrrrr}", r"\toprule",
+        r"Backend & Repeats & Wall median (s) & CV & Speedup/CPU & Peak RSS (MiB) & Peak GPU (MiB) \\",
+        r"\midrule",
+    ]
+    md_lines = [
+        "## Repeated hierarchy construction", "",
+        "Timing 与 resource profile 分离；resource run 不进入 timing median。", "",
+        "| Backend | Repeats | Wall median (s) | CV | Speedup/CPU | Peak RSS MiB | Peak GPU MiB |",
+        "|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for row in hierarchy:
+        speedup = float(row.get("speedup_vs_component_cpu") or 1.0)
+        rss = row.get("peak_rss_mib", "")
+        gpu = row.get("peak_gpu_memory_mib", "")
+        rss_text = "--" if rss == "" else f"{float(rss):.1f}"
+        gpu_text = "--" if gpu == "" else f"{float(gpu):.1f}"
+        tex_lines.append(
+            f"{tex(row['profile'])} & {row['measured_repeats']} & "
+            f"{float(row['wall_median_seconds']):.2f} & {float(row['wall_cv']):.3f} & "
+            f"{speedup:.2f}$\\times$ & {rss_text} & {gpu_text} " + r"\\")
+        md_lines.append(
+            f"| {row['profile']} | {row['measured_repeats']} | "
+            f"{float(row['wall_median_seconds']):.2f} | {float(row['wall_cv']):.3f} | "
+            f"{speedup:.2f}x | {rss_text} | {gpu_text} |")
+    tex_lines.extend([r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}"])
+    if end_to_end_rows:
+        tex_lines.extend([
+            r"\begin{table*}[t]", r"\centering", r"\small",
+            r"\caption{Composed end-to-end construction: accelerated base stage plus hierarchy sidecar versus the original CPU base builder. Stage medians are measured independently.}",
+            r"\label{tab:end-to-end-build}", r"\begin{tabular}{lrrrr}", r"\toprule",
+            r"Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup \\",
+            r"\midrule",
+        ])
+        md_lines.extend([
+            "", "### Composed end-to-end construction", "",
+            "| Hierarchy backend | Stage repeats | Original CPU s | Composed s | Speedup |",
+            "|---|---:|---:|---:|---:|",
+        ])
+        for row in sorted(end_to_end_rows, key=lambda item: item["hierarchy_profile"]):
+            tex_lines.append(
+                f"{tex(row['hierarchy_profile'])} & {row['stage_repeats']} & "
+                f"{float(row['original_cpu_base_median_seconds']):.2f} & "
+                f"{float(row['composed_base_plus_hierarchy_seconds']):.2f} & "
+                f"{float(row['speedup_vs_original_cpu']):.2f}$\\times$ " + r"\\")
+            md_lines.append(
+                f"| {row['hierarchy_profile']} | {row['stage_repeats']} | "
+                f"{float(row['original_cpu_base_median_seconds']):.2f} | "
+                f"{float(row['composed_base_plus_hierarchy_seconds']):.2f} | "
+                f"{float(row['speedup_vs_original_cpu']):.2f}x |")
+        tex_lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}"])
+    return "\n".join(tex_lines), "\n".join(md_lines)
+
+
 def figures_macro(figures: dict[str, Path]) -> str:
     captions = {
         "principal_zero": "the zero-layer LNG/Trie comparison",
@@ -507,6 +573,17 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
     profile = profile_table(args.profile)
     drh_v2, drh_v2_rows = drh_v2_table(args.drh_v2_root)
     construction = construction_section(build_rows, args.build_manifest)
+    construction_tables_tex = ""
+    construction_tables_markdown = ""
+    build_summary = getattr(args, "build_summary", None)
+    build_end_to_end = getattr(args, "build_end_to_end", None)
+    if bool(build_summary) != bool(build_end_to_end):
+        raise ValueError(
+            "--build-summary and --build-end-to-end must be supplied together")
+    if build_summary:
+        construction_tables_tex, construction_tables_markdown = (
+            construction_summary_tables(
+                read_csv(build_summary), read_csv(build_end_to_end)))
     amazon_profile_tex = ""
     amazon_profile_markdown = ""
     amazon_profile_points = getattr(args, "amazon_profile_points", None)
@@ -535,10 +612,13 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
         profile,
         amazon_profile_tex,
         construction,
+        construction_tables_tex,
     ])
     evidence = [args.amazon_equal_recall, args.amazon_points, args.deadline_summary / "automatic_vs_manual.csv", args.deadline_summary / "automatic_vs_global_manual.csv", args.deadline_summary / "build_cases.csv", args.build_manifest, *args.policy, *args.profile, args.figures / "plot_manifest.json", *source_figures.values()]
     if amazon_profile_points:
         evidence.extend([amazon_profile_points, amazon_profile_selection])
+    if build_summary:
+        evidence.extend([build_summary, build_end_to_end])
     generated = "\n".join([
         "% Generated by generate_deadline_paper_results.py from validated bounded evidence.",
         r"\newcommand{\authoritativeAbstractResult}{The bounded study finds up to 27.99$\times$ QPS improvement on Amazon at equal measured Recall, while held-out DRH ranges from 0.205$\times$ to 1.014$\times$ of the zero-layer baseline. These negative and positive results show that hierarchy value depends on structural authorization and graph work, not selectivity alone.}",
@@ -627,6 +707,8 @@ Reviews 的较宽 workload 中 DRH 将 visited 从 4415.8 降至 3500.1、distan
 
 自动 DRH 的 CPU sidecar wall time 分别为 Genome 44.2 s、Reviews 120.4 s、VariousImg 633.2 s。独立 base-index timing 的原始 CPU 中位数为 190.61 s，最快 GPU profile 为 53.18 s（3.58x），但这只证明 base stage。另一个 Amazon hierarchy cold sidecar 完成了 CPU 986.12 s、hybrid GPU intra 85.75 s、hybrid GPU intra+inter 136.08 s 和 full GPU 105.83 s；最快完成项相对 CPU 为 11.50x。该横向比较只有单次 cold run，且不含 base-index construction，因此只能作为 GPU hierarchy 可行性证据，不能当作重复测量的端到端构建加速比。
 
+""" + construction_tables_markdown + """
+
 ## 学术边界
 
 当前结论不包含正式置信区间，不把 light-stats 的缺失边计数解释为 0，也不把 CPU sidecar 构建或 base-only GPU timing 当作完整多层 GPU 构建结果。完整 396-case 生成器仍保持 fail-closed；本报告来自单独、显式缩小的 deadline evidence contract。所有负结果与 NC 均保留。
@@ -646,6 +728,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--amazon-profile-selection", type=Path)
     parser.add_argument("--drh-v2-root", type=Path, required=True)
     parser.add_argument("--build-manifest", type=Path, required=True)
+    parser.add_argument("--build-summary", type=Path)
+    parser.add_argument("--build-end-to-end", type=Path)
     parser.add_argument("--figure-output-dir", type=Path, required=True)
     parser.add_argument("--manifest-output", type=Path, required=True)
     parser.add_argument("--tex-output", type=Path, required=True)
