@@ -59,7 +59,8 @@
   Tectonic hash、输出 hash 和声明式缺口。
 - `docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md`：中文权威报告。
 - `docs/papers/multilevel_ung/main.pdf`：当前论文 PDF。
-- GitHub `main`：提交 `82eac529ca42c4a26c172ef8257209ce8ec334f0` 已发布。
+- GitHub `main`：包含本审计版本；精确提交以远端 `refs/heads/main` 为权威，
+  避免在提交内容中写入会立即失效的自引用 commit ID。
 - ShareLaTeX：`xm.jarden@gmail.com` 所有的项目
   `ML-UNG Paper - 2026-09-28` 已同步全部 18 个论文源、数据和 PDF 文件；文本与
   二进制内容均逐文件哈希核对，服务端可编译为 20 页 PDF。
