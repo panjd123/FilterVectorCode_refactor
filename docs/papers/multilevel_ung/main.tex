@@ -230,6 +230,9 @@ where $m$ is the number of upper overlays,
 $\mathbf{T}=(T_1,\ldots,T_m)$ contains their partition thresholds,
 $\boldsymbol{\tau}=(\tau_0,\ldots,\tau_m)$ contains the base and overlay
 topologies, $e$ is the entry strategy, and $r$ is the routing policy.
+The method space permits $\tau_0\in\{\mathrm{LNG},\mathrm{Trie}\}$ independently
+of every upper-level choice; an LNG base is therefore not part of the
+definition of \system.
 
 Orthogonality here is an interface and experimental property, not a claim that
 the factors have no interaction.  An LNG entry routine returns minimal
@@ -634,10 +637,11 @@ emphasize that $\Phi$ and the mass gate are query-independent structural
 proxies, not proofs of runtime optimality; held-out oracle regret tests whether
 the complete policy transfers without query calibration.
 
-DRH treats level 0 differently from an overlay: it selects
+The evaluated conservative single-base DRH instantiation treats level 0
+differently from an overlay: it selects
 $\tau_0=\mathrm{LNG}$ as the reachability anchor and applies the degree-ratio
 rule only to $\ell>0$.  This is a policy choice rather than an implementation
-restriction.
+restriction or an assumption of the method.
 Tables~\ref{tab:base-topology-factorial-a}--\ref{tab:base-topology-factorial-b}
 evaluate both possible bases with
 all upper assignments.  The matched-provider 0L screen shows that Trie is
@@ -648,6 +652,19 @@ choices at both narrow and broad selectivities, but a static Trie-base choice
 still loses to 0L LNG at 10--30\%.  Retaining LNG as the calibration-free base
 therefore provides a conservative fallback; a dual-base query-time selector is
 a useful extension, but is not silently folded into the reported policy.
+
+\paragraph{Automation contract.}
+This evaluated DRH policy therefore automates the number of upper overlays,
+their thresholds and topologies, and the structural fallback gate.  It does
+not claim that one base topology is optimal for every query regime.  The
+complete factorial shows why: a Trie base is the strongest measured choice at
+0.5--5\% and again after an effective coarse overlay is activated, whereas the
+LNG base remains the strongest fallback at 10--30\%.  Selecting between two
+materialized bases at query time would require an additional policy and its
+own held-out validation; we leave that extension separate rather than deriving
+it retrospectively from the Amazon outcomes.  Accordingly, our experimental
+claims report both the full base-by-overlay design space and the narrower
+calibration-free LNG-base DRH instantiation; they are not interchangeable.
 
 \begin{algorithm}[t]
 \caption{Degree-Ratio hierarchy with the DRH-v2 router}
@@ -1011,9 +1028,10 @@ exclusive lock when the host provides one.  On the current host, where that
 tool is unavailable, each GPU case instead requires three consecutive idle
 device snapshots before timing; we retain those snapshots and label the
 result as an idle-preflight measurement rather than claiming lock-level
-exclusivity. The current deadline artifact reports completed base-stage timing
-and CPU sidecars separately; it makes no end-to-end GPU hierarchy claim before
-the remaining hierarchy repeats finish.
+exclusivity.  The completed construction study reports two measured timing
+repeats per hierarchy backend and a separate resource pass.  Its composed
+base-plus-hierarchy result sums independently measured stage medians and is
+explicitly distinguished from a single jointly timed build.
 
 \section{Results}
 \authoritativeResults
@@ -1092,6 +1110,19 @@ navigation, whereas our layers aggregate label-space regions and are selected
 by an exact predicate test.  Prefix-Trie connectivity is an optional
 inter-block sparsifier in our framework, not a relabeling of UNG's existing
 Trie-assisted entry lookup.
+
+Recent systems make workload heterogeneity itself an index-design concern.
+Elastic Index Selection exploits containment among label sets to choose and
+share partial indexes under an elastic-factor bound
+~\cite{yang2025elastic}.  Curator advocates a dual-index architecture for the
+low-selectivity regime and shares label-specialized indexes through a
+clustering tree~\cite{jin2026curator}.  Their conclusions reinforce our
+factorial result that no single organization should be presumed best across
+all filter regimes.  Our focus is complementary: we study independently
+materialized navigation scales inside one containment-oriented graph system,
+make LNG-versus-Trie topology a per-level choice, and derive a query-trace-free
+hierarchy plan.  We do not claim that DRH replaces workload-aware index
+selection; the held-out VariousImg counterexample demonstrates that boundary.
 
 \subsection{Graph Construction}
 NN-Descent~\cite{dong2011nndescent} provides an efficient iterative basis for

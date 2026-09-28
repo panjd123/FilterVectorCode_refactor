@@ -24,13 +24,14 @@
 
 | 证据项 | 状态 | 边界 |
 |---|---:|---|
-| Amazon 两层 LL/TL/TT topology | **27/27 complete** | 3 topology x 9 workloads；每 case 最多 3300 s |
+| Amazon 原 LNG-base 两层 LL/TL/TT topology | **27/27 complete** | 3 topology x 9 workloads；每 case 最多 3300 s |
+| Amazon 完整 L0 x overlay topology factorial | **126/126 complete** | 2 个 0L、4 个 1L、8 个 2L topology x 9 workloads；两半使用同一查询与构建二进制 |
 | Amazon representative detailed profile | **24/25 complete** | 0L-Trie / 95% 在 3300.0 s 超时，论文与报告记为 NC；未使用部分计数 |
 | GPU/CPU hierarchy build campaign | **41/41 complete** | timing 与 resource 分离；5 个 hierarchy backend，各 2 个 measured timing repeats |
 | Held-out DRH-v1 vs manual | **complete** | manual 仅为 5 个预注册 alternatives，不称为 35-case oracle |
 | DRH-v2 routing ablation | **complete** | 与冻结 DRH-v1 manual comparison 分开报告 |
 | 报告与论文生成 | **complete_with_declared_timeout** | finalization manifest 显式记录上述唯一 profile timeout |
-| 回归测试 | **247/247 passed** | `python3 -m unittest discover -s experiments/multilevel_special -p "test_*.py"` |
+| 回归测试 | **256/256 passed** | `python3 -m unittest discover -s experiments/multilevel_special -p "test_*.py"` |
 | LaTeX | **compiled** | Tectonic 0.15.0 musl；无 undefined reference/citation 或 fatal error |
 
 ## 构建结果门禁
@@ -58,6 +59,10 @@
   Tectonic hash、输出 hash 和声明式缺口。
 - `docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md`：中文权威报告。
 - `docs/papers/multilevel_ung/main.pdf`：当前论文 PDF。
+- GitHub `main`：提交 `82eac529ca42c4a26c172ef8257209ce8ec334f0` 已发布。
+- ShareLaTeX：`xm.jarden@gmail.com` 所有的项目
+  `ML-UNG Paper - 2026-09-28` 已同步全部 18 个论文源、数据和 PDF 文件；文本与
+  二进制内容均逐文件哈希核对，服务端可编译为 20 页 PDF。
 
 ## 未完成边界
 

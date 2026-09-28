@@ -45,6 +45,8 @@ UNG 已经解决“标签可达性”和“向量邻近性”如何合并的问�
 
 DRH 取 `T1` 为最接近 `sqrt(N)` 的二次幂，以 `rho=max(2,round(R/C))` 递增阈值，并在 `N/Tl < C` 时停止；预计 block 数大于局部度预算 `R` 时使用 LNG，否则使用 Trie。它因此一次性给出 overlay 数量、每层阈值和拓扑。DRH-v2 再把下一个未物化尺度作为 direct-mass gate，仍然不需要 query calibration。
 
+这里必须区分“自动生成 hierarchy”和“自动选择全部系统组件”。当前 DRH 自动决定 upper-overlay 的层数、阈值、逐层 topology 和 fallback gate，但把 L0 固定为 LNG，以保证 10%--30% 区间有稳健回退。完整 factorial 证明这不是实现限制：Trie L0 在低选择率和有效 coarse overlay 下更强，但不存在一个静态 L0 在全部选择率都占优。若同时物化 LNG/Trie 两套 L0，还需要单独设计并在 held-out 数据上验证 query-time base selector；当前论文不把 Amazon 上事后观察到的分界伪装成无需校准的规则。
+
 ## 当前结果应该怎样表述
 
 - 查询结果是 screen-level evidence：每个点 1 次 cold、2 次 warm；100 个 query workers；固定 1,000 条查询。
@@ -61,6 +63,32 @@ DRH 取 `T1` 为最接近 `sqrt(N)` 的二次幂，以 `rho=max(2,round(R/C))` �
 - DRH-v1 在 Genome 和 Reviews 接近 Plain 及冻结的人工候选集，但在 VariousImg 明显退化；DRH-v2 缓和但没有消除该反例。
 - 重复构建实验中最快的 composed base-plus-hierarchy 路径为原始 CPU base builder 的 1.35x。该数值是独立 stage medians 的组合，不冒充一次联合 wall-clock。
 
+### L0 与逐层 topology 的完整结论
+
+方法定义不固定 L0：`tau0` 可以独立取 LNG 或 Trie。当前评测的无需校准 DRH 是一个保守的 LNG-base 实例；它固定 L0=LNG，但这不是 ML-UNG 的定义，也不是“L0 必须为 LNG”的假设。完整 Amazon factorial 的逐档 oracle 如下，QPS 均取两次 warm 都达到 Recall@10 >= 0.90 的最小实测 `Lsearch`：
+
+| Mean selectivity | 全局最优配置 | QPS | L0 |
+|---:|---|---:|---|
+| 0.499% | `2L[T|LT]` | 21707.89 | Trie |
+| 0.903% | `2L[T|LT]` | 14278.50 | Trie |
+| 5.038% | `2L[T|LT]` | 11718.35 | Trie |
+| 9.907% | `0L[L]` | 450.17 | LNG |
+| 30.027% | `0L[L]` | 52.77 | LNG |
+| 60.047% | `1L[T|L]` | 1613.68 | Trie |
+| 80.024% | `1L[T|L]` | 648.35 | Trie |
+| 95.020% | `2L[T|LT]` | 564.63 | Trie |
+| 99.001% | `2L[T|TT]` | 267.67 | Trie |
+
+因此 9 档中有 7 档的最优系统使用 Trie L0；“固定 LNG 是保守 fallback”不能改写成“LNG 是最优 L0”。但跨 L0 时入口 provider 也随 base 匹配变化，所以这是系统级结论，而不是单独替换 base edge 的因果结论。层内受控替换给出更清晰的规律：
+
+| 只改变的因素 | 结果 | 可支持的解释 |
+|---|---|---|
+| `0L[L] -> 0L[T]`，同时使用各自 matched provider | 0.5/0.9/5% 为 6.03/2.77/18.43x；10% 为 0.60x；30% NC；60/80/95/99% 为 0.62/0.33/0.33/0.56x | Trie-base 系统适合窄谓词，但该行不能隔离 topology 与 entry 的贡献 |
+| `2L[T|LL] -> 2L[T|LT]`，仅 L2 LNG->Trie | 8/9 档更快，最高 1.251x；80% 为 0.998x | Trie 最稳定地适合作为稀疏 coarse L2 |
+| `2L[T|LL] -> 2L[T|TL]`，仅 L1 LNG->Trie | 5/9 档更快，但 10/60/80/95% 仅为 0.500/0.543/0.471/0.593x | 与细粒度 L1 更依赖 LNG 横向可达性的解释一致，但尚非机制证明；不能统一改成 Trie |
+
+当前可写入论文的经验规律是：窄谓词优先考虑 Trie base；中间选择率保留 0L-LNG fallback；宽谓词使用 Trie base 加 fine-LNG overlay；最粗层优先 Trie。这个分段规律来自 Amazon 观测，只能作为解释和 dual-base selector 的待验证设计依据，不能冒充跨数据集的无需校准定理。
+
 ## 与 UNG 及相邻工作的区别
 
 ML-UNG 的贡献不是“第一次在入口处使用 Trie”。UNG 已经使用 Trie 找 minimal-superset entry groups。本文的 Trie topology 是实际物化的 inter-group/inter-block connectivity。ML-UNG 也不是 HNSW 式的随机抽样层级：HNSW 的层用于向量空间导航，ML-UNG 的 overlay 聚合标签空间区域，并由精确谓词包含关系授权。
@@ -69,7 +97,7 @@ Range-filtered ANNS 工作同样关注不同选择范围对应不同图粒度，
 
 ## 检索并核验的 SIGMOD/PVLDB 论文
 
-以下 12 篇论文的题目、venue、年份和 DOI 已核验。前 6 篇直接讨论 filtered/range-filtered vector search，后 6 篇用于借鉴图索引、构建和系统论文的论证方式。
+以下 14 篇论文的题目、venue、年份和 DOI 已核验。其中包括 2026 年 SIGMOD 的 Curator 和 PVLDB 19 的 Elastic Index Selection；前一组直接讨论 filtered/range-filtered vector search，后一组用于借鉴图索引、构建和系统论文的论证方式。
 
 | Paper | Venue | 与本文的关系及写作借鉴 |
 |---|---|---|
@@ -85,6 +113,8 @@ Range-filtered ANNS 工作同样关注不同选择范围对应不同图粒度，
 | LSH-APG, *Towards Efficient Index Construction...* | PVLDB 2023, DOI `10.14778/3594512.3594527` | 先定位 proximity-graph 构建超线性成本，再分别给 entry 与 pruning 优化；启发本文将 GPU batching 的收益归因到具体 construction stage。 |
 | tau-MNG, *Efficient ANN Search in Multi-dimensional Databases* | PACMMOD/SIGMOD 2023, DOI `10.1145/3588908` | 先定义结构性质和可证明边界，再给可构建近似版本；启发本文把 authorization safety、level isolation、fallback equivalence 单列。 |
 | *Revisiting the Index Construction of PG-based ANNS* | PVLDB 2025, DOI `10.14778/3725688.3725709` | 从构建流程中定位瓶颈，声明加速不能牺牲查询性能；启发本文避免用 kernel speedup 替代 end-to-end builder 结论。 |
+| *Elastic Index Selection for Label-Hybrid AKNN Search* | PVLDB 19(4), 2025, DOI `10.14778/3785297.3785304` | 利用 label-set containment 共享 partial indexes，并显式处理不同查询集合需要不同索引的问题；与本文共同说明不存在天然全域最优的单一组织，但其目标是 index selection，而本文研究同一系统内的多尺度导航与逐层 topology。 |
+| Curator, *Efficient Vector Search with Low-Selectivity Filters* | PACMMOD/SIGMOD 2026, DOI `10.1145/3786635` | 以 dual-index 和共享 clustering tree 服务低选择率过滤；它进一步支持本文将低选择率 Trie 优势与中高选择率 fallback 分开讨论，但不是本文 set-containment overlay 的同构实现。 |
 
 ## 本轮论文写作调整
 
