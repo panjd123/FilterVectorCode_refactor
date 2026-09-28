@@ -214,6 +214,64 @@ def one_layer_topology_markdown(rows: list[dict[str, object]]) -> str:
     return "\n".join(lines)
 
 
+def two_layer_topology_tables(
+    crossing_rows: list[dict[str, str]], all_points: list[dict[str, str]],
+) -> tuple[str, str]:
+    methods = (
+        ("l2_t1024_16384_ll_entry_optimized_lng", "LL"),
+        ("l2_t1024_16384_lt_entry_optimized_lng", "LT"),
+        ("l2_t1024_16384_tl_entry_optimized_lng", "TL"),
+        ("l2_t1024_16384_tt_entry_optimized_lng", "TT"),
+    )
+    crossings = {
+        (row["workload"], row["method"]): row
+        for row in crossing_rows if row["method"] in dict(methods)
+    }
+    points: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in all_points:
+        if row["method"] in dict(methods):
+            points.setdefault((row["workload"], row["method"]), []).append(row)
+    tex_lines = [
+        r"\begin{table*}[t]", r"\centering", r"\scriptsize",
+        r"\caption{Two-layer topology ablation at fixed $T_1=1024$, $T_2=16384$, optimized-LNG entry, and ungated routing. QPS appears only at a measured Recall@10 $\geq0.90$ crossing.}",
+        r"\label{tab:two-layer-topology}", r"\resizebox{\textwidth}{!}{%",
+        r"\begin{tabular}{rrrrrrrrr}", r"\toprule",
+        r"Sel. & LL QPS & LT QPS & TL QPS & TT QPS & LL $R_{\max}$ & LT $R_{\max}$ & TL $R_{\max}$ & TT $R_{\max}$ \\",
+        r"\midrule",
+    ]
+    md_lines = [
+        "## 两层 topology 公平消融", "",
+        "固定 T1=1024、T2=16384、optimized-LNG entry 和 ungated routing。QPS 只在实测 Recall@10 >= 0.90 crossing 处报告。", "",
+        "| Sel. | LL QPS | LT QPS | TL QPS | TT QPS | LL max R | LT max R | TL max R | TT max R |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for workload in WORKLOAD_ORDER:
+        qps_cells = []
+        recall_cells = []
+        selectivity = None
+        for method, _ in methods:
+            candidates = points.get((workload, method), [])
+            if not candidates:
+                raise ValueError(
+                    f"missing two-layer topology points: {workload}/{method}")
+            maximum = max(
+                candidates,
+                key=lambda row: (float(row["recall_min"]), -int(float(row["lsearch"]))),
+            )
+            selectivity = float(maximum["mean_selectivity"])
+            crossing = crossings.get((workload, method))
+            qps_cells.append(
+                "NC" if crossing is None else f"{float(crossing['qps_warm_median']):.2f}")
+            recall_cells.append(f"{float(maximum['recall_min']):.4f}")
+        assert selectivity is not None
+        tex_lines.append(
+            f"{100.0 * selectivity:.3f}\\% & " + " & ".join(qps_cells + recall_cells) + r" \\")
+        md_lines.append(
+            f"| {100.0 * selectivity:.3f}% | " + " | ".join(qps_cells + recall_cells) + " |")
+    tex_lines.extend([r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}"])
+    return "\n".join(tex_lines), "\n".join(md_lines)
+
+
 def dataset_table(policies: list[dict]) -> str:
     lines = [
         r"\begin{table*}[t]", r"\centering", r"\small",
@@ -570,6 +628,11 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
     build_rows = read_csv(args.deadline_summary / "build_cases.csv")
     amazon, amazon_index = amazon_table(amazon_rows)
     topology, topology_rows = one_layer_topology_table(amazon_rows, all_points)
+    two_layer_topology_tex = ""
+    two_layer_topology_markdown = ""
+    if getattr(args, "require_two_layer_topology", False):
+        two_layer_topology_tex, two_layer_topology_markdown = (
+            two_layer_topology_tables(amazon_rows, all_points))
     profile = profile_table(args.profile)
     drh_v2, drh_v2_rows = drh_v2_table(args.drh_v2_root)
     construction = construction_section(build_rows, args.build_manifest)
@@ -607,6 +670,7 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
         r"These are bounded screen-level results (one discarded cold repeat and two warm repeats), not formal confidence-interval estimates. At low selectivity the zero-layer Trie changes group connectivity and can be substantially faster; its loss at 10\% and above shows that this is not a monotone hierarchy effect. The ungated one- and two-layer methods do not cross the target at 30\%, while high-selectivity gains reach 27.99$\times$ and 27.57$\times$. Exact upper routing preserves low-selectivity crossings but remains 0.64--0.99$\times$ of plain over 0.5--10\%.",
         amazon,
         topology,
+        two_layer_topology_tex,
         heldout_tables(heldout, global_rows),
         drh_v2,
         profile,
@@ -670,7 +734,7 @@ ML-UNG 将三个维度解耦：层数与阈值、每层 group topology（LNG 或
 
 NC 表示在该 workload 的实测共同预算内未达到 Recall@10 >= 0.90，不表示算法无法在任意更大预算下达到该质量。低选择率下 gated 两层为 plain 的 0.86x、0.99x、0.85x、0.64x，因此“额外层不用时必然无成本”在当前共享入口、授权和队列实现上不成立。
 
-""" + one_layer_topology_markdown(topology_rows) + """
+""" + one_layer_topology_markdown(topology_rows) + "\n\n" + two_layer_topology_markdown + """
 
 ## 自动 DRH 与人工调优
 
@@ -726,6 +790,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--profile", action="append", type=Path, required=True)
     parser.add_argument("--amazon-profile-points", type=Path)
     parser.add_argument("--amazon-profile-selection", type=Path)
+    parser.add_argument("--require-two-layer-topology", action="store_true")
     parser.add_argument("--drh-v2-root", type=Path, required=True)
     parser.add_argument("--build-manifest", type=Path, required=True)
     parser.add_argument("--build-summary", type=Path)

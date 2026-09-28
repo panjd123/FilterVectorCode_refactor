@@ -13,6 +13,29 @@ SPEC.loader.exec_module(deadline_results)
 
 
 class DeadlinePaperResultsTest(unittest.TestCase):
+    def test_two_layer_topology_table_fails_on_missing_method(self) -> None:
+        methods = (
+            "l2_t1024_16384_ll_entry_optimized_lng",
+            "l2_t1024_16384_lt_entry_optimized_lng",
+            "l2_t1024_16384_tl_entry_optimized_lng",
+            "l2_t1024_16384_tt_entry_optimized_lng",
+        )
+        points = []
+        for workload in deadline_results.WORKLOAD_ORDER:
+            for index, method in enumerate(methods):
+                points.append({
+                    "workload": workload, "method": method,
+                    "mean_selectivity": "0.1", "lsearch": "100",
+                    "recall_min": str(0.90 + index / 100),
+                    "qps_warm_median": str(100 + index),
+                })
+        rendered, markdown = deadline_results.two_layer_topology_tables(
+            points, points)
+        self.assertIn("LL QPS & LT QPS & TL QPS & TT QPS", rendered)
+        self.assertIn("## 两层 topology 公平消融", markdown)
+        with self.assertRaisesRegex(ValueError, "missing two-layer topology points"):
+            deadline_results.two_layer_topology_tables(points, points[:-1])
+
     def test_construction_summary_requires_repeats_and_renders_resources(self) -> None:
         rows = [{
             "component": "hierarchy", "profile": "gpu", "measured_repeats": "2",
