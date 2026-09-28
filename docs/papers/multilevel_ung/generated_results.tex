@@ -75,6 +75,30 @@ Selectivity & Plain QPS & 0-layer Trie & 1-layer & 2-layer ungated & 2-layer gat
 }
 \end{table*}
 
+\begin{table*}[t]
+\centering
+\small
+\caption{Fixed-$T_1=1024$ one-layer topology ablation with the same optimized-LNG entry provider. QPS is reported only at a measured Recall@10 $\geq0.90$ crossing; $R_{\max}$ exposes the quality reached when a crossing is absent.}
+\label{tab:one-layer-topology}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{rrrrrr}
+\toprule
+Selectivity & LNG QPS & Trie QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\max}$ \\
+\midrule
+0.499\% & NC & NC & -- & 0.8878 & 0.8878 \\
+0.903\% & NC & NC & -- & 0.8567 & 0.8464 \\
+5.038\% & NC & NC & -- & 0.8928 & 0.8835 \\
+9.907\% & NC & NC & -- & 0.8742 & 0.8477 \\
+30.027\% & NC & NC & -- & 0.8359 & 0.8283 \\
+60.047\% & 56.52 & 56.70 & 1.003$\times$ & 0.9511 & 0.9503 \\
+80.024\% & 36.65 & 37.08 & 1.012$\times$ & 0.9346 & 0.9309 \\
+95.020\% & 42.06 & 36.82 & 0.875$\times$ & 0.9289 & 0.9259 \\
+99.001\% & 15.40 & 14.34 & 0.931$\times$ & 0.9325 & 0.9301 \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}
+
 \subsection{Automatic Versus Manual Hierarchies}
 The bounded held-out study compares DRH with five pre-registered manual alternatives. This is a frozen candidate set, not a 35-case full oracle.
 \begin{table*}[t]
