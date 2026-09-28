@@ -22,6 +22,7 @@ SEARCH_RUNNER = HERE / "run_selection_sweep.py"
 VALIDATOR = HERE / "validate_selection_sweep.py"
 SUMMARIZER = HERE / "summarize_selection_sweep.py"
 PLOTTER = HERE / "plot_authoritative_recall_qps.py"
+FINALIZER = HERE / "finalize_complete_evidence.py"
 TOPOLOGY_METHODS = (
     "l2_t1024_16384_ll_entry_optimized_lng",
     "l2_t1024_16384_tl_entry_optimized_lng",
@@ -192,6 +193,11 @@ def main() -> int:
             [sys.executable, str(SUMMARIZER), str(profile_config),
              "--baseline", "l0_lng_entry_optimized_lng", "--targets", "0.9"])
 
+    prior_complete = all(row["status"] == "complete" for row in state["runs"])
+    if prior_complete:
+        run_stage(
+            state, manifest, log, args.case_timeout_seconds,
+            "finalize_artifacts", [sys.executable, str(FINALIZER)])
     state["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
     state["status"] = (
         "complete" if all(row["status"] == "complete" for row in state["runs"])

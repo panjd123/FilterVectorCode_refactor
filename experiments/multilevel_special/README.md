@@ -372,7 +372,10 @@ orchestrator used for the remaining two-layer topology cases and the selected
 Amazon profile. It waits for construction processes to quiesce, applies the
 per-case timeout, writes a supervisor manifest, refreshes summaries and plots,
 then validates and summarizes the profile. It must not be run concurrently
-with another query supervisor.
+with another query supervisor. When every stage succeeds, it invokes
+`finalize_complete_evidence.py`, which requires complete two-layer topology,
+nonzero detailed edge counters, two measured hierarchy-build repeats, and the
+composed construction summary before regenerating and compiling the paper.
 
 For a long unattended campaign, `continue_after_build.py` waits for the
 held-out and build summaries and for every query/build process to exit. It then
