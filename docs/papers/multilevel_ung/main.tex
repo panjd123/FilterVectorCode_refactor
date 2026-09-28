@@ -9,39 +9,40 @@
 \usepackage{xcolor}
 
 \newcommand{\system}{\textsc{ML-UNG}}
+\newcommand{\ung}{\textsc{UNG}}
 \newcommand{\pending}[1]{\textcolor{red}{[pending: #1]}}
 \newcommand{\dataset}{\mathcal{D}}
 \newcommand{\labels}{\mathcal{A}}
 \newcommand{\eligible}{\mathcal{E}}
 \input{generated_results}
 
-\title{Structure-Adaptive Multilevel Graphs for Filtered Approximate Nearest-Neighbor Search}
+\title{\system: Multilevel Label Navigation for Filtered Approximate Nearest-Neighbor Search}
 
 \begin{document}
 
 \begin{abstract}
-Filtered approximate nearest-neighbor search must reconcile two structures:
-vector proximity and set containment over attributes.  Unified Navigating
-Graphs (UNG)~\cite{cai2024ung} expose this tension by first grouping vectors with identical label
-sets and then connecting groups through a label navigation graph.  A single
-group graph, however, pays the full navigation cost at every filter
-selectivity.  We present \system, a modular extension that separates three
-previously entangled choices: the number and scale of hierarchy layers, the
-group-to-group topology within each layer, and entry-group discovery.  Each
-query authorizes blocks by exact label containment, seeds every authorized
-layer, and tags candidates with an activation level.  A candidate scans only
-edges owned by that level, which prevents implicit promotion or cross-level
-edge mixing.  We further propose the Degree-Ratio Hierarchy (DRH) family.  Its
-query-calibration-free structural rule derives layer count, block thresholds,
-and topology from dataset size and existing graph-degree budgets.  DRH-v1
-routes on exact predicate authorization; DRH-v2 additionally requires
-next-scale direct mass.  Neither variant observes query frequencies or
-performance.  Finally, we
-describe a GPU construction pipeline for the irregular intra-group and
-cross-group workloads and retain end-to-end quality checks at the index
-boundary.  Our evaluation uses measured Recall@10 crossings rather than curve
-interpolation and reports latency, throughput, phase time, search work, build
-time, memory, and index size.  \authoritativeAbstractResult
+Unified Navigating Graph (UNG)~\cite{cai2024ung} makes filtered approximate
+nearest-neighbor search predicate aware by grouping vectors with identical
+label sets and connecting those groups through a label navigating graph
+(LNG).  This exact-group organization provides containment-aware paths, but
+only at one navigation scale.  Broad predicates can still require a large
+bounded search over many fine groups.
+
+We present \system, a multiscale extension of UNG for containment predicates.
+Its central idea is \emph{predicate-safe coarsening}: if the query labels are
+contained in a prefix-trie block root, every direct member of that block is
+eligible.  Independently partitioned overlays leave the exact-group base graph
+unchanged.  Exact containment authorizes an overlay, and each candidate expands
+only edges owned by its activation level; rejected overlays invoke the original
+base search.  We also distinguish materialized block topology from entry-group
+discovery, supporting LNG or prefix-Trie connectivity at each layer.
+
+Degree-Ratio Hierarchy (DRH) removes the need to tune depth and block size
+separately.  It derives layer count, thresholds, topology, and a routing gate from
+dataset cardinality and existing graph-degree budgets.  It uses no query
+distribution, latency, or Recall calibration.  A GPU-assisted builder batches
+the irregular hierarchy workload.
+\authoritativeAbstractResult
 \end{abstract}
 
 \maketitle
@@ -51,49 +52,74 @@ Filtered vector search returns the nearest vectors satisfying a predicate over
 metadata.  For a containment query, the query supplies a set of labels and a
 vector is eligible only if its label set contains every query label.  Graph
 indexes for this problem must provide both geometric navigation and predicate
-reachability.  UNG addresses the latter by grouping identical label sets,
-building a proximity graph inside each group, and adding cross-group edges
-along a directed label navigation graph (LNG).
+reachability.  The two signals do not coincide: nearby vectors may violate the
+predicate, while eligible vectors may be scattered across many label sets.
 
-The original flat organization is deliberately general, but its cost can be
-poorly matched to the query's eligible mass.  Fine groups preserve selective
-structure but require many entry groups and long cross-group walks for broad
-queries.  Coarse blocks shorten broad-query navigation, but should not perturb
-queries for which no coarse block is valid.  This motivates a hierarchy, but a
-useful hierarchy must answer four questions rigorously: how blocks are formed,
-how blocks are connected, how a query selects a layer, and how the hierarchy is
-parameterized without workload-specific tuning.
+\ung~\cite{cai2024ung} resolves this mismatch by introducing an explicit label
+navigation plane.  It groups vectors that have identical label sets, builds a
+proximity graph inside each group, connects minimal strict-superset groups with
+an LNG, and realizes those group edges as vector edges.  For a containment
+query, a label Trie helps locate minimal observed supersets, after which one
+bounded graph search follows only predicate-compatible directions.  This is
+the right starting point for our work: we retain UNG's exact groups, its
+containment direction, and its unified vector-search interface.
 
-\system makes these choices explicit and orthogonal.  A hierarchy plan is a
-sequence of increasing point-mass thresholds.  Each layer independently
-partitions the label trie, and each layer chooses either LNG or prefix-Trie
-topology.  Entry discovery is independently selected from the original LNG
-routine, an optimized LNG routine, or an exact Trie routine.  Search states
-carry their layer, and no state silently changes layers.  This definition is
-important: a deeper index is not assumed to be monotonically faster, because
-all authorized layers contribute seeds to one bounded queue and can compete
-for capacity.
+The limitation we address is different from predicate correctness.  UNG has
+one label-navigation granularity: every vertex of its LNG denotes one exact
+label set.  This fine partition is useful for narrow predicates, but a broad
+predicate may authorize hundreds of thousands of vectors spread over many
+exact groups.  Search must still enter and traverse this fine graph.  On our
+Amazon workload, the base index contains 482,387 observed groups for 602,453
+vectors; at 95.02\% selectivity the measured UNG-style base search visits
+451,225 vertices and scans 3.97 million edges per query
+(Table~\ref{tab:amazon-profile}).  Merely replacing the LNG by a sparser graph
+does not solve the problem: it can remove the containment paths needed for
+Recall.
+
+Our key observation is that containment admits \emph{safe coarse navigation}.
+Suppose a node of the canonical label Trie represents prefix $R_b$.  Every
+exact-label group in its subtree contains $R_b$.  Therefore, when
+$Q\subseteq R_b$, all direct members of a block rooted there satisfy the query.
+This gives a query-independent way to aggregate fine groups without weakening
+the filter.  The resulting coarse graph is an overlay, not a replacement: the
+original exact-group graph remains available whenever no coarse block is
+useful.
+
+\system turns this observation into a multiscale UNG.  Increasing mass
+thresholds independently partition the label Trie into blocks.  Each overlay
+connects its blocks using either the LNG cover relation or a prefix-Trie
+sparsifier.  Exact authorization selects legal overlays, while candidates carry
+an activation level and expand only edges owned by that level.  We deliberately
+separate this inter-block topology from entry-group discovery: UNG already
+uses a Trie during entry lookup, whereas our \emph{Trie topology} means that
+Trie ancestry itself defines materialized inter-block edges.  Table~\ref{tab:ung-delta}
+summarizes the boundary between inherited and new mechanisms.
+
+The hierarchy introduces a second problem: naively exposing both the number of
+layers and every block threshold replaces one tuning knob with several.  We
+therefore derive them with Degree-Ratio Hierarchy (DRH), a deterministic rule
+based only on dataset size and the graph's existing degree budgets.  DRH never
+observes query frequencies, latency, Recall, or a selectivity histogram.  A
+structural mass gate decides whether a legal overlay is large enough to use;
+rejected queries invoke the unchanged level-zero search.
 
 This paper makes the following contributions.
 \begin{itemize}
-  \item We define a modular multilevel filtered graph index in which hierarchy,
-  per-layer topology, and entry discovery can be independently composed.
-  \item We give level-isolated search semantics with exact containment
-  authorization and a structural fallback that leaves the base-only search
-  unchanged when no upper block is authorized or its direct mass is below the
-  next hierarchy scale.
-  \item We introduce the DRH family: one deterministic structural plan chooses
-  the first scale, scale ratio, stopping depth, and topology, while the v1 and
-  v2 routers respectively add exact authorization and a next-scale mass gate,
-  without query traces, latency measurements, or Recall calibration.
-  \item We adapt GPU group-graph and grouped top-$k$ construction to the
-  hierarchy sidecar and define a construction measurement protocol that does not
-  confuse kernel time with index construction time.
-  \item We evaluate all methods at the smallest measured search budget whose
-  every warm repeat reaches the target Recall, and compare the automatic plan
-  with both a fixed zero-layer baseline and a frozen candidate set composed of
-  DRH-v1 plus five manually enumerated alternatives; DRH-v2 is reported as a
-  separate same-binary routing ablation.
+  \item \textbf{Multiscale label navigation.} We extend UNG's single exact-group
+  navigation plane with independently constructed, predicate-safe block
+  overlays.  The base UNG graph is preserved rather than repartitioned.
+  \item \textbf{Auditable query semantics.} Exact block authorization,
+  level-tagged states, level-local edge expansion, and structural fallback make
+  it explicit when an overlay may participate and prevent hidden cross-level
+  behavior.  Topology and entry discovery remain separate experimental axes.
+  \item \textbf{Calibration-free structure selection.} DRH derives layer
+  count, block thresholds, per-layer topology, and the next-scale routing gate
+  from $N$, $R$, and $C$, eliminating query-trace and performance calibration.
+  \item \textbf{End-to-end evidence.} We evaluate measured equal-Recall
+  crossings, expose both substantial high-selectivity gains and held-out
+  regressions, and accelerate sidecar construction with batched GPU
+  intra-block and cross-block primitives.  We do not infer universal dominance
+  from the favorable cases.
 \end{itemize}
 
 \section{Problem Definition}
@@ -124,16 +150,51 @@ group partition is exact and disjoint.  A group topology is a directed graph
 over observed label sets.  The base vector graph contains intra-group
 proximity edges and vector-level realizations of the group-topology edges.
 
-\section{Background and Design Requirements}
-\subsection{UNG}
-UNG's LNG contains an edge $S\rightarrow S'$ when $S\subset S'$ and no
-observed label set lies strictly between them.  Entry-group selection finds
-minimal observed supersets of $Q$.  Search begins in those groups and follows
-the unified vector graph toward more specific label sets.  This preserves the
-direction required by containment, but graph cost depends strongly on the
-number and size distribution of matching groups.
+\section{From UNG to Multiscale Navigation}
+\subsection{What UNG Provides}
+For containment search, UNG's label plane is the transitive reduction of the
+observed set-containment relation: its LNG contains an edge
+$S\rightarrow S'$ when $S\subset S'$ and no observed label set lies strictly
+between them~\cite{cai2024ung}.  Its data path has four steps: (1) partition
+vectors by exact label-set equality; (2) build a proximity graph within every
+group; (3) construct the LNG between groups; and (4) materialize vector-level
+cross-group edges along LNG edges.  At query time, UNG uses a label Trie to
+find minimal observed supersets of $Q$, samples vector entry points from those
+groups, and searches the unified vector graph toward more specific label sets.
 
-\subsection{Why the Three Axes Must Be Separated}
+Two distinctions matter for the rest of this paper.  First, the Trie in UNG is
+an index for label-set organization and entry discovery; the LNG, not Trie
+parenthood, defines cross-group connectivity.  Second, all LNG vertices are
+exact-label groups, so UNG provides one navigation scale.  Our level-zero LNG
+configuration preserves that organization and the same minimal-superset entry
+definition.  We focus on containment predicates; extending the overlays to the
+other predicate families supported by UNG requires separate authorization
+rules and is outside our claims.
+
+\begin{table*}[t]
+\caption{Method boundary between UNG and \system.  ``Trie topology'' in this
+paper denotes materialized inter-block edges and must not be confused with
+UNG's Trie-assisted entry lookup.}
+\label{tab:ung-delta}
+\centering
+\small
+\begin{tabular}{p{0.18\textwidth}p{0.35\textwidth}p{0.37\textwidth}}
+\toprule
+Component & UNG~\cite{cai2024ung} & \system{} (this work) \\
+\midrule
+Navigation unit & One group per exact label set & Exact groups at level zero plus independently partitioned coarse blocks \\
+Group/block connectivity & One LNG over exact groups & Per-layer LNG or prefix-Trie topology; every edge has one owner level \\
+Entry discovery & Trie-assisted minimal-superset groups & Original/optimized LNG-semantic provider or topology-aware Trie frontier \\
+Query routing & Start from matching entry groups and search one unified graph & Exact overlay authorization, optional structural mass gate, and base fallback \\
+Search state & Vector identifier in one graph & $(\text{vector},\text{distance},\text{level})$; expansion is level local \\
+Hierarchy parameters & Not applicable & DRH derives depth, thresholds, topology, and routing gate without query calibration \\
+Construction & Per-group graph plus LNG-guided cross-group edges & Preserved base build plus independently serialized hierarchy sidecar and GPU batching \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Design Requirements}
+Adding a hierarchy is useful only if it preserves three boundaries.
 The hierarchy determines which vectors may share an overlay; topology
 determines which overlay blocks are adjacent; entry discovery determines only
 where search starts.  Treating a Trie entry provider as a Trie graph, or
@@ -157,7 +218,26 @@ can lose Recall on the other.  We therefore report Recall before comparing
 their QPS rather than treating entry discovery as a constant-time plug-in.
 
 \section{Multilevel Index}
-\subsection{Independent Trie Partitions}
+\subsection{Method Overview}
+\system consists of the unchanged level-zero exact-group graph plus zero or
+more independently serialized overlays.  Building one overlay has three
+steps: partition the canonical label Trie by point mass, select one
+inter-block topology, and materialize intra-block and cross-block vector
+edges.  Processing a query also has three steps: obtain the normal base entry
+groups, authorize blocks by exact containment, and run one bounded queue whose
+states remember their owning level.  If routing rejects all overlays, \system
+calls the level-zero routine before creating any overlay seed.  If an overlay
+is active, its states never descend into base edges or ascend into another
+overlay.  The hierarchy therefore changes navigation granularity without
+changing predicate semantics or silently changing the base graph.
+
+This separation is central to our evaluation.  A zero-layer Trie experiment
+changes actual group connectivity.  A Trie entry-provider experiment changes
+only the initial frontier.  A one- versus two-layer experiment changes the
+number of available granularities while holding the finer partition fixed.
+These are different interventions and are not labeled interchangeably.
+
+\subsection{Predicate-Safe Coarsening by Trie Mass}
 We build a canonical prefix trie over sorted group label sets.  Each terminal
 stores one exact group and its point mass.  For a threshold $T_\ell$, a
 bottom-up pass maintains uncovered mass.  When a non-root trie node has
@@ -166,6 +246,14 @@ mass is reset before propagating upward.  The block owns terminal groups in its
 subtree until another root at the same layer is encountered.  Each layer runs
 this partition independently; adding a coarse layer therefore does not change
 the blocks or identifiers of any finer layer.
+
+For example, exact groups $\{a,b\}$, $\{a,c\}$, and $\{a,b,d\}$ can be direct
+members of a block rooted at prefix $\{a\}$.  Query $Q=\{a\}$ authorizes this
+block and may navigate the three groups at the coarser scale.  Query
+$Q=\{a,b\}$ does not authorize the $\{a\}$ block, because
+$Q\nsubseteq\{a\}$; it therefore uses a more specific authorized block or the
+base graph.  The same containment test provides both predicate safety and
+query-dependent scale selection without estimating selectivity.
 
 \begin{algorithm}[t]
 \caption{Independent block partition at threshold $T$}
@@ -663,11 +751,12 @@ the queue, neither quantity is guaranteed to decrease with depth.
 
 \section{Experimental Methodology}
 \subsection{Questions}
-We ask: (Q1) When do zero-, one-, and two-layer indexes improve QPS at equal
-Recall? (Q2) Which effects come from topology, entry discovery, and hierarchy?
-(Q3) How close is DRH to manual tuning on development and held-out datasets?
-(Q4) Can GPU assistance keep total multilevel construction competitive with the
-original CPU pipeline? (Q5) Which phase and work counters explain each result?
+We ask: (Q1) When does multiscale navigation improve over the single-scale
+UNG structure at equal Recall? (Q2) Which effects come from topology, entry
+discovery, and hierarchy depth? (Q3) How close is DRH to manual tuning on
+development and held-out datasets? (Q4) Can GPU assistance keep total
+multilevel construction competitive with the original CPU pipeline? (Q5)
+Which phase and work counters explain each result?
 
 \subsection{Datasets and Workloads}
 The development dataset is Amazon with $602{,}453$ vectors of dimension 768 and
@@ -691,6 +780,15 @@ Trie.  Routed controls are outside the factorial because routing changes which
 search algorithm executes. For held-out automatic-policy evaluation, however,
 the exact gate is fixed for DRH and every manual-alternative hierarchy; the
 ungated DRH variant is reported separately.
+
+We call the zero-layer LNG configuration \emph{Plain} or \emph{0L-LNG}.  It
+preserves UNG's exact-label groups, LNG cover relation, and unified vector
+graph, but it is not the unmodified upstream release: it uses our optimized,
+semantically equivalent minimal-superset provider and the common refactored
+execution path.  This is the stronger control for the hierarchy because Plain
+and every overlay method share entry discovery and base-graph code.  Reported
+multilevel speedups therefore isolate navigation scale; they are not presented
+as direct timings against the original UNG binary.
 
 All query methods use the same data, query vectors, labels, exact ground truth,
 $K$, thread count, immutable search binary, graph backend, and Recall protocol.
@@ -770,16 +868,27 @@ evaluation covers containment predicates;
 other predicate semantics require a new authorization proof.
 
 \section{Related Work}
+\subsection{Filtered Graph Search and UNG}
 Graph-based ANN systems such as HNSW~\cite{malkov2020hnsw} and
 DiskANN~\cite{subramanya2019diskann} use navigable proximity graphs to obtain
 high-recall search with bounded expansion.  Filtered-DiskANN~\cite{gollapudi2023filtereddiskann}
 and ACORN~\cite{patel2024acorn} integrate metadata constraints through
-filter-aware construction or predicate-agnostic graph expansion.  UNG instead represents exact label sets as
-groups and encodes containment navigation explicitly.  Our contribution is
-orthogonal: we expose multiple independently authorized group-graph scales,
-separate topology from entry discovery, and address the irregular construction
-workload with a hybrid GPU backend.
+filter-aware construction or predicate-agnostic graph expansion.
 
+UNG~\cite{cai2024ung} is our closest baseline.  Its contribution is an LNG
+whose vertices are observed exact label sets and whose edges encode minimal
+strict-superset relations; group-level relations are then realized in one
+unified vector graph.  \system does not replace this containment abstraction.
+It retains it at level zero and adds independently partitioned block overlays
+above it.  Authorization follows from the common labels at a block root, and a
+level tag restricts each expansion to one overlay.  This is also distinct from
+HNSW's hierarchy: HNSW samples vector vertices to accelerate geometric
+navigation, whereas our layers aggregate label-space regions and are selected
+by an exact predicate test.  Prefix-Trie connectivity is an optional
+inter-block sparsifier in our framework, not a relabeling of UNG's existing
+Trie-assisted entry lookup.
+
+\subsection{Graph Construction}
 NN-Descent~\cite{dong2011nndescent} provides an efficient iterative basis for
 approximate $k$-NN graph construction, while relative neighborhood
 graphs~\cite{toussaint1980rng} motivate diversity-oriented proximity pruning.
@@ -790,12 +899,15 @@ costs across irregular tasks while preserving the filtered graph's output
 semantics and measuring quality end to end.
 
 \section{Conclusion}
-\system turns a fixed filtered navigation graph into an explicit composition
-of independent hierarchy, topology, entry, and routing modules.  Exact
-authorization and level-isolated edges make the semantics auditable, while DRH
-removes separate depth and threshold tuning knobs.  The accompanying protocol
-evaluates only measured Recall crossings and separates kernel, component wall
-time, and stage-composed full-index construction costs.
+UNG established exact-label groups and containment-directed cross-group edges
+as a unified substrate for filtered graph search.  \system addresses the next
+bottleneck: one exact-group navigation scale cannot efficiently serve every
+eligible mass.  Predicate-safe Trie blocks provide coarse overlays while the
+original group graph remains level zero.  Exact authorization and level-local
+edges make this multiscale behavior auditable, and DRH derives depth,
+thresholds, topology, and routing without query calibration.  The accompanying
+protocol evaluates measured Recall crossings and separates kernel, component
+wall time, and stage-composed full-index construction costs.
 \authoritativeConclusionResult
 
 \authoritativeScreenAppendix
