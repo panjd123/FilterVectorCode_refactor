@@ -289,6 +289,93 @@ def profile_table(profile_paths: list[Path]) -> str:
     return "\n".join(lines)
 
 
+def amazon_profile_tables(
+    rows: list[dict[str, str]], selection_manifest: Path,
+) -> tuple[str, str]:
+    methods = (
+        ("l0_lng_entry_optimized_lng", "0L-LNG"),
+        ("l0_trie_entry_trie", "0L-Trie"),
+        ("l1_t1024_lng_entry_optimized_lng", "1L-LNG"),
+        ("l1_t1024_trie_entry_optimized_lng", "1L-Trie"),
+        ("l2_t1024_16384_lt_entry_optimized_lng_upper_routed", "2L-gated"),
+    )
+    method_names = {name for name, _ in methods}
+    manifest = json.loads(selection_manifest.read_text(encoding="utf-8"))
+    statuses = {
+        (str(case["workload"]), str(case["method"])):
+        str(case["performance_status"])
+        for case in manifest.get("cases", [])
+    }
+    indexed: dict[tuple[str, str], dict[str, str]] = {}
+    for row in rows:
+        key = (row["workload"], row["method"])
+        if row["method"] not in method_names:
+            raise ValueError(f"unexpected Amazon profile method: {row['method']}")
+        if key in indexed:
+            raise ValueError(f"duplicate Amazon profile row: {key}")
+        if float(row["total_edges_scanned_warm_median"]) <= 0:
+            raise ValueError(f"Amazon profile edge counters are disabled: {key}")
+        indexed[key] = row
+    expected = set(statuses)
+    if set(indexed) != expected:
+        missing = sorted(expected - set(indexed))
+        extra = sorted(set(indexed) - expected)
+        raise ValueError(
+            f"Amazon profile rows do not match selection manifest; missing={missing}, extra={extra}")
+
+    workload_rank = {name: index for index, name in enumerate(WORKLOAD_ORDER)}
+    method_rank = {name: index for index, (name, _) in enumerate(methods)}
+    labels = dict(methods)
+    ordered = sorted(
+        indexed.items(),
+        key=lambda item: (workload_rank.get(item[0][0], 999), method_rank[item[0][1]]),
+    )
+    tex_lines = [
+        r"\subsection{Amazon Stage and Work Breakdown}",
+        "This profile-only pass reuses each method's measured performance operating point. "
+        "Rows marked max use the best measured point because Recall@10 did not cross 0.90; "
+        "they explain work but are not equal-Recall speed comparisons.",
+        r"\begin{table*}[t]", r"\centering", r"\scriptsize",
+        r"\caption{Amazon detailed profile. Times are ms/query; work counters are means/query.}",
+        r"\label{tab:amazon-profile}", r"\resizebox{\textwidth}{!}{%",
+        r"\begin{tabular}{rrlrrrrrrr}", r"\toprule",
+        r"Sel. & Op. & Method & ELS & Entry & Auth. & Graph & Visited & Edges & Distances \\",
+        r"\midrule",
+    ]
+    md_lines = [
+        "## Amazon representative detailed profile",
+        "",
+        "`cross` 表示性能 pass 达到 Recall@10 >= 0.90 的最小实测点；`max` 表示未 crossing 时最大实测 Recall 对应点，只用于机制解释。耗时单位为 ms/query，工作量为 mean/query。",
+        "",
+        "| Selectivity | Op. | Method | ELS | Entry | Auth. | Graph | Visited | Edges | Distances |",
+        "|---:|:---:|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for (workload, method), row in ordered:
+        status = statuses[(workload, method)]
+        op = "cross" if status == "crossing" else "max"
+        values = (
+            100.0 * float(row["mean_selectivity"]),
+            float(row["els_ms_warm_median"]),
+            float(row["entry_ms_warm_median"]),
+            float(row["block_authorization_ms_warm_median"]),
+            float(row["graph_ms_warm_median"]),
+            float(row["nodes_visited_warm_median"]),
+            float(row["total_edges_scanned_warm_median"]),
+            float(row["total_distance_calcs_warm_median"]),
+        )
+        tex_lines.append(
+            f"{values[0]:.3f}\\% & {op} & {labels[method]} & "
+            f"{values[1]:.3f} & {values[2]:.3f} & {values[3]:.3f} & "
+            f"{values[4]:.3f} & {values[5]:.1f} & {values[6]:.1f} & {values[7]:.1f} "
+            + r"\\")
+        md_lines.append(
+            f"| {values[0]:.3f}% | {op} | {labels[method]} | "
+            f"{values[1]:.3f} | {values[2]:.3f} | {values[3]:.3f} | "
+            f"{values[4]:.3f} | {values[5]:.1f} | {values[6]:.1f} | {values[7]:.1f} |")
+    tex_lines.extend([r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}"])
+    return "\n".join(tex_lines), "\n".join(md_lines)
+
+
 def drh_v2_table(root: Path) -> tuple[str, list[dict[str, str]]]:
     rows: list[dict[str, str]] = []
     for path in sorted(root.glob("*/search/summary/performance/equal_recall_conservative.csv")):
@@ -420,6 +507,16 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
     profile = profile_table(args.profile)
     drh_v2, drh_v2_rows = drh_v2_table(args.drh_v2_root)
     construction = construction_section(build_rows, args.build_manifest)
+    amazon_profile_tex = ""
+    amazon_profile_markdown = ""
+    amazon_profile_points = getattr(args, "amazon_profile_points", None)
+    amazon_profile_selection = getattr(args, "amazon_profile_selection", None)
+    if bool(amazon_profile_points) != bool(amazon_profile_selection):
+        raise ValueError(
+            "--amazon-profile-points and --amazon-profile-selection must be supplied together")
+    if amazon_profile_points:
+        amazon_profile_tex, amazon_profile_markdown = amazon_profile_tables(
+            read_csv(amazon_profile_points), amazon_profile_selection)
     max_budget = {}
     for row in all_points:
         max_budget[row["workload"]] = max(max_budget.get(row["workload"], 0), int(float(row["lsearch"])))
@@ -436,9 +533,12 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
         heldout_tables(heldout, global_rows),
         drh_v2,
         profile,
+        amazon_profile_tex,
         construction,
     ])
     evidence = [args.amazon_equal_recall, args.amazon_points, args.deadline_summary / "automatic_vs_manual.csv", args.deadline_summary / "automatic_vs_global_manual.csv", args.deadline_summary / "build_cases.csv", args.build_manifest, *args.policy, *args.profile, args.figures / "plot_manifest.json", *source_figures.values()]
+    if amazon_profile_points:
+        evidence.extend([amazon_profile_points, amazon_profile_selection])
     generated = "\n".join([
         "% Generated by generate_deadline_paper_results.py from validated bounded evidence.",
         r"\newcommand{\authoritativeAbstractResult}{The bounded study finds up to 27.99$\times$ QPS improvement on Amazon at equal measured Recall, while held-out DRH ranges from 0.205$\times$ to 1.014$\times$ of the zero-layer baseline. These negative and positive results show that hierarchy value depends on structural authorization and graph work, not selectivity alone.}",
@@ -521,6 +621,8 @@ NC 表示在该 workload 的实测共同预算内未达到 Recall@10 >= 0.90，�
 
 Reviews 的较宽 workload 中 DRH 将 visited 从 4415.8 降至 3500.1、distance calculations 从 8239.3 降至 7312.0，但扫描边从 15126.2 增至 25605.4；其图时间仍从 6.756 ms 降至 6.504 ms。VariousImg 则把 visited 从 18656.0 增至 27356.1、扫描边从 119045.5 增至 251144.0，graph time 从 35.10 ms 增至 172.06 ms，直接解释负收益。Genome 的 ELS 占总时间主体，图阶段从 0.124 ms 增至 0.199 ms，总体 QPS 略降。
 
+""" + amazon_profile_markdown + """
+
 ## 构建证据
 
 自动 DRH 的 CPU sidecar wall time 分别为 Genome 44.2 s、Reviews 120.4 s、VariousImg 633.2 s。独立 base-index timing 的原始 CPU 中位数为 190.61 s，最快 GPU profile 为 53.18 s（3.58x），但这只证明 base stage。另一个 Amazon hierarchy cold sidecar 完成了 CPU 986.12 s、hybrid GPU intra 85.75 s、hybrid GPU intra+inter 136.08 s 和 full GPU 105.83 s；最快完成项相对 CPU 为 11.50x。该横向比较只有单次 cold run，且不含 base-index construction，因此只能作为 GPU hierarchy 可行性证据，不能当作重复测量的端到端构建加速比。
@@ -540,6 +642,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--deadline-summary", type=Path, required=True)
     parser.add_argument("--policy", action="append", type=Path, required=True)
     parser.add_argument("--profile", action="append", type=Path, required=True)
+    parser.add_argument("--amazon-profile-points", type=Path)
+    parser.add_argument("--amazon-profile-selection", type=Path)
     parser.add_argument("--drh-v2-root", type=Path, required=True)
     parser.add_argument("--build-manifest", type=Path, required=True)
     parser.add_argument("--figure-output-dir", type=Path, required=True)

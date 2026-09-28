@@ -13,6 +13,44 @@ SPEC.loader.exec_module(deadline_results)
 
 
 class DeadlinePaperResultsTest(unittest.TestCase):
+    def test_amazon_profile_table_requires_edges_and_preserves_status(self) -> None:
+        methods = (
+            "l0_lng_entry_optimized_lng",
+            "l0_trie_entry_trie",
+            "l1_t1024_lng_entry_optimized_lng",
+            "l1_t1024_trie_entry_optimized_lng",
+            "l2_t1024_16384_lt_entry_optimized_lng_upper_routed",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest = Path(temporary) / "manifest.json"
+            manifest.write_text(__import__("json").dumps({
+                "cases": [
+                    {"workload": "sel_10", "method": method,
+                     "performance_status": "crossing" if index else "no_crossing_best_measured"}
+                    for index, method in enumerate(methods)
+                ],
+            }))
+            rows = []
+            for method in methods:
+                rows.append({
+                    "workload": "sel_10", "method": method,
+                    "mean_selectivity": "0.1", "els_ms_warm_median": "1",
+                    "entry_ms_warm_median": "2",
+                    "block_authorization_ms_warm_median": "3",
+                    "graph_ms_warm_median": "4",
+                    "nodes_visited_warm_median": "5",
+                    "total_edges_scanned_warm_median": "6",
+                    "total_distance_calcs_warm_median": "7",
+                })
+
+            rendered, markdown = deadline_results.amazon_profile_tables(rows, manifest)
+
+            self.assertIn("10.000\\% & max & 0L-LNG", rendered)
+            self.assertIn("| 10.000% | max | 0L-LNG |", markdown)
+            rows[0]["total_edges_scanned_warm_median"] = "0"
+            with self.assertRaisesRegex(ValueError, "edge counters are disabled"):
+                deadline_results.amazon_profile_tables(rows, manifest)
+
     def test_one_layer_topology_table_keeps_nc_and_max_recall(self) -> None:
         methods = (
             "l1_t1024_lng_entry_optimized_lng",
