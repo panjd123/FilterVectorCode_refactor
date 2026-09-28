@@ -81,15 +81,11 @@ def main() -> int:
         "--report-output", str(REPO / "docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md"),
     ]
     run(command, HERE)
+    run(["git", "diff", "--check"], REPO)
     run([
-        sys.executable, "-m", "unittest",
-        "test_authoritative_plot.py",
-        "test_generate_authoritative_paper_results.py",
-        "test_summarize_deadline_evidence.py",
-        "test_generate_deadline_paper_results.py",
-        "test_prepare_deadline_profile_campaign.py",
-        "test_run_remaining_evidence_campaign.py",
-    ], HERE)
+        sys.executable, "-m", "unittest", "discover",
+        "-s", str(HERE), "-p", "test_*.py",
+    ], REPO)
     run([str(args.tectonic), "main.tex", "--keep-logs"], PAPER)
     log = (PAPER / "main.log").read_text(encoding="utf-8", errors="replace")
     forbidden = re.compile(
