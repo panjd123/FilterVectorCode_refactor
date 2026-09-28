@@ -124,19 +124,23 @@ python3 plot_authoritative_recall_qps.py \
   ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/figures
 ```
 
-The plotter produces seven PDF and PNG panel families for the principal
-zero-layer comparison, fixed-entry topology, depth, two-layer topology,
-threshold/depth sensitivity, entry strategy, and upper-authorization
-ablations. It fails closed on missing
-method/workload results unless `--allow-partial` is explicitly supplied and
-records input hashes and missing cases in `plot_manifest.json`. Lines follow
-increasing measured `Lsearch`; points are not reordered by Recall or smoothed
-to conceal non-monotone measurements.
+By default the plotter emits the complete paper subset: the principal
+zero-layer comparison, a representative zero/one/two-layer comparison, and
+the upper-authorization ablation. The fixed-threshold one-layer LNG/Trie
+comparison remains available through `--family one_layer_topology`, but the
+current screen covers only its two lowest-selectivity workloads and therefore
+does not qualify as a complete paper panel. Additional factorial families remain available through repeated
+`--family` options, but are not promoted to paper figures until every declared
+method/workload point exists. The plotter fails closed on missing results
+unless `--allow-partial` is explicitly supplied and records input hashes and
+missing cases in `plot_manifest.json`. Lines follow increasing measured
+`Lsearch`; points are not reordered by Recall or smoothed to conceal
+non-monotone measurements.
 The authoritative paper generator accepts only a complete, non-partial plot
 manifest whose screen-config and `all_points.csv` hashes still match. It embeds
-all seven PDF families in the Results section, while finalization records both
-PDF and PNG hashes so the paper figures and downloadable artifacts have one
-auditable source. The same validated inputs atomically replace
+the registered paper subset in the Results section, while finalization records
+both PDF and PNG hashes so the paper figures and downloadable artifacts have
+one auditable source. The same validated inputs atomically replace
 `docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md`; this is the
 current exact-level report, while older result reports remain explicitly
 historical.

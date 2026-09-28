@@ -136,6 +136,7 @@ def prepare_config(
     source: dict[str, Any], output_root: Path, profiles: tuple[str, ...],
     structure: str | None, measured_repeats: int, resource_profile: bool,
     source_config_sha256: str | None = None,
+    main_index: Path | None = None,
 ) -> dict[str, Any]:
     result = copy.deepcopy(source)
     result["output_root"] = str(output_root)
@@ -152,6 +153,11 @@ def prepare_config(
     }
     if source_config_sha256 is not None:
         result["campaign_protocol"]["source_config_sha256"] = source_config_sha256
+    if main_index is not None:
+        if "main_index" not in result:
+            raise ValueError("hierarchy build config is missing main_index")
+        result["main_index"] = str(main_index)
+        result["campaign_protocol"]["main_index_rebased"] = True
     result["cases"] = select_cases(
         source, profiles, structure, measured_repeats, resource_profile)
     expected = len(profiles) * (1 if resource_profile else 1 + measured_repeats)
@@ -174,6 +180,10 @@ def main() -> int:
     if args.measured_repeats <= 0:
         parser.error("--measured-repeats must be positive")
     run_root = absolute_no_resolve(args.run_root)
+    deadline_main_index = (
+        run_root / "build_study" / "base_timing" /
+        "accelerated_gpu_measured_r0" / "index_files"
+    )
     stages = []
     for spec in SPECS:
         source_path = HERE / str(spec["source"])
@@ -187,6 +197,8 @@ def main() -> int:
             measured_repeats=args.measured_repeats,
             resource_profile=bool(spec["resource_profile"]),
             source_config_sha256=sha256_file(source_path),
+            main_index=(deadline_main_index
+                        if spec["structure"] is not None else None),
         )
         atomic_json(output_path, config)
         stages.append({

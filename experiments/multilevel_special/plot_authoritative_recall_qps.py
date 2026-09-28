@@ -17,11 +17,21 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from authoritative_figure_registry import PAPER_FAMILY_NAMES
 
 FAMILIES = {
     "principal_zero": [
         ("l0_lng_entry_optimized_lng", "LNG-0 + optimized LNG entry"),
         ("l0_trie_entry_trie", "Trie-0 + Trie entry"),
+    ],
+    "representative_depth": [
+        ("l0_lng_entry_optimized_lng", "0 layer"),
+        ("l1_t1024_lng_entry_optimized_lng", "1 layer: 1,024/LNG"),
+        ("l2_t1024_16384_lt_entry_optimized_lng", "2 layers: LNG/Trie"),
+    ],
+    "one_layer_topology": [
+        ("l1_t1024_lng_entry_optimized_lng", "1 layer: LNG"),
+        ("l1_t1024_trie_entry_optimized_lng", "1 layer: Trie"),
     ],
     "zero_topology_fixed_entry": [
         ("l0_lng_entry_optimized_lng", "LNG-0"),
@@ -153,7 +163,12 @@ def main() -> int:
     config = json.loads(args.config.read_text(encoding="utf-8"))
     points = read_csv(args.all_points)
     workloads = workload_order(config)
-    requested = args.family or list(FAMILIES)
+    unknown_defaults = set(PAPER_FAMILY_NAMES) - set(FAMILIES)
+    if unknown_defaults:
+        raise RuntimeError(
+            f"paper figure registry contains unknown families: "
+            f"{sorted(unknown_defaults)}")
+    requested = args.family or list(PAPER_FAMILY_NAMES)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),

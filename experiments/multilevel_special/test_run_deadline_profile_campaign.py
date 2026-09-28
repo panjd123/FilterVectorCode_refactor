@@ -17,6 +17,14 @@ class DeadlineProfileRunnerTest(unittest.TestCase):
             self.assertFalse(profile.manifest_finished(path))
             path.write_text(json.dumps({"finished_at_utc": "done"}))
             self.assertTrue(profile.manifest_finished(path))
+            path.write_text(json.dumps({
+                "finished_at_utc": "done", "status": "complete_with_failures",
+            }))
+            self.assertFalse(profile.manifest_finished(path))
+            path.write_text(json.dumps({
+                "finished_at_utc": "done", "status": "complete",
+            }))
+            self.assertTrue(profile.manifest_finished(path))
 
     def test_append_record_replaces_same_stage_case(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

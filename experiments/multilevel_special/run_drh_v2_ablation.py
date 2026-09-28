@@ -35,7 +35,10 @@ DATASET_PRIORITY = {"VariousImg": 0, "Amazon": 1, "Genome": 2, "Reviews": 3}
 def manifest_finished(path: Path) -> bool:
     if not path.is_file():
         return False
-    return bool(json.loads(path.read_text(encoding="utf-8")).get("finished_at_utc"))
+    state = json.loads(path.read_text(encoding="utf-8"))
+    if not state.get("finished_at_utc"):
+        return False
+    return state.get("status", "complete") == "complete"
 
 
 def wait_for_manifest(path: Path, poll_seconds: float,

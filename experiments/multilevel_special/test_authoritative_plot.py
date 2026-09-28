@@ -6,6 +6,34 @@ import plot_authoritative_recall_qps as plotting
 
 
 class AuthoritativePlotTest(unittest.TestCase):
+    def test_default_families_are_complete_paper_subset(self):
+        self.assertEqual(
+            plotting.PAPER_FAMILY_NAMES,
+            (
+                "principal_zero",
+                "representative_depth",
+                "upper_authorization",
+            ),
+        )
+        self.assertTrue(set(plotting.PAPER_FAMILY_NAMES) <= set(plotting.FAMILIES))
+
+    def test_representative_depth_uses_complete_measured_family(self):
+        self.assertEqual(
+            [name for name, _ in plotting.FAMILIES["representative_depth"]],
+            [
+                "l0_lng_entry_optimized_lng",
+                "l1_t1024_lng_entry_optimized_lng",
+                "l2_t1024_16384_lt_entry_optimized_lng",
+            ])
+
+    def test_one_layer_topology_fixes_threshold_and_entry(self):
+        self.assertEqual(
+            [name for name, _ in plotting.FAMILIES["one_layer_topology"]],
+            [
+                "l1_t1024_lng_entry_optimized_lng",
+                "l1_t1024_trie_entry_optimized_lng",
+            ])
+
     def test_threshold_family_fixes_topology_and_entry_strategy(self):
         self.assertEqual(
             [name for name, _ in plotting.FAMILIES["threshold_depth"]],

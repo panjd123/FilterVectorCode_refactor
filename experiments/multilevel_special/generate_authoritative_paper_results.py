@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+from authoritative_figure_registry import PAPER_RECALL_QPS_FIGURES
 from derive_static_hierarchy import derive_plan
 
 
@@ -41,15 +42,7 @@ HELDOUT_BASELINE_ROLE = "zero_layer_baseline"
 HELDOUT_ROUTING_POLICY = "require_upper_authorization"
 EXPECTED_FROZEN_HIERARCHY_CASES = 36
 EXPECTED_MANUAL_ALTERNATIVES = EXPECTED_FROZEN_HIERARCHY_CASES - 1
-RECALL_QPS_FIGURES = (
-    ("principal_zero", "Principal zero-layer systems"),
-    ("zero_topology_fixed_entry", "Zero-layer topology with fixed entry discovery"),
-    ("depth_fixed_lng", "Hierarchy depth with fixed LNG topology and entry discovery"),
-    ("two_layer_topology", "Per-layer topology within the two-layer hierarchy"),
-    ("threshold_depth", "Threshold sensitivity within one- and two-layer hierarchies"),
-    ("entry_strategy_on_drh", "Entry discovery on the fixed DRH hierarchy"),
-    ("upper_authorization", "Exact upper-authorization routing"),
-)
+RECALL_QPS_FIGURES = PAPER_RECALL_QPS_FIGURES
 DEPTH_CATEGORIES = (
     "plain", "best_one_layer", "best_two_layer", "automatic_drh",
     "automatic_routed",

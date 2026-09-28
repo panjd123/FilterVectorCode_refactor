@@ -15,6 +15,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import generate_authoritative_paper_results as paper_results
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
@@ -42,11 +43,7 @@ RESULT_INPUT_LABELS = {
     flag: flag.removeprefix("--").replace("-", "_")
     for flag in RESULT_INPUT_FLAGS
 }
-FIGURE_FAMILIES = (
-    "principal_zero", "zero_topology_fixed_entry", "depth_fixed_lng",
-    "two_layer_topology", "threshold_depth", "entry_strategy_on_drh",
-    "upper_authorization",
-)
+FIGURE_FAMILIES = tuple(name for name, _ in paper_results.RECALL_QPS_FIGURES)
 PROVENANCE_PATTERN = re.compile(
     r"^% (source-sha256|config-sha256|heldout-policy-sha256|"
     r"validator-sha256|manifest-sha256|figure-sha256) "

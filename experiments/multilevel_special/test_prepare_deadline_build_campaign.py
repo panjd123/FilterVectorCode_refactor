@@ -78,6 +78,29 @@ class DeadlineBuildPreparationTest(unittest.TestCase):
         self.assertEqual(result["campaign_protocol"]["measured_repeats"], 2)
         self.assertEqual(source["output_root"], "/old")
 
+    def test_prepare_rebases_hierarchy_on_deadline_base_index(self) -> None:
+        source = {
+            "main_index": "/old/base/index_files",
+            "cases": [
+                case("auto_cpu_cold_r0", "cpu", "cold", 0),
+                case("auto_cpu_measured_r0", "cpu", "measured", 0),
+            ],
+        }
+        main_index = Path("/deadline/base/index_files")
+        result = deadline.prepare_config(
+            source, Path("/deadline/hierarchy"), ("cpu",), "auto", 1,
+            False, main_index=main_index)
+        self.assertEqual(result["main_index"], str(main_index))
+        self.assertTrue(result["campaign_protocol"]["main_index_rebased"])
+        self.assertEqual(source["main_index"], "/old/base/index_files")
+
+    def test_prepare_rejects_rebase_for_config_without_main_index(self) -> None:
+        source = {"cases": [case("auto_cpu_cold_r0", "cpu", "cold", 0)]}
+        with self.assertRaisesRegex(ValueError, "missing main_index"):
+            deadline.prepare_config(
+                source, Path("/deadline/hierarchy"), ("cpu",), "auto", 0,
+                False, main_index=Path("/deadline/base/index_files"))
+
 
 if __name__ == "__main__":
     unittest.main()

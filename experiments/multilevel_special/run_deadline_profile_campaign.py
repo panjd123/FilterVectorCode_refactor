@@ -42,7 +42,12 @@ ACTIVE_PATTERN = (
 def manifest_finished(path: Path) -> bool:
     if not path.is_file():
         return False
-    return bool(json.loads(path.read_text(encoding="utf-8")).get("finished_at_utc"))
+    state = json.loads(path.read_text(encoding="utf-8"))
+    if not state.get("finished_at_utc"):
+        return False
+    # The query supervisor predates the explicit status field. Newer
+    # supervisors publish it, and a terminal failure must not open the gate.
+    return state.get("status", "complete") == "complete"
 
 
 def wait_for_manifest(path: Path, poll_seconds: float,
@@ -110,6 +115,11 @@ def main() -> int:
     parser.add_argument("--case-timeout-seconds", type=float, default=3300.0)
     parser.add_argument("--poll-seconds", type=float, default=30.0)
     parser.add_argument("--wait-timeout-seconds", type=float, default=86400.0)
+    parser.add_argument(
+        "--skip-build-gate", action="store_true",
+        help=("Run after the frozen query campaign is complete and the host is "
+              "idle, without requiring the independent construction campaign."),
+    )
     parser.add_argument("--jobs", type=int, default=16)
     parser.add_argument("--build-dir", type=Path,
                         default=REPO / "build_ung_profile_instrumented_deadline")
@@ -121,7 +131,8 @@ def main() -> int:
         parser.error("timeouts, poll interval, and jobs must be positive")
 
     wait_for_manifest(QUERY_SUPERVISOR, args.poll_seconds, args.wait_timeout_seconds)
-    wait_for_manifest(BUILD_SUPERVISOR, args.poll_seconds, args.wait_timeout_seconds)
+    if not args.skip_build_gate:
+        wait_for_manifest(BUILD_SUPERVISOR, args.poll_seconds, args.wait_timeout_seconds)
     wait_for_idle(args.poll_seconds, min(args.wait_timeout_seconds, 600.0))
 
     performance = json.loads(PERFORMANCE_CAMPAIGN.read_text(encoding="utf-8"))
@@ -159,6 +170,7 @@ def main() -> int:
         "source_commit": source_commit,
         "search_binary_sha256": binary_hash,
         "build_commands": build_commands,
+        "build_gate_skipped": args.skip_build_gate,
         "runs": [],
     }
     bounded.atomic_json(supervisor, state)

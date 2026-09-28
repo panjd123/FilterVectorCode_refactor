@@ -21,7 +21,15 @@ class ContinueAfterBuildTest(unittest.TestCase):
         self.assertIn("heldout_oracle_by_workload.csv", rendered)
         self.assertIn("build_end_to_end.csv", rendered)
         self.assertIn("quality_formal", rendered)
+        self.assertIn("representative_depth.pdf", rendered)
+        self.assertNotIn("one_layer_topology.pdf", rendered)
         self.assertNotIn("quality_screen_crossing_formal", rendered)
+
+    def test_figure_families_share_the_paper_generator_registry(self) -> None:
+        self.assertEqual(
+            finalizer.FIGURE_FAMILIES,
+            tuple(name for name, _ in finalizer.paper_results.RECALL_QPS_FIGURES),
+        )
 
     def test_build_quality_artifact_matches_campaign_phase_naming(self) -> None:
         run_root = Path("/run")

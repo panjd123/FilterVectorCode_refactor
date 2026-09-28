@@ -93,6 +93,15 @@ def cmake_cache_value(path: Path, key: str) -> str:
     raise ValueError(f"{path}: missing CMake cache key {key}")
 
 
+def inherited_cmake_paths(cache: Path) -> list[str]:
+    """Keep out-of-tree profile builds on the reference dependency roots."""
+    keys = (
+        "GRAPHDB_ROOT", "TAGORE_ROOT", "BOOST_ROOT", "OPENBLAS_ROOT",
+        "ZLIB_ROOT", "CROARING_ROOT", "ONNXRUNTIME_DIR",
+    )
+    return [f"-D{key}={cmake_cache_value(cache, key)}" for key in keys]
+
+
 def build_instrumented_binary(
     repo: Path, build_dir: Path, reference_build_dir: Path, jobs: int,
 ) -> tuple[Path, list[list[str]]]:
@@ -103,7 +112,7 @@ def build_instrumented_binary(
         "-DCMAKE_C_COMPILER=" + cmake_cache_value(cache, "CMAKE_C_COMPILER"),
         "-DCMAKE_CXX_COMPILER=" + cmake_cache_value(cache, "CMAKE_CXX_COMPILER"),
         "-DCMAKE_CUDA_COMPILER=" + cmake_cache_value(cache, "CMAKE_CUDA_COMPILER"),
-    ]
+    ] + inherited_cmake_paths(cache)
     build = [
         "cmake", "--build", str(build_dir), "--target", "search_UNG_index",
         "-j", str(jobs),

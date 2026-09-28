@@ -78,6 +78,21 @@ class InstrumentedProfileTest(unittest.TestCase):
             self.assertEqual(
                 path.read_bytes(), b'{\n  "value": 1\n}\n')
 
+    def test_profile_build_inherits_reference_dependency_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory) / "CMakeCache.txt"
+            keys = (
+                "GRAPHDB_ROOT", "TAGORE_ROOT", "BOOST_ROOT", "OPENBLAS_ROOT",
+                "ZLIB_ROOT", "CROARING_ROOT", "ONNXRUNTIME_DIR",
+            )
+            cache.write_text("".join(
+                f"{key}:PATH=/reference/{key.lower()}\n" for key in keys),
+                encoding="utf-8")
+            self.assertEqual(
+                profile_runner.inherited_cmake_paths(cache),
+                [f"-D{key}=/reference/{key.lower()}" for key in keys],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

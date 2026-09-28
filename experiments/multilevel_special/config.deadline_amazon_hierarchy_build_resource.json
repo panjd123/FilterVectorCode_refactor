@@ -2,7 +2,7 @@
   "schema_version": 2,
   "purpose": "Deadline-bounded Amazon construction evidence; generated from the frozen authoritative configuration.",
   "build_app": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_rel/apps/build_special_block_index",
-  "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/build_study/base_timing/accelerated_gpu_measured_r0/index_files",
+  "main_index": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_build_20260927/build_study/base_timing/accelerated_gpu_measured_r0/index_files",
   "base_bin_file": "/home/graphdb/FilterVectorData/Amazon/Amazon_base.bin",
   "base_label_file": "/home/graphdb/FilterVectorData/Amazon/Amazon_base_labels.txt",
   "output_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_build_20260927/build_study/hierarchy_resource",
@@ -173,6 +173,7 @@
     "measured_repeats": 1,
     "resource_profile": true,
     "query_independent": true,
-    "source_config_sha256": "fa38cf4e7245059bb73cfb2226f8ed344a1378f5697912b07d7954426e5aa310"
+    "source_config_sha256": "fa38cf4e7245059bb73cfb2226f8ed344a1378f5697912b07d7954426e5aa310",
+    "main_index_rebased": true
   }
 }

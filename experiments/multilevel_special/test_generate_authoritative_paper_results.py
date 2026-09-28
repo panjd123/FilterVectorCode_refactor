@@ -45,6 +45,16 @@ def method(name: str, layers: int, topology: str, entry: str,
 
 
 class AuthoritativePaperResultsTest(unittest.TestCase):
+    def test_recall_qps_figures_include_direct_depth_and_topology_ablations(self):
+        self.assertEqual(
+            tuple(name for name, _ in generator.RECALL_QPS_FIGURES),
+            (
+                "principal_zero",
+                "representative_depth",
+                "upper_authorization",
+            ),
+        )
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)

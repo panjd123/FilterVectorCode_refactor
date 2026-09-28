@@ -49,6 +49,7 @@ int main()
               "equality", {1, 3}, routing_blocks),
           "the upper authorization router is containment-only");
    routing_blocks[1].level = 0;
+   routing_blocks[2].level = 0;
    expect(!ANNS::special_block_query_authorizes_upper(
               "containment", {1}, routing_blocks),
           "a single-level index must not claim an upper-level route");
