@@ -15,7 +15,7 @@ ML-UNG 将三个维度解耦：层数与阈值、每层 group topology（LNG 或
 - DRH-v1 在 Genome/Reviews 为 plain 的 0.954--1.014x，且为最佳人工配置的 0.980--1.008；VariousImg 只有 plain 的 0.205x，是必须保留的反例。
 - DRH-v2 当前结果：Genome 3.365%: v2/plain=0.992x; Genome 6.292%: v2/plain=1.005x; Reviews 0.200%: v2/plain=1.007x; Reviews 4.115%: v2/plain=0.972x; VariousImg 10.252%: v2/plain=0.336x.
 - DRH-v2 将 Genome 两档恢复到 plain 的 0.992--1.005x，也把 VariousImg 从 v1 的约 0.21x 提升到 0.336x；但它在 Reviews 4.115% 过度回退到 0.972x，说明该 gate 能限制灾难性开销，却仍不能保证逐 workload 单调更优。
-- GPU base-stage 最佳初步时间可从论文构建段落读取。hierarchy cold sidecar 中 CPU 为 986.12 s，hybrid GPU intra 为 85.75 s（11.50x），hybrid GPU intra+inter 为 136.08 s，full GPU 为 105.83 s；这些均为单次 cold screen，repeats 尚未完成，因此不宣称端到端 GPU 多层构建加速。
+- 重复构建实验中，最佳 composed base+hierarchy 路径为原始 CPU base builder 的 1.35x（bootstrap 95% CI [1.33, 1.36]）；该结果是独立 stage median 的和，不冒充单次联合 wall-clock。
 
 ## Amazon：0/1/2 层与 topology
 
@@ -50,9 +50,25 @@ NC 表示在该 workload 的实测共同预算内未达到 Recall@10 >= 0.90，�
 | 95.020% | 42.06 | 36.82 | 0.875x | 0.9289 | 0.9259 |
 | 99.001% | 15.40 | 14.34 | 0.931x | 0.9325 | 0.9301 |
 
-## 自动 DRH 与人工调优
+## 两层 topology 公平消融
 
-| Dataset | Selectivity | Plain QPS | DRH QPS | DRH/plain | DRH/best manual |
+固定 T1=1024、T2=16384、optimized-LNG entry 和 ungated routing。QPS 只在实测 Recall@10 >= 0.90 crossing 处报告。
+
+| Sel. | LL QPS | LT QPS | TL QPS | TT QPS | LL max R | LT max R | TL max R | TT max R |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.499% | NC | NC | NC | NC | 0.8878 | 0.8878 | 0.8878 | 0.8878 |
+| 0.903% | NC | NC | NC | NC | 0.8567 | 0.8567 | 0.8464 | 0.8464 |
+| 5.038% | NC | NC | NC | NC | 0.8929 | 0.8928 | 0.8836 | 0.8836 |
+| 9.907% | NC | NC | NC | NC | 0.8484 | 0.8492 | 0.8220 | 0.8229 |
+| 30.027% | NC | NC | NC | NC | 0.8385 | 0.8393 | 0.8333 | 0.8324 |
+| 60.047% | 56.37 | 61.40 | 57.00 | 56.42 | 0.9529 | 0.9538 | 0.9523 | 0.9525 |
+| 80.024% | 35.44 | 49.70 | 35.88 | 35.94 | 0.9357 | 0.9362 | 0.9341 | 0.9313 |
+| 95.020% | 39.61 | 39.75 | 36.99 | 36.68 | 0.9306 | 0.9310 | 0.9294 | 0.9271 |
+| 99.001% | 14.69 | 16.79 | 14.41 | 14.28 | 0.9338 | 0.9346 | 0.9325 | 0.9313 |
+
+## 自动 DRH-v1 与人工调优
+
+| Dataset | Selectivity | Plain QPS | DRH-v1 QPS | DRH-v1/plain | DRH-v1/best manual |
 |---|---:|---:|---:|---:|---:|
 | Genome | 3.365% | 153.65 | 146.52 | 0.954x | 1.008 |
 | Genome | 6.292% | 85.45 | 83.88 | 0.982x | 1.007 |
@@ -61,7 +77,7 @@ NC 表示在该 workload 的实测共同预算内未达到 Recall@10 >= 0.90，�
 | VariousImg | 10.252% | 2657.04 | 543.74 | 0.205x | 0.218 |
 
 
-按 dataset 固定一个配置后，DRH/最佳人工配置的几何平均 QPS 比分别为 Genome 1.013、Reviews 0.989、VariousImg 0.218。前两者说明无需查询校准的规则可以接近小型人工候选集；VariousImg 说明它尚不是普适的自适应最优规则。
+按 dataset 固定一个配置后，DRH-v1/最佳人工配置的几何平均 QPS 比分别为 Genome 1.013、Reviews 0.989、VariousImg 0.218。该人工对比集在 DRH-v2 实验前冻结，因此 v2 只作为独立 routing 消融，不追溯替换这里的 v1 数值。前两者说明无需查询校准的规则可以接近小型人工候选集；VariousImg 说明它尚不是普适的自适应最优规则。
 
 ## Detailed profile 机制解释
 
@@ -77,10 +93,64 @@ NC 表示在该 workload 的实测共同预算内未达到 Recall@10 >= 0.90，�
 
 Reviews 的较宽 workload 中 DRH 将 visited 从 4415.8 降至 3500.1、distance calculations 从 8239.3 降至 7312.0，但扫描边从 15126.2 增至 25605.4；其图时间仍从 6.756 ms 降至 6.504 ms。VariousImg 则把 visited 从 18656.0 增至 27356.1、扫描边从 119045.5 增至 251144.0，graph time 从 35.10 ms 增至 172.06 ms，直接解释负收益。Genome 的 ELS 占总时间主体，图阶段从 0.124 ms 增至 0.199 ms，总体 QPS 略降。
 
+## Amazon representative detailed profile
+
+`cross` 表示性能 pass 达到 Recall@10 >= 0.90 的最小实测点；`max` 表示未 crossing 时最大实测 Recall 对应点，只用于机制解释。`NC` 表示在固定 3300 秒单 case 上限下超时，未使用部分计数。耗时单位为 ms/query，工作量为 mean/query。
+
+| Selectivity | Op. | Method | ELS | Entry | Auth. | Graph | Visited | Edges | Distances |
+|---:|:---:|---|---:|---:|---:|---:|---:|---:|---:|
+| 0.499% | cross | 0L-LNG | 20.352 | 0.195 | 0.000 | 2.076 | 1966.8 | 23458.9 | 2150.2 |
+| 0.499% | cross | 0L-Trie | 0.645 | 1.769 | 0.000 | 0.868 | 988.6 | 11047.0 | 2764.4 |
+| 0.499% | max | 1L-LNG | 19.665 | 0.216 | 0.015 | 4.418 | 1860.2 | 23296.2 | 2043.9 |
+| 0.499% | max | 1L-Trie | 16.188 | 0.224 | 0.012 | 4.578 | 1859.2 | 23263.7 | 2042.9 |
+| 0.499% | cross | 2L-gated | 20.455 | 0.194 | 0.003 | 2.109 | 1968.1 | 23464.7 | 2151.5 |
+| 9.907% | cross | 0L-LNG | 36.631 | 0.646 | 0.000 | 98.747 | 25024.2 | 189382.5 | 25402.9 |
+| 9.907% | cross | 0L-Trie | 3.778 | 14.744 | 0.000 | 323.081 | 38926.2 | 351908.0 | 44682.9 |
+| 9.907% | max | 1L-LNG | 33.451 | 0.645 | 0.017 | 644.477 | 34782.5 | 821915.0 | 35184.9 |
+| 9.907% | max | 1L-Trie | 32.969 | 0.576 | 0.015 | 587.339 | 32344.1 | 757831.0 | 32746.5 |
+| 9.907% | cross | 2L-gated | 31.648 | 0.685 | 0.023 | 301.608 | 28532.4 | 449218.0 | 28936.2 |
+| 30.027% | cross | 0L-LNG | 251.380 | 3.963 | 0.000 | 1376.910 | 91953.6 | 580600.5 | 93654.0 |
+| 30.027% | max | 0L-Trie | 8.381 | 30.629 | 0.000 | 2420.260 | 88466.5 | 497828.0 | 98769.0 |
+| 30.027% | max | 1L-LNG | 220.485 | 1.887 | 0.017 | 1765.145 | 61473.4 | 1112780.0 | 63220.3 |
+| 30.027% | max | 1L-Trie | 226.654 | 1.963 | 0.015 | 1662.880 | 58664.4 | 1021480.0 | 60411.4 |
+| 30.027% | max | 2L-gated | 234.946 | 2.091 | 0.013 | 1755.115 | 64374.7 | 978653.5 | 66124.7 |
+| 60.047% | cross | 0L-LNG | 2123.720 | 33.187 | 0.000 | 21357.550 | 254657.0 | 1988540.0 | 265484.5 |
+| 60.047% | cross | 0L-Trie | 10.670 | 63.353 | 0.000 | 39255.750 | 261406.5 | 1453445.0 | 278174.0 |
+| 60.047% | cross | 1L-LNG | 1415.925 | 8.882 | 0.017 | 200.452 | 45762.3 | 218706.0 | 56600.6 |
+| 60.047% | cross | 1L-Trie | 1465.900 | 8.881 | 0.013 | 192.047 | 44045.4 | 200138.0 | 54883.6 |
+| 60.047% | cross | 2L-gated | 1408.655 | 9.064 | 0.017 | 195.087 | 45607.8 | 215753.5 | 56454.1 |
+| 95.020% | cross | 0L-LNG | 4918.875 | 61.074 | 0.000 | 89240.100 | 451225.0 | 3967260.0 | 467715.0 |
+| 95.020% | NC | 0L-Trie | -- | -- | -- | timeout at 3300.0s | -- | -- | -- |
+| 95.020% | cross | 1L-LNG | 2307.095 | 12.576 | 0.018 | 113.150 | 44157.5 | 170659.0 | 60663.6 |
+| 95.020% | cross | 1L-Trie | 2313.385 | 13.444 | 0.014 | 299.972 | 67643.4 | 309628.0 | 84149.5 |
+| 95.020% | cross | 2L-gated | 2317.090 | 12.571 | 0.024 | 113.679 | 43995.0 | 170239.0 | 60513.8 |
+
 ## 构建证据
 
-自动 DRH 的 CPU sidecar wall time 分别为 Genome 44.2 s、Reviews 120.4 s、VariousImg 633.2 s。独立 base-index timing 的原始 CPU 中位数为 190.61 s，最快 GPU profile 为 53.18 s（3.58x），但这只证明 base stage。另一个 Amazon hierarchy cold sidecar 完成了 CPU 986.12 s、hybrid GPU intra 85.75 s、hybrid GPU intra+inter 136.08 s 和 full GPU 105.83 s；最快完成项相对 CPU 为 11.50x。该横向比较只有单次 cold run，且不含 base-index construction，因此只能作为 GPU hierarchy 可行性证据，不能当作重复测量的端到端构建加速比。
+自动 DRH 的 held-out CPU sidecar wall time 分别为 Genome 44.2 s、Reviews 120.4 s、VariousImg 633.2 s。Amazon 的重复 timing、独立 resource profile 和 composed end-to-end 结果如下。
+
+## Repeated hierarchy construction
+
+Timing 与 resource profile 分离；resource run 不进入 timing median。
+
+| Backend | Repeats | Wall median (s) | CV | Speedup/CPU | Peak RSS MiB | Peak GPU MiB |
+|---|---:|---:|---:|---:|---:|---:|
+| cpu | 2 | 1000.64 | 0.005 | 1.00x | 5001.5 | 0.0 |
+| full_gpu | 2 | 105.90 | 0.007 | 9.45x | 4178.1 | 2286.0 |
+| full_gpu_wmma | 2 | 1011.13 | 0.000 | 0.99x | 4223.5 | 2362.0 |
+| hybrid_gpu_intra | 2 | 90.49 | 0.008 | 11.06x | 4880.7 | 1598.0 |
+| hybrid_gpu_intra_inter | 2 | 132.94 | 0.006 | 7.53x | 4255.6 | 2286.0 |
+
+### Composed end-to-end construction
+
+| Hierarchy backend | Stage repeats | Original CPU s | Composed s | Speedup | Bootstrap 95% CI |
+|---|---:|---:|---:|---:|---:|
+| cpu | 2 | 190.38 | 1051.42 | 0.18x | [0.18, 0.18] |
+| full_gpu | 2 | 190.38 | 156.69 | 1.21x | [1.20, 1.23] |
+| full_gpu_wmma | 2 | 190.38 | 1061.91 | 0.18x | [0.18, 0.18] |
+| hybrid_gpu_intra | 2 | 190.38 | 141.27 | 1.35x | [1.33, 1.36] |
+| hybrid_gpu_intra_inter | 2 | 190.38 | 183.72 | 1.04x | [1.03, 1.05] |
 
 ## 学术边界
 
-当前结论不包含正式置信区间，不把 light-stats 的缺失边计数解释为 0，也不把 CPU sidecar 构建或 base-only GPU timing 当作完整多层 GPU 构建结果。完整 396-case 生成器仍保持 fail-closed；本报告来自单独、显式缩小的 deadline evidence contract。所有负结果与 NC 均保留。
+当前结论不包含正式查询置信区间，不把 light-stats 的缺失边计数解释为 0。构建端到端数值采用独立测量的 base 与 hierarchy stage median 相加；resource profile 独立运行，不进入 timing median。 完整 396-case 生成器仍保持 fail-closed；本报告来自单独、显式缩小的 deadline evidence contract。所有负结果与 NC 均保留。

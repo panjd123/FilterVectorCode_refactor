@@ -356,6 +356,7 @@ def profile_table(profile_paths: list[Path]) -> str:
 
 def amazon_profile_tables(
     rows: list[dict[str, str]], selection_manifest: Path,
+    supervisor_manifest: Path | None = None,
 ) -> tuple[str, str]:
     methods = (
         ("l0_lng_entry_optimized_lng", "0L-LNG"),
@@ -382,24 +383,46 @@ def amazon_profile_tables(
             raise ValueError(f"Amazon profile edge counters are disabled: {key}")
         indexed[key] = row
     expected = set(statuses)
-    if set(indexed) != expected:
-        missing = sorted(expected - set(indexed))
-        extra = sorted(set(indexed) - expected)
+    missing = expected - set(indexed)
+    extra = set(indexed) - expected
+    declared_timeouts: dict[tuple[str, str], float] = {}
+    if supervisor_manifest is not None:
+        supervisor = json.loads(supervisor_manifest.read_text(encoding="utf-8"))
+        profile_records = {
+            (str(record.get("workload", "")), str(record.get("method", ""))): record
+            for record in supervisor.get("runs", [])
+            if record.get("stage") == "profile_query"
+        }
+        for key in expected:
+            record = profile_records.get(key)
+            if record is None:
+                raise ValueError(f"Amazon profile supervisor record is missing: {key}")
+            if key in missing:
+                if record.get("status") != "timeout":
+                    raise ValueError(
+                        f"missing Amazon profile row is not a declared timeout: {key}")
+                declared_timeouts[key] = float(record["elapsed_seconds"])
+            elif record.get("status") != "complete":
+                raise ValueError(
+                    f"Amazon profile row has non-complete supervisor status: {key}")
+    if missing - set(declared_timeouts) or extra:
         raise ValueError(
-            f"Amazon profile rows do not match selection manifest; missing={missing}, extra={extra}")
+            "Amazon profile rows do not match selection manifest; "
+            f"missing={sorted(missing)}, extra={sorted(extra)}")
 
     workload_rank = {name: index for index, name in enumerate(WORKLOAD_ORDER)}
     method_rank = {name: index for index, (name, _) in enumerate(methods)}
     labels = dict(methods)
     ordered = sorted(
-        indexed.items(),
-        key=lambda item: (workload_rank.get(item[0][0], 999), method_rank[item[0][1]]),
+        expected,
+        key=lambda key: (workload_rank.get(key[0], 999), method_rank[key[1]]),
     )
     tex_lines = [
         r"\subsection{Amazon Stage and Work Breakdown}",
         "This profile-only pass reuses each method's measured performance operating point. "
         "Rows marked max use the best measured point because Recall@10 did not cross 0.90; "
-        "they explain work but are not equal-Recall speed comparisons.",
+        "they explain work but are not equal-Recall speed comparisons. NC denotes a declared "
+        "profile timeout at the fixed 3,300-second per-case cap; no partial counters are used.",
         r"\begin{table*}[t]", r"\centering", r"\scriptsize",
         r"\caption{Amazon detailed profile. Times are ms/query; work counters are means/query.}",
         r"\label{tab:amazon-profile}", r"\resizebox{\textwidth}{!}{%",
@@ -410,14 +433,27 @@ def amazon_profile_tables(
     md_lines = [
         "## Amazon representative detailed profile",
         "",
-        "`cross` 表示性能 pass 达到 Recall@10 >= 0.90 的最小实测点；`max` 表示未 crossing 时最大实测 Recall 对应点，只用于机制解释。耗时单位为 ms/query，工作量为 mean/query。",
+        "`cross` 表示性能 pass 达到 Recall@10 >= 0.90 的最小实测点；`max` 表示未 crossing 时最大实测 Recall 对应点，只用于机制解释。`NC` 表示在固定 3300 秒单 case 上限下超时，未使用部分计数。耗时单位为 ms/query，工作量为 mean/query。",
         "",
         "| Selectivity | Op. | Method | ELS | Entry | Auth. | Graph | Visited | Edges | Distances |",
         "|---:|:---:|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for (workload, method), row in ordered:
+    for workload, method in ordered:
+        row = indexed.get((workload, method))
         status = statuses[(workload, method)]
         op = "cross" if status == "crossing" else "max"
+        if row is None:
+            elapsed = declared_timeouts[(workload, method)]
+            selectivity = next(
+                float(candidate["mean_selectivity"])
+                for candidate in rows if candidate["workload"] == workload)
+            tex_lines.append(
+                f"{100.0 * selectivity:.3f}\\% & NC & {labels[method]} & "
+                r"-- & -- & -- & -- & -- & -- & -- \\")
+            md_lines.append(
+                f"| {100.0 * selectivity:.3f}% | NC | {labels[method]} | "
+                f"-- | -- | -- | timeout at {elapsed:.1f}s | -- | -- | -- |")
+            continue
         values = (
             100.0 * float(row["mean_selectivity"]),
             float(row["els_ms_warm_median"]),
@@ -718,12 +754,14 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
     amazon_profile_markdown = ""
     amazon_profile_points = getattr(args, "amazon_profile_points", None)
     amazon_profile_selection = getattr(args, "amazon_profile_selection", None)
+    amazon_profile_supervisor = getattr(args, "amazon_profile_supervisor_manifest", None)
     if bool(amazon_profile_points) != bool(amazon_profile_selection):
         raise ValueError(
             "--amazon-profile-points and --amazon-profile-selection must be supplied together")
     if amazon_profile_points:
         amazon_profile_tex, amazon_profile_markdown = amazon_profile_tables(
-            read_csv(amazon_profile_points), amazon_profile_selection)
+            read_csv(amazon_profile_points), amazon_profile_selection,
+            amazon_profile_supervisor)
     max_budget = {}
     for row in all_points:
         max_budget[row["workload"]] = max(max_budget.get(row["workload"], 0), int(float(row["lsearch"])))
@@ -748,6 +786,8 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
     evidence = [args.amazon_equal_recall, args.amazon_points, args.deadline_summary / "automatic_vs_manual.csv", args.deadline_summary / "automatic_vs_global_manual.csv", args.deadline_summary / "build_cases.csv", args.build_manifest, *args.policy, *args.profile, args.figures / "plot_manifest.json", *source_figures.values()]
     if amazon_profile_points:
         evidence.extend([amazon_profile_points, amazon_profile_selection])
+        if amazon_profile_supervisor:
+            evidence.append(amazon_profile_supervisor)
     if build_summary:
         evidence.extend([build_summary, build_end_to_end])
     if build_end_to_end_rows:
@@ -876,18 +916,13 @@ NC 表示在该 workload 的实测共同预算内未达到 Recall@10 >= 0.90，�
 
 Reviews 的较宽 workload 中 DRH 将 visited 从 4415.8 降至 3500.1、distance calculations 从 8239.3 降至 7312.0，但扫描边从 15126.2 增至 25605.4；其图时间仍从 6.756 ms 降至 6.504 ms。VariousImg 则把 visited 从 18656.0 增至 27356.1、扫描边从 119045.5 增至 251144.0，graph time 从 35.10 ms 增至 172.06 ms，直接解释负收益。Genome 的 ELS 占总时间主体，图阶段从 0.124 ms 增至 0.199 ms，总体 QPS 略降。
 
-""" + amazon_profile_markdown + """
-
-## 构建证据
-
-{construction_report_intro}
-
-""" + construction_tables_markdown + """
-
-## 学术边界
-
-当前结论不包含正式查询置信区间，不把 light-stats 的缺失边计数解释为 0。{build_report_boundary} 完整 396-case 生成器仍保持 fail-closed；本报告来自单独、显式缩小的 deadline evidence contract。所有负结果与 NC 均保留。
-"""
+""" + amazon_profile_markdown + "\n\n## 构建证据\n\n" \
+        + construction_report_intro + "\n\n" \
+        + construction_tables_markdown + "\n\n## 学术边界\n\n" \
+        + "当前结论不包含正式查询置信区间，不把 light-stats 的缺失边计数解释为 0。" \
+        + build_report_boundary \
+        + " 完整 396-case 生成器仍保持 fail-closed；本报告来自单独、显式缩小的 " \
+          "deadline evidence contract。所有负结果与 NC 均保留。\n"
     return generated, report, evidence
 
 
@@ -901,6 +936,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--profile", action="append", type=Path, required=True)
     parser.add_argument("--amazon-profile-points", type=Path)
     parser.add_argument("--amazon-profile-selection", type=Path)
+    parser.add_argument("--amazon-profile-supervisor-manifest", type=Path)
     parser.add_argument("--require-two-layer-topology", action="store_true")
     parser.add_argument("--drh-v2-root", type=Path, required=True)
     parser.add_argument("--build-manifest", type=Path, required=True)

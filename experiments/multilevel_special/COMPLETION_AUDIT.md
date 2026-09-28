@@ -1,91 +1,74 @@
-# 多层 Filtered-ANN 权威实验完成审计
+# 多层 Filtered-ANN Deadline Evidence 完成审计
 
-本文件把当前用户目标映射到可检查的实现、原始实验、聚合产物和论文内容。
-历史六档结果、修复前 binary 和部分 screen 均不能证明当前目标完成。只有下表
-所有必需项均有当前证据并通过对应 validator，任务才可标记完成。
+本审计区分两种证据契约：本次已执行的 deadline-bounded campaign，以及未执行的
+历史 396-case formal campaign。前者可以支持当前论文中的 screen-level 结论，
+不能被表述为后者已经完成。
 
 ## 固定口径
 
-- 开发数据集：Amazon x1，602,453 points、768 dimensions、482,387 groups。
-- 选择率：0.499249%、0.903055%、5.038117%、9.906615%、30.027242%、
-  60.047491%、80.023699%、95.019781%、99.000600%。
-- 查询：每档 1,000 queries，K=10，100 threads，exact containment GT。
-- crossing：所有 warm repeats 的 Recall@10 均不低于 0.90 的最小实测
-  Lsearch；不插值、不外推、不按延迟回选更大的 L。
-- performance：1 cold + 15 warm；profile：1 cold + 3 warm；screen 仅用于
-  确定 refinement 区间，不进入最终性能主表。
-- 公平比较固定 data/query/labels/GT/K/threads/binary/backend。自动 DRH 和
-  held-out manual grid 使用相同 require_upper_authorization gate。
+- 开发数据集：Amazon，602,453 个 768 维向量、482,387 个 groups。
+- held-out 数据集：Genome、Reviews、VariousImg。
+- Amazon 选择率：0.5%、1%、5%、10%、30%、60%、80%、95%、99%。
+- 查询：每档固定 1,000 queries，K=10，100 query threads，exact containment GT。
+- 主 QPS：同一冻结 query set，1 次 cold + 2 次 warm，取 warm batch time 中位数。
+- crossing：所有 warm repeats 的 Recall@10 均不低于 0.90 的最小实测 Lsearch；
+  不插值、不外推。
+- candidate 只扫描 activation level 自身边；无 edge fallthrough、隐式晋级或
+  跨层混扫。
+- detailed profile 与主 QPS、GPU timing、resource profile 分离；profile 缺失
+  计数不得解释为 0。
+- 自动 DRH 只使用 N、R、C 决定层数、阈值和逐层 topology，不读取 query
+  distribution、Recall 或 latency。
 
-## 目标与证据
+## Deadline Campaign 状态
 
-| 显式要求 | 完成所需的权威证据 | 当前状态 |
-|---|---|---|
-| 任意多层统一结构 | hierarchy、base/per-layer topology、entry strategy、routing 四维独立；候选只扫描自身层边；无隐式晋级或 edge fallthrough | **实现完成**：experiment_core.py、uni_nav_graph_search_backend.cpp 及 C++/Python 回归测试 |
-| Trie vs LNG 公平消融 | Amazon 九档、六个零层 topology-entry 组合，以及固定 entry 下的逐层 topology 曲线；同一 immutable performance binary | **采集中**：44 methods x 9 workloads screen 正在串行运行 |
-| 0/1/2 层与参数消融 | 每档 plain、best one-layer、best two-layer、ungated DRH、gated DRH；同时给单一固定配置的九档 geomean | **脚本完成，结果待采集**：summarize_depth_ablation.py |
-| Recall-QPS 曲线 | screen 的全部离散实测点；覆盖零层、深度、逐层 topology、阈值尺度、entry strategy 和 routing；缺失 case 必须失败；PDF/PNG 与输入 hash manifest；完整曲线嵌入最终论文 | **脚本与论文接口完成，结果待采集**：plot_authoritative_recall_qps.py；paper generator 拒绝 partial/stale plot manifest |
-| 查询阶段 breakdown | entry-group、entry-point setup、完整 block authorization、graph search、residual，单位统一为 ms/query，并验证 closure | **采集链完成，正确口径待重跑**：旧 immutable binary 未把 exact gate 计入 authorization；源码已修复 |
-| 查询工作量 breakdown | visited points、base/special intra/special inter edges、entry/graph/total distance calculations，以及 layered-path activation rate | **采集链完成，结果待 profile**：summarize_selection_sweep.py |
-| 自动决定层数、阈值、topology | DRH 仅从 N、R、C 推导，无 query distribution、latency 或 Recall 校准；exact gate 只读当前 predicate 和持久化 root labels | **方法与协议完成**：derive_static_hierarchy.py、AUTOMATIC_HIERARCHY_PROTOCOL.md |
-| held-out 自动方案 vs 手工 oracle | Genome、Reviews、VariousImg；manual grid 在看结果前冻结；自动与 35 个 manual candidates 使用同一 gate；报告逐 workload 和单一配置 oracle gap | **配置/预检完成，查询待运行**：summarize_heldout_oracle.py |
-| GPU 建图 | kernel 与端到端 wall time 分开；1 cold + 至少 5 measured；CPU/GPU 交错；RSS/GPU memory/index bytes；下游 Recall 复验 | **runner 完成，权威 timing/resource/quality 待运行** |
-| 完整可展示报告 | 方法、baseline、数据集、Recall crossing、QPS/CI、适用区间、负结果、机制解释和限制均由当前证据生成 | **同源自动生成接口完成，数字待 validator**：`MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md` |
-| SIGMOD/VLDB LaTeX | 算法定义、正确性、复杂度、伪代码、实验方法、表图、讨论、限制、引用完整；无 pending；可编译 | **正文与原子结果接口完成；placeholder 骨架已通过 Tectonic 0.15.0 musl 编译，最终数字版验收待完成** |
+| 证据项 | 状态 | 边界 |
+|---|---:|---|
+| Amazon 两层 LL/TL/TT topology | **27/27 complete** | 3 topology x 9 workloads；每 case 最多 3300 s |
+| Amazon representative detailed profile | **24/25 complete** | 0L-Trie / 95% 在 3300.0 s 超时，论文与报告记为 NC；未使用部分计数 |
+| GPU/CPU hierarchy build campaign | **41/41 complete** | timing 与 resource 分离；5 个 hierarchy backend，各 2 个 measured timing repeats |
+| Held-out DRH-v1 vs manual | **complete** | manual 仅为 5 个预注册 alternatives，不称为 35-case oracle |
+| DRH-v2 routing ablation | **complete** | 与冻结 DRH-v1 manual comparison 分开报告 |
+| 报告与论文生成 | **complete_with_declared_timeout** | finalization manifest 显式记录上述唯一 profile timeout |
+| 回归测试 | **247/247 passed** | `python3 -m unittest discover -s experiments/multilevel_special -p "test_*.py"` |
+| LaTeX | **compiled** | Tectonic 0.15.0 musl；无 undefined reference/citation 或 fatal error |
 
-## 必须通过的最终门禁
+## 构建结果门禁
 
-1. validate_selection_sweep.py 分别通过 Amazon screen、crossing、formal、
-   instrumented profile，以及三个 held-out formal 和 build-quality formal。
-2. Amazon formal 的 equal_recall_conservative.csv、depth_by_workload.csv
-   和 depth_global.csv 与 config 的 method/workload/L/结构元数据完全一致。
-3. Instrumented profile 从 formal 的同一实测 L 派生，manifest 中所有 case 使用
-   新 binary；BlockAuthorizationTime_ms 包含 exact gate 与 coverage，stage
-   closure 不超过 1e-6 ms/query。
-4. Held-out policy 从记录的 N/R/C 重推导后与 formal config 的自动层级一致；
-   35 个冻结 manual 候选、自动方法、ungated ablation、统一 gate 和 workload
-   元数据全部匹配。输出恰好覆盖 Genome 2、Reviews 2、VariousImg 1 个
-   workload；允许并显式保留 automatic_no_crossing，不得删掉失败点。
-5. 四个 build manifest 全部完成；每个 timing profile 至少 5 个 measured
-   repeats；GPU case 有外部锁或至少三次连续 idle-preflight 证据。
-   build-quality 的最终 aggregate 必须来自 campaign 实际 formal 输出
-   `build_study/quality_formal/summary/performance/equal_recall_conservative.csv`；
-   `screen -> crossing -> formal` 的目录替换由回归测试锁定。
-6. generate_authoritative_paper_results.py 成功运行并原子替换
-   generated_results.tex；生成文件记录所有输入/config/binary/policy hash，且
-   没有 pending。
-7. Python 实验测试、C++ tests、git diff --check 和 LaTeX 编译全部通过。
+- CPU hierarchy median：1000.64 s。
+- hybrid GPU intra：90.49 s，hierarchy stage 相对 CPU 为 11.06x。
+- full GPU：105.90 s，hierarchy stage 相对 CPU 为 9.45x。
+- hybrid GPU intra+inter：132.94 s，hierarchy stage 相对 CPU 为 7.53x。
+- full GPU WMMA：1011.13 s，0.99x，是保留的负结果。
+- 最佳 composed base+hierarchy 路径为 hybrid GPU intra：141.27 s，
+  相对 original CPU base 的 1.35x，bootstrap 95% CI [1.33, 1.36]。
+- composed 数值是独立 stage median 的和，不冒充单次联合 wall-clock。
 
-## 当前不可使用的证据
+## 可核验产物
 
-- runs/multilevel_selection/ 及旧六档 paper_results.csv 仅为历史结果。
-- Trie 空谓词修复前 binary 3ae4fe9a... 的所有数据均已 invalidated。
-- 当前 performance binary 4c99a51c... 的 Recall/QPS 可用于本轮主表，但其
-  profile authorization 子项口径不完整；该 profile 只能作诊断。
-- 任何固定 L 延迟、mean-Recall crossing、插值 crossing、缩短 query 数或减少
-  正式重复的结果均不能替代上述权威口径。
-- GPU kernel microbenchmark 不能替代 base-plus-hierarchy 端到端 build wall time。
-- 无锁机器上的 idle preflight 不能表述为独占 GPU 测量。
+- `runs/remaining_evidence_20260928/supervisor_manifest.json`：topology/profile
+  case 状态与 3300 s timeout provenance。
+- `runs/deadline_build_20260927/deadline_build_supervisor_manifest.json`：41/41
+  build case 状态。
+- `runs/deadline_build_20260927/build_study/summary/build_summary.csv`：重复
+  timing 与独立 resource profile。
+- `runs/deadline_build_20260927/build_study/summary/build_end_to_end.csv`：composed
+  结果与 bootstrap CI。
+- `runs/complete_evidence_20260928/finalization_manifest.json`：生成器命令、
+  Tectonic hash、输出 hash 和声明式缺口。
+- `docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md`：中文权威报告。
+- `docs/papers/multilevel_ung/main.pdf`：当前论文 PDF。
 
-## 当前执行状态
+## 未完成边界
 
-- Amazon 44 x 9 screen：运行中，由既有 runner 和 watcher 串行推进。
-- Amazon crossing/formal/profile：等待 screen validator。
-- Held-out：配置与冻结 manual grid 已完成，等待 Amazon query gate。
-- Build：等待 query gate；continue_after_query.py 将 held-out 与 build 串联。
-- 完整 authorization profile：run_authoritative_instrumented_profile.py 已就绪，
-  会在所有实验进程退出后使用独立 build 目录执行。
-- 论文结果：generated_results.tex 保持 fail-closed placeholder；摘要、结论和
-  Results 由同一生成文件统一更新。
-- 最终 provenance：finalization manifest v2 会逐项核对并记录结果 CSV、配置、
-  冻结 policy、validator、query/build manifest、论文源文件、Tectonic、编译日志、
-  generated_results.tex 与 PDF 的 SHA-256；输入在编译期间变化或日志含 fatal、
-  undefined citation/reference、BibTeX warning 时拒绝发布。
-- 论文编译：2026-09-27 使用 Tectonic 0.15.0 musl 对当前 placeholder 骨架执行
-  `tectonic main.tex --keep-logs --keep-intermediates` 成功并生成 PDF；这仅证明
-  LaTeX 工程可编译，不替代最终 `generated_results.tex` 生成后的再次验收。
+- 历史 396-case formal campaign 没有恢复或重跑；不得把本次 screen-level QPS
+  描述为 formal confidence-interval result。
+- 查询 QPS 没有正式置信区间；构建 composed speedup 有 bootstrap 95% CI。
+- `0L-Trie / 95%` detailed profile 在固定上限内无法完成，保持 NC；它不影响
+  对应主 QPS crossing，但该组合没有阶段耗时或边工作量分解。
+- VariousImg 的显著负结果和 WMMA 构建负结果必须保留。
 
 ## 完成判定
 
-当前目标**尚未完成**。代码、协议和论文正文骨架已具备，但 Amazon formal、
-held-out oracle、GPU build 和修复后 profile 的权威数据尚未全部生成并验证。
+本次 deadline-bounded 代码、实验、报告和论文交付已完成，带一个明确声明的
+profile timeout。完整 396-case formal evidence 仍未完成，不能由本交付替代。

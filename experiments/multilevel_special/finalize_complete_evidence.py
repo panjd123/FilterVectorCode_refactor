@@ -54,6 +54,7 @@ def main() -> int:
     profile_root = RUNS / "deadline_profile_20260927/heldout"
     build_root = RUNS / "deadline_build_20260927"
     amazon_profile_root = RUNS / "amazon_representative_profile_20260928"
+    remaining_manifest = RUNS / "remaining_evidence_20260928/supervisor_manifest.json"
     generator_manifest = RUNS / "deadline_paper_20260928/manifest.json"
     generator = HERE / "generate_deadline_paper_results.py"
     command = [
@@ -70,6 +71,7 @@ def main() -> int:
         "--profile", str(profile_root / "variousimg/search/summary/profile/equal_recall_conservative.csv"),
         "--amazon-profile-points", str(amazon_profile_root / "summary/profile/all_points.csv"),
         "--amazon-profile-selection", str(amazon_profile_root / "selection_manifest.json"),
+        "--amazon-profile-supervisor-manifest", str(remaining_manifest),
         "--drh-v2-root", str(RUNS / "drh_v2_20260927"),
         "--build-manifest", str(build_root / "deadline_build_supervisor_manifest.json"),
         "--build-summary", str(build_root / "build_study/summary/build_summary.csv"),
@@ -106,7 +108,14 @@ def main() -> int:
     payload = {
         "schema_version": 1,
         "finished_at_utc": datetime.now(timezone.utc).isoformat(),
-        "status": "complete",
+        "status": "complete_with_declared_timeout",
+        "declared_incomplete_evidence": [{
+            "stage": "profile_query",
+            "method": "l0_trie_entry_trie",
+            "workload": "sel_95",
+            "reason": "exceeded the fixed 3300-second per-case cap",
+            "supervisor_manifest": str(remaining_manifest.resolve()),
+        }],
         "generator_command": command,
         "tectonic": str(args.tectonic.resolve()),
         "tectonic_sha256": sha256(args.tectonic),

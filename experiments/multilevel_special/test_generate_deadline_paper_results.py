@@ -14,6 +14,11 @@ SPEC.loader.exec_module(deadline_results)
 
 
 class DeadlinePaperResultsTest(unittest.TestCase):
+    def test_source_does_not_emit_report_template_placeholders(self) -> None:
+        source = Path(deadline_results.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("{construction_report_intro}", source)
+        self.assertNotIn("{build_report_boundary}", source)
+
     def test_two_layer_topology_table_fails_on_missing_method(self) -> None:
         methods = (
             "l2_t1024_16384_ll_entry_optimized_lng",
@@ -186,6 +191,53 @@ class DeadlinePaperResultsTest(unittest.TestCase):
             rows[0]["total_edges_scanned_warm_median"] = "0"
             with self.assertRaisesRegex(ValueError, "edge counters are disabled"):
                 deadline_results.amazon_profile_tables(rows, manifest)
+
+    def test_amazon_profile_table_renders_only_declared_timeout_as_nc(self) -> None:
+        methods = (
+            "l0_lng_entry_optimized_lng",
+            "l0_trie_entry_trie",
+            "l1_t1024_lng_entry_optimized_lng",
+            "l1_t1024_trie_entry_optimized_lng",
+            "l2_t1024_16384_lt_entry_optimized_lng_upper_routed",
+        )
+        missing_method = "l0_trie_entry_trie"
+        with tempfile.TemporaryDirectory() as temporary:
+            selection = Path(temporary) / "selection.json"
+            selection.write_text(json.dumps({
+                "cases": [
+                    {"workload": "sel_95", "method": method,
+                     "performance_status": "crossing"}
+                    for method in methods
+                ],
+            }), encoding="utf-8")
+            supervisor = Path(temporary) / "supervisor.json"
+            supervisor.write_text(json.dumps({
+                "runs": [
+                    {"stage": "profile_query", "workload": "sel_95",
+                     "method": method,
+                     "status": "timeout" if method == missing_method else "complete",
+                     "elapsed_seconds": 3300.0 if method == missing_method else 10.0}
+                    for method in methods
+                ],
+            }), encoding="utf-8")
+            rows = [{
+                "workload": "sel_95", "method": method,
+                "mean_selectivity": "0.95", "els_ms_warm_median": "1",
+                "entry_ms_warm_median": "2",
+                "block_authorization_ms_warm_median": "3",
+                "graph_ms_warm_median": "4",
+                "nodes_visited_warm_median": "5",
+                "total_edges_scanned_warm_median": "6",
+                "total_distance_calcs_warm_median": "7",
+            } for method in methods if method != missing_method]
+
+            rendered, markdown = deadline_results.amazon_profile_tables(
+                rows, selection, supervisor)
+
+            self.assertIn("95.000\\% & NC & 0L-Trie", rendered)
+            self.assertIn("timeout at 3300.0s", markdown)
+            with self.assertRaisesRegex(ValueError, "do not match selection manifest"):
+                deadline_results.amazon_profile_tables(rows, selection)
 
     def test_one_layer_topology_table_keeps_nc_and_max_recall(self) -> None:
         methods = (
