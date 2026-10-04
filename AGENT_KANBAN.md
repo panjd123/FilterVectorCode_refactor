@@ -1,7 +1,7 @@
 # Agent 看板
 
 分支：`codex/multilevel-special-block-20260905`
-本轮起点：`fe46b43`；论文重写的验证与发布收尾中。
+本轮起点：`fe46b43`；论文修订提交：`e957dcb`。正文、验证与发布已完成。
 
 ## 当前交付
 
@@ -22,8 +22,9 @@
 ## 验证
 
 - Remote finalizer 已跑通 256 tests、证据再生成、diff check、Tectonic，无未解析引用。
-- 最后一轮只处理图注重叠/越界和 appendix 浮动位置；最终 PDF/render/source hash 审计进行中。
-- ShareLaTeX 和 GitHub main 发布已获授权，收尾后记录到 revision audit。
+- 21 页 PDF（含引用和附录）完成渲染审查；24 个实际文献引用均解析；source/output hashes 已核对。
+- GitHub main 已由 W300 远程推送，包含 `e957dcb`。ShareLaTeX 项目 `6aba85f3680204171d471aa7` 的 34 文件逐项回读 hash 一致，在线编译成功。
+- 发布记录：`runs/paper_revision_20261004/`；条件证明和文稿审阅见 `review/`。本轮完成的是正文重写，不宣称下列投稿实验缺口已完成。
 
 ## 明确保留的证据缺口
 
