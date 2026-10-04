@@ -1,55 +1,78 @@
-# Multilevel UNG paper
+# ML-UNG research manuscript
 
-`main.tex` is the submission-style English manuscript.  Quantitative claims
-live in `generated_results.tex` so they can be regenerated only from validated
-artifacts instead of being copied from development notes.
+Start with `ADVISOR_NOTE_CN.md` for the Chinese advisor briefing and `main.pdf`
+for the English manuscript. The paper leads with prefix-frontier entries and
+predicate-certified blocks. DRH is a secondary configuration heuristic.
 
-For an informal local check, build with an ACM-compatible TeX installation:
+`main.tex` assembles seven files under `sections/`: introduction, motivation,
+frontier, block index/query, construction/configuration, evaluation, and
+related work/discussion. Four TikZ mechanism figures are embedded in those
+sections. Detailed factorial tables and Recall curves are in the appendix.
+`PAPER_OUTLINE_CN.md` explains the argument and evidence boundaries.
+
+## Evidence and scope
+
+The frozen Amazon topology campaign covers 14 configurations and 9 workloads,
+with 100 query threads, one cold run and two warm repeats. `generated_data/`
+contains all 126 crossing/no-crossing cells and their provenance. Cross-base
+comparisons use matched providers; upper-level one-letter replacements hold
+the base/provider fixed. These are screening measurements, not formal CIs.
+
+`generated_results.tex` and `generated_topology_factorial.tex` are generated
+from validated source artifacts. Do not change their numerical entries by
+hand. The one declared incomplete detailed profile is 0L-Trie at 95%
+(3300-second timeout); `timeout` is distinct from a Recall `NC`.
+
+Construction timing/resource results are complete for the declared campaign.
+The composed total sums independently timed base and sidecar medians; the
+supervisor envelope includes additional orchestration. Two timing repeats
+support exploratory bootstrap intervals only. Query-quality equivalence for
+all accelerated indexes, particularly the fastest hybrid build, is not
+established by the construction timing table.
+
+The current manuscript does not claim submission-ready evidence. Required
+extensions include current-protocol external baselines, controlled entry
+attribution, prefix/block transfer beyond Amazon, changing-depth DRH tests,
+and build-quality checks. See the final table in `ADVISOR_NOTE_CN.md`.
+
+## Regenerate and validate on the experiment host
+
+Use the authorized worktree, not `/home/graphdb/FilterVectorCode_refactor`:
 
 ```bash
-latexmk -pdf main.tex
+cd /home/sunyahui/worktrees/FilterVectorCode_multilevel_special
+/home/lijiakang/miniconda3/bin/python3 \
+  experiments/multilevel_special/finalize_complete_evidence.py
 ```
 
-The benchmark host has a pinned Tectonic binary outside `PATH`.  The
-working static binary can be invoked directly as:
+This validates and summarizes existing campaign outputs, regenerates tables
+and figures, runs the relevant Python tests, checks Git whitespace, and
+compiles the PDF with the pinned Tectonic binary. It does not rerun the query
+or build campaigns. Source inputs and hashes are recorded in
+`runs/deadline_paper_20260928/manifest.json`; final outputs are recorded in
+`runs/complete_evidence_20260928/finalization_manifest.json`.
+
+To compile checked-in paper sources alone:
 
 ```bash
+cd docs/papers/multilevel_ung
 /home/sunyahui/.local/opt/tectonic-0.15.0-musl/tectonic \
-  --keep-logs --keep-intermediates main.tex
+  main.tex --keep-logs --keep-intermediates
 ```
 
-Two evidence contracts are intentionally separate:
+An ACM-compatible local TeX installation can also use `latexmk -pdf main.tex`.
+The legacy formal publication gate `generate_authoritative_paper_results.py`
+remains fail-closed and uses its older macro layout. Migrating a completed
+formal campaign to this sectioned draft requires updating that rendering
+contract; this revision validates the bounded-evidence path only. Successful
+draft compilation does not satisfy the formal experiment contract.
 
-- `generate_authoritative_paper_results.py` is the publication gate for the
-  complete formal and repeated-build protocol. It remains fail-closed.
-- `generate_deadline_paper_results.py` accepts only the completed bounded
-  campaign: three complete Amazon figure families, five held-out workloads,
-  independent detailed profiles, and the explicit incomplete-build manifest.
-  It labels query numbers as `1 cold + 2 warm` screen-level values and refuses
-  to claim end-to-end GPU hierarchy speedup.
+## Independent review
 
-The deadline generator copies validated figures into `generated_figures/`,
-writes `generated_results.tex` and the Chinese report atomically, and records
-full input hashes in `runs/deadline_paper_20260928/manifest.json`.
-
-The complete Amazon base-by-overlay topology factorial is generated separately
-from same-search-binary and same-builder inputs. Its LaTeX table lives in
-`generated_topology_factorial.tex`; the complete 14-by-9 equal-Recall matrix,
-best configurations, controlled upper-level replacements, matched-provider
-base comparisons, full-grid fixed-configuration ranking, and input manifest
-live in `generated_data/`. Cross-base
-ratios are system comparisons because each base uses its compatible entry
-provider; only one-letter upper-level replacements hold the provider fixed.
-
-`continue_after_build.py` also hashes the compiler and every direct paper
-input, rejects unresolved references and BibTeX failures, and writes the final
-PDF and provenance manifest.  That path, rather than an ad hoc local build,
-defines the publication artifact.
-
-Before treating the full-protocol draft as final:
-
-1. Complete and validate screen, crossing, formal, and profile query passes.
-2. Complete held-out automatic-versus-oracle experiments.
-3. Complete repeated end-to-end CPU/GPU construction and quality checks.
-4. Replace every `\pending{...}` marker through the result generator.
-5. Compile the PDF and inspect table/algorithm placement.
+`review/` records the first and second structure passes, implementation/proof
+review, and primary-source literature audit. The reviewers found the revised
+core arguments credible under their stated assumptions while identifying
+experimental blockers. `review/RESOLUTION.md` records addressed and remaining
+items. Citation metadata includes at least 16 related SIGMOD/PVLDB papers and
+two recent works explicitly labeled as preprints. The UNG ACM PDF access
+failure is disclosed; the mechanism was checked against official source code.

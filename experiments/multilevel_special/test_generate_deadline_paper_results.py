@@ -210,7 +210,7 @@ class DeadlinePaperResultsTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "edge counters are disabled"):
                 deadline_results.amazon_profile_tables(rows, manifest)
 
-    def test_amazon_profile_table_renders_only_declared_timeout_as_nc(self) -> None:
+    def test_amazon_profile_table_distinguishes_timeout_from_no_crossing(self) -> None:
         methods = (
             "l0_lng_entry_optimized_lng",
             "l0_trie_entry_trie",
@@ -252,7 +252,7 @@ class DeadlinePaperResultsTest(unittest.TestCase):
             rendered, markdown = deadline_results.amazon_profile_tables(
                 rows, selection, supervisor)
 
-            self.assertIn("95.000\\% & NC & 0L-Trie", rendered)
+            self.assertIn("95.000\\% & timeout & 0L-Trie", rendered)
             self.assertIn("timeout at 3300.0s", markdown)
             with self.assertRaisesRegex(ValueError, "do not match selection manifest"):
                 deadline_results.amazon_profile_tables(rows, selection)

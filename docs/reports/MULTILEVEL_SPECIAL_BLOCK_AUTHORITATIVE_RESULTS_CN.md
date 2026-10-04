@@ -150,7 +150,7 @@ Reviews 的较宽 workload 中 DRH 将 visited 从 4415.8 降至 3500.1、distan
 
 ## Amazon representative detailed profile
 
-`cross` 表示性能 pass 达到 Recall@10 >= 0.90 的最小实测点；`max` 表示未 crossing 时最大实测 Recall 对应点，只用于机制解释。`NC` 表示在固定 3300 秒单 case 上限下超时，未使用部分计数。耗时单位为 ms/query，工作量为 mean/query。
+`cross` 表示性能 pass 达到 Recall@10 >= 0.90 的最小实测点；`max` 表示未 crossing 时最大实测 Recall 对应点，只用于机制解释。`timeout` 表示在固定 3300 秒单 case 上限下超时，未使用部分计数。耗时单位为 ms/query，工作量为 mean/query。
 
 | Selectivity | Op. | Method | ELS | Entry | Auth. | Graph | Visited | Edges | Distances |
 |---:|:---:|---|---:|---:|---:|---:|---:|---:|---:|
@@ -175,7 +175,7 @@ Reviews 的较宽 workload 中 DRH 将 visited 从 4415.8 降至 3500.1、distan
 | 60.047% | cross | 1L-Trie | 1465.900 | 8.881 | 0.013 | 192.047 | 44045.4 | 200138.0 | 54883.6 |
 | 60.047% | cross | 2L-LT/DRH-v1 | 1408.655 | 9.064 | 0.017 | 195.087 | 45607.8 | 215753.5 | 56454.1 |
 | 95.020% | cross | 0L-LNG | 4918.875 | 61.074 | 0.000 | 89240.100 | 451225.0 | 3967260.0 | 467715.0 |
-| 95.020% | NC | 0L-Trie | -- | -- | -- | timeout at 3300.0s | -- | -- | -- |
+| 95.020% | timeout | 0L-Trie | -- | -- | -- | timeout at 3300.0s | -- | -- | -- |
 | 95.020% | cross | 1L-LNG | 2307.095 | 12.576 | 0.018 | 113.150 | 44157.5 | 170659.0 | 60663.6 |
 | 95.020% | cross | 1L-Trie | 2313.385 | 13.444 | 0.014 | 299.972 | 67643.4 | 309628.0 | 84149.5 |
 | 95.020% | cross | 2L-LT/DRH-v1 | 2317.090 | 12.571 | 0.024 | 113.679 | 43995.0 | 170239.0 | 60513.8 |
@@ -208,4 +208,4 @@ Timing 与 resource profile 分离；resource run 不进入 timing median。
 
 ## 学术边界
 
-当前结论不包含正式查询置信区间，不把 light-stats 的缺失边计数解释为 0。构建端到端数值采用独立测量的 base 与 hierarchy stage median 相加；resource profile 独立运行，不进入 timing median。 完整 396-case 生成器仍保持 fail-closed；本报告来自单独、显式缩小的 deadline evidence contract。所有负结果与 NC 均保留。
+当前结论不包含正式查询置信区间，不把 light-stats 的缺失边计数解释为 0。构建端到端数值采用独立测量的 base 与 hierarchy stage median 相加；resource profile 独立运行，不进入 timing median；仅两次 timing repeats，区间为探索性 bootstrap；最快 hybrid 配置的等 Recall 查询质量仍待验证。 完整 396-case 生成器仍保持 fail-closed；本报告来自单独、显式缩小的 deadline evidence contract。所有负结果与 NC 均保留。

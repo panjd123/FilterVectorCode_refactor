@@ -1,0 +1,192 @@
+{
+  "timestamp_utc": "2026-10-04T14:52:30.410381+00:00",
+  "starting_commit": "fe46b438131c9444570d1a1114f8b7708b8f6dd5",
+  "status": "manuscript_revision_validated_with_explicit_research_gaps",
+  "tests": {
+    "passed": 256,
+    "command": "/home/lijiakang/miniconda3/bin/python3 experiments/multilevel_special/finalize_complete_evidence.py"
+  },
+  "algorithm_source_changed": false,
+  "frozen_factorial_data_changed": false,
+  "old_396_case_campaign_rerun": false,
+  "undefined_citations_or_references": false,
+  "cited_bibliography_entries": 24,
+  "tectonic_warning_boundary": "Only layout warnings and the known six-pass bibliography consistency warning remain; references resolve.",
+  "source_and_artifact_files": [
+    {
+      "path": "ADVISOR_NOTE_CN.md",
+      "bytes": 11984,
+      "sha256": "7be5c4c595ce95a0bc1647870e8d7b2d90ae3c957c4d0fb0a8fec82977f5006a"
+    },
+    {
+      "path": "PAPER_OUTLINE_CN.md",
+      "bytes": 6468,
+      "sha256": "071d645e00f7300fc29837a9f66f82944156c4c7e067fa50b9a25b52f84bb5df"
+    },
+    {
+      "path": "README.md",
+      "bytes": 3969,
+      "sha256": "3a9f99c41272e0698e325840c2125f49b4ae1268684f5a2e1586348939617207"
+    },
+    {
+      "path": "generated_data/base_matched_pairwise.csv",
+      "bytes": 6738,
+      "sha256": "04e11514b4e9dad01ce45959d3c1a0c93f8691e798ec93668aa1dd18bab97ee0"
+    },
+    {
+      "path": "generated_data/best_by_selectivity.csv",
+      "bytes": 1422,
+      "sha256": "38f4348ae0c7a6373f8f98e4396b0f83b8ed1fe69f784d52dd848af023562cc6"
+    },
+    {
+      "path": "generated_data/factorial_equal_recall.csv",
+      "bytes": 17615,
+      "sha256": "9e56a1ed859152382b829e612c5e62ff4f90d50a5ce3b9a6a3e8230c426b6505"
+    },
+    {
+      "path": "generated_data/global_configuration_summary.csv",
+      "bytes": 875,
+      "sha256": "019f049a3b046e0cafed1d487edc69256fcb29407cb3bbd0bceb34bdcde957c7"
+    },
+    {
+      "path": "generated_data/manifest.json",
+      "bytes": 2939,
+      "sha256": "af28ea71b997752944ca4dc75ed2fa4591d3a4b00b59edf291391c4d53e3e57c"
+    },
+    {
+      "path": "generated_data/trie_effect_summary.csv",
+      "bytes": 924,
+      "sha256": "06524544e43ce5e0143f4fff2560ff66c200511bedcbce90eec3db8c01ac871e"
+    },
+    {
+      "path": "generated_data/upper_trie_pairwise.csv",
+      "bytes": 9859,
+      "sha256": "95530507714b7c35ddf1025d748d4fb9c6e84f81f6c6367a6f22a1638544b896"
+    },
+    {
+      "path": "generated_figures/one_layer_topology.pdf",
+      "bytes": 26404,
+      "sha256": "9250f42ba9f13ba92e2a787a57e16efb0ed278d4c6307a89e01b8f7854fc4da5"
+    },
+    {
+      "path": "generated_figures/principal_zero.pdf",
+      "bytes": 30765,
+      "sha256": "2b9745840d878d4affa2069ea287dadcf8426c097e248c1ca4a71ba88d2cfebd"
+    },
+    {
+      "path": "generated_figures/representative_depth.pdf",
+      "bytes": 31417,
+      "sha256": "e93e55ada7d4548fcfa11a85ac627f0ed378848c0b462842ea59028b760300dc"
+    },
+    {
+      "path": "generated_figures/upper_authorization.pdf",
+      "bytes": 28132,
+      "sha256": "ff60d2b6047dd01a1d5f9ab13685aac47804e70f64167e857219270eb50fa304"
+    },
+    {
+      "path": "generated_results.tex",
+      "bytes": 34385,
+      "sha256": "1b4e3f63af1c4b42cdb382d2f4da6294a95ff98749f21ffa087ee5a2b3e91dc2"
+    },
+    {
+      "path": "generated_topology_factorial.tex",
+      "bytes": 5979,
+      "sha256": "ee0f1596a719ae568fcbd173906b26a64adaef7594cddfe9b7062fe5e86ea48a"
+    },
+    {
+      "path": "main.pdf",
+      "bytes": 337928,
+      "sha256": "35a67901273a172ac9905b6909bbdb06f23af79eb261d1284b2c4df7f54041d8"
+    },
+    {
+      "path": "main.tex",
+      "bytes": 2982,
+      "sha256": "645d3f6f61fb603376ca17f52f944f722b0532a5a5a3e9502d074c7ed0188df9"
+    },
+    {
+      "path": "references.bib",
+      "bytes": 9397,
+      "sha256": "06d8a90f8a4005bf3fc856d5336b71fea9cb81f5e32495ba39289b2d3e2cd10f"
+    },
+    {
+      "path": "review/RESOLUTION.md",
+      "bytes": 3583,
+      "sha256": "db14e6ab34b921d79142f77c20ba6a179a65be5abfada2cd7aeafd478e7f5ca1"
+    },
+    {
+      "path": "review/hardware_audit.json",
+      "bytes": 3272,
+      "sha256": "c2f05c8512ef4c90ba08d0d599f8bbb9885ce3e3d53e30616a34a895d3773359"
+    },
+    {
+      "path": "review/literature_claim_audit.md",
+      "bytes": 24491,
+      "sha256": "67e5b2fabb109f1be7f68d4af0778698a24ab63374ec64d68d1af92d87cecd76"
+    },
+    {
+      "path": "review/literature_snapshot_manifest.json",
+      "bytes": 3644,
+      "sha256": "321669d7c9edd79031cc1fa7559babc81f41a4f71743462a5db51983afb25dc3"
+    },
+    {
+      "path": "review/review_method_pass2.md",
+      "bytes": 10953,
+      "sha256": "352c88c61c5f14c58d5a5b63724ae4543778f7c37392ea9db55d26bd88ec86c9"
+    },
+    {
+      "path": "review/review_structure_pass1.md",
+      "bytes": 13820,
+      "sha256": "38f7c47f46140996c80a7a531a3b216ecca47423dba9e11165ccfd6e847b6a4d"
+    },
+    {
+      "path": "review/review_structure_pass2.md",
+      "bytes": 9484,
+      "sha256": "492c5b1513a9f36a2409d7083318c294a1e01c124db852832a1ad18e6ab014e7"
+    },
+    {
+      "path": "sections/construction.tex",
+      "bytes": 9400,
+      "sha256": "12d8404fe7bcb9022c425d45f9af3fe1ee85ad4d9848e2733a6f719c216c5246"
+    },
+    {
+      "path": "sections/discussion_related.tex",
+      "bytes": 6303,
+      "sha256": "eaa76ce171411b6c30a600f3dcaf62c19487d81f4d4d365bbb3d1bdd784a179e"
+    },
+    {
+      "path": "sections/evaluation.tex",
+      "bytes": 11527,
+      "sha256": "a2606b8f6dda0794138465ecf3a05a04115cb2c062e8e4dfa2a24f6e0f238dc2"
+    },
+    {
+      "path": "sections/frontier.tex",
+      "bytes": 5935,
+      "sha256": "b2ba53b8e31d196a3fe47598e045809453ff650da14eecc19190ec1a8c5c2bb4"
+    },
+    {
+      "path": "sections/index_query.tex",
+      "bytes": 13228,
+      "sha256": "017c8e71ee54135d98d6a945a47a49fcb4f56465895a8674d4228cd9cce781c5"
+    },
+    {
+      "path": "sections/introduction.tex",
+      "bytes": 6707,
+      "sha256": "3b4c8dd5cdb6895b57a770190fa680c8e34e3c5071ccaf7986b77ac9834909c1"
+    },
+    {
+      "path": "sections/problem_motivation.tex",
+      "bytes": 6782,
+      "sha256": "4bbceb0cab1ba9830fb0528760b2074153d6e531c8838b460f909274d3ddb598"
+    }
+  ],
+  "review_scope": "Independent structure, implementation/proof, literature, and human-facing deliverable review; no claim of submission-ready evidence.",
+  "remaining_evidence": [
+    "controlled entry-provider attribution",
+    "current-protocol external baselines",
+    "prefix/block cross-dataset transfer",
+    "changing-depth DRH validation",
+    "accelerated construction query quality",
+    "formal repeat/uncertainty study"
+  ],
+  "finalization_manifest": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/complete_evidence_20260928/finalization_manifest.json"
+}

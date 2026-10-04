@@ -123,7 +123,7 @@ def amazon_table(rows: list[dict[str, str]]) -> tuple[str, dict[str, dict[str, d
         if "l0_lng_entry_optimized_lng" not in selected.get(workload, {}):
             raise ValueError(f"missing Amazon baseline crossing for {workload}")
     lines = [
-        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\begin{table*}[htbp]", r"\centering", r"\small",
         r"\caption{Amazon equal-Recall comparison. Plain QPS is the raw throughput of 0L-LNG; every other numeric column is QPS(method)/QPS(Plain) at that method's smallest measured point whose two warm repeats both reach Recall@10 $\geq0.90$. NC means no crossing in the shared measured budget.}",
         r"\label{tab:amazon-depth}",
         r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{rrrrrr}", r"\toprule",
@@ -160,7 +160,7 @@ def one_layer_topology_table(
             points.setdefault((row["workload"], row["method"]), []).append(row)
     records: list[dict[str, object]] = []
     lines = [
-        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\begin{table*}[htbp]", r"\centering", r"\small",
         r"\caption{1L overlay-topology ablation at fixed $T_1=1024$, level-0 LNG, and optimized-LNG entry. QPS is reported only at a measured Recall@10 $\geq0.90$ crossing; $R_{\max}$ is the largest minimum warm-repeat Recall in the shared measured budget.}",
         r"\label{tab:one-layer-topology}",
         r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{rrrrrr}", r"\toprule",
@@ -239,7 +239,7 @@ def two_layer_topology_tables(
         if row["method"] in dict(methods):
             points.setdefault((row["workload"], row["method"]), []).append(row)
     tex_lines = [
-        r"\begin{table*}[t]", r"\centering", r"\scriptsize",
+        r"\begin{table*}[htbp]", r"\centering", r"\scriptsize",
         r"\caption{2L topology ablation at fixed $T_1=1024$, $T_2=16384$, level-0 LNG, optimized-LNG entry, and ungated routing. In 2L-$XY$, $X$ is the level-1 topology and $Y$ the level-2 topology. QPS appears only at a measured Recall@10 $\geq0.90$ crossing.}",
         r"\label{tab:two-layer-topology}", r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{rrrrrrrrr}", r"\toprule",
@@ -281,7 +281,7 @@ def two_layer_topology_tables(
 
 def dataset_table(policies: list[dict]) -> str:
     lines = [
-        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\begin{table*}[htbp]", r"\centering", r"\small",
         r"\caption{Held-out datasets and query-independent DRH plans. Selectivity characterizes the frozen queries and is not an input to DRH.}",
         r"\label{tab:heldout-datasets}",
         r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{lrrlrrl}", r"\toprule",
@@ -301,8 +301,8 @@ def dataset_table(policies: list[dict]) -> str:
 def heldout_tables(workload_rows: list[dict[str, str]], global_rows: list[dict[str, str]]) -> str:
     lines = [
         r"\subsection{Automatic Versus Manual Hierarchies}",
-        "The bounded held-out study compares DRH-v1 with five pre-registered manual alternatives. DRH-v2 was evaluated later as a separate same-binary routing ablation and is not substituted into this frozen candidate set. This is not a 35-case full oracle.",
-        r"\begin{table*}[t]", r"\centering", r"\small",
+        "The bounded held-out study compares DRH-v1 with five pre-registered manual alternatives. DRH-v2 was evaluated later as a separate same-binary routing ablation and is not substituted into this frozen candidate set. The manual comparison is restricted to this finite candidate set.",
+        r"\begin{table*}[htbp]", r"\centering", r"\small",
         r"\caption{Screen-level 2L-LT/DRH-v1 results at Recall@10 $\geq0.90$.}",
         r"\label{tab:heldout}",
         r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{lrrrrl}", r"\toprule",
@@ -338,8 +338,8 @@ def profile_table(profile_paths: list[Path]) -> str:
     lines = [
         r"\subsection{Mechanism Breakdown}",
         "The separate detailed-profile binary is explanatory only and does not contribute primary QPS. Edge counts are measured here; disabled light-stat counters are never interpreted as zero.",
-        r"\begin{table*}[t]", r"\centering", r"\small",
-        r"\caption{Detailed profile at each held-out dataset's broader workload (ms/query and mean work per query).}",
+        r"\begin{table*}[htbp]", r"\centering", r"\small",
+        r"\caption{Detailed profile at each held-out dataset's broader workload (ms/query and mean work per query). Active is the fraction of all queries that execute the multilayer backend, summarized over warm repeats.}",
         r"\label{tab:profile}", r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{llrrrrr}", r"\toprule",
         r"Dataset & Method & Graph ms & Visited & Edges & Distances & Active \\", r"\midrule",
     ]
@@ -421,9 +421,9 @@ def amazon_profile_tables(
         r"\subsection{Amazon Stage and Work Breakdown}",
         "This profile-only pass reuses each method's measured performance operating point. "
         "Rows marked max use the best measured point because Recall@10 did not cross 0.90; "
-        "they explain work but are not equal-Recall speed comparisons. NC denotes a declared "
+        "they explain work but are not equal-Recall speed comparisons. Timeout denotes a declared "
         "profile timeout at the fixed 3,300-second per-case cap; no partial counters are used.",
-        r"\begin{table*}[t]", r"\centering", r"\scriptsize",
+        r"\begin{table*}[htbp]", r"\centering", r"\scriptsize",
         r"\caption{Amazon detailed profile. Times are ms/query; work counters are means/query.}",
         r"\label{tab:amazon-profile}", r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{rrlrrrrrrr}", r"\toprule",
@@ -433,7 +433,7 @@ def amazon_profile_tables(
     md_lines = [
         "## Amazon representative detailed profile",
         "",
-        "`cross` 表示性能 pass 达到 Recall@10 >= 0.90 的最小实测点；`max` 表示未 crossing 时最大实测 Recall 对应点，只用于机制解释。`NC` 表示在固定 3300 秒单 case 上限下超时，未使用部分计数。耗时单位为 ms/query，工作量为 mean/query。",
+        "`cross` 表示性能 pass 达到 Recall@10 >= 0.90 的最小实测点；`max` 表示未 crossing 时最大实测 Recall 对应点，只用于机制解释。`timeout` 表示在固定 3300 秒单 case 上限下超时，未使用部分计数。耗时单位为 ms/query，工作量为 mean/query。",
         "",
         "| Selectivity | Op. | Method | ELS | Entry | Auth. | Graph | Visited | Edges | Distances |",
         "|---:|:---:|---|---:|---:|---:|---:|---:|---:|---:|",
@@ -448,10 +448,10 @@ def amazon_profile_tables(
                 float(candidate["mean_selectivity"])
                 for candidate in rows if candidate["workload"] == workload)
             tex_lines.append(
-                f"{100.0 * selectivity:.3f}\\% & NC & {labels[method]} & "
+                f"{100.0 * selectivity:.3f}\\% & timeout & {labels[method]} & "
                 r"-- & -- & -- & -- & -- & -- & -- \\")
             md_lines.append(
-                f"| {100.0 * selectivity:.3f}% | NC | {labels[method]} | "
+                f"| {100.0 * selectivity:.3f}% | timeout | {labels[method]} | "
                 f"-- | -- | -- | timeout at {elapsed:.1f}s | -- | -- | -- |")
             continue
         values = (
@@ -490,9 +490,9 @@ def drh_v2_table(root: Path) -> tuple[str, list[dict[str, str]]]:
     output = [
         r"\subsection{Structural Router Ablation}",
         "DRH-v2 is a same-binary ablation: it rejects an upper layer when direct mass at the highest authorized layer is below the next derived scale.",
-        r"\begin{table*}[t]", r"\centering", r"\small",
-        r"\caption{Available same-binary DRH-v2 screen results.}", r"\label{tab:drh-v2}",
-        r"\begin{tabular}{lrrrr}", r"\toprule", r"Dataset & Selectivity & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\", r"\midrule",
+        r"\begin{table*}[htbp]", r"\centering", r"\small",
+        r"\caption{Same-binary DRH-v2 screen results. Plain is measured in this routing cohort; it need not match the earlier DRH-v1 cohort.}", r"\label{tab:drh-v2}",
+        r"\begin{tabular}{lrrrrr}", r"\toprule", r"Dataset & Selectivity & Plain QPS & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\", r"\midrule",
     ]
     usable = []
     for (dataset, workload), methods in sorted(
@@ -504,9 +504,9 @@ def drh_v2_table(root: Path) -> tuple[str, list[dict[str, str]]]:
         if not (base and v1 and v2):
             continue
         usable.append({"dataset": dataset, "workload": workload, "base": base, "v1": v1, "v2": v2})
-        output.append(f"{dataset} & {100.0 * float(base['mean_selectivity']):.3f}\\% & {float(v1['qps_warm_median']):.2f} & {float(v2['qps_warm_median']):.2f} & {float(v2['qps_warm_median']) / float(base['qps_warm_median']):.3f}$\\times$ " + r"\\")
+        output.append(f"{dataset} & {100.0 * float(base['mean_selectivity']):.3f}\\% & {float(base['qps_warm_median']):.2f} & {float(v1['qps_warm_median']):.2f} & {float(v2['qps_warm_median']):.2f} & {float(v2['qps_warm_median']) / float(base['qps_warm_median']):.3f}$\\times$ " + r"\\")
     if not usable:
-        output.append(r"No completed dataset & -- & -- & -- & -- \\")
+        output.append(r"No completed dataset & -- & -- & -- & -- & -- \\")
     output.extend([
         r"\bottomrule", r"\end{tabular}", r"\end{table*}",
         "The next-scale gate restores near-plain behavior on Genome and the "
@@ -546,9 +546,9 @@ def construction_section(build_rows: list[dict[str, str]], build_manifest: Path)
         cpu = statistics.median(base_measured.get("original_cpu", [math.nan]))
         gpu_name, gpu_time = min(((name, statistics.median(values)) for name, values in base_measured.items() if "gpu" in name), key=lambda x: x[1])
         base_sentence = (
-            f"For context, the completed base-index timing stage measured {cpu:.2f}s "
+            f"The supervisor process-envelope timing, which includes orchestration and checks, measured {cpu:.2f}s "
             f"for original CPU and {gpu_time:.2f}s for {tex(gpu_name)}, a "
-            f"{cpu / gpu_time:.2f}$\\times$ base-stage speedup. ")
+            f"{cpu / gpu_time:.2f}$\\times$ process-envelope speedup. The composed table below instead uses the component builder-time summaries; the two timing boundaries must not be mixed. ")
         if manifest.get("status") == "complete" and not failed:
             lines.append(
                 base_sentence
@@ -624,7 +624,7 @@ def construction_summary_tables(
         raise ValueError("composed construction is missing bootstrap confidence intervals")
     hierarchy.sort(key=lambda row: row["profile"])
     tex_lines = [
-        r"\begin{table*}[t]", r"\centering", r"\small",
+        r"\begin{table*}[htbp]", r"\centering", r"\small",
         r"\caption{Repeated Amazon hierarchy-sidecar construction measurements. Resource values come from a separate profiling run and do not enter timing medians.}",
         r"\label{tab:hierarchy-build}", r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{lrrrrrr}", r"\toprule",
@@ -654,10 +654,10 @@ def construction_summary_tables(
     tex_lines.extend([r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}"])
     if end_to_end_rows:
         tex_lines.extend([
-            r"\begin{table*}[t]", r"\centering", r"\small",
-            r"\caption{Composed end-to-end construction: accelerated base stage plus hierarchy sidecar versus the original CPU base builder. Stage medians are measured independently.}",
+            r"\begin{table*}[htbp]", r"\centering", r"\small",
+            r"\caption{Composed end-to-end construction: accelerated base stage plus hierarchy sidecar versus the original CPU base builder. Stage medians are measured independently; timings do not establish matched-Recall quality.}",
             r"\label{tab:end-to-end-build}", r"\begin{tabular}{lrrrrr}", r"\toprule",
-            r"Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup & 95\% CI \\",
+            r"Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup & Exploratory 95\% CI \\",
             r"\midrule",
         ])
         md_lines.extend([
@@ -693,7 +693,7 @@ def figures_macro(figures: dict[str, Path]) -> str:
     }
     lines = [r"\newcommand{\authoritativeRecallQPSFigures}{%"]
     for name in ("principal_zero", "one_layer_topology", "representative_depth", "upper_authorization"):
-        lines.extend([r"\begin{figure*}[t]", r"\centering",
+        lines.extend([r"\begin{figure*}[htbp]", r"\centering",
                       rf"\includegraphics[width=0.98\textwidth]{{\detokenize{{{figures[name]}}}}}",
                       f"\\caption{{Measured Recall@10--QPS curves for {captions[name]}. Markers are executed points; curves are not interpolated.}}",
                       rf"\label{{fig:{name.replace('_', '-')}}}", r"\end{figure*}"])
@@ -903,10 +903,10 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
         build_conclusion = (
             "Repeated construction measurements show that the fastest composed "
             f"base-plus-hierarchy path is {float(best_build['speedup_vs_original_cpu']):.2f}$\\times$ "
-            f"the original CPU base builder (bootstrap 95\\% CI "
+            f"the original CPU base builder (exploratory bootstrap 95\\% interval "
             f"[{float(best_build['speedup_ci95_low']):.2f}, "
             f"{float(best_build['speedup_ci95_high']):.2f}]); stage medians are "
-            "measured independently.")
+            "measured independently from small repeat cohorts. Matched-Recall quality across construction backends is not established.")
         build_report_bullet = (
             f"- 重复构建实验中，最佳 composed base+hierarchy 路径为原始 CPU base builder 的 "
             f"{float(best_build['speedup_vs_original_cpu']):.2f}x（bootstrap 95% CI "
@@ -915,7 +915,7 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
             "median 的和，不冒充单次联合 wall-clock。")
         build_report_boundary = (
             "构建端到端数值采用独立测量的 base 与 hierarchy stage median 相加；"
-            "resource profile 独立运行，不进入 timing median。")
+            "resource profile 独立运行，不进入 timing median；仅两次 timing repeats，区间为探索性 bootstrap；最快 hybrid 配置的等 Recall 查询质量仍待验证。")
         construction_report_intro = (
             "自动 DRH 的 held-out CPU sidecar wall time 分别为 Genome 44.2 s、"
             "Reviews 120.4 s、VariousImg 633.2 s。Amazon 的重复 timing、独立 "
@@ -942,12 +942,18 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
             "可行性证据，不能当作重复测量的端到端构建加速比。")
     generated = "\n".join([
         "% Generated by generate_deadline_paper_results.py from validated bounded evidence.",
-        r"\newcommand{\authoritativeAbstractResult}{At equal measured Recall@10, the automatically derived 2L plan (two upper overlays above the level-0 base) improves QPS by 14.40--26.70$\times$ over the 0L baseline on Amazon at 60--99\% selectivity, while the fastest GPU-assisted base-plus-hierarchy build is 1.35$\times$ faster than the original CPU base builder. Held-out results also expose a dataset-dependent routing failure mode; we therefore claim substantial gains in the target regime rather than universal dominance.}",
+        r"\newcommand{\authoritativeAbstractResult}{At equal measured Recall@10, the automatically derived 2L plan (two upper overlays above the level-0 base) improves QPS by 14.40--26.70$\times$ over the 0L baseline on Amazon at 60--99\% selectivity, while the fastest GPU-assisted base-plus-hierarchy timing composition is 1.35$\times$ faster than the original CPU base builder, without establishing quality equivalence across construction backends. Held-out results also expose a dataset-dependent routing failure mode; we therefore claim substantial gains in the target regime rather than universal dominance.}",
         rf"\newcommand{{\authoritativeConclusionResult}}{{The current evidence supports multilevel acceleration for broad Amazon predicates, but not a universal dominance claim: DRH-v1 is near plain and near the frozen manual set on Genome and Reviews, and substantially worse on VariousImg; the separate DRH-v2 router limits some regressions but remains non-monotone. {build_conclusion}}}",
         r"\newcommand{\authoritativeDatasetTable}{%", dataset_table(policies), "}",
         r"\newcommand{\authoritativeQueryExecution}{All primary query values use 100 query threads over the full frozen batch. The deadline evidence is explicitly screen-level: one cold run followed by two warm repeats, with QPS from warm-median batch time.}",
         r"\newcommand{\authoritativeSharedSearchBudgetTable}{%", "\n".join(budget_lines), "}",
         r"\newcommand{\authoritativeResults}{%", results, "}",
+        r"\newcommand{\authoritativeDepthResults}{%", amazon, topology, two_layer_topology_tex, "}",
+        r"\newcommand{\authoritativeAmazonSummary}{%", amazon, "}",
+        r"\newcommand{\authoritativeOverlayControls}{%", topology, two_layer_topology_tex, "}",
+        r"\newcommand{\authoritativeProfileResults}{%", amazon_profile_tex, "}",
+        r"\newcommand{\authoritativePolicyResults}{%", heldout_tables(heldout, global_rows), drh_v2, profile, "}",
+        r"\newcommand{\authoritativeBuildResults}{%", construction, construction_tables_tex, "}",
         figures_macro(figures),
         r"\newcommand{\authoritativeScreenAppendix}{%", provenance(evidence), "}", "",
     ])

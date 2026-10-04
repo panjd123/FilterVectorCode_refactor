@@ -912,26 +912,26 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
             main.index(r"\input{generated_results}"),
             main.index(r"\begin{document}"))
         self.assertEqual(main.count(r"\input{generated_results}"), 1)
-        self.assertEqual(main.count(r"\authoritativeAbstractResult"), 1)
-        self.assertEqual(main.count(r"\authoritativeConclusionResult"), 1)
-        self.assertEqual(main.count(r"\authoritativeDatasetTable"), 1)
-        self.assertEqual(main.count(r"\authoritativeQueryExecution"), 1)
-        self.assertEqual(
-            main.count(r"\authoritativeSharedSearchBudgetTable"), 1)
-        self.assertEqual(main.count(r"\authoritativeResults"), 1)
-        self.assertEqual(main.count(r"\authoritativeRecallQPSFigures"), 1)
-        self.assertEqual(main.count(r"\authoritativeScreenAppendix"), 1)
-        self.assertNotIn(r"\pending{", main)
+        # Section extraction keeps the generated-data boundary intact. Check
+        # the assembled reader-facing sources rather than a monolithic shell.
+        assembled = main + "\n" + "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted((paper / "sections").glob("*.tex")))
+        self.assertNotIn(r"\pending{", assembled)
         for name in (
-                "authoritativeAbstractResult",
-                "authoritativeConclusionResult",
                 "authoritativeDatasetTable",
                 "authoritativeQueryExecution",
                 "authoritativeSharedSearchBudgetTable",
-                "authoritativeResults",
+                "authoritativeAmazonSummary",
+                "authoritativeOverlayControls",
+                "authoritativeProfileResults",
+                "authoritativePolicyResults",
+                "authoritativeBuildResults",
                 "authoritativeRecallQPSFigures",
                 "authoritativeScreenAppendix"):
+            self.assertEqual(assembled.count("\\" + name), 1, name)
             self.assertIn(r"\newcommand{\%s}" % name, placeholder)
+
 
 
 if __name__ == "__main__":

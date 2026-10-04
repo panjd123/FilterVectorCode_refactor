@@ -1,0 +1,114 @@
+\section{Prefix-Frontier Entry Discovery}
+\label{sec:frontier}
+\subsection{Entry Coverage Without Minimal-Superset Reduction}
+Let $C_Q=\{S:Q\subseteq S,\ G_S\ne\varnothing\}$ be the eligible observed
+label sets.  Write $A\prec_p S$ when the sorted sequence of $A$ is a proper
+prefix of that of $S$.  Our entry frontier is
+\begin{equation}
+ F(Q)=\{S\in C_Q:\nexists A\in C_Q\text{ with }A\prec_p S\}.
+\end{equation}
+UNG's entry set instead excludes $S$ whenever an eligible proper
+\emph{subset} of $S$ is observed.  Every prefix is a subset, but many subsets
+are not prefixes.  Consequently the LNG-minimal entry set is contained in
+$F(Q)$, and the containment can be strict.  Figure~\ref{fig:running-example}
+shows the smallest relevant distinction: $\{b\}\subset\{a,b\}$ is not a
+prefix relation under $a<b$, so both groups must remain in $F(\{b\})$.
+
+Connect each terminal to its nearest terminal descendants in the canonical
+trie.  This forms a directed forest, with one incoming edge per non-root
+terminal.  It has exactly $G-r$ group edges, where $r$ is the number of
+terminals without a terminal ancestor.  Thus the count is $G-1$ only if
+$r=1$.  The LNG cover graph has at most $O(G^2)$ edges, and two-level subset
+families can attain a quadratic count.  This is a worst-case distinction,
+not an assertion that every dataset has a dense LNG.
+
+\paragraph{Proposition 1: group-level frontier coverage.}
+Every eligible observed terminal is reachable from a terminal in $F(Q)$ by a
+path consisting entirely of eligible terminals in the prefix forest.
+
+\emph{Proof.} For an eligible terminal $S$, take the first eligible terminal
+$A$ on its root-to-$S$ trie path.  If no earlier eligible terminal exists,
+$A\in F(Q)$ by definition.  Consecutive terminals from $A$ to $S$ are joined
+by the nearest-terminal edges.  Their label sets all contain $A$, hence
+contain $Q$.  This also covers $A=S$ and $Q=\varnothing$. \hfill$\square$
+
+The proposition concerns the label plane.  Lifting it to exhaustive vector
+reachability requires retaining every frontier group as a seed, each directed local graph being reachable from its seeded or incoming
+portals, and accessible materialized cross edges
+for each required group transition.  Finite candidate capacity, approximate
+local graphs, pruning, and seed selection can violate those additional
+conditions.  We therefore measure Recall; the proposition is not an ANN
+accuracy guarantee.
+
+\subsection{The Measured Entry Algorithm}
+The measured Trie provider stores, for each label $a$, a compressed bitmap
+$I_a$ of groups containing $a$, and for each terminal $S$, its proper terminal
+ancestors $\mathrm{Anc}_p(S)$.  It intersects postings to obtain $C_Q$ and
+tests only prefix ancestors to produce $F(Q)$
+(Algorithm~\ref{alg:frontier}).  This algorithm avoids comparing $S$ against
+eligible terminals on unrelated branches.  The bitmaps and ancestor lists
+are initialized before steady-state timing; per-query intersections and
+ancestor tests remain in the discovery time.
+
+\begin{algorithm}[t]
+\caption{Bitmap-backed prefix frontier (measured provider)}
+\label{alg:frontier}
+\begin{algorithmic}[1]
+\Require query labels $Q$, label bitmaps $I_a$, proper terminal ancestors
+\If{$Q=\varnothing$}
+  \State \Return precomputed terminal roots of the prefix forest
+\EndIf
+\If{any query label has no posting}
+  \State \Return $\varnothing$
+\EndIf
+\State copy the smallest query-label posting into $C_Q$
+\For{each remaining query label $a$}
+  \State $C_Q\gets C_Q\cap I_a$
+\EndFor
+\State $F\gets\varnothing$
+\For{each $S\in C_Q$}
+  \If{no $A\in\mathrm{Anc}_p(S)$ belongs to $C_Q$}
+    \State append the group identifier of $S$ to $F$
+  \EndIf
+\EndFor
+\State \Return $F$
+\end{algorithmic}
+\end{algorithm}
+
+For comparison, both LNG-semantic providers first use a trie walk to collect
+a prefix-minimal candidate frontier, rather than enumerate all eligible
+supersets. They then reduce this frontier under set containment.  The original version sorts candidates by label cardinality and
+removes sets containing an already retained minimum.  The optimized version
+uses cardinality buckets when the size span is small, with a sorting fallback;
+it still performs pairwise sorted-set containment checks for minimality.
+It preserves the original entry definition.  The prefix provider changes
+that definition and the data structures used to compute it.  Thus its timing
+advantage is not solely the effect of removing one sort.
+
+\paragraph{Cost and output tradeoff.}
+Let $c=|C_Q|$, $f=|F(Q)|$, and $A_Q$ be the number of proper-ancestor
+membership probes actually performed.  If $T_{\cap}$ is the cost of copying
+and intersecting compressed postings and $t_{\in}$ bounds one bitmap
+membership probe, prefix discovery costs
+\begin{equation}
+ O\bigl(|Q|+T_{\cap}+c+A_Qt_{\in}+f\bigr).
+\end{equation}
+For maximum label length $h$, $A_Q\le ch$.  Bitmap representation and
+compression affect $T_{\cap}$ and $t_{\in}$; treating both as unit-time set
+operations would hide substantial work.  The stored ancestor lists require
+up to $O(Gh)$ entries, in addition to postings and trie storage.  The empty
+predicate uses the precomputed root frontier in $O(r)$ output time.
+
+For the LNG providers, let $c_{\mathrm{LNG}}$ be the number of frontier candidates,
+$T_{\mathrm{cand}}$ their discovery time, and $P_Q$ the number of pairwise minimality tests.  With sorted label sets of
+length at most $h$, their cost is bounded by
+\begin{equation}
+ O\bigl(T_{\mathrm{cand}}+\mathrm{Order}(c_{\mathrm{LNG}})+P_Qh\bigr),
+ \qquad P_Q\le c_{\mathrm{LNG}}(c_{\mathrm{LNG}}-1)/2,
+\end{equation}
+where ordering is $O(c_{\mathrm{LNG}}\log c_{\mathrm{LNG}})$ for sorting or
+$O(c_{\mathrm{LNG}}+\Delta)$ for cardinality
+buckets over span $\Delta$.  The
+prefix algorithm restricts which relations are tested, but may return more
+groups and hence increase seed distance work and graph traversal.  We report
+these downstream costs separately.

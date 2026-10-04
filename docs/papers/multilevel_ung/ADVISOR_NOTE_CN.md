@@ -1,134 +1,125 @@
-# ML-UNG 教师汇报说明
+# ML-UNG 方法与论文汇报说明
 
-## 一句话结论
+> 这份 note 对应本轮重写正文。阅读顺序：本文 → `main.pdf` 的方法图与结果 → `generated_data/` 完整数据。当前稿是可讨论的研究正文，不等于实验已达到投稿要求。
 
-ML-UNG 保留 UNG 的 exact-label-group 分组，但把 L0 的组间 topology 显式开放为 LNG 或 Trie，并在其上增加按标签 Trie 子树质量独立划分的多粒度 overlay；查询只在被精确授权的 block 上运行，并且每个搜索状态只扫描自身物理层的边。当前无需校准的 DRH 默认保留 LNG 作为稳健 L0，再用数据规模和已有图度数预算自动决定 overlay 数量、阈值、topology 和路由门限，不读取查询分布、Recall 或延迟。L0 是否也应选 Trie 由完整 factorial 单独检验，而不是预先假设。
+## 1. 先讲清楚我们解决什么
 
-## 统一术语
+我们研究标签 AND 过滤的近似最近邻搜索。查询标签为 Q，向量标签为 A；只有 Q ⊆ A 的向量可以进入结果。选择率是符合条件的向量数占全库向量数的比例，低选择率表示可用向量少。
 
-- `mL` 中的 `m` 是 level 0 之上的 upper-overlay 数量，不是物理层总数。
-- `0L`：只有物理 level 0。该层由 exact-label groups 和它们之间的 group topology 构成。
-- `1L`：物理 level 0 加一个 level 1 overlay。level 1 使用阈值 `T1` 独立划分，是较细的 coarse-grained overlay。
-- `2L`：物理 level 0、1、2 共三层。level 1 使用 `T1`，level 2 使用更大的 `T2`，因此 level 2 更粗。
-- `L` 表示 LNG topology，`T` 表示 materialized prefix-Trie topology。完整记号写作 `mL[B|U]`：竖线左侧 `B` 是 L0，右侧 `U` 按从细到粗的顺序列出 upper levels；例如 `2L[T|LT]` 表示 L0=Trie、L1=LNG、L2=Trie。
-- `2L-XY` 的两个字母只描述 upper overlays：`X` 对应 level 1，`Y` 对应 level 2；level 0 不编码在这两个字母里。
-- `2L-LL`、`2L-LT`、`2L-TL`、`2L-TT` 分别表示 level 1/2 为 LNG/LNG、LNG/Trie、Trie/LNG、Trie/Trie。
-- 原权威 Amazon 自动方案 `2L-LT(T1=1024,T2=16384)` 的完整写法是 `2L[L|LT]`：level 0 为 exact-group LNG；level 1 为 threshold-1024 LNG overlay；level 2 为 threshold-16384 Trie overlay。
-- 实现允许 level 0 独立选择 LNG 或 Trie，也允许它与任意 upper-overlay 组合。新增的完整二元 topology factorial 覆盖 `0L` 的 2 种、`1L` 的 4 种和 `2L` 的 8 种组合，不再把 L0=LNG 当作默认事实。
-- 固定 L0 的比较用于隔离 upper topology；跨 L0 比较采用各自能够达到 Recall 的 matched entry provider（LNG base 配 optimized-LNG entry，Trie base 配 Trie entry），因此是端到端系统比较，不应写成纯 base-edge 因果效应。
-- `entry=orig-LNG`、`entry=opt-LNG`、`entry=Trie` 是入口组算法，与 graph topology 是不同实验维度。
-- `ungated` 仍执行逐 block 的精确授权，只是不做“是否进入多层后端”的全局前置回退。
-- 当前 2L 实验中的 `DRH-v1`，要求至少有一个合法 level-2 block 才进入多层后端，否则直接调用不变的 0L 搜索。
-- `DRH-v2` 在 DRH-v1 之上，还要求合法 level-2 blocks 的 direct-member mass 总和至少达到自动推导的 `T3`。
+UNG 把标签集合完全相同的向量分为一个 group，用最小严格超集关系连接 groups（LNG），再把这些关系落成向量边。它已经使用 Trie 辅助寻找入口，因此我们的贡献不能写成“首次引入 Trie”。
 
-## 方法主线
+我们的主线有两个相互配合的机制：**把 terminal-prefix 连接与覆盖它的入口 frontier 一起设计；再把可整体证明合法的多个 groups 聚成 block，改变向量搜索的粒度。** GPU 批处理使额外图的构建可行；自动参数 DRH 是这一结构的一个可解释实例，而不是全文唯一创新点。
 
-### 1. 现有瓶颈
+## 2. 用一个例子解释入口机制
 
-UNG 已经解决“标签可达性”和“向量邻近性”如何合并的问题，但它的每个导航单元仍是一个 exact-label group。宽谓词会命中大量小 group；即使谓词完全合法，搜索也要重复扫描大量细粒度 group 和 cross-group edges。
+设标签顺序 a < b < c，已观察到 {b}、{a,b}、{a,b,c}、{a,c}。查询 Q={b} 时，前三个 group 合法。
 
-### 2. 核心观察
+- LNG 可以从 {b} 通过集合包含关系走到 {a,b}，再到 {a,b,c}，因此只需 {b} 作为标签平面的入口。
+- Trie 的 {b} 和 {a,b} 位于不同前缀分支；必须保留这两个入口。{a,b,c} 已能从 {a,b} 到达，不必再保留。
+- 因此 prefix frontier 保留“合法且没有合法 terminal 前缀祖先”的 groups。它省去了不同分支之间的最小超集筛选，但可能产生更多向量入口。
 
-标签 Trie 中，以前缀 `Rb` 为根的子树内，每个 label set 都包含 `Rb`。当查询标签 `Q` 满足 `Q subseteq Rb` 时，该 block 的所有 direct members 都满足谓词。这个包含关系给出了不依赖查询样本的安全粗化条件。
+实际计时的 Trie provider 使用 label-to-group 压缩位图交集，再查询缓存的 terminal 祖先；并非只做一次理想化 Trie 遍历。优化后的 LNG provider 已采用 cardinality buckets 和缓冲复用，但仍执行成对的集合包含判断。两者比较不能再描述成“Trie 对比未优化 LNG”。
 
-### 3. 三个彼此分离的设计维度
+论文 Proposition 1 证明：从完整 prefix frontier 出发，所有合法 terminal 在标签平面可达。它**不保证有限搜索预算下的 Recall**：入口裁剪、局部有向图可达性、向量 cross edges 和候选队列都可能限制覆盖。含 r 个根的 prefix forest 有 G−r 条 group 边；它不一定是 LNG cover edges 的子集。
 
-1. Hierarchy：用 `T1 < T2 < ...` 独立划分每个 overlay，增加粗粒度导航尺度，但不改写 level 0 或更细 overlay。
-2. Topology：每个物理层内部可使用 LNG 或 prefix-Trie 连接；Trie topology 指实际 materialized inter-block edges，不是“用 Trie 找入口”。
-3. Entry and routing：入口 provider 只决定初始 group；router 决定调用多层后端还是 0L fallback；二者都不改变某一层内部的边。
+## 3. 为什么还需要 block
 
-### 4. 查询不变量
+以 Rb={a,b} 为根的 block 可以包含 {a,b}、{a,b,c} 的 direct members。若 Q ⊆ Rb，整个 block 都合法，内部向量边可以直接跨越 exact-group 边界。若 Q={b,c}，该 block 不能整体授权，但其中部分向量仍合法，必须依靠更细的表示。
 
-搜索状态是 `(vector_id, distance, physical_level)`。level 0 状态只扫描 base edges；level 1/2 状态只扫描对应 overlay 拥有的边。不同层可以向同一个 bounded queue 提供 seed，但状态不会跨层晋级，也不会在缺边时 fall through 到另一层。构建时的父子/归属关系不是查询边。
+每一层从 canonical Trie 独立做 uncovered-mass 聚合，非根节点累计未覆盖质量严格超过 T 时发出 block。T 是发出阈值，不是 block 最大点数；可能残留未被任何 block 覆盖的 groups。每层 direct members 互不重叠，不同层的 direct-member 分区不保证严格嵌套。
 
-### 5. 自动参数 DRH
+| 记号 | 物理 L0 | 物理 L1 | 物理 L2 |
+|---|---|---|---|
+| `0L[L]` | exact groups，LNG 连接 | 无 | 无 |
+| `0L[T]` | exact groups，Trie 连接 | 无 | 无 |
+| `1L[T|L]` | Trie groups | 阈值 T1 的 LNG blocks | 无 |
+| `2L[T|LT]` | Trie groups | 阈值 T1 的 LNG blocks | 阈值 T2 的 Trie blocks |
 
-DRH 取 `T1` 为最接近 `sqrt(N)` 的二次幂，以 `rho=max(2,round(R/C))` 递增阈值，并在 `N/Tl < C` 时停止；预计 block 数大于局部度预算 `R` 时使用 LNG，否则使用 Trie。它因此一次性给出 overlay 数量、每层阈值和拓扑。DRH-v2 再把下一个未物化尺度作为 direct-mass gate，仍然不需要 query calibration。
+`mL` 的 m 是 upper-overlay 数，物理层共 m+1 层。`L/T` 表示该层的 LNG/Trie 连接。旧图中 `2L-LT` 默认省略 LNG base，完整记号为 `2L[L|LT]`。L0 可以自由选 LNG 或 Trie，不存在方法定义要求它必须是 LNG。
 
-这里必须区分“自动生成 hierarchy”和“自动选择全部系统组件”。当前 DRH 自动决定 upper-overlay 的层数、阈值、逐层 topology 和 fallback gate，但把 L0 固定为 LNG，以保证 10%--30% 区间有稳健回退。完整 factorial 证明这不是实现限制：Trie L0 在低选择率和有效 coarse overlay 下更强，但不存在一个静态 L0 在全部选择率都占优。若同时物化 LNG/Trie 两套 L0，还需要单独设计并在 held-out 数据上验证 query-time base selector；当前论文不把 Amazon 上事后观察到的分界伪装成无需校准的规则。
+查询状态为 `(vector_id, distance, physical_level)`，只扩展所属层的边。不同层共享有界候选队列，但状态不晋级、不向下 fall through。入口 group 会被标记为拥有它的最细合法 overlay；不保留一份重复 L0 seed。所有 seeds 先计距离并标为已见，再优先保留 block seeds。因此增加层数可能改变队列竞争，不能推出“高层不用就一定零成本”。
 
-## 当前结果应该怎样表述
+Proposition 2 的谓词安全依赖：seed 合法、overlay seed/edge 的 owner 被授权、层内 direct membership 正确、跨 block 边沿根标签超集方向。实现依靠这些不变量，而不是在每条邻边上补一次过滤。Proposition 3 证明层隔离；回退只保证相同 base 搜索路径，不包含额外授权和路由时间。
 
-- 查询结果是 screen-level evidence：每个点 1 次 cold、2 次 warm；100 个 query workers；固定 1,000 条查询。
-- Mean selectivity 是查询批次中 `|eligible(Q)|/N` 的均值，不是 DRH 输入。
-- Recall@10 是每条查询 Recall@10 的批次均值。equal-Recall crossing 是两次 warm 都达到 0.90 的最小实测 `Lsearch`，不插值。
-- Plain QPS 是 0L-LNG 的原始吞吐；表中 `A/plain` 是各自 equal-Recall crossing 上的 `QPS_A/QPS_plain`。
-- `NC` 只表示在 workload 共享的实测 `Lsearch` 上限内没有 crossing，不表示无限增大预算也无法达到目标。
-- 完整的 `base x overlay` factorial 已覆盖 14 种 topology、9 个选择率，共 126 个等 Recall 单元；两半使用同一个查询二进制和同一个 hierarchy-builder 二进制。逐档 QPS 最优依次为：0.5/1/5% 的 `2L[T|LT]`，10/30% 的 `0L[L]`，60/80% 的 `1L[T|L]`，95% 的 `2L[T|LT]`，以及 99% 的 `2L[T|TT]`。不存在支配全部 workload 的静态 topology。
-- 在只比较 0L 的 matched-provider 系统时，`0L[T]` 在 0.5/1/5% 是 `0L[L]` 的 6.03/2.77/18.43x；10% 为 0.60x，30% 在共享预算内 NC（`Rmax=0.8882`），60/80/95/99% 分别为 0.62/0.33/0.33/0.56x。因此不能写成“Trie base 普遍优于 LNG base”，也不能把这些差值全部归因于边 topology，因为入口 provider 同时不同。
-- 加入 overlay 后，所有 Trie-base 组合都在 9 档达到 Recall 门槛。按逐 workload oracle 归一化后的全网格几何均值，固定配置 `2L[T|LT]` 最高（0.868），但其最差档只有 oracle 的 0.482（30%）；这说明它是当前最好的单一固定组合，却仍不能替代 query routing。
-- 最干净的 upper-topology 对照显示：固定 Trie base、Trie entry 和 L1=LNG，只把 L2 从 LNG 换成 Trie（`2L[T|LL] -> 2L[T|LT]`），9 档中 8 档加速，最高 1.251x；唯一未胜的 80% 为 0.998x，近似持平。相反，只把更细的 L1 从 LNG 换成 Trie（`2L[T|LL] -> 2L[T|TL]`）虽在 5/9 档胜出，却在 10/60/80/95% 慢 40.7%--52.9%。当前证据更支持“Trie 用作稀疏的 coarse L2，LNG 保留在 fine L1”，而不是所有层统一 Trie。
-- Amazon 的自动 2L 方案在 60%--99% selectivity 相对 0L baseline 为 14.40--26.70x；这是目标宽谓词区间的证据，不是所有数据集、所有选择率上的普遍优势。
-- 0L-Trie 在 Amazon 0.5%、1%、5% 为 Plain 的 6.03x、2.77x、18.43x，但在 10% 只有 0.60x。这是 level-0 topology 与配套 Trie entry 的联合效果，不应写成“多一层带来的收益”。
-- DRH-v1 在 Genome 和 Reviews 接近 Plain 及冻结的人工候选集，但在 VariousImg 明显退化；DRH-v2 缓和但没有消除该反例。
-- 重复构建实验中最快的 composed base-plus-hierarchy 路径为原始 CPU base builder 的 1.35x。该数值是独立 stage medians 的组合，不冒充一次联合 wall-clock。
+## 4. 当前数据说明什么
 
-### L0 与逐层 topology 的完整结论
+Amazon：602,453 个 768 维向量，482,387 个 exact groups；每档 1,000 queries，100 query threads，1 cold + 2 warm。Recall@10 crossing 要求两次 warm 均达到 0.90，取最小实测 Lsearch，不插值。完整 factorial 为 14 种 topology × 9 个选择率，T1=1024、T2=16384、ungated。跨 L0 使用各自 matched provider，是系统比较；同一 L0/provider 下只改变一个 upper 字母才隔离该层 topology。
 
-方法定义不固定 L0：`tau0` 可以独立取 LNG 或 Trie。当前评测的无需校准 DRH 是一个保守的 LNG-base 实例；它固定 L0=LNG，但这不是 ML-UNG 的定义，也不是“L0 必须为 LNG”的假设。完整 Amazon factorial 的逐档 oracle 如下，QPS 均取两次 warm 都达到 Recall@10 >= 0.90 的最小实测 `Lsearch`：
+| 平均选择率 | `0L[T] / 0L[L]` QPS | 完整 factorial 最优配置 | 最优 QPS |
+|---:|---:|---|---:|
+| 0.499% | 6.03× | `2L[T|LT]` | 21707.89 |
+| 0.903% | 2.77× | `2L[T|LT]` | 14278.50 |
+| 5.038% | 18.43× | `2L[T|LT]` | 11718.35 |
+| 9.907% | 0.60× | `0L[L]` | 450.17 |
+| 30.027% | NC | `0L[L]` | 52.77 |
+| 60.047% | 0.62× | `1L[T|L]` | 1613.68 |
+| 80.024% | 0.33× | `1L[T|L]` | 648.35 |
+| 95.020% | 0.33× | `2L[T|LT]` | 564.63 |
+| 99.001% | 0.56× | `2L[T|TT]` | 267.67 |
 
-| Mean selectivity | 全局最优配置 | QPS | L0 |
-|---:|---|---:|---|
-| 0.499% | `2L[T|LT]` | 21707.89 | Trie |
-| 0.903% | `2L[T|LT]` | 14278.50 | Trie |
-| 5.038% | `2L[T|LT]` | 11718.35 | Trie |
-| 9.907% | `0L[L]` | 450.17 | LNG |
-| 30.027% | `0L[L]` | 52.77 | LNG |
-| 60.047% | `1L[T|L]` | 1613.68 | Trie |
-| 80.024% | `1L[T|L]` | 648.35 | Trie |
-| 95.020% | `2L[T|LT]` | 564.63 | Trie |
-| 99.001% | `2L[T|TT]` | 267.67 | Trie |
+NC 表示共享实测预算内没有 crossing，不代表任意预算都不能达到目标。最优配置是逐档事后选择，不是已经实现的自动 selector。固定 `2L[T|LT]` 的全网格 oracle-normalized 几何均值为 0.868，最差档为 0.482，说明它也不支配所有场景。
 
-因此 9 档中有 7 档的最优系统使用 Trie L0；“固定 LNG 是保守 fallback”不能改写成“LNG 是最优 L0”。但跨 L0 时入口 provider 也随 base 匹配变化，所以这是系统级结论，而不是单独替换 base edge 的因果结论。层内受控替换给出更清晰的规律：
+受控上层替换：固定 Trie base、Trie entry、L1=LNG，仅把 L2 从 LNG 换成 Trie，8/9 档更快，最大 1.251×，80% 为 0.998×。这支持“coarse L2 采用 Trie 值得优先考虑”的经验建议，不能推出每层都用 Trie 更优。
 
-| 只改变的因素 | 结果 | 可支持的解释 |
+独立 profile 可以解释入口与搜索的成本转移：
+
+| 选择率 | 系统 | ELS ms/query | 向量 seed setup ms/query | Graph ms/query |
+|---:|---|---:|---:|---:|
+| 0.499% | LNG + optimized LNG entry | 20.352 | 0.195 | 2.076 |
+| 0.499% | Trie + prefix entry | 0.645 | 1.769 | 0.868 |
+| 9.907% | LNG + optimized LNG entry | 36.631 | 0.646 | 98.747 |
+| 9.907% | Trie + prefix entry | 3.778 | 14.744 | 323.081 |
+
+这些是带 instrumentation 的多线程 per-query 阶段均值，不能求和后作为 QPS 的 batch latency。QPS 是 B / warm-median batch seconds；B 在 held-out 中为 2,864 或 3,000，不全是 1,000。Visited、edges、distances 分别为弹出扩展状态数、扫描邻接项数和距离计算次数。`timeout` 专指 0L-Trie/95% 详细 profile 超过 3300 秒，与性能表 NC 分开。
+
+## 5. 自动方案与 GPU 构建怎样定位
+
+DRH 用 T+N/T 的对称结构代理选择 T1≈sqrt(N)，取最近二次幂；rho=max(2,round(R/C))，下一层阈值乘 rho；当 N/T<C 时停止。预计 block 数 N/T>R 则该层选 LNG，否则选 Trie。N/T 只是代理，不能当作实际 block 数或已证明的延迟模型。
+
+N=602453、R=64、C=4 得到 1024:LNG、16384:Trie 两层。DRH-v1 在存在合法物理层 h≥2 时进入多层后端，DRH-v2 还要求最高合法 h≥2 的 direct mass 达到下一未物化尺度。当前 held-out DRH 固定 LNG base，不自动选择全部系统组件；不读取查询频率、计时或 Recall，但单次查询授权自然要读取 Q。
+
+Amazon 60%–99% 下自动方案为 Plain 的 14.40–26.70×；VariousImg 有明确退化。四个数据集都导出两个 overlays，所以还未验证自动深度变化后的性能。人工调优比较只覆盖冻结的五个人工替代方案，不是无限参数空间最优。
+
+GPU 把 irregular local-graph 与 cross-edge tasks 组织成批，融合 distance/top-k，并在需要时只回传 IDs。小 block 默认 exact top-R，中 block sampled CPU Vamana，大 block CUDA candidate refinement；metadata 和最终 adjacency 仍在 host。当前 fastest hybrid sidecar 90.49s，独立 stage medians 组合总计 141.27s，原 CPU base 190.38s，即约 1.35×。这不是单次联合构建 wall time，也未证明最快构建索引保持同等查询质量。两次 timing repeats 的 bootstrap 只能看作探索性区间。
+
+## 6. 文献定位与写法
+
+本文采用“具体瓶颈 → 结构观察 → 算法 → 有条件性质 → 对应实验证据”的组织，而不复制原论文表述。下列论文均已纳入引用；年份按出版记录，不擅自改成之后的会议举办年。
+
+| 已发表相关论文 | 出版记录 | 本文借鉴或区别 |
 |---|---|---|
-| `0L[L] -> 0L[T]`，同时使用各自 matched provider | 0.5/0.9/5% 为 6.03/2.77/18.43x；10% 为 0.60x；30% NC；60/80/95/99% 为 0.62/0.33/0.33/0.56x | Trie-base 系统适合窄谓词，但该行不能隔离 topology 与 entry 的贡献 |
-| `2L[T|LL] -> 2L[T|LT]`，仅 L2 LNG->Trie | 8/9 档更快，最高 1.251x；80% 为 0.998x | Trie 最稳定地适合作为稀疏 coarse L2 |
-| `2L[T|LL] -> 2L[T|TL]`，仅 L1 LNG->Trie | 5/9 档更快，但 10/60/80/95% 仅为 0.500/0.543/0.471/0.593x | 与细粒度 L1 更依赖 LNG 横向可达性的解释一致，但尚非机制证明；不能统一改成 Trie |
+| UNG | PACMMOD 2(6), 2024 | entry、label plane 与 vector graph 必须一起解释 |
+| ACORN | PACMMOD 2(3), 2024 | predicate-agnostic expansion；有低选择率 fallback，不能笼统说不适用 |
+| SeRF | PACMMOD 2(1), 2024 | 先定义不可直接物化的结构，再说明压缩组织 |
+| iRangeGraph | PACMMOD 2(6), 2024 | 区分离线结构与在线组合 |
+| UNIFY | PVLDB 18(4), 2024 | 多策略统一索引；其区间结构不同于集合偏序 |
+| Dynamic Range-Filtering ANNS | PVLDB 18(10), 2025 | 动态约束须有独立算法与测量 |
+| Efficient Dynamic Indexing for RF-ANNS | PACMMOD 3(3), 2025 | 区分查询、空间、更新的权衡 |
+| Starling | PACMMOD 2(1), 2024 | block 与数据布局服务 I/O，不等同于我们的授权 block |
+| ELPIS | PVLDB 16(6), 2023 | 构建、内存和查询应共同报告 |
+| LSH-APG | PVLDB 16(8), 2023 | 按构建阶段解释复杂度与收益 |
+| tau-MNG | PACMMOD 1(1), 2023 | 可证明性质与实际近似版本分开 |
+| Revisiting PG-based ANNS Construction | PVLDB 18(6), 2025 | 构建加速须检查查询质量 |
+| Elastic Index Selection | PVLDB 19(4), 2025 | 共享部分索引及选择问题，不等同单索引 block scales |
+| Curator | PACMMOD 4(1), 2026 | 其 AND 临时索引组织不需要距离计算，不能宣称必然昂贵 |
+| FAVOR | PACMMOD 4(3), 2026 | 低选择率 brute-force，其余 exclusion-distance HNSW；不是仅暴力扫描 |
+| SIEVE | PVLDB 18(11), 2025 | collection of indexes，与独立导航 overlays 区分 |
 
-当前可写入论文的经验规律是：窄谓词优先考虑 Trie base；中间选择率保留 0L-LNG fallback；宽谓词使用 Trie base 加 fine-LNG overlay；最粗层优先 Trie。这个分段规律来自 Amazon 观测，只能作为解释和 dual-base selector 的待验证设计依据，不能冒充跨数据集的无需校准定理。
+还补充 LSSG（arXiv:2609.15058）及 Query-aware Routing（arXiv:2606.19898），明确标为预印本。前者已有 label-similarity tiers，所以“首次多层标签图”不成立；我们的区别是 direct-member aggregation、root-prefix authorization 与 level-local states。后者用离线性能表和 Recall 模型，DRH 则放弃这类校准，也承担适应性不足。
 
-## 与 UNG 及相邻工作的区别
+完整逐条核查见 `review/literature_claim_audit.md`。UNG 的 ACM 全文拉取返回 403，因此本轮其机制还通过作者官方代码核验，不能把未取到全文说成已完整阅读。
 
-ML-UNG 的贡献不是“第一次在入口处使用 Trie”。UNG 已经使用 Trie 找 minimal-superset entry groups。本文的 Trie topology 是实际物化的 inter-group/inter-block connectivity。ML-UNG 也不是 HNSW 式的随机抽样层级：HNSW 的层用于向量空间导航，ML-UNG 的 overlay 聚合标签空间区域，并由精确谓词包含关系授权。
+## 7. 还差什么才能形成更强投稿证据
 
-Range-filtered ANNS 工作同样关注不同选择范围对应不同图粒度，但它们通常利用一维有序区间的分解、压缩或拼接。集合 containment 是偏序关系；两个合法 supersets 不一定落在同一个 prefix branch，因此不能把 range index 的论证直接移植到这里。
-
-## 检索并核验的 SIGMOD/PVLDB 论文
-
-以下 14 篇论文的题目、venue、年份和 DOI 已核验。其中包括 2026 年 SIGMOD 的 Curator 和 PVLDB 19 的 Elastic Index Selection；前一组直接讨论 filtered/range-filtered vector search，后一组用于借鉴图索引、构建和系统论文的论证方式。
-
-| Paper | Venue | 与本文的关系及写作借鉴 |
+| 项目 | 当前状态 | 剩余工作 |
 |---|---|---|
-| UNG, *Navigating Labels and Vectors* | PACMMOD/SIGMOD 2024, DOI `10.1145/3698822` | 最近基线。先列过滤向量搜索的四个困难，再用一个统一抽象串起 label plane 与 vector plane；本文沿用这种“问题 -> 抽象 -> 性质 -> 端到端结果”的主线。 |
-| ACORN | PACMMOD/SIGMOD 2024, DOI `10.1145/3654923` | 从不可实现的理想 predicate subgraph 出发，再说明可实现机制如何逼近；启发本文先写安全 coarse navigation 的理想条件，再落到授权和 level-local expansion。 |
-| SeRF | PACMMOD/SIGMOD 2024, DOI `10.1145/3639324` | 先指出“为每个范围建图”的二次爆炸，再给出可压缩结构和复杂度；启发本文明确 exact-group 单尺度瓶颈和独立 overlay 的结构代价。 |
-| iRangeGraph | PACMMOD/SIGMOD 2024, DOI `10.1145/3698814` | 把 materialized elemental graphs 与 query-time composition 分开；启发本文明确 offline partition/topology 与 online authorization/search 两条路径。 |
-| UNIFY | PVLDB 2024, DOI `10.14778/3717755.3717770` | 系统化区分 pre/post/hybrid filtering，再说明统一索引如何支持三者；启发本文把 hierarchy、topology、entry、routing 明确拆成正交接口。 |
-| Dynamic Range-Filtering ANNS | PVLDB 2025, DOI `10.14778/3748191.3748193` | 先说明静态方法在 arrival order 上为何失效，再给动态 segment graph；启发本文把“不适用边界”写成具体结构差异，而不是泛泛局限。 |
-| RangePQ, *Efficient Dynamic Indexing for RF-ANNS* | PACMMOD/SIGMOD 2025, DOI `10.1145/3725401` | 围绕空间、查询和更新三方权衡组织设计；其 two-layer 是空间组织，不等同于本文的 label-navigation overlay，报告时必须避免混淆。 |
-| Starling | PACMMOD/SIGMOD 2024, DOI `10.1145/3639269` | 用“data layout + block search”两个组件解释 I/O 收益，并给出明确资源约束；启发本文把 GPU kernel、stage wall time 和 full-index cost 分开。 |
-| ELPIS | PVLDB 2023, DOI `10.14778/3583140.3583166` | 强调 strong baseline，并同时报告 build time、memory 和 query performance；启发本文不只报告查询加速，还保留构建和资源边界。 |
-| LSH-APG, *Towards Efficient Index Construction...* | PVLDB 2023, DOI `10.14778/3594512.3594527` | 先定位 proximity-graph 构建超线性成本，再分别给 entry 与 pruning 优化；启发本文将 GPU batching 的收益归因到具体 construction stage。 |
-| tau-MNG, *Efficient ANN Search in Multi-dimensional Databases* | PACMMOD/SIGMOD 2023, DOI `10.1145/3588908` | 先定义结构性质和可证明边界，再给可构建近似版本；启发本文把 authorization safety、level isolation、fallback equivalence 单列。 |
-| *Revisiting the Index Construction of PG-based ANNS* | PVLDB 2025, DOI `10.14778/3725688.3725709` | 从构建流程中定位瓶颈，声明加速不能牺牲查询性能；启发本文避免用 kernel speedup 替代 end-to-end builder 结论。 |
-| *Elastic Index Selection for Label-Hybrid AKNN Search* | PVLDB 19(4), 2025, DOI `10.14778/3785297.3785304` | 利用 label-set containment 共享 partial indexes，并显式处理不同查询集合需要不同索引的问题；与本文共同说明不存在天然全域最优的单一组织，但其目标是 index selection，而本文研究同一系统内的多尺度导航与逐层 topology。 |
-| Curator, *Efficient Vector Search with Low-Selectivity Filters* | PACMMOD/SIGMOD 2026, DOI `10.1145/3786635` | 以 dual-index 和共享 clustering tree 服务低选择率过滤；它进一步支持本文将低选择率 Trie 优势与中高选择率 fallback 分开讨论，但不是本文 set-containment overlay 的同构实现。 |
+| 正文、机制图、定义和实现一致性 | 已重写并独立审阅 | 根据导师意见继续压缩与取舍 |
+| Amazon 完整 topology 网格 | 126 单元完整保留 | 更多数据集上的同类 factorial |
+| 自动参数 vs 人工 | 有冻结候选集与反例 | 覆盖自动导出不同深度的数据形态 |
+| 入口机制因果归因 | 有 matched-system profile | 同 topology 的三 provider 受控延迟对照 |
+| 同协议 SOTA 全选择率 | 尚不完整 | 不混用历史外部对照，补齐当前协议 |
+| GPU 完整构建耗时 | 有 repeated timing/resource | 最快 hybrid 等各配置的等 Recall 质量验证 |
+| 置信区间 | screen-level / 探索性 | 更多交错重复，控制竞争与机器状态 |
+| 动态维护 | 仅讨论结构影响 | 未实现并测量，不宣称动态结果 |
 
-## 本轮论文写作调整
-
-- 方法段现在先给一个 invariant，再给 offline/online 总览图，然后分别展开 partition、topology、entry、routing 和 bounded search。
-- 新增统一 notation table，直接列出 0L、1L、2L 时物理 level 0/1/2 分别是什么。
-- 所有结果表和图例统一使用 `0L-LNG`、`1L-LNG`、`2L-LT` 等形式，`LL/LT/TL/TT` 不再脱离 `2L` 单独出现。
-- 新增 measurement-definition table，明确 selectivity、Recall、`Lsearch`、batch latency、QPS、speedup、NC、`Rmax`、阶段时间和工作计数。
-- Related Work 明确区分 set-containment hierarchy 与 ordered-range hierarchy，并扩展构建文献，避免只围绕 UNG 一篇论文叙述。
-
-## 建议汇报顺序
-
-1. 先讲 UNG 的单尺度瓶颈：宽谓词下 exact groups 太碎。
-2. 再讲一条安全粗化观察：`Q subseteq block root` 保证 direct members 合法。
-3. 用总览图讲清楚 0L/1L/2L、LT 顺序、entry 和 routing 的分离。
-4. 强调 level-local invariant：同一队列不等于混扫边。
-5. 给出 DRH 的三个输入 `N/R/C` 和完全不使用 query calibration 的边界。
-6. 最后先报 Amazon 高选择率收益，再主动报告 VariousImg 反例和 screen-level 证据限制。
+向老师汇报时建议先讲例子和两张机制图，再给低选择率入口/搜索 breakdown、完整 topology 最优表，最后介绍自动方案、GPU 与尚缺证据。论文定位应建立在可验证的区别上，而不是“所有选择率都优于已有工作”。

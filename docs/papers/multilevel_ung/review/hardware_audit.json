@@ -1,0 +1,38 @@
+{
+  "captured_at": "2026-10-04T14:35:32.234428+00:00",
+  "scope": "Machine observed during manuscript audit; historical binaries and per-case environment remain frozen by campaign manifests.",
+  "commands": {
+    "cpu": {
+      "argv": [
+        "lscpu"
+      ],
+      "returncode": 0,
+      "stdout": "Architecture:          x86_64\nCPU op-mode(s):        32-bit, 64-bit\nByte Order:            Little Endian\nCPU(s):                144\nOn-line CPU(s) list:   0-143\nThread(s) per core:    2\nCore(s) per socket:    36\nSocket(s):             2\nNUMA node(s):          2\nVendor ID:             GenuineIntel\nCPU family:            6\nModel:                 106\nModel name:            Intel(R) Xeon(R) Platinum 8360Y CPU @ 2.40GHz\nStepping:              6\nCPU MHz:               800.000\nCPU max MHz:           2401.0000\nCPU min MHz:           800.0000\nBogoMIPS:              4800.00\nVirtualization:        VT-x\nL1d cache:             48K\nL1i cache:             32K\nL2 cache:              1280K\nL3 cache:              55296K\nNUMA node0 CPU(s):     0-35,72-107\nNUMA node1 CPU(s):     36-71,108-143\nFlags:                 fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc aperfmperf eagerfpu pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch epb cat_l3 invpcid_single ssbd mba rsb_ctxsw ibrs ibpb stibp ibrs_enhanced tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm cqm rdt_a avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb intel_pt avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local dtherm ida arat pln pts avx512vbmi umip pku ospke avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq md_clear pconfig spec_ctrl intel_stibp flush_l1d arch_capabilities\n"
+    },
+    "gpu": {
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=name,memory.total,driver_version",
+        "--format=csv,noheader"
+      ],
+      "returncode": 0,
+      "stdout": "NVIDIA L20, 46068 MiB, 550.54.14\n"
+    },
+    "memory": {
+      "argv": [
+        "free",
+        "-b"
+      ],
+      "returncode": 0,
+      "stdout": "              total        used        free      shared  buff/cache   available\nMem:    1081625251840 12011843584 48930742272   448212992 1020682665984 1067155402752\nSwap:             0           0           0\n"
+    },
+    "os": {
+      "argv": [
+        "cat",
+        "/etc/os-release"
+      ],
+      "returncode": 0,
+      "stdout": "NAME=\"CentOS Linux\"\nVERSION=\"7 (Core)\"\nID=\"centos\"\nID_LIKE=\"rhel fedora\"\nVERSION_ID=\"7\"\nPRETTY_NAME=\"CentOS Linux 7 (Core)\"\nANSI_COLOR=\"0;31\"\nCPE_NAME=\"cpe:/o:centos:centos:7\"\nHOME_URL=\"https://www.centos.org/\"\nBUG_REPORT_URL=\"https://bugs.centos.org/\"\n\nCENTOS_MANTISBT_PROJECT=\"CentOS-7\"\nCENTOS_MANTISBT_PROJECT_VERSION=\"7\"\nREDHAT_SUPPORT_PRODUCT=\"centos\"\nREDHAT_SUPPORT_PRODUCT_VERSION=\"7\"\n\n"
+    }
+  }
+}

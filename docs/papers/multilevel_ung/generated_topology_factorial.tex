@@ -1,5 +1,5 @@
 \newcommand{\baseTopologyFactorialTables}{%
-\begin{table*}[t]
+\begin{table*}[htbp]
 \centering\scriptsize
 \caption{Zero- and one-overlay configurations in the complete Amazon base-by-overlay topology screen at Recall@10 $\geq0.90$. A code $m$L[$B|U$] lists base topology $B$ before the separator and upper topologies $U$ from fine to coarse. $L$ is LNG and $T$ is Trie. The base uses its matched entry provider: optimized-LNG for $B=L$ and Trie for $B=T$. NC$(r)$ gives maximum minimum-warm-repeat Recall when there is no crossing in the shared measured budget.}
 \label{tab:base-topology-factorial-a}
@@ -21,7 +21,7 @@ Sel. & 0L[L] & 0L[T] & 1L[L|L] & 1L[L|T] & 1L[T|L] & 1L[T|T] \\
 \end{tabular}
 }
 \end{table*}
-\begin{table*}[t]
+\begin{table*}[htbp]
 \centering\scriptsize
 \caption{Two-overlay configurations in the complete Amazon base-by-overlay topology screen at Recall@10 $\geq0.90$. A code $m$L[$B|U$] lists base topology $B$ before the separator and upper topologies $U$ from fine to coarse. $L$ is LNG and $T$ is Trie. The base uses its matched entry provider: optimized-LNG for $B=L$ and Trie for $B=T$. NC$(r)$ gives maximum minimum-warm-repeat Recall when there is no crossing in the shared measured budget.}
 \label{tab:base-topology-factorial-b}
@@ -50,7 +50,7 @@ The workload-wise oracle selects \texttt{2L[T|LT]} at 0.5\%, 1\%, 5\%, and 95\%;
 
 The controlled upper-level comparisons reveal a more stable role for Trie. With a Trie base and LNG at level 1, changing only level 2 from LNG to Trie (\texttt{2L[T|LL]}$\rightarrow$\texttt{2L[T|LT]}) improves QPS in eight of nine workloads, by up to 1.251$\times$; the remaining 80\% point is effectively tied at 0.998$\times$.  In contrast, changing only the finer level 1 from LNG to Trie with level 2 fixed to LNG wins in five of nine workloads but loses 40.7\%--52.9\% at 10\%, 60\%, 80\%, and 95\%.  The evidence therefore favors Trie as a sparse coarse overlay more consistently than as the fine navigation topology, while retaining an LNG fallback for the 10\%--30\% region.
 
-\begin{table*}[t]
+\begin{table*}[htbp]
 \centering\small
 \caption{Best measured configuration at each Amazon selectivity.  Each depth column is optimized only within that depth; the overall column ranges over all 14 configurations.  Values are QPS at Recall@10 $\geq0.90$.}
 \label{tab:base-topology-winners}

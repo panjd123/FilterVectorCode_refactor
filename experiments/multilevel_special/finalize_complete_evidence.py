@@ -168,6 +168,11 @@ def main() -> int:
         topology_summary / "global_configuration_summary.csv",
         generator_manifest,
     ]
+    # Include nested section sources: the manuscript is no longer one TeX file.
+    outputs.extend(sorted(PAPER.rglob("*.tex")))
+    outputs.extend(sorted(PAPER.glob("*.bib")))
+    outputs.extend([PAPER / "ADVISOR_NOTE_CN.md", PAPER / "PAPER_OUTLINE_CN.md"])
+    outputs = list(dict.fromkeys(outputs))
     for path in outputs:
         if not path.is_file() or path.stat().st_size == 0:
             raise FileNotFoundError(path)
@@ -175,6 +180,12 @@ def main() -> int:
         "schema_version": 1,
         "finished_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": "complete_with_declared_timeout",
+        "scope": "bounded evidence generation; not the formal publication gate",
+        "unestablished_claims": [
+            "matched-Recall quality across accelerated construction profiles",
+            "current-protocol external-system superiority",
+            "depth-change generalization of the automatic policy",
+        ],
         "declared_incomplete_evidence": [{
             "stage": "profile_query",
             "method": "l0_trie_entry_trie",

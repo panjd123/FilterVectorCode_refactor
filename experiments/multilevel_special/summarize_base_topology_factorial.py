@@ -546,7 +546,7 @@ def main() -> None:
     for panel_codes, title, label in panels:
         latex.extend(
             [
-                r"\begin{table*}[t]",
+                r"\begin{table*}[htbp]",
                 r"\centering\scriptsize",
                 r"\caption{" + title + r" in the complete Amazon base-by-overlay topology screen at Recall@10 $\geq0.90$. A code $m$L[$B|U$] lists base topology $B$ before the separator and upper topologies $U$ from fine to coarse. $L$ is LNG and $T$ is Trie. The base uses its matched entry provider: optimized-LNG for $B=L$ and Trie for $B=T$. NC$(r)$ gives maximum minimum-warm-repeat Recall when there is no crossing in the shared measured budget.}",
                 r"\label{" + label + "}",
@@ -594,7 +594,7 @@ def main() -> None:
             r"Trie as a sparse coarse overlay more consistently than as the fine navigation "
             r"topology, while retaining an LNG fallback for the 10\%--30\% region.",
             "",
-            r"\begin{table*}[t]",
+            r"\begin{table*}[htbp]",
             r"\centering\small",
             r"\caption{Best measured configuration at each Amazon selectivity.  Each depth "
             r"column is optimized only within that depth; the overall column ranges over all "

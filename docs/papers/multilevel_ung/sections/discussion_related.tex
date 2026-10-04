@@ -1,0 +1,95 @@
+\section{Discussion and Related Work}
+\subsection{What the Evidence Establishes}
+The full factorial answers which measured configuration wins on each Amazon
+workload; it does not supply a query-independent oracle choosing those winners.
+Changing one upper topology at fixed base and entry provider is controlled.
+The 0L matched-provider comparison instead measures an integrated topology and
+entry-design choice. Its favorable low-selectivity results do not extend to
+all broad predicates. Fewer logical edges can reduce navigation alternatives,
+while a larger prefix frontier increases seed work. Additional overlays
+introduce authorization and seed competition even with isolated adjacency.
+
+The automatic policy provides a reproducible starting configuration without
+query-performance calibration. It does not automatically select the base,
+and its mass gate is a structural heuristic rather than a latency model.
+All four evaluated datasets derive two overlays, so threshold/topology transfer
+is tested but depth-change performance is not. The VariousImg regression is
+retained. A submission-strength evaluation still needs current-protocol
+external baselines, longer repeated timing, and query-quality checks for each
+accelerated construction profile. Historical external runs use a different
+protocol and are not merged with the factorial. Predicate safety here concerns
+static AND-containment indexes with root-prefix authorization; extending the
+predicate language or update model requires a new contract.
+
+\subsection{Filtered and Range-Constrained Graph Search}
+HNSW~\cite{malkov2020hnsw} and DiskANN~\cite{subramanya2019diskann} organize
+vector proximity for bounded ANN search. Filtered-DiskANN
+~\cite{gollapudi2023filtereddiskann} incorporates labels during graph
+construction. ACORN~\cite{patel2024acorn} supports predicate-agnostic graph
+search with expanded neighborhoods and compressed construction; its design
+includes a configurable low-selectivity pre-filtering fallback. Its operating regime therefore depends on both the graph and the fallback
+configuration.
+
+UNG~\cite{cai2024ung} is the immediate structural baseline. Its exact-label
+groups, minimal-superset LNG, and vector realizations jointly preserve
+containment-directed navigation. We expose a different entry/topology contract:
+a terminal-prefix forest with its covering frontier. The forest has fewer
+permitted relations than general containment, but its edges are not necessarily
+an edge-subset of the LNG cover graph. We then aggregate compatible groups
+into independently authorized blocks. HNSW instead samples vector vertices
+across geometric layers; our scales change the label-space navigation unit.
+
+SeRF~\cite{zuo2024serf}, iRangeGraph~\cite{xu2024irangegraph}, and
+UNIFY~\cite{liang2024unify} compress, compose, or combine interval-specialized
+graphs. Dynamic range systems extend such structures to arrival and update
+workloads~\cite{peng2025dynamic,zhang2025rangepq}. Their ordered scalar
+intervals inspire explicit granularity, but arbitrary label containment forms
+a partial order and requires a different authorization argument.
+
+Curator~\cite{jin2026curator} shares label-specialized virtual indexes through
+a clustering tree. Its temporary indexes for conjunctions can be assembled by
+qualified-ID ordering and partition lookup without distance computation; its
+reported two-label AND results are close to pre-indexed predicates. Our
+blocks instead have fixed canonical prefix membership and use a root-prefix
+certificate to authorize traversal. FAVOR~\cite{song2026favor} selects a filter-first
+brute-force path below an estimated selectivity threshold and an
+exclusion-distance HNSW path otherwise. Its empirically chosen threshold and
+reported dataset-dependent crossover motivate studying multiple regimes;
+the absolute candidate mass remains relevant to the cost of its scan route.
+
+Elastic Index Selection~\cite{yang2025elastic} and SIEVE~\cite{li2025sieve}
+choose and share collections of indexes. Their selection problem differs from
+choosing block scales inside one containment-oriented system. Recent
+LSSG~\cite{wang2026lssg}, an arXiv preprint, stratifies edges by label-set
+similarity and traverses multiple tiers. Thus merely adding label-aware layers
+is not our novelty: our distinctive mechanism is direct-member block
+aggregation, exact root-prefix authorization, and states restricted to one
+physical adjacency level. Query-aware Routing~\cite{xiong2026routing}, also
+a preprint, uses an offline performance table and a learned Recall model;
+DRH deliberately uses neither, accepting the resulting loss of adaptability.
+These preprints are distinguished from accepted SIGMOD/PVLDB publications.
+
+\subsection{Construction and Maintenance}
+NN-Descent~\cite{dong2011nndescent} and relative-neighborhood pruning
+~\cite{toussaint1980rng} provide building blocks for proximity graphs.
+Database work improves construction with tree/graph hybrids, LSH-assisted
+insertion, monotonic neighborhoods, and revised pruning
+~\cite{azizi2023elpis,zhao2023lshapg,peng2023taumng,yang2025pgbuild}.
+Starling~\cite{wang2024starling} co-designs navigation and storage for disk
+I/O. GPU similarity search~\cite{johnson2021gpu} emphasizes distance and
+selection throughput. Our contribution is to batch the irregular local-graph
+and cross-edge tasks induced by a metadata hierarchy, retaining an explicit
+host-output boundary. The static experiments do not establish dynamic-update
+cost or numerical-quality equivalence across construction backends.
+
+\section{Conclusion}
+Entry discovery and graph topology form a joint contract in label-filtered
+ANN. A prefix frontier covers all eligible terminal branches at the label
+plane, while independently partitioned blocks admit coarser navigation when
+a root-prefix certificate holds. Level-tagged states make the adjacency used
+by each expansion explicit. These structural properties explain the design;
+measured Recall and timing establish where it is useful. The Amazon factorial
+shows both substantial improvements and topology-dependent regressions.
+DRH supplies a query-calibration-free starting plan, and batched GPU
+construction reduces measured build cost. Neither is claimed to dominate
+manual tuning or preserve quality without its corresponding evidence.
