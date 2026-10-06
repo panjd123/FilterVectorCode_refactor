@@ -25,3 +25,28 @@
 三轮修改与独立模拟审阅已完成。第三轮 SIGMOD/VLDB 均确认表格布局、测量术语和回退行为说明通过，主线、方法与人类可评审性均为 4/5；实验支撑仍为 2/5。当前 PDF 共 23 页，结论在第 11 页；完整结果与测量定义在附录。手调结果已标明单层方案实际执行 base fallback。每轮独立意见与处理记录见 `review/POLISH_ROUNDS.md`。模拟审阅不等于导师或会议审稿人认可。
 
 原始 embedding 模型、存储前是否归一化、部分旧 query 文件的生成记录仍未找全；正文按已核实的预处理快照描述，不推测其来源。只读审计见 `review/workload_metadata_audit.json`。
+
+## 待审的结构与展示改进
+
+- 根README和docs索引仍将六月GPU入口/输出边界工作标为当前唯一入口，
+  与多层论文及九档权威报告不一致。单独开展文档结构审计，保留历史入口。
+- 准备完整126格的QPS归一化图和对应crossing Lsearch图，只读取冻结CSV。
+  目标是同时展示优势区间、NC与达到质量门槛所需的搜索预算。
+- 从现有CSV可见，高平均选择率的L0[L]需要260k--400k队列容量，而逐档赢家
+  为1k--5k。这是后续成本解释的重要观测，尚不能单独归因于队列实现。
+- 对postorder阈值分区开展独立数学核查：block数上界、覆盖质量非单调、
+  跨尺度direct members非嵌套，以及N/T在DRH中的可解释范围。
+
+## 读者入口与评审 provenance 修订
+
+- root README 与 docs/README 改为当前 ML-UNG 阅读路径，保留历史资料链接。
+- 所有本地 Markdown 链接以 remote tracked inventory 检查；原 DataTools 目录
+  不在当前 tracked tree 中，入口改为 UNG/codes/tools。
+- paper README 与 POLISH_ROUNDS 明确 R1 新建 reviewer、R2/R3 复用历史；
+  4/5 是表达评分，证据仍为 2/5，不表示无上下文的总审稿分数。
+- 导师说明移除“正文新增”“主表已移除”等修改历史及自评状态，保留测量事实。
+- 新图生成脚本只读 frozen factorial CSV，完整保留 95 crossings 与 31 NC；
+  正式整合前还需 corruption checks、源 hash 校验及版面选择。
+- 待独立核验：LNG-minimal group entry 被 retag 后可能失去 L0 跨前缀路径。
+  三个 singleton groups {b},{b,c},{a,b}、Q={b}、T=1 提供候选反例；
+  在实现与图可达性核对前，不将其写成已证实的 campaign NC 成因。

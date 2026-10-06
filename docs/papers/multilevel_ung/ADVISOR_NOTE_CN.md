@@ -1,6 +1,6 @@
 # ML-UNG 方法与论文汇报说明
 
-> 这份 note 对应持续润色后的正文。阅读顺序：本文 → `main.pdf` 的方法图与结果 → `generated_data/` 完整数据。
+> 本文概括研究问题、方法及实验证据。方法图和完整推导见 [论文](main.pdf)，全部配置结果见 [冻结数据](generated_data/)。
 
 ## 1. 先讲清楚我们解决什么
 
@@ -37,7 +37,7 @@ UNG 把标签集合完全相同的向量分为一个 group，用最小严格超�
 
 `mL` 的 m 是 upper-overlay 数，物理层共 m+1 层。`L/T` 表示该层的 LNG/Trie 连接。旧图中 `2L-LT` 默认省略 LNG base，完整记号为 `2L[L|LT]`。L0 可以自由选 LNG 或 Trie，不存在方法定义要求它必须是 LNG。
 
-查询状态为 `(vector_id, distance, physical_level)`，只扩展所属层的边；顺序按 distance、vector ID、level 依次比较。不同层共享有界候选队列，但状态不晋级、不向下 fall through。入口 group 会被标记为拥有它的最细合法 overlay；不保留一份重复 L0 seed。所有 seeds 先计距离并标为已见，再优先保留 block seeds。队列满时，新候选会淘汰更差的状态；被淘汰状态的 seen 标记保留，最终答案只从终止时仍在队列中的状态按 vector ID 去重产生。正文新增九个 singleton groups 的两层例子，展示 `(y1,L1)` 和 `(y1,L2)` 同时入队后，高层状态在首次扩展前被淘汰。
+查询状态为 `(vector_id, distance, physical_level)`，只扩展所属层的边；顺序按 distance、vector ID、level 依次比较。不同层共享有界候选队列，但状态不晋级、不向下 fall through。入口 group 会被标记为拥有它的最细合法 overlay；不保留一份重复 L0 seed。所有 seeds 先计距离并标为已见，再优先保留 block seeds。队列满时，新候选会淘汰更差的状态；被淘汰状态的 seen 标记保留，最终答案只从终止时仍在队列中的状态按 vector ID 去重产生。论文用九个 singleton groups 的两层例子展示 `(y1,L1)` 和 `(y1,L2)` 同时入队后，高层状态在首次扩展前被淘汰。
 
 Proposition 2 的谓词安全依赖：seed 合法、overlay seed/edge 的 owner 被授权、层内 direct membership 正确、跨 block 边沿根标签超集方向。实现依靠这些不变量，而不是在每条邻边上补一次过滤。Proposition 3 证明层隔离；回退只保证相同 base 搜索路径，不包含额外授权和路由时间。
 
@@ -80,7 +80,7 @@ N=602453、R=64、C=4 得到 1024:LNG、16384:Trie 两层。DRH-v1 在存在合�
 
 Amazon 60%–99% 下自动方案为 Plain 的 14.40–26.70×；VariousImg 有明确退化。四个数据集都导出两个 overlays，所以还未验证自动深度变化后的性能。人工候选以自动 `(t,16t)` 为中心：`1L[L|L](t)`、`2L[L|LL](t,16t)`、`2L[L|TT](t,16t)`，以及 `2L[L|LT](t/2,8t)` 和 `2L[L|LT](2t,32t)`。三组 t 分别为 256/512/1024。它们使用相同 presence gate，因此单层候选始终回到 base。
 
-GPU 把 irregular local-graph 与 cross-edge tasks 组织成批，融合 distance/top-k，并在需要时只回传 IDs。小 block 默认 exact top-R，中 block sampled CPU Vamana，大 block CUDA candidate refinement；metadata 和最终 adjacency 仍在 host。当前 fastest hybrid sidecar 90.49s，独立 stage medians 组合总计 141.27s，原 CPU base 190.38s，即约 1.35×。这不是单次联合构建 wall time，也未证明最快构建索引保持同等查询质量。论文主表已移除仅两次 repeats 的 bootstrap CI 列；原始统计及中文实验报告保留该数值，正文按实际 timing 和 resource 解释。
+GPU 把 irregular local-graph 与 cross-edge tasks 组织成批，融合 distance/top-k，并在需要时只回传 IDs。小 block 默认 exact top-R，中 block sampled CPU Vamana，大 block CUDA candidate refinement；metadata 和最终 adjacency 仍在 host。当前 fastest hybrid sidecar 90.49s，独立 stage medians 组合总计 141.27s，原 CPU base 190.38s，即约 1.35×。这不是单次联合构建 wall time，也未证明最快构建索引保持同等查询质量。每个构建后端测量两次 warm repeats，并另做资源采样；表中报告实测耗时及两次测量的离散程度。
 
 ## 6. 文献定位与写法
 
@@ -113,7 +113,6 @@ GPU 把 irregular local-graph 与 cross-edge tasks 组织成批，融合 distanc
 
 | 项目 | 当前状态 | 剩余工作 |
 |---|---|---|
-| 正文、机制图、定义和实现一致性 | 已重写并独立审阅 | 根据导师意见继续压缩与取舍 |
 | Amazon 完整 topology 网格 | 126 单元完整保留 | 更多数据集上的同类 factorial |
 | 自动参数 vs 人工 | 有冻结候选集与反例 | 覆盖自动导出不同深度的数据形态 |
 | 入口机制因果归因 | 有 matched-system profile | 同 topology 的三 provider 受控延迟对照 |

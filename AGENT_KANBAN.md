@@ -1,8 +1,8 @@
 # Agent 看板
 
-最后更新：2026-10-06 20:52（北京时间）
+最后更新：2026-10-06 22:17（北京时间）
 分支：codex/multilevel-special-block-20260905
-已发布基线：14c213e（GitHub main / ShareLaTeX 已同步）
+已发布文档检查点：8c0b768；论文 PDF 基线：14c213e（GitHub main / ShareLaTeX）
 
 ## 目标
 
@@ -17,7 +17,9 @@
 
 ## 进行中
 
-C0首次阅读：新建SIGMOD/VLDB审阅者只读冻结PDF；同时梳理用户和导师材料。
+C0首次阅读：新建SIGMOD/VLDB审阅者只读冻结PDF，原始报告尚未返回。
+首页、文档索引及审阅provenance已整理；完整126格图已形成可验证生成脚本。
+正在核对retagging对跨前缀可达性的影响，以及阈值分区的可证明性质。
 
 ## 完成历史
 

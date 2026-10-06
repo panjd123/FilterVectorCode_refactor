@@ -1,236 +1,56 @@
-# FilterVectorCode
+# FilterVectorCode / ML-UNG
 
-仓库包含一个针对过滤式近似最近邻搜索（Filtered Approximate Nearest Neighbor Search, Filtered ANNS）的增强实现，基于两篇论文中提出的核心思想：**UNG (Unified Navigating Graph)** 和 **ACORN**。
+这个仓库研究标签 AND 过滤下的近似最近邻搜索：先确定满足查询标签的向量区域，再在这些区域内寻找相近向量。当前研究主线是 **ML-UNG 的前缀入口与多粒度 block 导航**，基于 UNG 的 exact-label groups 和向量图实现。
 
-## 当前仓库入口
+ML-UNG 将三个选择分别配置：
 
-当前优化主线集中在 `UNG/codes`，包括 UNG 构建阶段的 group graph、cross-group edges、output boundary、GPU topK 路径，以及查询阶段的入口组选择。
+| 模块 | 作用 | 当前选项 |
+|---|---|---|
+| 分层与分区 | 将 exact groups 聚合成可由公共前缀授权的 block | 独立阈值序列；支持多个 overlay |
+| 层内连接 | 决定 group/block 之间允许的导航关系 | 每个物理层分别选择 LNG 或 Trie |
+| 入口组寻找 | 为指定连接方式提供搜索入口 | 原始 LNG、优化 LNG、Trie frontier |
 
-当前论文/实验主线的最短表述：
+查询状态只使用所属物理层的边。`2L[T|LT]` 表示 Trie 基层 L0、LNG block 层 L1 和 Trie block 层 L2；`2L` 是两个 overlay，共三个物理层。阈值控制何时发出 block，不是 block 点数上限。入口算法与拓扑的覆盖条件见[方法说明](docs/papers/multilevel_ung/ADVISOR_NOTE_CN.md)。
 
-```text
-cross-edge: 当前 full-quality best 使用 GPU grouped fused topK + SearchQueue lazy reserve；universal flat double-buffer 是重要工程路线但不是当前 best full-quality 口径；
-group graph: workload-aware router，小组 CPU/bounded fallback，中组 packed exact-anchor，大组 FastGrnndCuda/reverse-tail；
-output boundary: NeighborList64/reserve/direct-H2D 已降低 CPU-compatible 图物化开销，但 flat/CSR 仍未完成。
-query entry group: gpu_cover_frontier 用 correct-cover 策略替代 CPU exact minimal 的高成本入口组剪枝；
-                   它保证覆盖所有实际候选 group，允许入口组冗余；100%x40、nq=10240 上入口组阶段相对 CPU scan 128T 约 19.85x。
-                   端到端图查询收益取决于后续 graph search；10%x40 现有 artifact 给出约 1.9~2.0x latency 上界潜力，但 production search path 尚需接入复测。
-100%x40 build: Storage 32-bit offset/byte-count 溢出已修复；GPU cross-edge 的 71.5GB resident-cache OOM
-               已用 UNG_GPU_X_STREAMING=1 的 X-side streaming 绕过，并完成 strict skip-additional build。
-               当前 streaming v1 的瓶颈是重复 host pack Q，不能作为加速主结果。
-```
+## 从哪里开始
 
-文档已经按阅读对象重新整理：
+| 目的 | 阅读入口 |
+|---|---|
+| 向老师说明问题、方法和结果 | [中文汇报说明](docs/papers/multilevel_ung/ADVISOR_NOTE_CN.md) |
+| 阅读完整研究论证与图示 | [论文 PDF](docs/papers/multilevel_ung/main.pdf) / [LaTeX 与编译说明](docs/papers/multilevel_ung/README.md) |
+| 查看当前九档实验和全部配置 | [当前结果报告](docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md) / [126 格原始汇总](docs/papers/multilevel_ung/generated_data/factorial_equal_recall.csv) |
+| 配置、运行或检查实验 | [实验系统](experiments/multilevel_special/README.md) |
+| 查找代码、运行手册及历史研究 | [文档索引](docs/README.md) |
+| 接续当前优化任务 | [工作看板](AGENT_KANBAN.md) |
 
-| 读者 | 入口 | 用途 |
-| --- | --- | --- |
-| 人读：review-ready 当前入口 | `docs/reports/REVIEW_READY_HANDOFF_CN.md` | 当前唯一推荐入口：阅读顺序、最终性能表、复现证据和剩余风险 |
-| 人读：最终性能总表 | `docs/reports/THREE_MAINLINES_METHOD_BASELINE_DATA_SPEEDUP_CN.md` | 五条主线最终性能大表、复现 checklist 和 claim 边界 |
-| 人读：导师汇报 | `docs/presentations/ADVISOR_BRIEFING_20260625_CN.md` | 按工作线汇报进展、效果、限制和下一步 |
-| 人读：文档总索引 | `docs/README.md` | 所有论文、报告、runbook 和历史归档的导航 |
-| 人读：论文和证据 | `docs/papers/` | 论文草稿、claim 证据矩阵、reviewer 攻击点和投稿 gate |
-| 人读：长技术报告 | `docs/reports/TECHNICAL_REPORT_OPTIMIZATION_SPEEDUP_CN.md` | 完整证据链和历史细节；不再作为第一次阅读入口 |
-| 人读：复现实验 | `docs/runbooks/` | 构建开关、benchmark 命令、测试指南 |
-| AI/后续 agent：接手代码 | `docs/REFACTOR_DEEP_DIVE_CN.md` | 代码职责、实现全貌和接手顺序 |
-| AI/后续 agent：任务状态 | `docs/papers/PAPER_SUBMISSION_TODO_CN.md`, `docs/papers/EVIDENCE_MATRIX_CN.md` | 哪些 claim 可写、哪些实验缺口还不能夸大 |
-| 历史来源 | `docs/archive/` | baseline、历史迁移和旧 patch 来源 |
-| benchmark 工具 | `scripts/benchmarks/`, `tools/benchmarks/` | 实验脚本、诊断工具、artifact gate |
+## 如何理解当前结果
 
-当前已登记 artifact 的投稿 gate：
+当前 Amazon topology 比较包括 14 种配置与 9 个查询批次，使用 100 个 CPU query workers、1 次 cold 和 2 次 warm，在每种方法达到 Recall@10 ≥ 0.90 的最小实测搜索预算处比较 QPS。选择率标注为**批次平均值**；几个批次由选择性谓词和高频 singleton 混合而成。
+
+L0 的 LNG/Trie 比较分别使用与其匹配的入口算法；固定 L0 和入口、只替换一个 upper-layer topology 的对照用于分析该层连接方式。不同工作负载的最佳配置会变化。完整报告保留未达到 Recall 门槛的 `NC` 和自动方案的退化结果。
+
+当前论文的查询在 CPU 上执行；GPU 用于所声明的构建后端。构建表同时区分 hierarchy 时间与 base-plus-hierarchy 的分阶段组合时间。
+
+## 代码与实验位置
+
+- [`UNG/codes`](UNG/codes)：分组、入口 provider、LNG/Trie 连接、block 构建与查询实现。
+- [`experiments/multilevel_special`](experiments/multilevel_special)：配置、运行、验证、结果汇总与论文生成。
+- [`docs/papers/multilevel_ung`](docs/papers/multilevel_ung)：当前论文、中文汇报、冻结数据与审阅记录。
+- [`UNG/codes/tools`](UNG/codes/tools)：数据转换和 ground-truth 工具。
+- [`ACORN`](ACORN)、[`thirdparty`](thirdparty)：对照实现及依赖。
+
+在已配置的实验机上，从仓库根目录查看配置语义：
 
 ```bash
-python3 tools/benchmarks/run_submission_gate.py --final
+python3 experiments/multilevel_special/experiment_cli.py matrix \
+  experiments/multilevel_special/config.authoritative_amazon_base_trie_query_grid.json
 ```
 
-本地 CMake build 目录属于临时产物，已通过 `.gitignore` 忽略；请不要把 `build_*` 目录提交进仓库。
+实际数据、索引与 raw runs 不包含在 Git 仓库中；配置中的路径需对应实验环境。编译、数据要求、dry-run 和结果验证见实验系统文档。
 
+## 相关工作与历史入口
 
-## 1. Filtered Approximate Nearest Neighbor Search
+- [UNG: Navigating Labels and Vectors](https://doi.org/10.1145/3698822)
+- [ACORN: Performant and Predicate-Agnostic Search](https://arxiv.org/abs/2403.04871)
 
-近似最近邻搜索用于从海量高维向量数据中高效地检索出与查询向量最相似的向量 。然而，在许多现实世界的应用中，用户不仅希望找到语义上相似的内容，还希望结果能满足特定的元数据（metadata）约束，例如产品的品牌、论文的发表年份或图片的标签等。
-
-过滤式 ANNS (Filtered ANNS)正是为了解决这一需求而生。它将向量的相似性搜索与结构化数据的属性过滤结合起来，旨在从满足特定过滤条件的向量子集中，找出与查询向量最相似的结果。
-
-## 2. UNG
-
-[Navigating Labels and Vectors: A Unified Approach to Filtered Approximate Nearest Neighbor Search](https://dl.acm.org/doi/10.1145/3698822) 论文提出了 UNG 算法。
-
-### 核心思想
-
-UNG 的核心在于采用“先过滤后搜索” 的思想。关键创新点包括：
-
-* **向量分组 (Vector Partitioning)**：UNG 首先根据向量所关联的标签集 (label set) 对所有数据进行分区。拥有完全相同标签集的向量会被分到同一个组中 。
-
-* **标签导航图 (Label Navigating Graph, LNG)**：UNG 构建一个有向无环图（DAG）称为 LNG，其中的每个节点代表一个唯一的标签集 。如果标签集 `f'` 是 `f` 的“最小超集”（Minimum Superset），那么在 LNG 中就存在一条从 `f` 指向 `f'` 的边。LNG图编码了所有标签集之间的包含关系。
-
-* **统一导航图 (Unified Navigating Graph, UNG)**：最终的图结构是一个统一体,包含：
-    1.  **组内邻近图 (Intra-group Proximity Graphs)**：在每个向量分组内部，使用HNSW 或 Vamana 等标准的图算法构建一个 ANNS 邻近图。
-    2.  **跨组边 (Cross-group Edges)**：为了连接不同的分组，UNG 依据 LNG 中的连接关系，在不同分组的向量之间添加跨组边。这些边使得搜索可以从一个标签集覆盖的向量群体“导航”到其超集所覆盖的向量群体。
-
-### 工作流程
-
-当一个过滤式 ANNS 查询到来时，UNG 的处理流程如下：
-1.  根据查询标签 `fq`，通过 LNG 快速找到所有满足条件的入口标签集 (Entry Label Sets) 。
-2.  从这些入口标签集对应的向量组中选取起始向量（entry vectors）。
-3.  在统一导航图上执行贪心搜索，既利用组内邻近图进行高效的局部 ANNS 搜索，也利用跨组边在满足过滤条件的向量空间中进行跳转，最终找到最近邻的结果。
-
-
-## 3. ACORN
-
-[ACORN: Performant and Predicate-Agnostic Search Over Vector Embeddings and Structured Data](https://arxiv.org/abs/2403.04871) 论文提出了 ACORN。
-
-### 核心思想
-
-与 UNG 不同，ACORN 直接改造现有的HNSW，使其能够原生支持过滤查询，而无需预先了解所有可能的过滤条件。其关键创新点包括：
-
-* **谓词无关的稠密图构建 (Predicate-Agnostic Dense Graph Construction)**：为了让任意的谓词子图都保持良好的连通性和导航性，ACORN 在构建索引时就有意地创建了一个比标准 HNSW 更稠密的图。通过在构建过程中为每个节点寻找并存储更多的邻居来实现。
-
-
-## 4. 代码结构和运行方法
-
-### 4.1 项目结构
-
-   ```
-   ├── FilterVectorCode
-   │   ├── ACORN
-   │   ├── DataTools
-   │   ├── thirdparty
-   │   ├── UNG
-   │   ├── README.md
-   │   └── run_two.sh
-   ├── FilterVectorData
-   │   ├── amazing_file
-   │   ├── app_reviews
-   │   ├── arxiv
-   │   ├── MTG
-   │   └── ... (其他数据集)
-   └── FilterVectorResults
-      ├── ACORN
-      ├── merge_results
-      ├── UNG
-      └── UNG+ACORN
-   ```
-
-  * **`FilterVectorCode/`**: 项目的源代码。
-
-      * `ACORN/` 和 `UNG/`: 分别是 ACORN 和 UNG 原始算法的核心实现。
-      * `DataTools/`: 存放数据处理、格式转换等相关的工具脚本。
-      * `thirdparty/`: 项目依赖的第三方库。
-      * `run_two.sh`: 用于执行核心实验或运行主程序的 Shell 脚本。
-
-  * **`FilterVectorData/`**: 实验所需的所有数据集。每个子目录都对应一个特定的数据集，例如 `arxiv`、`MTG`、`tiktok_reviews` 和 `words` 等。
-
-  * **`FilterVectorResults/`**: 存储所有实验运行后产生的结果文件。
-      * `ACORN/` 和 `UNG/`: 分别存放原始 ACORN 和 UNG 算法的实验结果。
-      * `UNG+ACORN/`: 存放改进后的组合算法的实验结果。
-      * `merge_results/`: 用于存放汇总或对比分析后的最终结果。
-
-
-### 4.2 数据集格式
-
-以 `bookimg` 数据集为例，其目录结构如下：
-
-```
-bookimg/
-├── base_5/
-│   └── bookimg_base_labels.txt
-├── base_6/
-│   └── ...
-├── query_5/
-│   ├── bookimg_gt_labels_containment.bin
-│   ├── bookimg_query_labels.txt
-│   ├── bookimg_query_stats.txt （可选）
-│   ├── bookimg_query.bin
-│   └── bookimg_query.fvecs
-├── query_6/
-│   └── ...
-├── bookimg_base.bin
-└── bookimg_base.fvecs
-```
-
-  * **基础数据集 (Base Data)**
-
-      * `bookimg_base.fvecs` / `bookimg_base.bin`: 存储了完整的基础向量数据，通常首先以 `.fvecs`（FAISS 支持的格式），然后使用UNG中代码转化为通用二进制 `.bin` 格式。
-      * `base_*/bookimg_base_labels.txt`: 这是一个文本文件，每一行对应一个基础向量的标签信息。每行代表一个向量的属性，使用逗号分隔，示例如下：
-
-         ```
-         4993,25133,32265,32275
-         16673,23789
-         4997,25163,32265
-         ```
-
-  * **查询数据集 (Query Data)**
-
-      * `query_*/bookimg_query.fvecs` / `bookimg_query.bin`: 存储了用于测试的查询向量。
-      * `query_*/bookimg_query_labels.txt`: 文本文件，存储了每个查询向量所关联的过滤标签。
-      * `query_*/bookimg_gt_labels_containment.bin`: 这是二进制格式的Ground Truth文件，由UNG中特定代码文件生成。它记录了在特定过滤条件下（如此处的 `containment` 场景），每个查询向量的真实最近邻向量的ID，是计算Recall的依据。
-      * `query_*/bookimg_query_stats.txt`: 包含查询集的统计信息，例如每个查询的过滤选择性（selectivity）等，用于分析算法在不同查询难度下的性能。是生成查询任务时输出的日志。
-
-### 4.3 运行方法
-#### 4.3.1 UNG运行方法
-UNG由 `exp_ung.sh`、`run.sh` 和 `experiments.json` 三个核心文件协同控制。运行UNG目录下`exp_sh.sh`文件即可，这是运行所有实验的入口。
-
-其中，需要根据自己的目录结构修改以下几个地方：
-
-##### a) 修改 `experiments.json` 配置文件
-- data_dir: 请将其修改为存放 FilterVectorData的实际路径。
-- output_dir: 请将其修改为存放 FilterVectorResults的实际路径。
-
-##### b) 修改 `exp_ung.sh` 启动脚本
-- export TMPDIR: 此环境变量定义了存放临时编译文件的目录。脚本会在这里创建 build 文件夹。请确保对该路径有读写权限。
-- build_dir: 这是传递给run.sh的参数，定义了每个数据集独立的编译目录。
-
-   ```bash
-   # 示例：把临时构建目录放在你的工作区下面
-   export TMPDIR="/path/to/FilterVector/build"
-   # ...
-   --build_dir "/path/to/FilterVector/build/build_$dataset" \
-
-   # 假如您的项目在 /home/user/my_project 下，则修改为：
-   export TMPDIR="/home/user/my_project/build_temp"
-   # ...
-   --build_dir "/home/user/my_project/build_temp/build_$dataset" \
-   ```
-
-##### c) 脚本工作流程
-
-1. 读取配置: exp_ung.sh 读取 experiments.json 文件，并使用 jq 逐一解析每个实验的配置。
-
-2. 循环调用: 对于 experiments.json 中定义的每一个实验，exp_ung.sh 都会调用 run.sh 脚本，并将该实验的所有参数通过命令行传递给 run.sh。
-
-3. 编译与执行 (由 run.sh 完成):
-   - 为当前数据集创建一个独立的 build 目录。
-   - 使用 cmake 和 make 编译 C++ 源代码。
-   - 根据需要，执行数据格式转换、生成基准真相 (Ground Truth) 文件。
-   - 调用 build_UNG_index.cpp入口文件构建索引。
-   - 调用 search_UNG_index.cpp入口文件执行搜索，并评估性能。
-
-4. 保存结果: 所有日志和结果文件都会被保存在 experiments.json 中配置的 output_dir 下，并按照参数自动创建层级分明的子目录。
-
-5. 清理工作: 所有实验完成后，exp_ung.sh 自动删除设置的临时编译目录 TMPDIR。
-
-
-#### 4.3.2 ACORN运行方法
-
-ACORN由 `exp_acorn.sh`、`run_more_efs.sh` 和 `experiments.json` 三个核心文件协同控制。运行ACORN目录下`exp_acorn.sh`文件即可，这是运行所有实验的入口。
-
-##### a) 修改路径
-其中，sh文件和json文件不用修改路径。CMakeLists文件简单修改：
-
-1. `FilterVectorCode/ACORN/CMakeLists.txt`中，`nlohmann_json`文件位置修改为`FilterVectorCode/thirdparty/json-3.10.4.tar.gz`的绝对路径。
-2. `FilterVectorCode/ACORN/tests/CMakeLists.txt`中，`googletest`地址修改为`FilterVectorCode/thirdparty/googletest-release-1.12.1.tar.gz`的绝对地址。
-
-##### b) 脚本工作流程
-
-1.  解析配置: 执行 `exp_acorn.sh` 后,脚本读取 `experiments.json` 文件，并为其中定义的每一个实验启动一轮测试。
-2.  编译代码: `run_more_efs.sh` 脚本首先会为当前任务创建一个临时的 `build` 目录，并使用 `CMake` 和 `make` 编译 ACORN 的 C++ 测试程序 (`test_acorn`)。
-3.  执行测试: 编译成功后，脚本会调用 `test_acorn` 可执行文件。该程序会：
-      * 根据参数构建 ACORN 索引。
-      * 加载查询数据，并在一系列 `efs` 值上进行搜索测试。
-      * 重复多次实验以获得稳定的性能数据。
-4.  保存结果: 所有的性能指标（如 QPS, Recall@10 等）会以 `.csv` 格式保存在 `FilterVectorResults/ACORN/` 目录下。
-      * 输出目录会根据实验参数自动命名，便于区分和查找。
-      * 每个实验的详细运行参数会保存在一个 `experiment_config.txt` 文件中。
-      * C++ 程序的详细运行日志会重定向到 `output_log.log` 文件中。
-
-`run_acorn_for_ung.sh` 只服务 legacy ACORN-in-UNG 补边实验，不是当前 UNG GPU 优化主路径。若需要运行 `new_edge_policy=just_acorn` 或 `acorn_and_guarantee`，请通过 `UNG_ACORN_SCRIPT_PATH=/abs/path/to/run_acorn_for_ung.sh` 显式指定脚本。
+早期 GPU cross-edge、group-graph、入口 microbenchmark 和原始 UNG/ACORN 脚本记录保存在[历史版本的仓库指南](https://github.com/panjd123/FilterVectorCode_refactor/blob/8c0b768d39b8f5040d995d60fb312e6e0607ca74/README.md)及[文档索引](docs/README.md)。这些记录对应各自保存的版本、数据和计时边界。

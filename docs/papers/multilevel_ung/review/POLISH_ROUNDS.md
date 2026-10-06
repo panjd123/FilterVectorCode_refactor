@@ -1,8 +1,23 @@
 # Iterative writing and reviewer ledger
 
 Objective: continuously improve exposition, narrative and reader experience,
-with independent SIGMOD-style and VLDB-style reviews after each revised draft.
+with SIGMOD-style and VLDB-style reviews after each revised draft.
 Reviewers are simulated agents; acceptance is never predetermined.
+
+## Reviewer context and score interpretation
+
+| Round | Reviewer history | Review scope |
+|---|---|---|
+| 1 | New SIGMOD and VLDB agents, `fork_turns="none"` | First reading of the round-1 manuscript |
+| 2 | Same agents retained round-1 history and received revision requests | Review of changes and remaining issues |
+| 3 | Same agents retained earlier history and received three editorial checks | Targeted verification of the final polish |
+
+The two reviewer roles were separate from one another, but rounds 2 and 3
+were not fresh reviews without project history. The final 4/5 ratings refer
+to readability or clarity; empirical support remained 2/5. They do not imply
+an overall 4/5 conference recommendation. The subsequent C0 review of the
+published final manuscript uses new agents and PDF-only input, as recorded
+in `CONTINUOUS_18H_MANIFEST.json`. Original review reports are retained.
 
 ## Baseline
 
@@ -81,7 +96,7 @@ are unchanged; new Results prose uses distance and edge counts explicitly.
 
 ## Round 2 review decisions and round 3 changes
 
-Both independent reviewers judge the main story and method clear enough for
+Both returning reviewers judge the main story and method clear enough for
 substantive human review and recommend no further broad conceptual rewrite.
 SIGMOD rates story/method/evidence/submission readiness 4/4/2/3; VLDB rates
 4/4/2/2 and human-review readability 4/5. These are simulated evaluations.
@@ -101,14 +116,14 @@ keeps the central factorial, depth, manual-policy and hierarchy timing tables
 in the main text, while placing global-manual, mass-gate, detailed profiles,
 and composed-build tables in the appendix. All numbers remain available.
 Dataset tables retain their natural font size rather than being enlarged to
-fill the page width. Validation and independent round-3 PDF reviews are complete.
+fill the page width. Validation and targeted round-3 PDF reviews by returning reviewers are complete.
 
 ## Round 3 final review and validation
 
 Both reviewers pass all three requested editorial groups and request no
 further broad rewrite. Each rates human-review readability 4/5 and method
 clarity 4/5; empirical adequacy remains 2/5. SIGMOD submission readiness is
-3/5 and VLDB 2/5. These are independent simulated opinions, not human approval.
+3/5 and VLDB 2/5. These are simulated opinions from returning reviewers, not human approval.
 
 The final 23-page PDF puts Results on page 9, the main query tables on page
 10, and construction evidence and the conclusion on page 11. The sparse

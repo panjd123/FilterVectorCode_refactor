@@ -78,7 +78,11 @@ items. Citation metadata includes at least 16 related SIGMOD/PVLDB papers and
 two recent works explicitly labeled as preprints. The UNG ACM PDF access
 failure is disclosed; the mechanism was checked against official source code.
 
-The continuing writing-review loop is recorded in `review/POLISH_ROUNDS.md`.
-Each round freezes a compiled draft for independent SIGMOD- and VLDB-style
-agent reviews before the next revision. These are simulated reviews, not
-human approval or conference decisions.
+Review input and reviewer history are recorded in `review/POLISH_ROUNDS.md`
+and `review/CONTINUOUS_18H_MANIFEST.json`. In the earlier three-round polish,
+round 1 used newly created reviewers with no inherited conversation; rounds
+2 and 3 reused those reviewers for targeted revision checks. Their final
+4/5 readability ratings were not a first-read overall assessment of the
+final manuscript. The current C0 full-manuscript review uses newly created
+reviewers given only a frozen PDF, without previous scores or revision lists.
+The reports identify simulated agent judgments and their evaluation scope.

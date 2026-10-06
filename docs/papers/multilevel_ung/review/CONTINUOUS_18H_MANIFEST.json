@@ -30,7 +30,15 @@
       "advisor_inputs": [
         "/tmp/mlung-advisor-c0-20261006/briefing.md",
         "/tmp/mlung-advisor-c0-20261006/paper.pdf"
-      ]
+      ],
+      "advisor_reviewer": {
+        "task": "cold_c0_advisor",
+        "fork_turns": "none"
+      }
     }
-  ]
+  ],
+  "latest_checkpoint": "8c0b768d39b8f5040d995d60fb312e6e0607ca74",
+  "checkpoint_pushed_from": "W300-pub",
+  "last_activity_at_utc": "2026-10-06T14:16:31.965403+00:00",
+  "current_work": "Cold C0 full reviews pending; reader-document cleanup and topology visualization validation."
 }
