@@ -1,0 +1,36 @@
+{
+  "objective": "持续优化论文以及给用户和老师的文档，至少18小时",
+  "started_at_utc": "2026-10-06T12:52:13+00:00",
+  "not_before_completion_utc": "2026-10-07T06:52:13+00:00",
+  "minimum_hours": 18,
+  "baseline_commit": "14c213eff53c36d4fdafcdf50f2f95c8e999b46c",
+  "status": "active",
+  "clock_scope": "This new objective only; historical goal elapsed time does not count.",
+  "baseline_pdf_sha256": "40663b20bed86e887a534936204bf690fe630a69209ed5d35b03d7867b96a468",
+  "cold_review_package": "/tmp/mlung-cold-c0-20261006",
+  "phases": [
+    {
+      "id": "C0",
+      "status": "running",
+      "paper_reviewers": [
+        {
+          "task": "cold_c0_sigmod",
+          "fork_turns": "none"
+        },
+        {
+          "task": "cold_c0_vldb",
+          "fork_turns": "none"
+        }
+      ],
+      "paper_inputs": [
+        "/tmp/mlung-cold-c0-20261006/paper.pdf"
+      ],
+      "previous_scores_or_reviews_provided": false,
+      "review_scope": "full manuscript",
+      "advisor_inputs": [
+        "/tmp/mlung-advisor-c0-20261006/briefing.md",
+        "/tmp/mlung-advisor-c0-20261006/paper.pdf"
+      ]
+    }
+  ]
+}

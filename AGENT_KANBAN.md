@@ -1,34 +1,54 @@
 # Agent 看板
 
+最后更新：2026-10-06 20:52（北京时间）
+分支：codex/multilevel-special-block-20260905
+已发布基线：14c213e（GitHub main / ShareLaTeX 已同步）
+
+## 目标
+
+从本次要求起至少持续优化18小时，覆盖论文、用户说明及导师汇报。
+本次起点为2026-10-06 20:52:13，最早完成时间为2026-10-07 14:52:13。
+不使用旧目标累计时长满足本要求；到达时限前不得将目标标记完成。
+
 ## 当前状态
 
-三轮论文修改与 SIGMOD/VLDB 独立模拟审阅完成。两位最终审阅均确认
-本轮三组编辑问题通过，可进行实质人类评审；实验证据强度仍为 2/5。
-发布产物包括源码、PDF、中文 note 和审阅记录；授权发布目标为
-GitHub main 与 ShareLaTeX。
+进行中：冻结当前稿件，开展真正全新、无项目对话历史的完整评审。
+前轮最终4/5来自带历史上下文的定向复审，不能作为当前稿首次盲审结论。
 
-## 已完成
+## 进行中
 
-- 主线聚焦入口覆盖、前缀授权与跨组几何导航；GPU/DRH 为支撑性研究。
-- 核对路由、seed 去重和裁剪、有界队列、同层边及两层执行例。
-- 统一 mL/L0/LL/LT、平均选择率、Encounters、等 Recall 和实际回退行为。
-- 删除防御性重复；整理三幅机制图；主要空白浮动页已消除。
-- 256/256 tests；Tectonic 编译 23 页，结论第 11 页；无 undefined refs/citations。
-- 数值、UNG 算法源码和冻结 factorial 数据未改；未重跑旧 campaign。
+C0首次阅读：新建SIGMOD/VLDB审阅者只读冻结PDF；同时梳理用户和导师材料。
 
-## 发布验证
+## 完成历史
 
-`docs/papers/multilevel_ung/review/VALIDATION.json` 记录本轮源文件与产物。
-`review/POLISH_ROUNDS.md` 和六份 polish_round 审阅记录可恢复全过程。
-出版用 PDF 与第三轮冻结审阅 PDF 一致；中文 note 补充最终评审状态。
+- 14c213e：三轮论文修改；256 tests；23页PDF；全126项factorial数据保留。
+- 已核对旧审阅协议：第一轮fork_turns=none，后续复用同一agent定向复审。
+- 本次18小时起点、冻结稿SHA与评审输入写入CONTINUOUS_18H_MANIFEST.json。
 
-## 剩余科研工作
+## 下一步
 
-同协议外部基线、入口受控归因、跨数据集与变深度、GPU 构建质量，
-以及支持微小性能差异的更多重复。95% 的 0L-Trie 详细 profile 仍为
-3300 秒超时，未将其混作 Recall NC。轻微附录浮动排版留待投稿格式整理。
+收集C0完整审阅，建立按论证作用排序的修订清单；不设目标分数。
+完善导师材料的首次阅读入口，移出自评得分和修订过程说明。
 
-## 工作范围
+## 阻塞与问题
 
-仅 `/home/sunyahui/worktrees/FilterVectorCode_multilevel_special`；禁止修改
-`/home/graphdb/FilterVectorCode_refactor`。不将模拟审稿当真人认可或录用。
+无。现有证据仍有外部基线、跨数据集、变深度和构建质量缺口；以实际
+证据为准，不能靠文字消除。详细profile的0L-Trie/95%仍为3300秒超时。
+
+## 验证
+
+- 基线tracked tree干净；main.pdf为已发布版本。
+- 每次实质源码/生成器修改后执行相关测试与编译；纯文档修改核对来源。
+- 不重跑旧396-case campaign；不修改/home/graphdb/FilterVectorCode_refactor。
+
+## 仅在需要时阅读的细节
+
+- docs/papers/multilevel_ung/review/CONTINUOUS_18H_MANIFEST.json：恢复时限与输入。
+- review/POLISH_ROUNDS.md：仅恢复旧修订依据时阅读；不得交给首次阅读审阅者。
+
+## 恢复说明
+
+1. 读本看板，核对当前UTC时间和本次最早完成时间。
+2. 检查git status，不暂存无关untracked文件。
+3. 读18小时manifest中的当前阶段与最新证据路径。
+4. 从下一步继续，保留每轮冻结稿、审阅输入和实际完成记录。
