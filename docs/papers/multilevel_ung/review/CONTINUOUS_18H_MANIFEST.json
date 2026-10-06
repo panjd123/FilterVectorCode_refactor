@@ -11,7 +11,7 @@
   "phases": [
     {
       "id": "C0",
-      "status": "running",
+      "status": "complete",
       "paper_reviewers": [
         {
           "task": "cold_c0_sigmod",
@@ -34,11 +34,71 @@
       "advisor_reviewer": {
         "task": "cold_c0_advisor",
         "fork_turns": "none"
+      },
+      "reports": [
+        {
+          "path": "cold_c0_sigmod.md"
+        },
+        {
+          "path": "cold_c0_vldb.md"
+        },
+        {
+          "path": "cold_c0_advisor.md"
+        },
+        {
+          "path": "reader_structure_audit_c0.md"
+        },
+        {
+          "path": "partition_and_retagging_audit_c0.md"
+        }
+      ],
+      "decisions": {
+        "sigmod": {
+          "recommendation": "reject",
+          "confidence": 4,
+          "novelty": 3,
+          "technical_soundness": 3,
+          "empirical_support": 2,
+          "clarity": 4
+        },
+        "vldb": {
+          "recommendation": "reject",
+          "confidence": 4,
+          "novelty": 3,
+          "technical_soundness": 2,
+          "empirical_support": 2,
+          "clarity": 4
+        }
       }
+    },
+    {
+      "id": "C1",
+      "status": "focused_review",
+      "purpose": "Analyze retagging coverage, fixed configurations, search budgets, and first-reading advisor flow.",
+      "evidence_change": "No new vector benchmark; proofs and finite structural checks added.",
+      "frozen_package": "/tmp/mlung-c1-review-20261007",
+      "pdf_sha256": "17457b1362f6791fabc2e183d770690340c21f46668ad4e0c2bf0dcb4a3e7009",
+      "pdf_pages": 26,
+      "review_scope": "Returning reviewers inspect changes; not a new context-free overall score."
     }
   ],
-  "latest_checkpoint": "8c0b768d39b8f5040d995d60fb312e6e0607ca74",
+  "latest_checkpoint": "ed4c48cab3ac56f6bc36e7ef895d6afd3a18c989",
   "checkpoint_pushed_from": "W300-pub",
-  "last_activity_at_utc": "2026-10-06T14:16:31.965403+00:00",
-  "current_work": "Cold C0 full reviews pending; reader-document cleanup and topology visualization validation."
+  "last_activity_at_utc": "2026-10-06T19:19:41.150992+00:00",
+  "current_work": "C1 compiled and frozen; focused proof, data, advisor, and PDF reviews running.",
+  "sharelatex_document_sync": {
+    "commit": "ed4c48cab3ac56f6bc36e7ef895d6afd3a18c989",
+    "verified_files": 3,
+    "receipt": "/tmp/mlung18h-doc-sync-receipt.json",
+    "scope": "Markdown only; frozen TeX/PDF unchanged"
+  },
+  "work_in_progress": {
+    "coverage_derivation": "docs/papers/multilevel_ung/review/partition_and_retagging_audit_c0.md",
+    "pending_reviews": [
+      "/tmp/mlung-c1-proof-check.md",
+      "/tmp/mlung-c1-fixed-config-check.json",
+      "/tmp/mlung-c1-advisor-review.md",
+      "/tmp/mlung-c1-sigmod-review.md"
+    ]
+  }
 }

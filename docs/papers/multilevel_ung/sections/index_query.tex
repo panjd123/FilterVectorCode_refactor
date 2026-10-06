@@ -125,8 +125,18 @@ Direct-member sets are disjoint within a layer, but may form only a partial
 cover: residual groups below no emitted root remain represented by the base.
 Threshold $T_\ell$ is an emission threshold, not a maximum block size.  A
 large exact group or branching node can yield a block exceeding it.  Separate
-partition passes for $T_1<T_2<\cdots$ leave earlier levels unchanged; they
-do not imply nested direct-member sets or identical coverage at all levels.
+partition passes for $T_1<T_2<\cdots$ leave earlier levels unchanged.
+For $B(T)$ emitted blocks representing $M(T)$ points, disjointness gives
+\begin{equation}
+ B(T)(T+1)\le M(T)\le N,\qquad
+ B(T)\le\left\lfloor\frac{N}{T+1}\right\rfloor.
+ \label{eq:block-count-bound}
+\end{equation}
+Block count is nonincreasing in $T$. Equal counts imply that the represented
+point set can only grow, but a count decrease can either add or remove
+represented points. Direct-member partitions need not be nested even when
+both scales cover all points. Appendix~\ref{sec:partition-properties}
+proves these properties and gives a crossing-partition example.
 
 \subsection{Certification and Connectivity}
 Block $b$ stores its root prefix $R_b$, direct members $P_b$, a vector entry
@@ -249,41 +259,6 @@ queue has no unexpanded state; answers are the closest distinct vector IDs
 in that final queue. Thus an evicted state contributes neither a future
 expansion nor an answer at its evicted level.
 
-\paragraph{A two-overlay execution example.}
-Consider singleton groups with vectors $y_0,\ldots,y_8$ and label sets,
-in order, $a,ab,abc,abd,ac$, followed by $acd,ace,acf,ad$.
-Concatenation denotes a set under $a<b<c<d<e<f$. For thresholds $T_1=1$ and $T_2=4$, the independent
-partitions produce the direct memberships in Table~\ref{tab:seed-trace}.
-At level 1, the $a$ block excludes the emitted $ab$ and $ac$ descendants;
-at level 2, $a$ owns all nine vectors. Query $Q=\{a\}$ certifies all four
-blocks. Its prefix-frontier group $a$ contributes $y_0$, retagged to level 1,
-which duplicates that block's seed and is removed during seed deduplication.
-
-\begin{table}[t]
-\centering\small
-\caption{Illustrative ownership and seed selection, with $K=1$ and $L_s=2$.
-Stored block entries and query distances are chosen for this example.}
-\label{tab:seed-trace}
-\begin{tabular}{clll}
-\toprule
-Level & Root & Direct members & Entry (distance)\\
-\midrule
-1 & $a$ & $y_0,y_8$ & $y_0\ (3)$\\
-1 & $ab$ & $y_1,y_2,y_3$ & $y_1\ (1)$\\
-1 & $ac$ & $y_4,y_5,y_6,y_7$ & $y_4\ (2)$\\
-2 & $a$ & $y_0,\ldots,y_8$ & $y_1\ (1)$\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The two retained seeds are $(y_1,1)$ and $(y_1,2)$, distinct level states of
-the same vector. The first expansion uses only level-1 edges. If it exposes
-$y_2$ at distance $0.5$, the queue retains $(y_2,1)$ and $(y_1,1)$ and evicts
-$(y_1,2)$ before that coarse state expands. This trace shows how extra
-representations can compete for a fixed budget even with isolated adjacency.
-It also shows why coverage of the full frontier does not imply coverage
-after initialization and queue eviction.
-
 \paragraph{Proposition 2: predicate safety.}
 Assume all group seeds are eligible and every overlay-tagged group seed is
 a direct member of an authorized owner block; base cross-group edges preserve strict
@@ -309,6 +284,100 @@ by other levels is rejected.  Induction therefore gives level-local
 expansion with no promotion or fallthrough.  When the router rejects an
 overlay before seeding, deterministic execution with identical base entries
 and budget reproduces the base-search path.  The rejected query additionally pays for authorization and routing.
+
+\subsection{Coverage Under Seed Retagging}
+\label{sec:retag-coverage}
+Replacing a base seed changes which label paths are available, even before
+capacity is bounded. LNG-minimal entries cover eligible groups through
+arbitrary containment paths. Some of those paths leave the prefix subtree
+of an entry, whereas its assigned block represents a prefix region.
+
+\paragraph{A structural counterexample.}
+Let $a<b<c$ and let $\{b\}$, $\{b,c\}$, and $\{a,b\}$ each contain one
+vector. With $T_1=1$, Algorithm~\ref{alg:partition} emits one block rooted
+at $\{b\}$, owning the first two groups; $\{a,b\}$ remains residual.
+For $Q=\{b\}$, the LNG-minimal entry is only $\{b\}$. Retagging it to
+level 1 removes the sole base seed. The residual group is then unreachable,
+even with an unlimited queue and a fully connected local block graph.
+The prefix frontier also includes $\{a,b\}$ and retains its base seed
+(Figure~\ref{fig:retag-coverage}).
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[font=\footnotesize,>=Latex,
+ p/.style={circle,draw,minimum size=0.62cm,inner sep=1pt},
+ seed/.style={p,draw=blue!75!black,line width=1.2pt},
+ txt/.style={align=center},edge/.style={->,thick}]
+\begin{scope}
+\node[txt,font=\small\bfseries] at (1.7,2.25) {(a) Base LNG};
+\node[seed] (a0) at (0,0.95) {$x_0$};
+\node[p] (a1) at (2.1,1.5) {$x_1$};
+\node[p] (a2) at (2.1,0.15) {$x_2$};
+\node[above] at (a0.north) {$\{b\}$};
+\node[right] at (a1.east) {$\{b,c\}$};
+\node[right] at (a2.east) {$\{a,b\}$};
+\draw[edge] (a0)--(a1);\draw[edge] (a0)--(a2);
+\node[txt] at (1.7,-0.8) {One L0 entry reaches\\both eligible branches.};
+\end{scope}
+\begin{scope}[xshift=5.55cm]
+\node[txt,font=\small\bfseries] at (1.6,2.25) {(b) Retag minimal entry};
+\draw[rounded corners,fill=green!6] (-.55,.65) rectangle (3.4,1.95);
+\node[seed] (b0) at (0,1.15) {$x_0$};
+\node[p] (b1) at (2.15,1.15) {$x_1$};
+\draw[<->,thick] (b0)--(b1);
+\node[txt] at (1.5,1.72) {L1 block: root $\{b\}$};
+\node[p,draw=gray,text=gray] (b2) at (2.15,-.1) {$x_2$};
+\node[right,text=gray] at (b2.east) {L0};
+\draw[->,dashed,gray] (b0)--(b2);
+\draw[red!70!black,thick] (.81,.40)--(1.25,.75);
+\draw[red!70!black,thick] (.81,.75)--(1.25,.40);
+\node[txt] at (1.6,-.8) {No L0 seed remains;\\$x_2$ cannot be reached.};
+\end{scope}
+\begin{scope}[xshift=11.1cm]
+\node[txt,font=\small\bfseries] at (1.6,2.25) {(c) Retag prefix frontier};
+\draw[rounded corners,fill=green!6] (-.55,.65) rectangle (3.4,1.95);
+\node[seed] (c0) at (0,1.15) {$x_0$};
+\node[p] (c1) at (2.15,1.15) {$x_1$};
+\draw[<->,thick] (c0)--(c1);
+\node[txt] at (1.5,1.72) {L1 block: root $\{b\}$};
+\node[seed] (c2) at (2.15,-.1) {$x_2$};
+\node[right] at (c2.east) {L0};
+\node[txt] at (1.6,-.8) {The second frontier entry\\retains the residual branch.};
+\end{scope}
+\end{tikzpicture}
+\caption{Entry coverage after owner-level retagging, for $Q=\{b\}$.
+All three vectors are eligible. Blue circles are retained seeds; the block
+portal is chosen as $x_0$. Grey marks an unreachable residual vector. The crossed dashed arrow is a
+base edge unavailable to an L1 state. The loss in (b) persists with unlimited search capacity.
+Panel (c) uses the complete prefix frontier and needs no cross-level edge.}
+\label{fig:retag-coverage}
+\end{figure*}
+
+\paragraph{Proposition 4: exhaustive coverage with prefix entries.}
+Suppose the group entries contain the complete prefix frontier, each entry
+is retained at level 0 or retagged to an authorized direct owner, and every
+authorized block has a retained portal seed. Assume each block's directed
+local graph reaches all its direct members from that portal, each retained
+base entry reaches all points in its terminal prefix descendants, and search
+exhausts these paths without seed, candidate, or edge pruning. Then every
+eligible vector is reachable after retagging.
+
+\emph{Proof.} Every eligible terminal $S$ has a first eligible terminal
+prefix ancestor $E$ in the frontier. If $E$ stays at level 0, its base paths
+reach $S$. Otherwise, let $B$ be its authorized direct owner at the selected
+level. Since $R_B$ prefixes $E$, which prefixes $S$, terminal $S$ belongs
+to $B$ or to a marked descendant block $C$ at that same level. It cannot
+be residual below the marked ancestor $B$. Its owner root contains $R_B$
+and hence $Q$, so that owner has an independently retained portal. Its local
+graph reaches all points of $S$. \hfill$\square$
+
+The proof applies to either base topology when its required paths are
+materialized. It uses one partition level for each retagged entry, and does
+not require nested partitions or overlay cross edges. This is a property of
+the complete prefix-entry contract. The minimal-superset contract lacks its
+prefix-subtree decomposition, as the counterexample shows. At finite capacity,
+retained seeds and later states compete; Appendix~\ref{sec:finite-budget-example}
+traces the eviction of an L2 state before its first expansion.
 
 \subsection{Query Cost}
 Let $D_q$ be distance evaluations, $E_q$ inspected adjacency entries, $A_q$

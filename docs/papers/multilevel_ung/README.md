@@ -5,9 +5,9 @@ for the English manuscript. The paper leads with prefix-frontier entries and
 predicate-certified blocks. DRH is a secondary configuration heuristic.
 
 `main.tex` assembles the main sections: introduction, motivation,
-frontier, block index/query, construction/configuration, evaluation, and
-related work/discussion. Three TikZ mechanism figures are embedded in those
-sections. Full metric definitions, search caps, provenance, detailed factorial tables,
+frontier, block index/query and seed coverage, construction/configuration, evaluation, and
+related work/discussion. Four TikZ mechanism figures are embedded in those
+sections. Full partition proofs, finite-budget examples, metric definitions, search caps, provenance, detailed factorial tables,
 frozen construction profiles, and Recall curves are in the appendix.
 `PAPER_OUTLINE_CN.md` explains the argument and evidence boundaries.
 
@@ -83,6 +83,7 @@ and `review/CONTINUOUS_18H_MANIFEST.json`. In the earlier three-round polish,
 round 1 used newly created reviewers with no inherited conversation; rounds
 2 and 3 reused those reviewers for targeted revision checks. Their final
 4/5 readability ratings were not a first-read overall assessment of the
-final manuscript. The current C0 full-manuscript review uses newly created
-reviewers given only a frozen PDF, without previous scores or revision lists.
-The reports identify simulated agent judgments and their evaluation scope.
+final manuscript. The C0 full-manuscript review used newly created reviewers given only a frozen
+PDF, without previous scores or revision lists. Both recommended Reject; both
+rated empirical support 2/5 and clarity 4/5. Their complete reports and the
+subsequent C1 response are in `review/`. These are simulated agent judgments.

@@ -42,13 +42,14 @@ bitmap intersection and prefix-ancestor checks. Independently constructed
 blocks then join exact-label groups under a shared prefix. When that prefix
 contains the query labels, a block permits proximity edges across its groups
 while preserving eligibility. Level-tagged search states use only the
-adjacency of their authorized scale. We establish label-plane coverage and
+adjacency of their authorized scale. We characterize coverage after entry retagging and establish
 conditional predicate safety. In an Amazon screening
 study at measured Recall@10 $\geq0.90$, the prefix-base system is
 2.77--18.43$\times$ faster than the optimized LNG system on three workloads
-with mean selectivity below 6\%. Among 14 tested configurations, the per-workload winner has a Trie base
-on seven of nine workloads; the LNG base wins near 10\% and 30\%. These results
-identify complementary roles for entry simplicity and coarse navigation.
+with mean selectivity below 6\%. A fixed Trie/LNG/Trie organization exceeds the LNG baseline on seven of
+nine development workloads, but reaches only 0.482$\times$ its throughput
+near 30\% mean selectivity. Profiles connect these outcomes to entry work,
+retained search states, and the capacity required to reach the Recall target.
 \end{abstract}
 \maketitle
 
@@ -67,7 +68,23 @@ identify complementary roles for entry simplicity and coarse navigation.
 \appendix
 \input{sections/measurement_details}
 \clearpage
+\input{sections/structural_properties}
+\clearpage
 \section{Complete Topology and Measurement Tables}
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.89\textwidth]{generated_figures/topology/topology_relative_qps.pdf}
+\par\medskip
+\includegraphics[width=0.89\textwidth]{generated_figures/topology/topology_search_budget.pdf}
+\caption{Complete 14-configuration grid: QPS relative to the largest measured
+QPS in each batch (top), and the selected search capacity (bottom). Both use
+the same Recall crossings, logarithmic color scales, and fixed thresholds.
+A red border marks the measured QPS winner in both panels. Grey NC cells
+have no crossing within the common measured budget. Cross-base comparisons
+use matched entry providers.}
+\label{fig:topology-grid}
+\end{figure}
+\baseTopologyWinnerTable
 \baseTopologyFactorialTables
 \authoritativeOverlayControls
 \authoritativeProfileResults

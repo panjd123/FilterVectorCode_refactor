@@ -248,6 +248,36 @@ def result_cell(row: dict[str, object]) -> str:
     return "NC" if maximum is None else f"NC ({maximum:.3f})"
 
 
+def fixed_configuration_latex(long_rows: list[dict[str, object]]) -> list[str]:
+    """Show unchanged configurations; ratios use their own Recall crossings."""
+    by_key = {(str(row['workload']), str(row['topology_code'])): row for row in long_rows}
+    codes = ('L', 'T', 'TL', 'TLT')
+    lines = [
+        r"\newcommand{\baseTopologyFixedConfigurations}{%",
+        r"\begin{table*}[t]",
+        r"\centering\fontsize{10}{12}\selectfont",
+        r"\caption{Four fixed configurations across the Amazon development workloads. "
+        r"Each QPS uses its smallest measured capacity with both warm batch recalls at least 0.90. "
+        r"Topology and thresholds remain unchanged across batches: $T_1=1024$, $T_2=16384$. "
+        r"The last two columns compare the fixed two-overlay configuration with Plain and the fixed one-overlay configuration.}",
+        r"\label{tab:fixed-topology-configurations}",
+        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}r rrrr rr@{}}",
+        r"\toprule",
+        r"Mean sel. & \texttt{0L[L]} & \texttt{0L[T]} & \texttt{1L[T|L]} & \texttt{2L[T|LT]} & 2L/Plain & 2L/1L \\",
+        r"\midrule",
+    ]
+    for workload in WORKLOAD_ORDER:
+        rows = [by_key[workload, code] for code in codes]
+        qps = [finite_float(str(row['warm_median_qps'])) if row['status'] == 'complete' else None
+               for row in rows]
+        values = ['NC' if value is None else f'{value:.2f}' for value in qps]
+        ratios = [None if qps[3] is None or not qps[den] else qps[3]/qps[den] for den in (0, 2)]
+        lines.append(f"{100*float(rows[0]['mean_selectivity']):.3f}\\% & " +
+                     ' & '.join(values + [fmt(value, 3) for value in ratios]) + r" \\")
+    lines.extend([r"\bottomrule", r"\end{tabular*}", r"\end{table*}", "}"])
+    return lines
+
+
 def main() -> None:
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -620,11 +650,12 @@ def main() -> None:
             f"{row['best_2L_topology']} & {float(row['best_2L_qps']):.2f} \\\\"
         )
     latex.extend([r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}", "}"])
-    # Enqueue the wide table before its interpretation so it can share the
-    # following spread with the Results text in a two-column manuscript.
+    # Keep hindsight winners in the appendix; lead Results with fixed configurations.
     findings = latex[findings_start + 1:-1]
     table_start = findings.index(r"\begin{table*}[htbp]")
-    latex[findings_start + 1:] = findings[table_start:] + findings[:table_start] + ["}"]
+    latex[findings_start + 1:] = findings[:table_start] + ["}"]
+    latex.extend([r"\newcommand{\baseTopologyWinnerTable}{%"] + findings[table_start:] + ["}"])
+    latex.extend(fixed_configuration_latex(long_rows))
     (args.output_dir / "generated_topology_factorial.tex").write_text("\n".join(latex) + "\n")
 
     (args.output_dir / "manifest.json").write_text(

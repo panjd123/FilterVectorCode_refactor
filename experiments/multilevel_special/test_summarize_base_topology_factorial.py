@@ -78,6 +78,17 @@ class TopologyFactorialSummaryTest(unittest.TestCase):
             }]}))
             self.assertEqual({"builder"}, topology_factorial.manifest_build_hashes(path))
 
+    def test_fixed_table_keeps_nc_and_uses_fixed_comparison_denominators(self) -> None:
+        rows = [
+            {"workload": workload, "topology_code": code,
+             "status": "unavailable" if code == "T" else "complete",
+             "mean_selectivity": .01, "warm_median_qps": value}
+            for workload in topology_factorial.WORKLOAD_ORDER
+            for code, value in (("L", 10.), ("T", ""), ("TL", 20.), ("TLT", 40.))
+        ]
+        latex = "\n".join(topology_factorial.fixed_configuration_latex(rows))
+        self.assertEqual(9, latex.count("10.00 & NC & 20.00 & 40.00 & 4.000 & 2.000"))
+
     def test_fixed_summary_does_not_reward_missing_crossings(self) -> None:
         rows = []
         workloads = list(topology_factorial.WORKLOAD_ORDER)

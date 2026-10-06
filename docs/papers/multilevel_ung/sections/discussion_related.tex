@@ -1,6 +1,7 @@
 \section{Discussion and Related Work}
 \subsection{Design Implications}
-The entry frontier, geometric connectivity, and search budget interact.
+The entry frontier determines which label branches survive seed retagging;
+geometric connectivity and search capacity determine the work within them.
 A prefix forest saves minimality work but creates more entry branches;
 blocks reconnect groups only where their prefixes certify a useful region.
 The observed winners therefore vary across the Amazon workloads. The
@@ -71,9 +72,12 @@ assembled on the host.
 Label-filtered graph search must choose both where to start and how to
 navigate after entry. \system{} couples a prefix forest with its covering
 frontier, then uses prefix certificates to authorize coarser block graphs.
-This gives a concrete division of work: the frontier covers eligible label
-branches, while a block relaxes exact-group boundaries for geometric search.
-The measured topology interactions show why neither entry count nor graph
-sparsity alone predicts performance. The GPU study reduces measured construction time, while policy transfer
-exposes the limits of size-based configuration. Together, the results favor
-choosing entry and navigation structures jointly at a common Recall target.
+The complete prefix frontier admits a coverage-preserving interpretation of
+owner-level retagging under the stated graph and retention conditions;
+minimal-superset entries can lose non-prefix branches. Blocks relax
+exact-group boundaries inside regions certified by the query.
+The Amazon development study shows gains and reversals for unchanged
+configurations, with large changes in the required search capacity.
+These results make entry coverage, geometric navigation, and bounded-search
+cost joint design decisions. The policy and construction studies identify
+further questions about transfer, output quality, and resource cost.

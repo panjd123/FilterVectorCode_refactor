@@ -1,56 +1,42 @@
 # Agent 看板
 
-最后更新：2026-10-06 22:17（北京时间）
+最后更新：2026-10-07 03:19（北京时间）
 分支：codex/multilevel-special-block-20260905
-已发布文档检查点：8c0b768；论文 PDF 基线：14c213e（GitHub main / ShareLaTeX）
+已发布检查点：ed4c48c；C1 新稿已编译，正在发布与定向复核。
 
-## 目标
+## 目标与时间
 
-从本次要求起至少持续优化18小时，覆盖论文、用户说明及导师汇报。
-本次起点为2026-10-06 20:52:13，最早完成时间为2026-10-07 14:52:13。
-不使用旧目标累计时长满足本要求；到达时限前不得将目标标记完成。
+本次18小时从2026-10-06 20:52:13开始，最早完成时间为2026-10-07 14:52:13。
+不得用旧goal累计时间替代。本目标仍active。
 
-## 当前状态
+## 已完成
 
-进行中：冻结当前稿件，开展真正全新、无项目对话历史的完整评审。
-前轮最终4/5来自带历史上下文的定向复审，不能作为当前稿首次盲审结论。
+- C0三份PDF/briefing首次阅读报告已返回并原样归档；两位全文reviewer均Reject，clarity4/5、evidence2/5。
+- 数学审计证明block数单调、计数平台上的覆盖关系、prefix frontier retagging条件覆盖；LNG-minimal反例确认。
+- C1正文加入反例图与覆盖命题、分区证明附录；固定配置表前置；完整126格QPS/预算双图。
+- 导师note重写为同一例子、固定配置、收益归因、支持性DRH/GPU与证据需求；文献细节另存。
+- 实验文档修正current/formal/historical与schema说明。
+- 257 tests通过；Tectonic无undefined refs/citations；26页PDF；冻结CSV SHA未变。
 
-## 进行中
+## 当前与下一步
 
-C0首次阅读：新建SIGMOD/VLDB审阅者只读冻结PDF，原始报告尚未返回。
-首页、文档索引及审阅provenance已整理；完整126格图已形成可验证生成脚本。
-正在核对retagging对跨前缀可达性的影响，以及阈值分区的可证明性质。
+冻结C1：/tmp/mlung-c1-review-20261007，PDF SHA17457b1362f6791fabc2e183d770690340c21f46668ad4e0c2bf0dcb4a3e7009。
+检查 /tmp/mlung-c1-proof-check.md、/tmp/mlung-c1-fixed-config-check.json、
+/tmp/mlung-c1-advisor-review.md、/tmp/mlung-c1-sigmod-review.md。
+本轮是返回reviewer的定向复核，不是新的cold总评分。修改后继续独立验证与后续读者审阅。
+C1需要保存commit、从W300 push、ShareLaTeX同步回读和服务端编译；以manifest更新为准。
 
-## 完成历史
+## 工作位置与边界
 
-- 14c213e：三轮论文修改；256 tests；23页PDF；全126项factorial数据保留。
-- 已核对旧审阅协议：第一轮fork_turns=none，后续复用同一agent定向复审。
-- 本次18小时起点、冻结稿SHA与评审输入写入CONTINUOUS_18H_MANIFEST.json。
+本地：/tmp/filtervector-paper-18h-20261006。
+远程：/home/sunyahui/worktrees/FilterVectorCode_multilevel_special。
+不修改/home/graphdb/FilterVectorCode_refactor，不重跑396-case campaign。
+只暂存明确列出的改动，保留无关untracked文件。外部基线、核心跨数据集、
+查询分层与label-order、loaded memory、GPU输出质量仍为实验证据缺口。
 
-## 下一步
+## 恢复入口
 
-收集C0完整审阅，建立按论证作用排序的修订清单；不设目标分数。
-完善导师材料的首次阅读入口，移出自评得分和修订过程说明。
-
-## 阻塞与问题
-
-无。现有证据仍有外部基线、跨数据集、变深度和构建质量缺口；以实际
-证据为准，不能靠文字消除。详细profile的0L-Trie/95%仍为3300秒超时。
-
-## 验证
-
-- 基线tracked tree干净；main.pdf为已发布版本。
-- 每次实质源码/生成器修改后执行相关测试与编译；纯文档修改核对来源。
-- 不重跑旧396-case campaign；不修改/home/graphdb/FilterVectorCode_refactor。
-
-## 仅在需要时阅读的细节
-
-- docs/papers/multilevel_ung/review/CONTINUOUS_18H_MANIFEST.json：恢复时限与输入。
-- review/POLISH_ROUNDS.md：仅恢复旧修订依据时阅读；不得交给首次阅读审阅者。
-
-## 恢复说明
-
-1. 读本看板，核对当前UTC时间和本次最早完成时间。
-2. 检查git status，不暂存无关untracked文件。
-3. 读18小时manifest中的当前阶段与最新证据路径。
-4. 从下一步继续，保留每轮冻结稿、审阅输入和实际完成记录。
+- docs/papers/multilevel_ung/review/CONTINUOUS_18H_MANIFEST.json
+- docs/papers/multilevel_ung/review/C1_RESOLUTION.md
+- docs/papers/multilevel_ung/review/VALIDATION_C1.json
+- runs/paper_c1_20261007/finalization_manifest.json

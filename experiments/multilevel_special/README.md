@@ -1,459 +1,187 @@
 # Multilevel Special Block experiments
 
-Use `experiment_cli.py` as the stable front door. New experiments use the
-`orthogonal_v2` schema and declare three independent dimensions: the base and
-per-layer group topology, the hierarchy thresholds, and the entry-group
-strategy. The older `generate_*` and `summarize_*` scripts remain only as
-reproducibility adapters for historical experiment families.
+This directory configures, runs, validates, and summarizes ML-UNG experiments.
+The current paper uses the completed bounded evidence described below. The
+larger formal campaign is a separate protocol with additional requirements.
+
+## Current results and their source
+
+| Study | Recorded evidence | Reader entry |
+|---|---|---|
+| Amazon topology | 14 configurations × 9 query batches; 1 cold + 2 warm repeats; 100 CPU workers | [Full 126-cell table](../../docs/papers/multilevel_ung/generated_data/factorial_equal_recall.csv) |
+| Automatic hierarchy | Genome, Reviews, VariousImg; DRH versus five frozen manual alternatives | [Chinese result report](../../docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md) |
+| Construction | Five hierarchy backends; two measured timing repeats and a separate resource pass | Same report, construction tables |
+| Detailed query profiles | Separate instrumented runs; 0L-Trie at 95% exceeded the 3300-second case limit | Same report, stage and counter tables |
+
+A crossing is the smallest **measured** search capacity for which both warm
+repeats reach Recall@10 ≥ 0.90. The topology table retains 95 crossings and
+31 measured no-crossing cells (`NC`). A profile timeout is a separate status.
+Amazon selectivities are batch means; several batches mix selective predicates
+with a frequent singleton. The [paper](../../docs/papers/multilevel_ung/main.pdf)
+and [advisor note](../../docs/papers/multilevel_ung/ADVISOR_NOTE_CN.md) define
+the workload composition, metrics, and topology notation.
+
+Construction totals compose independently timed base and hierarchy medians.
+The timing/resource study does not establish matched query quality for every
+accelerated output graph.
+
+## Regenerate the current paper from existing runs
+
+On the experiment host, from the repository root:
 
 ```bash
-# Fail fast on method/protocol inconsistencies.
-python3 experiment_cli.py check config.json
-
-# Print orthogonal method semantics (base topology, layers, entry strategy).
-python3 experiment_cli.py matrix config.json
-
-# Execute or inspect commands without executing them.
-python3 experiment_cli.py run config.json
-python3 experiment_cli.py run config.json --dry-run
-
-# Audit manifest, binary hash, input provenance, repeats, Recall, and stages.
-python3 experiment_cli.py validate config.json
-
-# Select the smallest measured Recall crossing and report warm statistics.
-python3 experiment_cli.py summarize config.json --baseline method_name
-
-# Inspect useful completed cases while a long matrix is still in progress.
-python3 experiment_cli.py summarize config.json --baseline method_name --allow-partial
-
-# Decompose UNG/plain speedup into ELS, graph work, entries, and visits.
-python3 analyze_ung_plain_attribution.py config.ung_plain_formal.json
+/home/lijiakang/miniconda3/bin/python3 \
+  experiments/multilevel_special/finalize_complete_evidence.py
 ```
 
-## Configuration contract
+The finalizer validates existing outputs, rebuilds the factorial and paper
+summaries, runs the relevant Python tests, checks the diff, and compiles with
+Tectonic. It launches no query or construction benchmark. Raw vectors,
+indexes, and runs are outside the Git source distribution; this command
+requires the experiment host's recorded input paths.
 
-Every new config should include a top-level `protocol` object:
+The active generation chain is:
+
+```text
+existing raw manifests and summaries
+  → validate_selection_sweep.py / summarize_selection_sweep.py
+  → summarize_base_topology_factorial.py
+  → plot_topology_factorial.py
+  → generate_deadline_paper_results.py
+  → generated tables, Chinese report, figures, compiled PDF
+```
+
+`generate_*` and `summarize_*` therefore include active paper components as
+well as historical adapters. The finalizer is the complete invocation for the
+current artifact. Input hashes are recorded in
+`runs/deadline_paper_20260928/manifest.json`; final output hashes are in
+`runs/complete_evidence_20260928/finalization_manifest.json`.
+
+To redraw the complete topology and search-capacity panels from the checked-in
+CSV alone, use Python with NumPy and Matplotlib ≥ 3.6, from the repository root:
+
+```bash
+python3 experiments/multilevel_special/plot_topology_factorial.py \
+  docs/papers/multilevel_ung/generated_data/factorial_equal_recall.csv \
+  /tmp/mlung-topology-figures
+```
+
+This writes PDF/PNG panels and a source/output hash manifest. It rejects missing
+or duplicate cells, sub-target crossings, and NC cells populated with QPS.
+The QPS panel normalizes each configuration by the best measured QPS in the
+same batch. A red border identifies that observed winner; grey cells remain
+NC. The companion panel shows the selected search capacities.
+
+## Declare and run a new experiment
+
+Use `experiment_cli.py` as the stable front door. The commands below run from
+`experiments/multilevel_special`; `config.json` is the chosen experiment file.
+Set data/index/output paths for the target host before running.
+
+```bash
+# Inspect the configuration and expand its method semantics.
+python3 experiment_cli.py check config.json
+python3 experiment_cli.py matrix config.json
+
+# Inspect commands, then execute the selected experiment.
+python3 experiment_cli.py run config.json --dry-run
+python3 experiment_cli.py run config.json
+
+# Validate binary/input provenance, repeats, Recall, and required stages.
+python3 experiment_cli.py validate config.json
+python3 experiment_cli.py summarize config.json --baseline method_name
+```
+
+`run` accepts repeatable `--method` and `--workload` filters. Summarization
+accepts `--allow-partial` for inspecting an unfinished campaign; those outputs
+retain unavailable rows. Use a new output root for a changed executable or
+protocol so that immutable snapshots and old results remain identifiable.
+
+An `orthogonal_v2` method declares `main_index`, `base_topology`,
+`entry_strategy`, `hierarchy_layers`, and `special_block_search`. Each overlay
+has a positive, strictly increasing `min_points` threshold and `lng` or `trie`
+topology. Entry strategies are `original`, `optimized_lng`, and `trie`.
+Nonempty `hierarchy_layers` also requires `block_index`; a zero-overlay method
+omits it. `special_block_search` must agree with whether overlays are present.
+Names such as `plain` or `Trie` do not define these fields; inspect `matrix`.
+
+`mL` counts overlays above L0. For example, `2L[T|LT]` means a Trie base,
+LNG at physical L1, and Trie at physical L2. A threshold triggers emission
+when uncovered mass strictly exceeds it; it is not a maximum block size.
+
+`check` and `matrix` check or display schema semantics; they do not reject
+entry/topology pairs lacking coverage. For example, an
+LNG-minimal entry set can omit an eligible prefix branch when used with a
+Trie base. The measured full factorial pairs each base with its corresponding
+provider. Coverage assumptions and seed selection are specified in the paper.
+
+Each candidate state uses only its physical level's edges. Authorized blocks
+are independently seeded into one bounded queue; a group seed can be retagged
+to its finest authorized direct owner. There is no implicit promotion or
+edge fallthrough. Thus adding an overlay also changes seed participation and
+queue competition.
+
+A top-level `protocol` object declares repeat counts and the Recall rule;
+top-level `num_repeats` is their sum:
 
 ```json
 {
-  "phase": "screen",
-  "cold_repeats": 1,
-  "measured_repeats": 2,
-  "recall_rule": "all_repeats",
-  "bootstrap_samples": 10000,
-  "paired_repeats": false
+  "num_repeats": 3,
+  "protocol": {
+    "phase": "screen",
+    "cold_repeats": 1,
+    "measured_repeats": 2,
+    "recall_rule": "all_repeats",
+    "bootstrap_samples": 10000,
+    "paired_repeats": false
+  }
 }
 ```
 
-`paired_repeats=true` is accepted only when an explicit interleaved
-`execution_blocks` schedule is declared. Sequential method runs are independent
-samples and must not be described as paired.
-Both performance statistics and the configured Recall rule apply only to
-measured repeats; declared cold repeats are retained for audit but excluded.
+Only warm repeats determine the operating point and timing summary. Paired
+statistics require an explicit interleaved `execution_blocks` schedule;
+sequential method runs are independent samples. The current paper reports
+observed query throughput without confidence intervals from its two repeats.
 
-An `orthogonal_v2` method must explicitly name `main_index`, `base_topology`,
-`entry_strategy`, `hierarchy_layers`, and `special_block_search`. Each hierarchy
-layer has a positive, strictly increasing `min_points` threshold and an
-independent `lng` or `trie` topology. The only legal entry strategies are
-`original`, `optimized_lng`, and `trie`. Do not infer semantics from names such
-as `plain`, `UNG`, or `Trie`; use `experiment_cli.py matrix` in reports and
-audits.
+## Summary and construction tools
 
-The search invariant is per candidate state: a base candidate scans only base
-edges, and a candidate activated at materialized layer `i` scans only edges
-owned by layer `i`. There is no edge fallthrough or implicit promotion. All
-query-authorized layers are seeded independently into one bounded candidate
-queue, so this invariant does not imply that adding a layer is latency-neutral.
+| Task | Tool and outputs |
+|---|---|
+| Full base/overlay factorial | `summarize_base_topology_factorial.py`: 126 cells, controlled upper replacements, matched-provider base comparisons, per-batch and fixed-configuration rankings |
+| Fixed-depth comparison | `summarize_depth_ablation.py`: per-workload winners and one unchanged configuration across workloads |
+| Held-out auto/manual study | `summarize_heldout_oracle.py`: compare only the candidates and protocol present in its input configs |
+| Base topology construction | `run_base_topology_build.py`: separately materialize LNG and Trie bases |
+| Declared overlay plans | `run_build_sweep.py`: build each plan, record provenance, support `--dry-run` |
+| Construction timing/resources | `summarize_authoritative_build.py`; [build protocol](AUTHORITATIVE_BUILD_PROTOCOL.md) |
+| Selected instrumented profiles | `prepare_selected_profile_campaign.py`: derive operating points and hashes from completed performance results |
 
-## Authoritative Amazon campaign
+A per-workload winner is selected after measurement. The fixed-configuration
+ranking accepts only configurations that cross on every declared workload and
+uses QPS normalized to each workload's measured winner. A one-letter upper
+replacement holds base/provider fixed; a cross-base result changes both the
+base topology and its matched provider.
 
-Build the two zero-layer base topologies and the declared hierarchy grid first.
-The campaign driver then runs a broad Recall screen, measured crossing
-refinement, a 1-cold plus 15-warm formal pass, and an independent instrumented
-profile pass. Every stage is resumable and validated before the next begins.
+Keep timing passes free of profiling instrumentation. Construction and query
+timing must not overlap. The bounded campaign applies a 3300-second case cap;
+GPU construction additionally checks that the device is idle before timing.
 
-```bash
-python3 run_base_topology_build.py config.authoritative_amazon_base_topologies.json
-python3 run_build_sweep.py config.authoritative_amazon_hierarchy_grid.json
-python3 run_authoritative_campaign.py
-```
+## Larger formal protocol and historical studies
 
-If a screen was intentionally launched with `--stop-after screen`, run
-`continue_after_screen.py` as a detached guard. It waits for that tmux session
-to exit, validates the complete screen, refuses to continue while any campaign
-process remains, and only then starts crossing through profile in a fresh
-session. This avoids injecting a command into a pane that disappears when its
-original non-interactive shell exits.
+The full pipeline remains available through `run_authoritative_campaign.py`,
+`run_heldout_campaign.py`, and `run_authoritative_build_campaign.py`. Its
+screen/crossing/formal/profile stages, 35 manual alternatives, larger repeat
+counts, and build-quality checks are **protocol requirements**, not a list of
+completed evidence in the current paper.
 
-Campaign config paths are explicit overrides on both the driver and watcher.
-Use `generate_authoritative_campaign.py --output-root ...` to start a clean
-evidence directory while reusing immutable base and hierarchy indexes; pass the
-matching `--screen-config`, `--crossing-config`, `--formal-config`, and
-`--profile-config` paths to continuation jobs. This prevents a corrected binary
-from silently resuming results captured by an older executable.
+`generate_authoritative_paper_results.py` validates that larger contract and
+refuses incomplete inputs. It retains an older LaTeX macro layout; a future
+completed formal campaign needs its rendering contract aligned with the
+current sectioned manuscript. Use `finalize_complete_evidence.py` for the
+currently published artifact.
 
-The generated screen contains all six zero-layer combinations of two base
-topologies and three entry strategies. Each declared hierarchy plan is also
-crossed with all three entry strategies. Two additional, separately labelled
-controls apply the query-independent `require_upper_authorization` route to
-the DRH-v1 and mass-ladder plans; they are not counted as factorial cells.
-Performance runs set
-`UNG_SPECIAL_LIGHT_STATS=1`; profile runs set `UNG_SPECIAL_LIGHT_STATS=0` and
-`UNG_SPECIAL_PROFILE_TIMING=1`. Profile timing explains mechanism and is not
-mixed into the primary QPS table. With `pass_subdirs=true`, derived tables are
-also isolated under `summary/performance` and `summary/profile` so the profile
-pass cannot overwrite the primary performance summary.
-
-Crossing performs one declared measured refinement (or one bounded upper-grid
-extension). A method/workload that still has no all-repeat Recall crossing is
-excluded from formal timing and recorded with its maximum measured L and
-Recall; results are never interpolated or extrapolated. Selected zero-layer
-Trie high-selectivity guards reach `L=N`, allowing those cases to distinguish
-a genuinely exhausted full-search budget from an ordinary bounded screen.
-
-`summarize_selection_sweep.py` writes both machine-readable CSVs and a Markdown
-report. The Markdown operating-point table uses the conservative crossing and
-includes the warm layered-path activation rate, stage timing, and
-visited-point, scanned-edge, distance-calculation, and entry-count breakdowns.
-Recall/QPS figures are generated only from measured screen points:
-
-```bash
-python3 summarize_selection_sweep.py \
-  config.authoritative_amazon_screen_emptyfix.json \
-  --baseline l0_lng_entry_optimized_lng --targets 0.9
-python3 plot_authoritative_recall_qps.py \
-  config.authoritative_amazon_screen_emptyfix.json \
-  ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv \
-  ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/figures
-```
-
-By default the plotter emits the complete paper subset: the principal
-zero-layer comparison, the fixed-threshold one-layer LNG/Trie comparison, a
-representative zero/one/two-layer comparison, and the upper-authorization
-ablation. The one-layer topology family covers all nine workloads after the
-Amazon summary is regenerated from the completed raw cases. Additional
-factorial families remain available through repeated
-`--family` options, but are not promoted to paper figures until every declared
-method/workload point exists. The plotter fails closed on missing results
-unless `--allow-partial` is explicitly supplied and records input hashes and
-missing cases in `plot_manifest.json`. Lines follow increasing measured
-`Lsearch`; points are not reordered by Recall or smoothed to conceal
-non-monotone measurements.
-The authoritative paper generator accepts only a complete, non-partial plot
-manifest whose screen-config and `all_points.csv` hashes still match. It embeds
-the registered paper subset in the Results section, while finalization records
-both PDF and PNG hashes so the paper figures and downloadable artifacts have
-one auditable source. The same validated inputs atomically replace
-`docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md`; this is the
-current exact-level report, while older result reports remain explicitly
-historical.
-
-The generated LaTeX and Chinese report also contain per-selectivity
-conservative-crossing tables for all four two-layer topology assignments
-(`LNG/LNG`, `LNG/Trie`, `Trie/LNG`, and `Trie/Trie`) at fixed thresholds, and
-for both threshold scales at one and two layers and all three entry strategies
-on the fixed DRH hierarchy. Each cell reports the measured `Lsearch/QPS`;
-configurations without a measured crossing are shown as `NC` rather than
-omitted.
-
-### Complete base-by-overlay topology factorial
-
-The base topology is not implicitly fixed to LNG. The controlled Amazon
-factorial uses `T1=1024`, `T2=16384`, ungated level-local search, and enumerates
-the 2 zero-overlay, 4 one-overlay, and 8 two-overlay L/T topology strings. LNG
-bases use optimized-LNG entry discovery and Trie bases use Trie entry discovery.
-Consequently, a one-letter upper-level replacement is a controlled topology
-comparison, while changing the base is a matched-provider system comparison.
-
-```bash
-python3 experiment_cli.py validate \
-  config.authoritative_amazon_base_trie_query_grid.json
-python3 summarize_selection_sweep.py \
-  config.authoritative_amazon_base_trie_query_grid.json \
-  --baseline l1_base_trie_t1024_lng_entry_trie --targets 0.9
-python3 summarize_base_topology_factorial.py \
-  ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/equal_recall_conservative.csv \
-  ../../runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/summary/performance/equal_recall_conservative.csv \
-  ../../runs/base_topology_factorial_20260929/summary \
-  --lng-all-points ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv \
-  --trie-all-points ../../runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/summary/performance/all_points.csv \
-  --lng-manifest ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/manifest_performance.json \
-  --trie-manifest ../../runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/manifest_performance.json \
-  --lng-hierarchy-manifest ../../runs/authoritative_multilevel_20260925/hierarchy/amazon_base_lng/manifest.json \
-  --trie-hierarchy-manifest ../../runs/base_topology_factorial_20260929/hierarchy/amazon_base_trie/manifest.json
-```
-
-`factorial_equal_recall.csv` is the complete 14-by-9 matrix.
-`upper_trie_pairwise.csv` isolates an L-to-T replacement at one upper level.
-`base_matched_pairwise.csv` compares L0=LNG/optimized-LNG-entry with
-L0=Trie/Trie-entry under the same upper plan. `trie_effect_summary.csv` reports
-per-workload win counts without hiding NC cells.
-`global_configuration_summary.csv` ranks only configurations that cross the
-Recall target on all nine workloads, using the geometric mean of QPS normalized
-to the per-workload measured oracle; incomplete configurations remain unranked.
-The matched-provider base comparison is deliberately not presented as a pure
-base-edge causal effect; the available campaign does not contain a same-entry
-cross-base hierarchy control. The LaTeX table is generated as
-`generated_topology_factorial.tex` and copied into the paper by
-`finalize_complete_evidence.py`.
-
-After the formal pass, generate the requested plain versus best one-layer
-versus best two-layer table with conservative crossings and bootstrap
-intervals:
-
-```bash
-python3 summarize_depth_ablation.py \
-  config.authoritative_amazon_formal_emptyfix.json \
-  --output-dir results_summary/authoritative_depth
-```
-
-Per-workload best rows are measured oracles. The companion global table only
-accepts a single unchanged method that crosses on every workload; routed DRH
-is reported separately from the always-layered two-layer factorial.
-
-## Query-free held-out hierarchy study
-
-`generate_auto_policy_cross_dataset_configs.py` derives DRH-v1 only from
-`N`, `R`, and `C` and combines it with the fixed exact upper-authorization
-gate. It freezes a 36-candidate one/two/three-layer set before reading held-out
-query results: DRH itself and 35 manually enumerated alternatives. Every
-candidate uses the same gate, so the oracle varies only depth, thresholds, and
-per-layer topology; ungated DRH is a separate ablation. The generator emits
-build, screen, and policy files for Genome, Reviews, and VariousImg. Build
-commands can be preflighted without starting construction:
-
-```bash
-python3 generate_auto_policy_cross_dataset_configs.py \
-  --search-app ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/.binary_snapshots/search_UNG_index.4c99a51c0f74b187d37f7070f73017b6230935126275560fff1061fa90830a81
-python3 run_build_sweep.py config.authoritative_heldout_genome_build.json --dry-run
-python3 run_heldout_campaign.py
-```
-
-The held-out configs record the selected executable's SHA256. Derived crossing,
-formal, and profile phases inherit the preceding phase's content-addressed
-snapshot instead of reopening a mutable build-tree executable. Build-quality
-queries are pinned to the same query-profile snapshot.
-
-After the held-out screen/crossing/formal pipeline completes, compare DRH with
-the fastest predeclared manual hierarchy at each workload and with the best
-single hierarchy used across all workloads:
-
-```bash
-python3 summarize_heldout_oracle.py \
-  config.authoritative_heldout_genome_formal.json \
-  config.authoritative_heldout_reviews_formal.json \
-  config.authoritative_heldout_variousimg_formal.json \
-  --output-dir results_summary/heldout_oracle
-```
-
-The summarizer selects the smallest measured `Lsearch` whose every warm repeat
-meets the target, uses independent-sample bootstrap intervals for sequential
-method runs, and never interpolates a crossing.
-
-For unattended serial execution, `continue_after_query.py` waits until the
-Amazon profile config exists and its full validator passes, then waits for all
-query processes to exit before starting held-out work. The optional build step
-is joined with `&&`, so it starts only if every held-out dataset and oracle
-summary succeeds:
-
-```bash
-python3 continue_after_query.py --run-build-after-heldout
-```
-
-This supervisor gates on the profile manifest and validator rather than a tmux
-session transition, preventing an accidental launch during the brief
-screen-to-crossing handoff.
-
-## Authoritative build campaign
-
-Run this only after the query campaign has frozen the automatic and manual
-structures. `AUTHORITATIVE_BUILD_PROTOCOL.md` defines the claim boundary and
-required quality checks. The generator creates separate unmonitored timing and
-monitored resource passes; backend variants are interleaved by repeat.
-Hierarchy cases consume measured repeat 0 from this campaign's
-`accelerated_gpu` base build rather than an unrelated pre-existing index.
-
-```bash
-python3 generate_authoritative_build_configs.py --repeats 5
-python3 run_authoritative_build_campaign.py --repeats 5
-```
-
-The base matrix compares `original_cpu`, `current_cpu`, the named GPU profiles,
-and the exact accelerated profile used to build the query baseline. The
-hierarchy matrix holds thresholds and topology fixed while changing only
-layer-local and inter-block construction backends. The runner rejects a GPU
-case if its persisted profile differs, a requested GPU stage is not observed,
-or a CPU fallback is observed. `process_resource_probe.py` samples process-tree
-RSS and per-process GPU memory only in the resource pass.
-
-After timing and resource measurement, the driver searches representative
-repeat-0 CPU/GPU outputs through `quality_screen`, `quality_crossing`, and
-`quality_formal`. Hierarchy outputs use the final
-`require_upper_authorization` routing policy, and all checks use the same
-Amazon query/GT and measured Recall-crossing rule as the main query study.
-`summarize_authoritative_build.py` reports component times and paired
-base-plus-hierarchy totals; it never substitutes a CUDA kernel timer for full
-process wall time.
-
-## Authoritative paper result section
-
-`generate_authoritative_paper_results.py` is the fail-closed generator for the
-current nine-selectivity study. It is intentionally separate from the legacy
-six-workload `generate_paper_results.py`. The generator reruns the Amazon
-formal/profile, all three held-out formal, and build-quality validators; checks
-all four raw build manifests; re-derives each held-out DRH plan from its recorded
-`N/R/C` inputs; verifies that the frozen 35-candidate manual grid, automatic
-method, ungated ablation, gate, and workload metadata match the formal configs;
-checks the formal/profile operating-point alignment and required stage/work
-counters; and only then atomically replaces
-`docs/papers/multilevel_ung/generated_results.tex`. The generated file records a
-SHA256 for every held-out policy.
-
-```bash
-python3 generate_authoritative_paper_results.py \
-  --amazon-screen-config config.authoritative_amazon_screen_emptyfix.json \
-  --amazon-formal-config config.authoritative_amazon_formal_emptyfix.json \
-  --amazon-profile-config config.authoritative_amazon_profile_instrumented.json \
-  --heldout-formal-config config.authoritative_heldout_genome_formal.json \
-  --heldout-formal-config config.authoritative_heldout_reviews_formal.json \
-  --heldout-formal-config config.authoritative_heldout_variousimg_formal.json \
-  --heldout-policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/policy.json \
-  --heldout-policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/reviews/policy.json \
-  --heldout-policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/policy.json \
-  --build-quality-formal-config config.authoritative_amazon_build_quality_formal.json \
-  --build-config config.authoritative_amazon_base_build_timing.json \
-  --build-config config.authoritative_amazon_base_build_resource.json \
-  --build-config config.authoritative_amazon_hierarchy_build_timing.json \
-  --build-config config.authoritative_amazon_hierarchy_build_resource.json \
-  --amazon-screen-points ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv \
-  --amazon-figures-dir ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/figures \
-  --amazon-formal ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/equal_recall_conservative.csv \
-  --amazon-depth ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/depth_ablation/depth_by_workload.csv \
-  --amazon-depth-global ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_formal/summary/performance/depth_ablation/depth_global.csv \
-  --amazon-profile ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_profile_instrumented/summary/profile/equal_recall_conservative.csv \
-  --heldout-workload results_summary/heldout_oracle/heldout_oracle_by_workload.csv \
-  --heldout-global results_summary/heldout_oracle/heldout_oracle_global.csv \
-  --build-summary results_summary/authoritative_build/build_summary.csv \
-  --build-end-to-end results_summary/authoritative_build/build_end_to_end.csv \
-  --build-quality-formal ../../runs/authoritative_multilevel_20260926_emptyfix/build_study/quality_formal/summary/performance/equal_recall_conservative.csv
-```
-
-There is no partial-output flag. Missing inputs, incomplete manifests, a failed
-validator, fewer than the declared formal/build repeats, mismatched profile
-operating points, missing activation/work counters, or an incomplete held-out
-matrix leave the existing LaTeX file unchanged.
-
-### Deadline-bounded paper artifact
-
-The smaller deadline artifact does not relax or replace the full generator
-above. `generate_deadline_paper_results.py` has a separate evidence contract:
-the four complete registered Amazon figure families, the complete bounded
-held-out summary, the separate detailed-profile campaign, and the build
-supervisor manifest. It reports `1 cold + 2 warm` screen-level results, keeps
-the five pre-registered manual alternatives distinct from a full oracle, and
-derives its construction claim from the current build-manifest state.
-
-```bash
-python3 generate_deadline_paper_results.py \
-  --amazon-equal-recall ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/equal_recall_conservative.csv \
-  --amazon-points ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv \
-  --figures ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/figures \
-  --deadline-summary ../../runs/deadline_evidence_20260927_cpufix/deadline_summary \
-  --policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/policy.json \
-  --policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/reviews/policy.json \
-  --policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/policy.json \
-  --profile ../../runs/deadline_profile_20260927/heldout/genome/search/summary/profile/equal_recall_conservative.csv \
-  --profile ../../runs/deadline_profile_20260927/heldout/reviews/search/summary/profile/equal_recall_conservative.csv \
-  --profile ../../runs/deadline_profile_20260927/heldout/variousimg/search/summary/profile/equal_recall_conservative.csv \
-  --drh-v2-root ../../runs/drh_v2_20260927 \
-  --build-manifest ../../runs/deadline_build_20260927/deadline_build_supervisor_manifest.json \
-  --figure-output-dir ../../docs/papers/multilevel_ung/generated_figures \
-  --manifest-output ../../runs/deadline_paper_20260928/manifest.json \
-  --tex-output ../../docs/papers/multilevel_ung/generated_results.tex \
-  --report-output ../../docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md
-```
-
-The immutable performance binary predates the correction that charges exact
-upper authorization to `BlockAuthorizationTime_ms`. After every performance,
-held-out, and build process has exited, rerun only the profile pass with a
-separately built binary:
-
-```bash
-python3 run_authoritative_instrumented_profile.py
-```
-
-The runner refuses to start while another query or build process is active,
-requires committed query sources containing `7f723b6`, configures
-`build_ung_profile_instrumented` without changing `build_ung_rel`, derives the
-profile from the validated formal operating points, and verifies the resulting
-manifest against the new executable's SHA256. A different profile binary is
-allowed because profile timing is explanatory and never contributes to QPS;
-the generated paper records both hashes.
-
-For a bounded representative profile, derive selected methods and workloads
-from an already completed performance sweep instead of editing JSON by hand:
-
-```bash
-python3 prepare_selected_profile_campaign.py \
-  --source-config config.authoritative_amazon_screen_emptyfix.json \
-  --search-binary ../../build_ung_profile_instrumented_deadline/apps/search_UNG_index \
-  --source-commit <instrumented-source-commit> \
-  --output-config config.amazon_representative_profile.json \
-  --output-root ../../runs/amazon_representative_profile_20260928 \
-  --manifest ../../runs/amazon_representative_profile_20260928/selection_manifest.json \
-  --method l0_lng_entry_optimized_lng \
-  --method l1_t1024_lng_entry_optimized_lng \
-  --workload sel_10 --workload sel_60
-```
-
-The derivation selects the smallest conservative Recall crossing, or the best
-measured point when no crossing exists, and records the source details hash for
-every case. `run_remaining_evidence_campaign.py` is the resumable bounded
-orchestrator used for the remaining two-layer topology cases and the selected
-Amazon profile. It waits for construction processes to quiesce, applies the
-per-case timeout, writes a supervisor manifest, refreshes summaries and plots,
-then validates and summarizes the profile. It must not be run concurrently
-with another query supervisor. When every stage succeeds, it invokes
-`finalize_complete_evidence.py`, which requires complete two-layer topology,
-nonzero detailed edge counters, all five hierarchy backends with two measured
-timing repeats, an independent resource profile with peak RSS and GPU memory,
-five composed construction rows, and an all-success build manifest before
-regenerating and compiling the paper.
-
-For a long unattended campaign, `continue_after_build.py` waits for the
-held-out and build summaries and for every query/build process to exit. It then
-runs the isolated instrumented profile, invokes the fail-closed paper generator,
-compiles the paper with Tectonic, checks `git diff --check`, and writes
-`runs/authoritative_multilevel_20260926_emptyfix/finalization_manifest.json`
-using schema version 2. Before publishing, it requires every result CSV,
-configuration, frozen policy, validator, and query/build run manifest hash in
-`generated_results.tex` to match the current files. It rechecks those inputs
-after compilation, rejects missing logs, fatal TeX diagnostics, undefined
-citations/references, and BibTeX warnings, and records hashes for the complete
-evidence input set, paper sources, Tectonic executable, compiler logs,
-generated result source, and PDF:
-
-```bash
-nohup python3 -u continue_after_build.py \
-  > ../../runs/authoritative_multilevel_20260926_emptyfix/finalization.log \
-  2>&1 < /dev/null &
-```
-
-## UNG versus plain provider study
-
-`generate_ung_plain_comparison.py` creates the controlled comparison. It holds
-the binary, Amazon x1 index, query/GT, graph backend, threads, and Special Block
-state fixed. The only changed dimension is the entry-group provider:
-
-- `ung_original_entry`: label-trie supersets followed by exact minimality checks.
-- `plain_bitset_lng_entry`: inverted label bitsets followed by LNG-descendant
-  coverage elimination.
-
-Run `screen`, then `crossing`, then `formal`. The crossing phase inserts a fine
-integer-spaced L grid between the last failed and first successful coarse point;
-the formal generator freezes each method's refined smallest Recall crossing.
-This comparison is an entry-routing ablation. It is
-not evidence that the two methods use independently built vector graphs.
-For an interrupted or deliberately bounded screen, `--allow-partial` on the
-formal generator retains only workloads with a valid crossing for both methods;
-the resulting config records the common workload set explicitly.
+Detailed historical invocations and continuation supervisors are preserved in
+[the earlier experiment guide](https://github.com/panjd123/FilterVectorCode_refactor/blob/ed4c48cab3ac56f6bc36e7ef895d6afd3a18c989/experiments/multilevel_special/README.md).
+The [older reproduction report](../../docs/reports/MULTILEVEL_SPECIAL_BLOCK_REPRODUCE_CN.md)
+describes the earlier two-overlay promotion semantics and six-workload cohort.
+The old `generate_ung_plain_comparison.py` study changes entry providers on a
+shared vector index; it is separate from the current base-topology comparison.

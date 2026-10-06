@@ -71,7 +71,7 @@ $K$, thread count, immutable search binary, graph backend, and Recall protocol.
 Each case executes one cold and two warm repeats of the same frozen query
 file in the same order. We discard the cold repeat and derive QPS from the
 median warm batch time. The operating point is the smallest executed
-$L_{search}$ for which both warm repeats reach Recall@10 $\ge0.90$.
+$L_{search}$ for which both warm repeats reach batch-mean Recall@10 $\ge0.90$.
 A separate instrumented pass collects stage times and work counters.
 If a method has no screen crossing, its
 crossing pass extends to the largest $L_{search}$ measured for any method on
@@ -106,11 +106,32 @@ measure complete builder profiles.
 The sweep compares selective-predicate batches and mixtures containing a
 frequent singleton, using the batch-mean selectivity defined in Section~\ref{sec:methodology}.
 \subsection{Matched Base and Overlay Choices}
-The best organization changes across the Amazon workloads: prefix-base
-systems lead near 0.5--5\%, while the LNG base leads near 10\% and 30\%.
-Table~\ref{tab:base-topology-winners} compares the best measured configuration
-within each depth and across the full 14-configuration grid.
+\baseTopologyFixedConfigurations
+Table~\ref{tab:fixed-topology-configurations} follows four unchanged
+configurations through the nine Amazon batches. The fixed
+\texttt{2L[T|LT]} improves on Plain in seven batches, while Plain leads
+near 10\% and 30\%. It also permits a direct depth comparison against
+\texttt{1L[T|L]}, without changing the base, provider, or first overlay.
+These configurations are examined on the development dataset; the
+held-out policy study below evaluates a different, fixed-LNG-base rule.
+The complete grid and its per-workload winners appear in
+Tables~\ref{tab:base-topology-winners}--\ref{tab:base-topology-factorial-b}.
 \baseTopologyFactorialFindings
+
+The selected search budget is part of the observed performance difference.
+On the four batches near 60--99\%, Plain requires capacities of
+260,000--400,000, whereas \texttt{2L[T|LT]} uses 1,000--5,000.
+The array-queue term in Section~\ref{sec:query} makes those capacities
+consequential for work as well as memory. The throughput ratios therefore
+combine different navigation paths and the costs of their required search
+budgets. Figure~\ref{fig:topology-grid} shows both quantities across the grid.
+
+The LNG-minimal-entry overlays have no crossing on the five lower-mean
+batches at these thresholds. Section~\ref{sec:retag-coverage} demonstrates
+that their entry contract can lose coverage before any capacity limit is
+applied. The recorded screen does not measure per-query exhaustive
+reachability, so it cannot apportion these NCs between structural coverage
+loss and finite-budget search.
 
 \subsection{Where Discovery Savings Go}
 \authoritativeAmazonSummary

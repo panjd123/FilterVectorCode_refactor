@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "input": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/docs/papers/multilevel_ung/generated_data/factorial_equal_recall.csv",
+  "input_sha256": "9e56a1ed859152382b829e612c5e62ff4f90d50a5ce3b9a6a3e8230c426b6505",
+  "rows": 126,
+  "crossings": 95,
+  "no_crossings": 31,
+  "recall_target": 0.9,
+  "row_codes": [
+    "L",
+    "LL",
+    "LT",
+    "LLL",
+    "LLT",
+    "LTL",
+    "LTT",
+    "T",
+    "TL",
+    "TT",
+    "TLL",
+    "TLT",
+    "TTL",
+    "TTT"
+  ],
+  "workloads": [
+    "sel_0p5",
+    "sel_1",
+    "sel_5",
+    "sel_10",
+    "sel_30",
+    "sel_60",
+    "sel_80",
+    "sel_95",
+    "sel_99"
+  ],
+  "mean_selectivities": [
+    0.0049924907,
+    0.0090305484,
+    0.0503811667,
+    0.0990661529,
+    0.3002724229,
+    0.6004749068,
+    0.8002369928,
+    0.9501978063,
+    0.9900060038
+  ],
+  "normalization": "Each QPS is divided by the largest measured crossing QPS in its batch.",
+  "border": "Best measured QPS selected in hindsight; not a significance indicator.",
+  "comparison": "Bases use matched entry providers; upper replacements hold base/provider fixed.",
+  "measurement": "One cold and two warm repeats; smallest measured all-warm Recall crossing.",
+  "color_scale": "Logarithmic; grey NC cells have no throughput or crossing capacity.",
+  "matplotlib_version": "3.10.7",
+  "outputs": [
+    {
+      "name": "topology_relative_qps.pdf",
+      "sha256": "bc2a724ea6a8250757a902b54e510c6ed98e136653e1a25ea868894c08905f79"
+    },
+    {
+      "name": "topology_relative_qps.png",
+      "sha256": "a44f0f89687ba70ff658f96a52f4fa7b09e033bb9ea6e4851f00b9752c1dc847"
+    },
+    {
+      "name": "topology_search_budget.pdf",
+      "sha256": "b3b34e0a28e7dbb52e24b8f7ee32c9ddcf67d7271bb8f2c37567283fa06b1b0d"
+    },
+    {
+      "name": "topology_search_budget.png",
+      "sha256": "bd0de80c076a7b13081243aaa275b6f2c650d79349441afb5a28c1c275a9899c"
+    }
+  ]
+}

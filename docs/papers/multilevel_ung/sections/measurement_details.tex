@@ -24,3 +24,15 @@ Encounters / edges / distances & The CSV counter \texttt{Visited} is reported as
 \end{table*}
 \authoritativeSharedSearchBudgetTable
 \authoritativeScreenAppendix
+
+\subsection{Artifact Access}
+The \href{https://github.com/panjd123/FilterVectorCode_refactor}{source repository}
+contains the manuscript, experiment scripts, and frozen summary CSVs under
+\texttt{docs/papers/multilevel\_ung/generated\_data/}. In particular,
+\texttt{factorial\_equal\_recall.csv} records selected capacity, minimum
+warm-repeat Recall, QPS, status, and method identifier for all 126 cells.
+The experiment README gives both a source-only plotting command and the
+existing-run finalization command. Full timing reproduction additionally
+requires the vector, label, query, index, and raw-run files named by the
+recorded configurations; these large inputs are not distributed in the
+source repository.

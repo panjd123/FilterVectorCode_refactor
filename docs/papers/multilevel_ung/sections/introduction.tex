@@ -50,15 +50,17 @@ simplest instance.
 
 \system{} combines these mechanisms through level-tagged search states. Each
 state expands the adjacency of one physical level; entry selection and block
-authorization determine which states enter the bounded search. This makes
-predicate safety independent of the chosen LNG or prefix connectivity at each
-level. We also batch irregular graph-construction tasks on the GPU and give a
+authorization determine which states enter the bounded search. Root certification makes predicate safety independent of the LNG or prefix
+connectivity chosen at each level. Coverage also depends on the entries:
+replacing an LNG-minimal base seed can lose a non-prefix branch even with
+unlimited search capacity. Complete prefix-frontier entries preserve exhaustive
+coverage under the stated portal and graph-reachability conditions. We also batch irregular graph-construction tasks on the GPU and give a
 structural rule that derives overlay thresholds and depth from dataset size
 and existing degree budgets.
 
 We evaluate the tradeoff by separating matched entry/topology systems from
 controlled upper-level topology changes. The complete Amazon factorial
-contains 14 configurations over nine selectivities. At measured Recall@10
+contains 14 configurations over nine query batches. At measured Recall@10
 $\geq0.90$, the prefix-base system is 2.77--18.43$\times$ faster than the
 optimized LNG base on three workloads near 0.5--5\%, whereas LNG wins near
 10\% and 30\%. Adding blocks changes this picture again: the best systems
@@ -74,7 +76,7 @@ The contributions are:
 \item \textbf{Predicate-certified block navigation.} Independent prefix
   partitions let queries use coarser vector graphs when a root-prefix
   certificate holds. We specify the seeding and level-local search algorithm
-  and establish its conditional safety properties.
+  and characterize both predicate safety and coverage after entry retagging.
 \item \textbf{An analysis of the entry--navigation tradeoff.} A complete
   topology factorial and query profiles identify where discovery savings
   are displaced into seed and graph work, and where blocks recover throughput.

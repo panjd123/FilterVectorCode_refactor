@@ -50,3 +50,32 @@
 - 待独立核验：LNG-minimal group entry 被 retag 后可能失去 L0 跨前缀路径。
   三个 singleton groups {b},{b,c},{a,b}、Q={b}、T=1 提供候选反例；
   在实现与图可达性核对前，不将其写成已证实的 campaign NC 成因。
+
+## 文档发布与后续工作
+
+- ed4c48c 已在 W300 非强制 push 到 GitHub main，remote ref 回读相符。
+- ShareLaTeX 的 ADVISOR_NOTE_CN.md、README.md、review/POLISH_ROUNDS.md
+  三份文档先比对上次发布 SHA，再上传并逐字节回读；receipt 位于
+  /tmp/mlung18h-doc-sync-receipt.json。TeX/PDF 尚未修改。
+- plot_topology_factorial.py 已完整生成126格两幅图；5类坏输入均拒绝。
+  输出和验证位于 /tmp/mlung-18h-validated-figures，尚未选入正文。
+- 实验 README 由400余行压缩为 current bounded / new experiments / formal
+  design 三个阅读用途；历史两级promotion复现报告已显式标注阶段。
+- ENTRY_RETAGGING_COVERAGE_WORKING.md 记录三group反例、源码证据和
+  候选正面覆盖性质。toy穷举图可达性检查通过，独立理论核验仍在进行。
+- cold C0 原始审阅报告仍未返回；不得以旧R3评分预报本轮结论。
+
+远程 Matplotlib 3.10.7 亦完成126格图生成，git diff --check通过。
+进一步的待审数学归纳：T1<T2 时对子树定义 block数 b 和上交 uncovered u，
+候选不变量为 b1>=b2，且 b1=b2 时 u1>=u2。此不变量可由postorder emission
+分情况归纳；若成立，则 block数随T不增，可用实际B(T)作未来结构选择依据。
+尚未将此候选性质或未来配置方案写成论文已证明/已测试的主张。
+
+## C1 已编译并进入定向复核
+
+C0原始意见全部归档，两位全文reviewer都建议Reject。C1加入新覆盖分析、
+三group图、partition证明附录，固定配置主表与全126格QPS/预算图；
+正文、摘要、结论和导师材料对齐。257 tests通过，26页Tectonic PDF，
+无undefined refs/citations，CSV SHA仍为9e56a1ed...。新图和固定表已目视检查。
+C1冻结输入 /tmp/mlung-c1-review-20261007；返回reviewer做定向复核，不称cold。
+较早的两份retagging working scratch已删除，其完整独立审计和枚举脚本保留。

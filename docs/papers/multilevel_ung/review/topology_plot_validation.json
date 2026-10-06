@@ -1,0 +1,32 @@
+[
+  {
+    "check": "missing cell",
+    "status": "pass",
+    "reason": "incomplete/unexpected grid: 1 missing, 0 unexpected"
+  },
+  {
+    "check": "duplicate cell",
+    "status": "pass",
+    "reason": "duplicate topology cell: ('L', 'sel_0p5')"
+  },
+  {
+    "check": "sub-target crossing",
+    "status": "pass",
+    "reason": "invalid Recall crossing: L, sel_0p5"
+  },
+  {
+    "check": "NC painted as zero QPS",
+    "status": "pass",
+    "reason": "NC contains a crossing: LL, sel_0p5"
+  },
+  {
+    "check": "mixed workload means",
+    "status": "pass",
+    "reason": "inconsistent selectivity: sel_0p5"
+  },
+  {
+    "check": "frozen CSV unchanged",
+    "status": "pass",
+    "sha256": "9e56a1ed859152382b829e612c5e62ff4f90d50a5ce3b9a6a3e8230c426b6505"
+  }
+]

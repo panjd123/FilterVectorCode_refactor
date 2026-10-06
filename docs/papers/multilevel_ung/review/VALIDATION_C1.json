@@ -1,0 +1,28 @@
+{
+  "phase": "C1",
+  "checked_at_utc": "2026-10-06T19:19:41.150992+00:00",
+  "pdf": {
+    "paper_pages": 26,
+    "paper_sha256": "17457b1362f6791fabc2e183d770690340c21f46668ad4e0c2bf0dcb4a3e7009",
+    "packet": "/tmp/mlung-c1-review-20261007",
+    "fixed_table_page": 10
+  },
+  "tests": [
+    "Ran 257 tests in 1.728s"
+  ],
+  "tectonic_unresolved_references_or_citations": false,
+  "factorial_csv_sha256": "9e56a1ed859152382b829e612c5e62ff4f90d50a5ce3b9a6a3e8230c426b6505",
+  "factorial_cells": 126,
+  "crossings": 95,
+  "no_crossings": 31,
+  "numeric_inputs_changed": false,
+  "vector_benchmarks_launched": false,
+  "visual_checks": [
+    "Retagging diagram page 7",
+    "Fixed-configuration table page 10 at 10pt",
+    "Complete QPS/capacity panels page 17"
+  ],
+  "finalizer_manifest": "runs/paper_c1_20261007/finalization_manifest.json",
+  "focused_reviews": "pending",
+  "completion_scope": "C1 writing checkpoint, not completion of the minimum 18-hour objective."
+}

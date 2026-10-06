@@ -108,6 +108,11 @@ def main() -> int:
         "manifest.json",
     ):
         shutil.copy2(topology_summary / name, paper_data / name)
+    topology_figures = PAPER / "generated_figures/topology"
+    run([
+        sys.executable, str(HERE / "plot_topology_factorial.py"),
+        str(paper_data / "factorial_equal_recall.csv"), str(topology_figures),
+    ], HERE)
     command = [
         sys.executable, str(generator),
         "--amazon-equal-recall", str(amazon_summary / "equal_recall_conservative.csv"),
@@ -169,6 +174,10 @@ def main() -> int:
         generator_manifest,
     ]
     # Include nested section sources: the manuscript is no longer one TeX file.
+    outputs.extend(sorted(topology_figures.glob("*.pdf")))
+    outputs.extend(sorted(topology_figures.glob("*.png")))
+    outputs.append(topology_figures / "topology_plot_manifest.json")
+    outputs.append(HERE / "plot_topology_factorial.py")
     outputs.extend(sorted(PAPER.rglob("*.tex")))
     outputs.extend(sorted(PAPER.glob("*.bib")))
     outputs.extend([PAPER / "ADVISOR_NOTE_CN.md", PAPER / "PAPER_OUTLINE_CN.md"])

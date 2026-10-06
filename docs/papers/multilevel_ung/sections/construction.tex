@@ -126,10 +126,11 @@ depth cap and integer-overflow guard, the derived overlay count is
 \end{equation}
 An overlay uses LNG when $N/T_\ell>R$ and prefix topology otherwise.  The
 coarsest graph is thus sparsified once the estimated block count fits within
-one local neighborhood budget.  Here $N/T_\ell$ is a proxy, not the measured
-block count; threshold partitioning leaves residuals and can emit oversized
-blocks.  The rule balances this structural estimate; its effect on query
-time is evaluated empirically.
+one local neighborhood budget.  Equation~\ref{eq:block-count-bound} makes $N/T_\ell$ a loose upper envelope
+for block count. It can greatly exceed the realized count when prefix branches
+remain residual. The other surrogate term, $T$, is an emission scale rather
+than a bound on block size or local search work. Thus the square-root choice
+sets a structural reference scale; its query performance is evaluated empirically.
 
 \begin{algorithm}[t]
 \caption{DRH structure and optional mass gate}
