@@ -1,33 +1,52 @@
 \section{Experimental Methodology}
+\label{sec:methodology}
+\authoritativeDatasetTable
 \subsection{Questions}
 We ask: (Q1) When does the prefix topology with its covering frontier improve
 over the matched LNG system? (Q2) Which effects come from block depth and
 controlled topology changes? (Q3) Which profile counters explain these effects?
-(Q4) What construction time and resources do GPU-assisted overlays require?
-(Q5) How well does a query-calibration-free plan transfer relative to a frozen
-manual candidate set?
+(Q4) How well does a query-calibration-free plan transfer relative to a frozen
+manual candidate set? (Q5) What construction time and resources do
+GPU-assisted overlays require?
 
 \subsection{Execution Environment}
 The experiment host uses two Intel Xeon Platinum 8360Y processors (72 physical
 cores, 144 logical CPUs) and an NVIDIA L20 with 46,068 MiB reported device
-memory. Queries use 100 CPU workers. The manuscript audit records CentOS 7
-and driver 550.54.14 in a separate hardware snapshot; this describes the
-observed host, while original binary hashes, per-case backend settings, and
-GPU-idle evidence remain in the frozen campaign manifests. GPU acceleration
-in the construction study does not imply GPU query execution.
+memory. Queries use 100 CPU workers. The recorded host runs CentOS 7
+with NVIDIA driver 550.54.14. The artifact manifests retain the hardware
+snapshot, binary hashes, per-case backends, and GPU-idle checks. GPU acceleration is used for construction; query execution runs on the CPU.
 
 \subsection{Datasets and Workloads}
-The development dataset is Amazon with $602{,}453$ vectors of dimension 768 and
+We reuse the repository's preprocessed vector and integer-label datasets,
+evaluating L2 distance on the stored floating-point coordinates. Canonical
+tries sort stored label IDs in ascending order. The development dataset is Amazon with $602{,}453$ vectors of dimension 768 and
 $482{,}387$ observed label groups.  Each Amazon workload contains 1,000 queries, uses
 $K=10$, and has exact containment ground truth.  The measured mean
 selectivities are 0.499249\%, 0.903055\%, 5.038117\%, 9.906615\%, 30.027242\%,
 60.047491\%, 80.023699\%, 95.019781\%, and 99.000600\%.  Genome, Reviews, and
 VariousImg are held out for the automatic-policy study; their exact workload
 directories and fingerprints are recorded in the artifact manifest.
-\authoritativeDatasetTable
 The 99\% Amazon workload contains 697 empty predicates and 303 singleton
-predicates $\{1\}$.  We retain this mixture because both are legal containment
-queries, and validate the empty-predicate path separately before timing.
+predicates $\{1\}$.  The empty-predicate path is validated separately before timing.
+
+The 0.5\%, 1\%, and 10\% batches reuse existing predicate files;
+their mean query-label counts are 5.939, 5.763, and 3.396. The 5\%,
+30\%, and 60\% batches raise the mean coverage of source batches by
+replacing selected predicates with the frequent singleton $\{1\}$.
+The 80\% and 95\% batches use the same construction and query vectors
+from a 75\% source batch. Label 1 covers 96.702\% of the database, so
+the 99\% batch mixes it with the empty predicate. These are batch-mean
+selectivities: for example, individual queries in the 5\% batch range
+from 0.0033\% to 96.702\%. Predicate composition and selectivity vary
+together, so the sweep characterizes these workload families.
+
+The five manual plans perturb the automatic two-overlay plan
+$(t,16t)$: one LNG overlay at $t$; two LNG overlays at $(t,16t)$;
+two Trie overlays at $(t,16t)$; and LNG/Trie overlays at
+$(t/2,8t)$ or $(2t,32t)$. Here $t$ is 256 for Genome, 512 for
+Reviews, and 1024 for VariousImg. All share the LNG base and the
+presence gate used by DRH-v1; consequently the one-overlay alternative
+always falls back to the base under this gate.
 
 \subsection{Methods and Fairness}
 The principal 0L comparison is LNG topology with optimized-LNG entry
@@ -37,152 +56,125 @@ both base topologies and every LNG/Trie upper-layer assignment through 2L.
 Within either base, replacing one upper letter is a controlled topology
 comparison because its entry provider is unchanged.  Across bases we instead
 report a matched-provider system comparison, not a pure edge-topology effect.
-The implementation supports three entry strategies (original LNG, optimized
-LNG, and Trie); the current tables do not constitute a complete controlled
-three-provider latency ablation. Routed
-controls are outside the factorial because routing changes which search
-algorithm executes. For held-out automatic-policy evaluation, however,
+Routed controls are evaluated separately because routing changes the
+executed search algorithm. For held-out automatic-policy evaluation, however,
 the exact gate is fixed for DRH and every manual-alternative hierarchy; the
 ungated DRH variant is reported separately.
 
 We call the 0L LNG configuration \emph{Plain} or \emph{0L-LNG}.  It
 preserves UNG's exact-label groups, LNG cover relation, and unified vector
-graph, but it is not the unmodified upstream release: it uses our optimized,
-semantically equivalent minimal-superset provider and the common refactored
-execution path.  Within a fixed LNG base and provider, this is the control for adding overlays.
-Changing the base and its matched provider changes two mechanisms jointly.
-These measurements are not direct timings against the original UNG binary.
+graph, with our optimized, semantically equivalent minimal-superset
+provider and the common refactored execution path.  Within a fixed LNG base and provider, this is the control for adding overlays.
 
 Within each comparison, query methods use the same data, query vectors, labels, exact ground truth,
 $K$, thread count, immutable search binary, graph backend, and Recall protocol.
-\authoritativeQueryExecution
-Every repeat executes the same frozen query file in the same order; repeats are
-repeated measurements, not new random samples.  We discard the cold repeat,
-derive primary QPS from the median warm batch time, and retain per-repeat values
-for dispersion estimates.  Recall is not averaged to relax the quality target:
-every warm repeat at the selected operating point must meet the threshold.
-We select the smallest \emph{measured} $L_{search}$ for which every warm repeat
-reaches Recall@10 $\ge0.90$; there is no interpolation or extrapolation.  The
-screen pass locates crossings and a separate profile pass collects expensive
-counters. The current deadline artifact uses one discarded cold repeat and two
-warm repeats; a later formal pass is reserved for confidence intervals. If a method has no screen crossing, its
+Each case executes one cold and two warm repeats of the same frozen query
+file in the same order. We discard the cold repeat and derive QPS from the
+median warm batch time. The operating point is the smallest executed
+$L_{search}$ for which both warm repeats reach Recall@10 $\ge0.90$.
+A separate instrumented pass collects stage times and work counters.
+If a method has no screen crossing, its
 crossing pass extends to the largest $L_{search}$ measured for any method on
 that workload (or an explicitly declared common cap); only failure at that
 shared budget is reported as no crossing.
-\authoritativeSharedSearchBudgetTable
+The workload-specific search caps appear in Table~\ref{tab:budgets}.
 
 \subsection{Metrics}
-Table~\ref{tab:metric-definitions} defines every quantity used in the query
-tables.  Batch size $B$ is workload-specific: 1,000 on Amazon and
+Table~\ref{tab:metric-definitions} in Appendix~\ref{sec:measurement-details}
+defines all stage times and counters. Primary throughput is
+$\mathrm{QPS}=1000B/\mathrm{batch\ latency\ (ms)}$.  Batch size $B$ is workload-specific: 1,000 on Amazon and
 2,864 or 3,000 on the held-out workloads (Table~\ref{tab:heldout-datasets}).  Primary query metrics are
-warm-median batch latency and QPS. Bootstrap 95\% confidence intervals are
-reserved for the later formal pass and are not claimed by the current deadline
-artifact.
-
-\begin{table*}[t]
-\caption{Measurement definitions.  A ``warm median'' is taken across the two
-warm repeats in the current screen-level artifact; it is not a confidence
-interval.  Per-query stage times and work counters are first averaged over all
-queries in one repeat and then summarized across warm repeats.}
-\label{tab:metric-definitions}
-\centering
-\small
-\begin{tabular}{p{0.19\textwidth}p{0.73\textwidth}}
-\toprule
-Reported quantity & Definition \\
-\midrule
-Mean selectivity & $B^{-1}\sum_{j=1}^{B}|\eligible(Q_j)|/N$ for the frozen query batch; it describes the workload and is not an input to DRH. \\
-Recall@10 & For one repeat, the mean over queries of $|R_{10}(q_j,Q_j)\cap R^*_{10}(q_j,Q_j)|/10$.  A crossing requires every warm repeat at that executed point to reach 0.90. \\
-$L_{search}$ & Capacity of the bounded candidate queue.  An equal-Recall operating point is the smallest executed $L_{search}$ that crosses the Recall target; values between executed points are not interpolated. \\
-Batch latency / QPS & Wall time to complete all $B$ queries with 100 query threads, after the cold repeat is discarded; $\mathrm{QPS}=1000B/\mathrm{batch\ latency\ (ms)}$. \\
-$A/B$ speedup & $\mathrm{QPS}_A/\mathrm{QPS}_B$, using each method's selected equal-Recall crossing.  A ratio above one favors $A$. \\
-NC / $R_{\max}$ & NC means no Recall crossing within the workload-wide measured $L_{search}$ budget.  $R_{\max}$ is the largest minimum-over-warm-repeats batch Recall observed in that budget. \\
-ELS / entry / authorization & Mean milliseconds per query for Entry Label Set (entry-group) discovery, vector entry-point setup, and exact block-authorization plus routing work, respectively. \\
-Graph / residual & Mean milliseconds per query inside bounded graph traversal, and the remaining measured query time outside the named stages. \\
-Visited / edges / distances & Mean per-query counts of popped graph states, scanned adjacency entries, and vector-distance evaluations.  Base and overlay edges are counted separately where enabled. \\
-\bottomrule
-\end{tabular}
-\end{table*}
+warm-median batch latency and QPS. With only two warm repeats, we report the observed throughputs
+without query-performance confidence intervals.
 
 Build timing uses process wall time through files on disk, followed by
 structural acceptance checks; kernel time is never substituted for builder
 wall time. The current construction evidence contains two measured repeats
 per hierarchy backend, after a cold run, and a separate memory-resource pass.
-The composed total adds independently measured base and sidecar stage medians;
-it is not one jointly timed multilevel build. Bootstrap intervals resample
-these small observed stage cohorts independently. They describe this
-exploratory sample and do not establish population-level uncertainty. A
-longer interleaved timing study remains necessary for a robust interval.
-GPU cases retain three consecutive idle-device snapshots before timing on
-this host, where an exclusive GPU lock is unavailable; the evidence establishes
-idle preflight, not lock-level exclusivity. Backend counters and reload checks
-validate execution and structure. The current timing table does not demonstrate
-matched-Recall quality for every accelerated index, especially the fastest
-hybrid configuration.
+The composed total adds independently measured base and sidecar stage medians.
+We report observed dispersion across the two stage repeats.
+GPU cases require three consecutive idle-device snapshots before timing. Backend counters and reload checks validate execution and structure.
+These construction times compare the declared builders; query-quality
+equivalence of their output graphs has not been measured.
 
-\subsection{Frozen Construction Profiles}
-\begin{table*}[t]
-\caption{Frozen base-graph construction profiles.  ``Optimized metadata''
-denotes bucketed minimal-superset discovery, optimized LNG construction,
-epoch-based descendants, and direct descendant coverage.}
-\label{tab:base-build-profiles}
-\centering
-\scriptsize
-\begin{tabular}{p{0.13\textwidth}p{0.19\textwidth}p{0.25\textwidth}p{0.32\textwidth}}
-\toprule
-Profile & Intra-group graph & Group metadata & Vector cross-group edges \\
-\midrule
-\texttt{original\_cpu} & CPU Vamana & Original sort/LNG, hash-BFS descendants, topological coverage & Original CPU builder \\
-\texttt{current\_cpu} & CPU Vamana & Optimized metadata & CPU Vamana cross-edge builder \\
-\texttt{naive\_gpu} & CPU Vamana & Optimized metadata & Batched GPU SGEMM plus separate top-$k$ \\
-\texttt{paper\_fused} & CPU Vamana & Optimized metadata & Descriptor-grouped fused distance/top-$k$ with identifier-only writeback \\
-\texttt{accelerated\_gpu} & FastGrnnd CUDA path & Optimized metadata & Fused GPU cross edges plus CPU exact-scan additional edges \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-\begin{table*}[t]
-\caption{Frozen hierarchy-sidecar construction profiles.  CPU completion is
-retained below the declared small-block threshold in every profile.}
-\label{tab:hierarchy-build-profiles}
-\centering
-\scriptsize
-\begin{tabular}{p{0.18\textwidth}p{0.35\textwidth}p{0.34\textwidth}}
-\toprule
-Profile & Intra-block route & Inter-block route \\
-\midrule
-\texttt{cpu} & Small exact/complete, medium sampled Vamana, large CPU Vamana & CPU \\
-\texttt{hybrid\_gpu\_intra} & Small exact/complete, medium sampled Vamana, large FastGrnnd-style CUDA & CPU \\
-\texttt{hybrid\_gpu\_intra\_inter} & Same hybrid intra route & Fused CUDA top-$k$ \\
-\texttt{full\_gpu} & Bounded completion, then CUDA & Fused CUDA-core top-$k$ \\
-\texttt{full\_gpu\_wmma} & Bounded completion, then CUDA & Fused TF32-WMMA top-$k$ \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
+The exact CPU/GPU routes are fixed before measurement; Appendix~\ref{sec:build-profiles}
+lists the base and hierarchy profiles. They differ in local graph construction,
+metadata preparation, and cross-edge generation, so their total-time ratios
+measure complete builder profiles.
 
 \section{Results}
-\subsection{Entry and Topology Choices}
-We first compare every base and overlay topology using matched entry
-providers. These 126 cells are measured Recall crossings or explicit
-no-crossing outcomes, not interpolated optima. They expose the operating
-regime of the prefix-entry design before the automatic policy is evaluated.
+The sweep compares selective-predicate batches and mixtures containing a
+frequent singleton, using the batch-mean selectivity defined in Section~\ref{sec:methodology}.
+\subsection{Matched Base and Overlay Choices}
+The best organization changes across the Amazon workloads: prefix-base
+systems lead near 0.5--5\%, while the LNG base leads near 10\% and 30\%.
+Table~\ref{tab:base-topology-winners} compares the best measured configuration
+within each depth and across the full 14-configuration grid.
 \baseTopologyFactorialFindings
 
-\subsection{Depth and Fixed-Base Controls}
-The following controls keep the LNG base and optimized-LNG entry provider
-fixed when varying overlays. Historical labels abbreviate the base as defined
-in Table~\ref{tab:level-notation}. Gated and ungated routing are separate
-configurations; a depth benefit under one routing policy cannot be transferred
-to another by renaming the index.
+\subsection{Where Discovery Savings Go}
 \authoritativeAmazonSummary
-The selected stage profile in Figure~\ref{fig:motivation} shows discovery savings
-and their possible displacement into seed and graph work. Full profiles and
-fixed-base topology controls appear in the appendix; the one declared profile
-timeout is preserved.
+The profiles expose the tradeoff behind the base comparison
+(Figure~\ref{fig:motivation}). At 0.499\%, Trie reduces discovery from
+20.352 to 0.645 ms/query, while seed setup rises from 0.195 to 1.769 ms.
+Graph time also falls, from 2.076 to 0.868 ms. At 9.907\%, discovery still
+falls, from 36.631 to 3.778 ms, but seed setup rises to 14.744 ms and graph
+time increases from 98.747 to 323.081 ms. Cheaper entry discovery therefore
+coincides with both a winning and a losing end-to-end configuration.
+The changed frontier and topology shift work into different stages.
 
-\subsection{Automatic Configuration and Transfer}
-Manual alternatives are a frozen finite candidate set. Per-workload winners
-are hindsight comparisons, not executable query-independent policies.
-\authoritativeBuildResults
+Blocks can recover throughput on batches with larger mean selectivity. Keeping the LNG base
+and its optimized provider fixed, the ungated one-overlay system reaches
+27.99$\times$ Plain and the two-overlay system reaches 27.57$\times$ on
+the measured higher-mean-selectivity batches (Table~\ref{tab:amazon-depth}). Both fail
+to cross at 30\% within the shared budget. In the full grid, the best
+one-overlay system already leads at 60\% and 80\%; a second overlay is
+useful at 95\%, where the best QPS rises from 520.35 to 564.63.
+Thus additional scale can help, but the base, overlay topology, and seed
+competition jointly determine its value.
+
+\subsection{Automatic Policy Transfer}
 \authoritativePolicyResults
+DRH-v1 remains near Plain on Genome and Reviews (0.954--1.014$\times$),
+but falls to 0.205$\times$ on VariousImg (Table~\ref{tab:heldout}). Its
+ratios to the best of the five manual alternatives are 0.980--1.008 on
+Genome/Reviews and 0.218 on VariousImg. A fixed structural plan therefore
+transfers unevenly. The best manual candidate on VariousImg is the
+one-overlay plan, whose presence gate executes base search; its advantage
+there comes from rejecting the overlays.
+The per-workload manual winner is selected in hindsight. Table~\ref{tab:heldout-global}
+also compares one fixed plan per dataset, aggregated over its workloads.
+
+The separate mass-gate experiment tests this failure mode. On VariousImg,
+DRH-v2 raises QPS from 547.01 to 884.18, reaching 0.336$\times$ its
+same-cohort Plain. On the 4.115\% Reviews workload it rejects a useful
+overlay and falls to 0.972$\times$ Plain (Table~\ref{tab:drh-v2}).
+Increasing the admission requirement reduces one regression but loses a
+beneficial case.
+
+The profiles show how routing changes work averaged over all queries
+in each broader workload (Table~\ref{tab:profile}). On VariousImg, the multilayer backend is
+active for 37.4\% of queries; mean scanned edges rise from 119,045.5 to
+251,144.0 and graph time rises from 35.098 to 172.065 ms/query. On Reviews,
+activation is 18.2\%, distances fall from 8,239.3 to 7,312.0, and graph time
+changes from 6.756 to 6.504 ms/query. These contrasting outcomes motivate
+an admission model that accounts for expected navigation work as well as
+certifiable mass. All four datasets derive two overlays, so this experiment
+examines scale and topology transfer at a fixed resulting depth.
+
+\subsection{Construction Cost}
+\authoritativeBuildResults
+On Amazon, the fastest hybrid builder reduces hierarchy construction from
+1000.64 to 90.49 seconds, an 11.06$\times$ ratio; the full-GPU route takes
+105.90 seconds (Table~\ref{tab:hierarchy-build}). Adding GPU cross-edge
+construction to the hybrid route increases time to 132.94 seconds, and the
+TF32-WMMA route takes 1011.13 seconds. More GPU execution is therefore
+not uniformly beneficial for these irregular tasks.
+
+Including the separately measured accelerated base stage gives composed
+times of 141.27 seconds for the fastest hybrid and 156.69 seconds for full
+GPU, compared with 190.38 seconds for the original CPU base builder
+(Table~\ref{tab:end-to-end-build}). The resulting ratios are 1.35$\times$
+and 1.21$\times$. The hybrid resource pass records 4880.7 MiB peak host
+RSS and 1598.0 MiB peak device allocation. Table~\ref{tab:sidecar-build}
+reports the CPU sidecars used to enable the held-out query study.

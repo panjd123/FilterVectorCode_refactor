@@ -10,7 +10,7 @@ prefix of that of $S$.  Our entry frontier is
 UNG's entry set instead excludes $S$ whenever an eligible proper
 \emph{subset} of $S$ is observed.  Every prefix is a subset, but many subsets
 are not prefixes.  Consequently the LNG-minimal entry set is contained in
-$F(Q)$, and the containment can be strict.  Figure~\ref{fig:running-example}
+$F(Q)$, and the containment can be strict.  Figure~\ref{fig:method-overview}
 shows the smallest relevant distinction: $\{b\}\subset\{a,b\}$ is not a
 prefix relation under $a<b$, so both groups must remain in $F(\{b\})$.
 
@@ -19,8 +19,7 @@ trie.  This forms a directed forest, with one incoming edge per non-root
 terminal.  It has exactly $G-r$ group edges, where $r$ is the number of
 terminals without a terminal ancestor.  Thus the count is $G-1$ only if
 $r=1$.  The LNG cover graph has at most $O(G^2)$ edges, and two-level subset
-families can attain a quadratic count.  This is a worst-case distinction,
-not an assertion that every dataset has a dense LNG.
+families can attain a quadratic count.  Actual density depends on the observed label-set family.
 
 \paragraph{Proposition 1: group-level frontier coverage.}
 Every eligible observed terminal is reachable from a terminal in $F(Q)$ by a
@@ -37,8 +36,7 @@ reachability requires retaining every frontier group as a seed, each directed lo
 portals, and accessible materialized cross edges
 for each required group transition.  Finite candidate capacity, approximate
 local graphs, pruning, and seed selection can violate those additional
-conditions.  We therefore measure Recall; the proposition is not an ANN
-accuracy guarantee.
+conditions.  These additional conditions motivate the finite-budget Recall measurements.
 
 \subsection{The Measured Entry Algorithm}
 The measured Trie provider stores, for each label $a$, a compressed bitmap
@@ -81,9 +79,8 @@ supersets. They then reduce this frontier under set containment.  The original v
 removes sets containing an already retained minimum.  The optimized version
 uses cardinality buckets when the size span is small, with a sorting fallback;
 it still performs pairwise sorted-set containment checks for minimality.
-It preserves the original entry definition.  The prefix provider changes
-that definition and the data structures used to compute it.  Thus its timing
-advantage is not solely the effect of removing one sort.
+It preserves the original entry definition.  The prefix provider changes both the entry definition and the
+data structures used to compute it.
 
 \paragraph{Cost and output tradeoff.}
 Let $c=|C_Q|$, $f=|F(Q)|$, and $A_Q$ be the number of proper-ancestor

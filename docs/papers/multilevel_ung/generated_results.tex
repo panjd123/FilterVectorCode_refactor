@@ -7,22 +7,20 @@
 \small
 \caption{Held-out datasets and query-independent DRH plans. Selectivity characterizes the frozen queries and is not an input to DRH.}
 \label{tab:heldout-datasets}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lrrlrrl}
+\begin{tabular}{lrrrrl}
 \toprule
-Dataset & $N$ & $d$ & Workload & Queries & Selectivity & DRH plan \\
+Dataset & $N$ & $d$ & Queries & Mean sel. & DRH plan \\
 \midrule
-Genome & 108,077 & 512 & query\_minlen5\_cov0.1k & 3,000 & 3.365\% & 256:LNG, 4096:TRIE \\
-Genome & 108,077 & 512 & query\_minlen2\_cov1k & 3,000 & 6.292\% & 256:LNG, 4096:TRIE \\
-Reviews & 288,065 & 384 & query\_minlen5\_cov0.1k & 3,000 & 0.200\% & 512:LNG, 8192:TRIE \\
-Reviews & 288,065 & 384 & query\_minlen2\_cov1k & 2,864 & 4.115\% & 512:LNG, 8192:TRIE \\
-VariousImg & 758,935 & 512 & query\_minlen2\_cov5k & 3,000 & 10.252\% & 1024:LNG, 16384:TRIE \\
+Genome & 108,077 & 512 & 3,000 & 3.365\% & 256:LNG, 4096:TRIE \\
+Genome & 108,077 & 512 & 3,000 & 6.292\% & 256:LNG, 4096:TRIE \\
+Reviews & 288,065 & 384 & 3,000 & 0.200\% & 512:LNG, 8192:TRIE \\
+Reviews & 288,065 & 384 & 2,864 & 4.115\% & 512:LNG, 8192:TRIE \\
+VariousImg & 758,935 & 512 & 3,000 & 10.252\% & 1024:LNG, 16384:TRIE \\
 \bottomrule
 \end{tabular}
-}
 \end{table*}
 }
-\newcommand{\authoritativeQueryExecution}{All primary query values use 100 query threads over the full frozen batch. The deadline evidence is explicitly screen-level: one cold run followed by two warm repeats, with QPS from warm-median batch time.}
+\newcommand{\authoritativeQueryExecution}{All primary query values use 100 query threads over the full frozen batch. Measurements use one cold run followed by two warm repeats, with QPS from warm-median batch time.}
 \newcommand{\authoritativeSharedSearchBudgetTable}{%
 \begin{table}[t]
 \centering
@@ -31,7 +29,7 @@ VariousImg & 758,935 & 512 & query\_minlen2\_cov5k & 3,000 & 10.252\% & 1024:LNG
 \label{tab:budgets}
 \begin{tabular}{rrr}
 \toprule
-Selectivity & Plain crossing $L$ & Screen cap $L$ \\
+Mean sel. & Plain crossing $L$ & Screen cap $L$ \\
 \midrule
 0.499\% & 2,000 & 2,000 \\
 0.903\% & 2,200 & 2,200 \\
@@ -49,17 +47,17 @@ Selectivity & Plain crossing $L$ & Screen cap $L$ \\
 \newcommand{\authoritativeResults}{%
 \subsection{Amazon Query Performance}
 
-These are bounded screen-level results (one discarded cold repeat and two warm repeats), not formal confidence-interval estimates. At low selectivity 0L-Trie changes level-0 group connectivity and can be substantially faster; its loss at 10\% and above shows that this is not a monotone hierarchy effect. The ungated 1L-LNG and 2L-LT methods do not cross the target at 30\%, while high-selectivity gains reach 27.99$\times$ and 27.57$\times$. DRH-v1 routing preserves low-selectivity crossings but remains 0.64--0.99$\times$ of Plain over 0.5--10\%.
+These are bounded screen-level results (one discarded cold repeat and two warm repeats), not formal confidence-interval estimates. At low selectivity 0L[T] changes level-0 group connectivity and can be substantially faster; its loss at 10\% and above shows that this is not a monotone hierarchy effect. The ungated 1L[L|L] and 2L[L|LT] methods do not cross the target at 30\%, while high-selectivity gains reach 27.99$\times$ and 27.57$\times$. DRH-v1 routing preserves low-selectivity crossings but remains 0.64--0.99$\times$ of Plain over 0.5--10\%.
 
 \begin{table*}[htbp]
 \centering
 \small
-\caption{Amazon equal-Recall comparison. Plain QPS is the raw throughput of 0L-LNG; every other numeric column is QPS(method)/QPS(Plain) at that method's smallest measured point whose two warm repeats both reach Recall@10 $\geq0.90$. NC means no crossing in the shared measured budget.}
+\caption{Amazon equal-Recall comparison. Plain QPS is the raw throughput of 0L[L]; every other numeric column is QPS(method)/QPS(Plain) at that method's smallest measured point whose two warm repeats both reach Recall@10 $\geq0.90$. NC means no crossing in the shared measured budget.}
 \label{tab:amazon-depth}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrr}
 \toprule
-Selectivity & Plain QPS & 0L-Trie/plain & 1L-LNG/plain & 2L-LT ungated/plain & 2L-LT DRH-v1/plain \\
+Mean sel. & Plain QPS & 0L[T]/plain & 1L[L|L]/plain & 2L[L|LT] ungated/plain & 2L[L|LT] DRH-v1/plain \\
 \midrule
 0.499\% & 2476.35 & 6.03$\times$ & NC & NC & 0.86$\times$ \\
 0.903\% & 4191.04 & 2.77$\times$ & NC & NC & 0.99$\times$ \\
@@ -83,7 +81,7 @@ Selectivity & Plain QPS & 0L-Trie/plain & 1L-LNG/plain & 2L-LT ungated/plain & 2
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrr}
 \toprule
-Selectivity & 1L-LNG QPS & 1L-Trie QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\max}$ \\
+Mean sel. & 1L[L|L] QPS & 1L[L|T] QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\max}$ \\
 \midrule
 0.499\% & NC & NC & -- & 0.8878 & 0.8878 \\
 0.903\% & NC & NC & -- & 0.8567 & 0.8464 \\
@@ -102,12 +100,12 @@ Selectivity & 1L-LNG QPS & 1L-Trie QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\m
 \begin{table*}[htbp]
 \centering
 \scriptsize
-\caption{2L topology ablation at fixed $T_1=1024$, $T_2=16384$, level-0 LNG, optimized-LNG entry, and ungated routing. In 2L-$XY$, $X$ is the level-1 topology and $Y$ the level-2 topology. QPS appears only at a measured Recall@10 $\geq0.90$ crossing.}
+\caption{2L topology ablation at fixed $T_1=1024$, $T_2=16384$, level-0 LNG, optimized-LNG entry, and ungated routing. In 2L[L|$XY$], $X$ is the level-1 topology and $Y$ the level-2 topology. QPS appears only at a measured Recall@10 $\geq0.90$ crossing.}
 \label{tab:two-layer-topology}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrrrrr}
 \toprule
-Sel. & 2L-LL QPS & 2L-LT QPS & 2L-TL QPS & 2L-TT QPS & LL $R_{\max}$ & LT $R_{\max}$ & TL $R_{\max}$ & TT $R_{\max}$ \\
+Mean sel. & 2L[L|LL] QPS & 2L[L|LT] QPS & 2L[L|TL] QPS & 2L[L|TT] QPS & LL $R_{\max}$ & LT $R_{\max}$ & TL $R_{\max}$ & TT $R_{\max}$ \\
 \midrule
 0.499\% & NC & NC & NC & NC & 0.8878 & 0.8878 & 0.8878 & 0.8878 \\
 0.903\% & NC & NC & NC & NC & 0.8567 & 0.8567 & 0.8464 & 0.8464 \\
@@ -124,22 +122,22 @@ Sel. & 2L-LL QPS & 2L-LT QPS & 2L-TL QPS & 2L-TT QPS & LL $R_{\max}$ & LT $R_{\m
 \end{table*}
 
 \subsection{Automatic Versus Manual Hierarchies}
-The bounded held-out study compares DRH-v1 with five pre-registered manual alternatives. DRH-v2 was evaluated later as a separate same-binary routing ablation and is not substituted into this frozen candidate set. The manual comparison is restricted to this finite candidate set.
+The held-out study compares DRH-v1 with five pre-registered manual alternatives. Per-workload winners are hindsight comparisons, not executable query-independent policies. DRH-v2 was evaluated later as a separate same-binary routing ablation and is not substituted into this frozen candidate set. The manual comparison is restricted to this finite candidate set.
 \begin{table*}[htbp]
 \centering
 \small
-\caption{Screen-level 2L-LT/DRH-v1 results at Recall@10 $\geq0.90$.}
+\caption{Screen-level 2L[L|LT]/DRH-v1 results at Recall@10 $\geq0.90$.}
 \label{tab:heldout}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrrl}
 \toprule
-Dataset & Selectivity & Plain QPS & DRH-v1/plain & DRH-v1/best manual & Best manual plan \\
+Dataset & Mean sel. & Plain QPS & DRH-v1/plain & DRH-v1/best manual & Best manual plan / executed route \\
 \midrule
 Genome & 3.365\% & 153.65 & 0.954$\times$ & 1.008 & 256,4096:trie,trie \\
-Genome & 6.292\% & 85.45 & 0.982$\times$ & 1.007 & 256:lng \\
+Genome & 6.292\% & 85.45 & 0.982$\times$ & 1.007 & 256:lng (base fallback) \\
 Reviews & 0.200\% & 19319.56 & 1.014$\times$ & 0.997 & 1024,16384:lng,trie \\
 Reviews & 4.115\% & 354.78 & 1.004$\times$ & 0.980 & 1024,16384:lng,trie \\
-VariousImg & 10.252\% & 2657.04 & 0.205$\times$ & 0.218 & 1024:lng \\
+VariousImg & 10.252\% & 2657.04 & 0.205$\times$ & 0.218 & 1024:lng (base fallback) \\
 \bottomrule
 \end{tabular}
 }
@@ -171,7 +169,7 @@ DRH-v2 is a same-binary ablation: it rejects an upper layer when direct mass at 
 \label{tab:drh-v2}
 \begin{tabular}{lrrrrr}
 \toprule
-Dataset & Selectivity & Plain QPS & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\
+Dataset & Mean sel. & Plain QPS & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\
 \midrule
 Genome & 3.365\% & 143.73 & 144.50 & 142.57 & 0.992$\times$ \\
 Genome & 6.292\% & 82.74 & 83.73 & 83.16 & 1.005$\times$ \\
@@ -184,7 +182,7 @@ VariousImg & 10.252\% & 2633.06 & 547.01 & 884.18 & 0.336$\times$ \\
 The next-scale gate restores near-plain behavior on Genome and the 0.2\% Reviews workload, and improves VariousImg over DRH-v1, but it also rejects the useful overlay at 4.115\% Reviews. Thus it reduces catastrophic overhead without establishing monotone dominance.
 
 \subsection{Mechanism Breakdown}
-The separate detailed-profile binary is explanatory only and does not contribute primary QPS. Edge counts are measured here; disabled light-stat counters are never interpreted as zero.
+A separate instrumented run measures graph time and work counters on the broader held-out workloads. It explains the primary throughput results without contributing to their timing; counters unavailable in the lightweight run are measured here.
 \begin{table*}[htbp]
 \centering
 \small
@@ -193,14 +191,14 @@ The separate detailed-profile binary is explanatory only and does not contribute
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{llrrrrr}
 \toprule
-Dataset & Method & Graph ms & Visited & Edges & Distances & Active \\
+Dataset & Method & Graph ms & Encounters & Edges & Distances & Active \\
 \midrule
-Genome & 0L-LNG (Plain) & 0.124 & 123.8 & 154.3 & 4538.9 & 0.0\% \\
-Genome & 2L-LT/DRH-v1 & 0.199 & 185.1 & 591.8 & 4601.4 & 1.8\% \\
-Reviews & 0L-LNG (Plain) & 6.756 & 4415.8 & 15126.2 & 8239.3 & 0.0\% \\
-Reviews & 2L-LT/DRH-v1 & 6.504 & 3500.1 & 25605.4 & 7312.0 & 18.2\% \\
-VariousImg & 0L-LNG (Plain) & 35.098 & 18656.0 & 119045.5 & 18673.1 & 0.0\% \\
-VariousImg & 2L-LT/DRH-v1 & 172.065 & 27356.1 & 251144.0 & 27393.7 & 37.4\% \\
+Genome & 0L[L] (Plain) & 0.124 & 123.8 & 154.3 & 4538.9 & 0.0\% \\
+Genome & 2L[L|LT]/DRH-v1 & 0.199 & 185.1 & 591.8 & 4601.4 & 1.8\% \\
+Reviews & 0L[L] (Plain) & 6.756 & 4415.8 & 15126.2 & 8239.3 & 0.0\% \\
+Reviews & 2L[L|LT]/DRH-v1 & 6.504 & 3500.1 & 25605.4 & 7312.0 & 18.2\% \\
+VariousImg & 0L[L] (Plain) & 35.098 & 18656.0 & 119045.5 & 18673.1 & 0.0\% \\
+VariousImg & 2L[L|LT]/DRH-v1 & 172.065 & 27356.1 & 251144.0 & 27393.7 & 37.4\% \\
 \bottomrule
 \end{tabular}
 }
@@ -211,38 +209,38 @@ This profile-only pass reuses each method's measured performance operating point
 \begin{table*}[htbp]
 \centering
 \scriptsize
-\caption{Amazon detailed profile. Times are ms/query; work counters are means/query.}
+\caption{Amazon detailed profile. Times are ms/query; counters are all-query means. Encounters are first visits through adjacency.}
 \label{tab:amazon-profile}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrlrrrrrrr}
 \toprule
-Sel. & Op. & Method & ELS & Entry & Auth. & Graph & Visited & Edges & Distances \\
+Mean sel. & Op. & Method & ELS & Entry & Auth. & Graph & Encounters & Edges & Distances \\
 \midrule
-0.499\% & cross & 0L-LNG & 20.352 & 0.195 & 0.000 & 2.076 & 1966.8 & 23458.9 & 2150.2 \\
-0.499\% & cross & 0L-Trie & 0.645 & 1.769 & 0.000 & 0.868 & 988.6 & 11047.0 & 2764.4 \\
-0.499\% & max & 1L-LNG & 19.665 & 0.216 & 0.015 & 4.418 & 1860.2 & 23296.2 & 2043.9 \\
-0.499\% & max & 1L-Trie & 16.188 & 0.224 & 0.012 & 4.578 & 1859.2 & 23263.7 & 2042.9 \\
-0.499\% & cross & 2L-LT/DRH-v1 & 20.455 & 0.194 & 0.003 & 2.109 & 1968.1 & 23464.7 & 2151.5 \\
-9.907\% & cross & 0L-LNG & 36.631 & 0.646 & 0.000 & 98.747 & 25024.2 & 189382.5 & 25402.9 \\
-9.907\% & cross & 0L-Trie & 3.778 & 14.744 & 0.000 & 323.081 & 38926.2 & 351908.0 & 44682.9 \\
-9.907\% & max & 1L-LNG & 33.451 & 0.645 & 0.017 & 644.477 & 34782.5 & 821915.0 & 35184.9 \\
-9.907\% & max & 1L-Trie & 32.969 & 0.576 & 0.015 & 587.339 & 32344.1 & 757831.0 & 32746.5 \\
-9.907\% & cross & 2L-LT/DRH-v1 & 31.648 & 0.685 & 0.023 & 301.608 & 28532.4 & 449218.0 & 28936.2 \\
-30.027\% & cross & 0L-LNG & 251.380 & 3.963 & 0.000 & 1376.910 & 91953.6 & 580600.5 & 93654.0 \\
-30.027\% & max & 0L-Trie & 8.381 & 30.629 & 0.000 & 2420.260 & 88466.5 & 497828.0 & 98769.0 \\
-30.027\% & max & 1L-LNG & 220.485 & 1.887 & 0.017 & 1765.145 & 61473.4 & 1112780.0 & 63220.3 \\
-30.027\% & max & 1L-Trie & 226.654 & 1.963 & 0.015 & 1662.880 & 58664.4 & 1021480.0 & 60411.4 \\
-30.027\% & max & 2L-LT/DRH-v1 & 234.946 & 2.091 & 0.013 & 1755.115 & 64374.7 & 978653.5 & 66124.7 \\
-60.047\% & cross & 0L-LNG & 2123.720 & 33.187 & 0.000 & 21357.550 & 254657.0 & 1988540.0 & 265484.5 \\
-60.047\% & cross & 0L-Trie & 10.670 & 63.353 & 0.000 & 39255.750 & 261406.5 & 1453445.0 & 278174.0 \\
-60.047\% & cross & 1L-LNG & 1415.925 & 8.882 & 0.017 & 200.452 & 45762.3 & 218706.0 & 56600.6 \\
-60.047\% & cross & 1L-Trie & 1465.900 & 8.881 & 0.013 & 192.047 & 44045.4 & 200138.0 & 54883.6 \\
-60.047\% & cross & 2L-LT/DRH-v1 & 1408.655 & 9.064 & 0.017 & 195.087 & 45607.8 & 215753.5 & 56454.1 \\
-95.020\% & cross & 0L-LNG & 4918.875 & 61.074 & 0.000 & 89240.100 & 451225.0 & 3967260.0 & 467715.0 \\
-95.020\% & timeout & 0L-Trie & -- & -- & -- & -- & -- & -- & -- \\
-95.020\% & cross & 1L-LNG & 2307.095 & 12.576 & 0.018 & 113.150 & 44157.5 & 170659.0 & 60663.6 \\
-95.020\% & cross & 1L-Trie & 2313.385 & 13.444 & 0.014 & 299.972 & 67643.4 & 309628.0 & 84149.5 \\
-95.020\% & cross & 2L-LT/DRH-v1 & 2317.090 & 12.571 & 0.024 & 113.679 & 43995.0 & 170239.0 & 60513.8 \\
+0.499\% & cross & 0L[L] & 20.352 & 0.195 & 0.000 & 2.076 & 1966.8 & 23458.9 & 2150.2 \\
+0.499\% & cross & 0L[T] & 0.645 & 1.769 & 0.000 & 0.868 & 988.6 & 11047.0 & 2764.4 \\
+0.499\% & max & 1L[L|L] & 19.665 & 0.216 & 0.015 & 4.418 & 1860.2 & 23296.2 & 2043.9 \\
+0.499\% & max & 1L[L|T] & 16.188 & 0.224 & 0.012 & 4.578 & 1859.2 & 23263.7 & 2042.9 \\
+0.499\% & cross & 2L[L|LT]/DRH-v1 & 20.455 & 0.194 & 0.003 & 2.109 & 1968.1 & 23464.7 & 2151.5 \\
+9.907\% & cross & 0L[L] & 36.631 & 0.646 & 0.000 & 98.747 & 25024.2 & 189382.5 & 25402.9 \\
+9.907\% & cross & 0L[T] & 3.778 & 14.744 & 0.000 & 323.081 & 38926.2 & 351908.0 & 44682.9 \\
+9.907\% & max & 1L[L|L] & 33.451 & 0.645 & 0.017 & 644.477 & 34782.5 & 821915.0 & 35184.9 \\
+9.907\% & max & 1L[L|T] & 32.969 & 0.576 & 0.015 & 587.339 & 32344.1 & 757831.0 & 32746.5 \\
+9.907\% & cross & 2L[L|LT]/DRH-v1 & 31.648 & 0.685 & 0.023 & 301.608 & 28532.4 & 449218.0 & 28936.2 \\
+30.027\% & cross & 0L[L] & 251.380 & 3.963 & 0.000 & 1376.910 & 91953.6 & 580600.5 & 93654.0 \\
+30.027\% & max & 0L[T] & 8.381 & 30.629 & 0.000 & 2420.260 & 88466.5 & 497828.0 & 98769.0 \\
+30.027\% & max & 1L[L|L] & 220.485 & 1.887 & 0.017 & 1765.145 & 61473.4 & 1112780.0 & 63220.3 \\
+30.027\% & max & 1L[L|T] & 226.654 & 1.963 & 0.015 & 1662.880 & 58664.4 & 1021480.0 & 60411.4 \\
+30.027\% & max & 2L[L|LT]/DRH-v1 & 234.946 & 2.091 & 0.013 & 1755.115 & 64374.7 & 978653.5 & 66124.7 \\
+60.047\% & cross & 0L[L] & 2123.720 & 33.187 & 0.000 & 21357.550 & 254657.0 & 1988540.0 & 265484.5 \\
+60.047\% & cross & 0L[T] & 10.670 & 63.353 & 0.000 & 39255.750 & 261406.5 & 1453445.0 & 278174.0 \\
+60.047\% & cross & 1L[L|L] & 1415.925 & 8.882 & 0.017 & 200.452 & 45762.3 & 218706.0 & 56600.6 \\
+60.047\% & cross & 1L[L|T] & 1465.900 & 8.881 & 0.013 & 192.047 & 44045.4 & 200138.0 & 54883.6 \\
+60.047\% & cross & 2L[L|LT]/DRH-v1 & 1408.655 & 9.064 & 0.017 & 195.087 & 45607.8 & 215753.5 & 56454.1 \\
+95.020\% & cross & 0L[L] & 4918.875 & 61.074 & 0.000 & 89240.100 & 451225.0 & 3967260.0 & 467715.0 \\
+95.020\% & timeout & 0L[T] & -- & -- & -- & -- & -- & -- & -- \\
+95.020\% & cross & 1L[L|L] & 2307.095 & 12.576 & 0.018 & 113.150 & 44157.5 & 170659.0 & 60663.6 \\
+95.020\% & cross & 1L[L|T] & 2313.385 & 13.444 & 0.014 & 299.972 & 67643.4 & 309628.0 & 84149.5 \\
+95.020\% & cross & 2L[L|LT]/DRH-v1 & 2317.090 & 12.571 & 0.024 & 113.679 & 43995.0 & 170239.0 & 60513.8 \\
 \bottomrule
 \end{tabular}
 }
@@ -291,17 +289,17 @@ hybrid\_gpu\_intra\_inter & 2 & 132.94 & 0.006 & 7.53$\times$ & 4255.6 & 2286.0 
 \begin{table*}[htbp]
 \centering
 \small
-\caption{Composed end-to-end construction: accelerated base stage plus hierarchy sidecar versus the original CPU base builder. Stage medians are measured independently; timings do not establish matched-Recall quality.}
+\caption{Composed end-to-end construction: accelerated base stage plus hierarchy sidecar versus the original CPU base builder. Composed time is the sum of independently measured stage medians.}
 \label{tab:end-to-end-build}
-\begin{tabular}{lrrrrr}
+\begin{tabular}{lrrrr}
 \toprule
-Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup & Exploratory 95\% CI \\
+Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup \\
 \midrule
-cpu & 2 & 190.38 & 1051.42 & 0.18$\times$ & [0.18, 0.18] \\
-full\_gpu & 2 & 190.38 & 156.69 & 1.21$\times$ & [1.20, 1.23] \\
-full\_gpu\_wmma & 2 & 190.38 & 1061.91 & 0.18$\times$ & [0.18, 0.18] \\
-hybrid\_gpu\_intra & 2 & 190.38 & 141.27 & 1.35$\times$ & [1.33, 1.36] \\
-hybrid\_gpu\_intra\_inter & 2 & 190.38 & 183.72 & 1.04$\times$ & [1.03, 1.05] \\
+cpu & 2 & 190.38 & 1051.42 & 0.18$\times$ \\
+full\_gpu & 2 & 190.38 & 156.69 & 1.21$\times$ \\
+full\_gpu\_wmma & 2 & 190.38 & 1061.91 & 0.18$\times$ \\
+hybrid\_gpu\_intra & 2 & 190.38 & 141.27 & 1.35$\times$ \\
+hybrid\_gpu\_intra\_inter & 2 & 190.38 & 183.72 & 1.04$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -310,12 +308,12 @@ hybrid\_gpu\_intra\_inter & 2 & 190.38 & 183.72 & 1.04$\times$ & [1.03, 1.05] \\
 \begin{table*}[htbp]
 \centering
 \small
-\caption{Amazon equal-Recall comparison. Plain QPS is the raw throughput of 0L-LNG; every other numeric column is QPS(method)/QPS(Plain) at that method's smallest measured point whose two warm repeats both reach Recall@10 $\geq0.90$. NC means no crossing in the shared measured budget.}
+\caption{Amazon equal-Recall comparison. Plain QPS is the raw throughput of 0L[L]; every other numeric column is QPS(method)/QPS(Plain) at that method's smallest measured point whose two warm repeats both reach Recall@10 $\geq0.90$. NC means no crossing in the shared measured budget.}
 \label{tab:amazon-depth}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrr}
 \toprule
-Selectivity & Plain QPS & 0L-Trie/plain & 1L-LNG/plain & 2L-LT ungated/plain & 2L-LT DRH-v1/plain \\
+Mean sel. & Plain QPS & 0L[T]/plain & 1L[L|L]/plain & 2L[L|LT] ungated/plain & 2L[L|LT] DRH-v1/plain \\
 \midrule
 0.499\% & 2476.35 & 6.03$\times$ & NC & NC & 0.86$\times$ \\
 0.903\% & 4191.04 & 2.77$\times$ & NC & NC & 0.99$\times$ \\
@@ -338,7 +336,7 @@ Selectivity & Plain QPS & 0L-Trie/plain & 1L-LNG/plain & 2L-LT ungated/plain & 2
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrr}
 \toprule
-Selectivity & 1L-LNG QPS & 1L-Trie QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\max}$ \\
+Mean sel. & 1L[L|L] QPS & 1L[L|T] QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\max}$ \\
 \midrule
 0.499\% & NC & NC & -- & 0.8878 & 0.8878 \\
 0.903\% & NC & NC & -- & 0.8567 & 0.8464 \\
@@ -356,12 +354,12 @@ Selectivity & 1L-LNG QPS & 1L-Trie QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\m
 \begin{table*}[htbp]
 \centering
 \scriptsize
-\caption{2L topology ablation at fixed $T_1=1024$, $T_2=16384$, level-0 LNG, optimized-LNG entry, and ungated routing. In 2L-$XY$, $X$ is the level-1 topology and $Y$ the level-2 topology. QPS appears only at a measured Recall@10 $\geq0.90$ crossing.}
+\caption{2L topology ablation at fixed $T_1=1024$, $T_2=16384$, level-0 LNG, optimized-LNG entry, and ungated routing. In 2L[L|$XY$], $X$ is the level-1 topology and $Y$ the level-2 topology. QPS appears only at a measured Recall@10 $\geq0.90$ crossing.}
 \label{tab:two-layer-topology}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrrrrr}
 \toprule
-Sel. & 2L-LL QPS & 2L-LT QPS & 2L-TL QPS & 2L-TT QPS & LL $R_{\max}$ & LT $R_{\max}$ & TL $R_{\max}$ & TT $R_{\max}$ \\
+Mean sel. & 2L[L|LL] QPS & 2L[L|LT] QPS & 2L[L|TL] QPS & 2L[L|TT] QPS & LL $R_{\max}$ & LT $R_{\max}$ & TL $R_{\max}$ & TT $R_{\max}$ \\
 \midrule
 0.499\% & NC & NC & NC & NC & 0.8878 & 0.8878 & 0.8878 & 0.8878 \\
 0.903\% & NC & NC & NC & NC & 0.8567 & 0.8567 & 0.8464 & 0.8464 \\
@@ -381,12 +379,12 @@ Sel. & 2L-LL QPS & 2L-LT QPS & 2L-TL QPS & 2L-TT QPS & LL $R_{\max}$ & LT $R_{\m
 \begin{table*}[htbp]
 \centering
 \small
-\caption{Amazon equal-Recall comparison. Plain QPS is the raw throughput of 0L-LNG; every other numeric column is QPS(method)/QPS(Plain) at that method's smallest measured point whose two warm repeats both reach Recall@10 $\geq0.90$. NC means no crossing in the shared measured budget.}
+\caption{Amazon equal-Recall comparison. Plain QPS is the raw throughput of 0L[L]; every other numeric column is QPS(method)/QPS(Plain) at that method's smallest measured point whose two warm repeats both reach Recall@10 $\geq0.90$. NC means no crossing in the shared measured budget.}
 \label{tab:amazon-depth}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrr}
 \toprule
-Selectivity & Plain QPS & 0L-Trie/plain & 1L-LNG/plain & 2L-LT ungated/plain & 2L-LT DRH-v1/plain \\
+Mean sel. & Plain QPS & 0L[T]/plain & 1L[L|L]/plain & 2L[L|LT] ungated/plain & 2L[L|LT] DRH-v1/plain \\
 \midrule
 0.499\% & 2476.35 & 6.03$\times$ & NC & NC & 0.86$\times$ \\
 0.903\% & 4191.04 & 2.77$\times$ & NC & NC & 0.99$\times$ \\
@@ -411,7 +409,7 @@ Selectivity & Plain QPS & 0L-Trie/plain & 1L-LNG/plain & 2L-LT ungated/plain & 2
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrr}
 \toprule
-Selectivity & 1L-LNG QPS & 1L-Trie QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\max}$ \\
+Mean sel. & 1L[L|L] QPS & 1L[L|T] QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\max}$ \\
 \midrule
 0.499\% & NC & NC & -- & 0.8878 & 0.8878 \\
 0.903\% & NC & NC & -- & 0.8567 & 0.8464 \\
@@ -429,12 +427,12 @@ Selectivity & 1L-LNG QPS & 1L-Trie QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\m
 \begin{table*}[htbp]
 \centering
 \scriptsize
-\caption{2L topology ablation at fixed $T_1=1024$, $T_2=16384$, level-0 LNG, optimized-LNG entry, and ungated routing. In 2L-$XY$, $X$ is the level-1 topology and $Y$ the level-2 topology. QPS appears only at a measured Recall@10 $\geq0.90$ crossing.}
+\caption{2L topology ablation at fixed $T_1=1024$, $T_2=16384$, level-0 LNG, optimized-LNG entry, and ungated routing. In 2L[L|$XY$], $X$ is the level-1 topology and $Y$ the level-2 topology. QPS appears only at a measured Recall@10 $\geq0.90$ crossing.}
 \label{tab:two-layer-topology}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrrrrr}
 \toprule
-Sel. & 2L-LL QPS & 2L-LT QPS & 2L-TL QPS & 2L-TT QPS & LL $R_{\max}$ & LT $R_{\max}$ & TL $R_{\max}$ & TT $R_{\max}$ \\
+Mean sel. & 2L[L|LL] QPS & 2L[L|LT] QPS & 2L[L|TL] QPS & 2L[L|TT] QPS & LL $R_{\max}$ & LT $R_{\max}$ & TL $R_{\max}$ & TT $R_{\max}$ \\
 \midrule
 0.499\% & NC & NC & NC & NC & 0.8878 & 0.8878 & 0.8878 & 0.8878 \\
 0.903\% & NC & NC & NC & NC & 0.8567 & 0.8567 & 0.8464 & 0.8464 \\
@@ -456,65 +454,65 @@ This profile-only pass reuses each method's measured performance operating point
 \begin{table*}[htbp]
 \centering
 \scriptsize
-\caption{Amazon detailed profile. Times are ms/query; work counters are means/query.}
+\caption{Amazon detailed profile. Times are ms/query; counters are all-query means. Encounters are first visits through adjacency.}
 \label{tab:amazon-profile}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrlrrrrrrr}
 \toprule
-Sel. & Op. & Method & ELS & Entry & Auth. & Graph & Visited & Edges & Distances \\
+Mean sel. & Op. & Method & ELS & Entry & Auth. & Graph & Encounters & Edges & Distances \\
 \midrule
-0.499\% & cross & 0L-LNG & 20.352 & 0.195 & 0.000 & 2.076 & 1966.8 & 23458.9 & 2150.2 \\
-0.499\% & cross & 0L-Trie & 0.645 & 1.769 & 0.000 & 0.868 & 988.6 & 11047.0 & 2764.4 \\
-0.499\% & max & 1L-LNG & 19.665 & 0.216 & 0.015 & 4.418 & 1860.2 & 23296.2 & 2043.9 \\
-0.499\% & max & 1L-Trie & 16.188 & 0.224 & 0.012 & 4.578 & 1859.2 & 23263.7 & 2042.9 \\
-0.499\% & cross & 2L-LT/DRH-v1 & 20.455 & 0.194 & 0.003 & 2.109 & 1968.1 & 23464.7 & 2151.5 \\
-9.907\% & cross & 0L-LNG & 36.631 & 0.646 & 0.000 & 98.747 & 25024.2 & 189382.5 & 25402.9 \\
-9.907\% & cross & 0L-Trie & 3.778 & 14.744 & 0.000 & 323.081 & 38926.2 & 351908.0 & 44682.9 \\
-9.907\% & max & 1L-LNG & 33.451 & 0.645 & 0.017 & 644.477 & 34782.5 & 821915.0 & 35184.9 \\
-9.907\% & max & 1L-Trie & 32.969 & 0.576 & 0.015 & 587.339 & 32344.1 & 757831.0 & 32746.5 \\
-9.907\% & cross & 2L-LT/DRH-v1 & 31.648 & 0.685 & 0.023 & 301.608 & 28532.4 & 449218.0 & 28936.2 \\
-30.027\% & cross & 0L-LNG & 251.380 & 3.963 & 0.000 & 1376.910 & 91953.6 & 580600.5 & 93654.0 \\
-30.027\% & max & 0L-Trie & 8.381 & 30.629 & 0.000 & 2420.260 & 88466.5 & 497828.0 & 98769.0 \\
-30.027\% & max & 1L-LNG & 220.485 & 1.887 & 0.017 & 1765.145 & 61473.4 & 1112780.0 & 63220.3 \\
-30.027\% & max & 1L-Trie & 226.654 & 1.963 & 0.015 & 1662.880 & 58664.4 & 1021480.0 & 60411.4 \\
-30.027\% & max & 2L-LT/DRH-v1 & 234.946 & 2.091 & 0.013 & 1755.115 & 64374.7 & 978653.5 & 66124.7 \\
-60.047\% & cross & 0L-LNG & 2123.720 & 33.187 & 0.000 & 21357.550 & 254657.0 & 1988540.0 & 265484.5 \\
-60.047\% & cross & 0L-Trie & 10.670 & 63.353 & 0.000 & 39255.750 & 261406.5 & 1453445.0 & 278174.0 \\
-60.047\% & cross & 1L-LNG & 1415.925 & 8.882 & 0.017 & 200.452 & 45762.3 & 218706.0 & 56600.6 \\
-60.047\% & cross & 1L-Trie & 1465.900 & 8.881 & 0.013 & 192.047 & 44045.4 & 200138.0 & 54883.6 \\
-60.047\% & cross & 2L-LT/DRH-v1 & 1408.655 & 9.064 & 0.017 & 195.087 & 45607.8 & 215753.5 & 56454.1 \\
-95.020\% & cross & 0L-LNG & 4918.875 & 61.074 & 0.000 & 89240.100 & 451225.0 & 3967260.0 & 467715.0 \\
-95.020\% & timeout & 0L-Trie & -- & -- & -- & -- & -- & -- & -- \\
-95.020\% & cross & 1L-LNG & 2307.095 & 12.576 & 0.018 & 113.150 & 44157.5 & 170659.0 & 60663.6 \\
-95.020\% & cross & 1L-Trie & 2313.385 & 13.444 & 0.014 & 299.972 & 67643.4 & 309628.0 & 84149.5 \\
-95.020\% & cross & 2L-LT/DRH-v1 & 2317.090 & 12.571 & 0.024 & 113.679 & 43995.0 & 170239.0 & 60513.8 \\
+0.499\% & cross & 0L[L] & 20.352 & 0.195 & 0.000 & 2.076 & 1966.8 & 23458.9 & 2150.2 \\
+0.499\% & cross & 0L[T] & 0.645 & 1.769 & 0.000 & 0.868 & 988.6 & 11047.0 & 2764.4 \\
+0.499\% & max & 1L[L|L] & 19.665 & 0.216 & 0.015 & 4.418 & 1860.2 & 23296.2 & 2043.9 \\
+0.499\% & max & 1L[L|T] & 16.188 & 0.224 & 0.012 & 4.578 & 1859.2 & 23263.7 & 2042.9 \\
+0.499\% & cross & 2L[L|LT]/DRH-v1 & 20.455 & 0.194 & 0.003 & 2.109 & 1968.1 & 23464.7 & 2151.5 \\
+9.907\% & cross & 0L[L] & 36.631 & 0.646 & 0.000 & 98.747 & 25024.2 & 189382.5 & 25402.9 \\
+9.907\% & cross & 0L[T] & 3.778 & 14.744 & 0.000 & 323.081 & 38926.2 & 351908.0 & 44682.9 \\
+9.907\% & max & 1L[L|L] & 33.451 & 0.645 & 0.017 & 644.477 & 34782.5 & 821915.0 & 35184.9 \\
+9.907\% & max & 1L[L|T] & 32.969 & 0.576 & 0.015 & 587.339 & 32344.1 & 757831.0 & 32746.5 \\
+9.907\% & cross & 2L[L|LT]/DRH-v1 & 31.648 & 0.685 & 0.023 & 301.608 & 28532.4 & 449218.0 & 28936.2 \\
+30.027\% & cross & 0L[L] & 251.380 & 3.963 & 0.000 & 1376.910 & 91953.6 & 580600.5 & 93654.0 \\
+30.027\% & max & 0L[T] & 8.381 & 30.629 & 0.000 & 2420.260 & 88466.5 & 497828.0 & 98769.0 \\
+30.027\% & max & 1L[L|L] & 220.485 & 1.887 & 0.017 & 1765.145 & 61473.4 & 1112780.0 & 63220.3 \\
+30.027\% & max & 1L[L|T] & 226.654 & 1.963 & 0.015 & 1662.880 & 58664.4 & 1021480.0 & 60411.4 \\
+30.027\% & max & 2L[L|LT]/DRH-v1 & 234.946 & 2.091 & 0.013 & 1755.115 & 64374.7 & 978653.5 & 66124.7 \\
+60.047\% & cross & 0L[L] & 2123.720 & 33.187 & 0.000 & 21357.550 & 254657.0 & 1988540.0 & 265484.5 \\
+60.047\% & cross & 0L[T] & 10.670 & 63.353 & 0.000 & 39255.750 & 261406.5 & 1453445.0 & 278174.0 \\
+60.047\% & cross & 1L[L|L] & 1415.925 & 8.882 & 0.017 & 200.452 & 45762.3 & 218706.0 & 56600.6 \\
+60.047\% & cross & 1L[L|T] & 1465.900 & 8.881 & 0.013 & 192.047 & 44045.4 & 200138.0 & 54883.6 \\
+60.047\% & cross & 2L[L|LT]/DRH-v1 & 1408.655 & 9.064 & 0.017 & 195.087 & 45607.8 & 215753.5 & 56454.1 \\
+95.020\% & cross & 0L[L] & 4918.875 & 61.074 & 0.000 & 89240.100 & 451225.0 & 3967260.0 & 467715.0 \\
+95.020\% & timeout & 0L[T] & -- & -- & -- & -- & -- & -- & -- \\
+95.020\% & cross & 1L[L|L] & 2307.095 & 12.576 & 0.018 & 113.150 & 44157.5 & 170659.0 & 60663.6 \\
+95.020\% & cross & 1L[L|T] & 2313.385 & 13.444 & 0.014 & 299.972 & 67643.4 & 309628.0 & 84149.5 \\
+95.020\% & cross & 2L[L|LT]/DRH-v1 & 2317.090 & 12.571 & 0.024 & 113.679 & 43995.0 & 170239.0 & 60513.8 \\
 \bottomrule
 \end{tabular}
 }
 \end{table*}
 }
 \newcommand{\authoritativePolicyResults}{%
-\subsection{Automatic Versus Manual Hierarchies}
-The bounded held-out study compares DRH-v1 with five pre-registered manual alternatives. DRH-v2 was evaluated later as a separate same-binary routing ablation and is not substituted into this frozen candidate set. The manual comparison is restricted to this finite candidate set.
 \begin{table*}[htbp]
 \centering
 \small
-\caption{Screen-level 2L-LT/DRH-v1 results at Recall@10 $\geq0.90$.}
+\caption{Screen-level 2L[L|LT]/DRH-v1 results at Recall@10 $\geq0.90$.}
 \label{tab:heldout}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{lrrrrl}
 \toprule
-Dataset & Selectivity & Plain QPS & DRH-v1/plain & DRH-v1/best manual & Best manual plan \\
+Dataset & Mean sel. & Plain QPS & DRH-v1/plain & DRH-v1/best manual & Best manual plan / executed route \\
 \midrule
 Genome & 3.365\% & 153.65 & 0.954$\times$ & 1.008 & 256,4096:trie,trie \\
-Genome & 6.292\% & 85.45 & 0.982$\times$ & 1.007 & 256:lng \\
+Genome & 6.292\% & 85.45 & 0.982$\times$ & 1.007 & 256:lng (base fallback) \\
 Reviews & 0.200\% & 19319.56 & 1.014$\times$ & 0.997 & 1024,16384:lng,trie \\
 Reviews & 4.115\% & 354.78 & 1.004$\times$ & 0.980 & 1024,16384:lng,trie \\
-VariousImg & 10.252\% & 2657.04 & 0.205$\times$ & 0.218 & 1024:lng \\
+VariousImg & 10.252\% & 2657.04 & 0.205$\times$ & 0.218 & 1024:lng (base fallback) \\
 \bottomrule
 \end{tabular}
 }
 \end{table*}
+}
+\newcommand{\authoritativePolicyDetails}{%
 \begin{table}[t]
 \centering
 \small
@@ -532,8 +530,8 @@ VariousImg & 1 & 543.74 & 0.218 \\
 \end{tabular}
 }
 \end{table}
-\subsection{Structural Router Ablation}
-DRH-v2 is a same-binary ablation: it rejects an upper layer when direct mass at the highest authorized layer is below the next derived scale.
+}
+\newcommand{\authoritativeRouterResults}{%
 \begin{table*}[htbp]
 \centering
 \small
@@ -541,7 +539,7 @@ DRH-v2 is a same-binary ablation: it rejects an upper layer when direct mass at 
 \label{tab:drh-v2}
 \begin{tabular}{lrrrrr}
 \toprule
-Dataset & Selectivity & Plain QPS & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\
+Dataset & Mean sel. & Plain QPS & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\
 \midrule
 Genome & 3.365\% & 143.73 & 144.50 & 142.57 & 0.992$\times$ \\
 Genome & 6.292\% & 82.74 & 83.73 & 83.16 & 1.005$\times$ \\
@@ -551,9 +549,8 @@ VariousImg & 10.252\% & 2633.06 & 547.01 & 884.18 & 0.336$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table*}
-The next-scale gate restores near-plain behavior on Genome and the 0.2\% Reviews workload, and improves VariousImg over DRH-v1, but it also rejects the useful overlay at 4.115\% Reviews. Thus it reduces catastrophic overhead without establishing monotone dominance.
-\subsection{Mechanism Breakdown}
-The separate detailed-profile binary is explanatory only and does not contribute primary QPS. Edge counts are measured here; disabled light-stat counters are never interpreted as zero.
+}
+\newcommand{\authoritativeHeldoutProfileResults}{%
 \begin{table*}[htbp]
 \centering
 \small
@@ -562,40 +559,20 @@ The separate detailed-profile binary is explanatory only and does not contribute
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{llrrrrr}
 \toprule
-Dataset & Method & Graph ms & Visited & Edges & Distances & Active \\
+Dataset & Method & Graph ms & Encounters & Edges & Distances & Active \\
 \midrule
-Genome & 0L-LNG (Plain) & 0.124 & 123.8 & 154.3 & 4538.9 & 0.0\% \\
-Genome & 2L-LT/DRH-v1 & 0.199 & 185.1 & 591.8 & 4601.4 & 1.8\% \\
-Reviews & 0L-LNG (Plain) & 6.756 & 4415.8 & 15126.2 & 8239.3 & 0.0\% \\
-Reviews & 2L-LT/DRH-v1 & 6.504 & 3500.1 & 25605.4 & 7312.0 & 18.2\% \\
-VariousImg & 0L-LNG (Plain) & 35.098 & 18656.0 & 119045.5 & 18673.1 & 0.0\% \\
-VariousImg & 2L-LT/DRH-v1 & 172.065 & 27356.1 & 251144.0 & 27393.7 & 37.4\% \\
+Genome & 0L[L] (Plain) & 0.124 & 123.8 & 154.3 & 4538.9 & 0.0\% \\
+Genome & 2L[L|LT]/DRH-v1 & 0.199 & 185.1 & 591.8 & 4601.4 & 1.8\% \\
+Reviews & 0L[L] (Plain) & 6.756 & 4415.8 & 15126.2 & 8239.3 & 0.0\% \\
+Reviews & 2L[L|LT]/DRH-v1 & 6.504 & 3500.1 & 25605.4 & 7312.0 & 18.2\% \\
+VariousImg & 0L[L] (Plain) & 35.098 & 18656.0 & 119045.5 & 18673.1 & 0.0\% \\
+VariousImg & 2L[L|LT]/DRH-v1 & 172.065 & 27356.1 & 251144.0 & 27393.7 & 37.4\% \\
 \bottomrule
 \end{tabular}
 }
 \end{table*}
 }
 \newcommand{\authoritativeBuildResults}{%
-\subsection{Construction}
-The completed held-out sidecars below are CPU query-enablement builds, not evidence of GPU hierarchy speedup.
-\begin{table}[t]
-\centering
-\small
-\caption{Automatic DRH CPU sidecar construction.}
-\label{tab:sidecar-build}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{lrrrr}
-\toprule
-Dataset & Wall s & Blocks & Upper & Edges \\
-\midrule
-Genome & 44.2 & 264 & 18 & 10,088,461 \\
-Reviews & 120.4 & 217 & 16 & 27,590,479 \\
-VariousImg & 633.2 & 190 & 10 & 80,034,774 \\
-\bottomrule
-\end{tabular}
-}
-\end{table}
-The supervisor process-envelope timing, which includes orchestration and checks, measured 190.61s for original CPU and 53.18s for accelerated\_gpu, a 3.58$\times$ process-envelope speedup. The composed table below instead uses the component builder-time summaries; the two timing boundaries must not be mixed. The campaign manifest contains 41 completed cases; the repeated hierarchy and composed results follow.
 \begin{table*}[htbp]
 \centering
 \small
@@ -615,20 +592,39 @@ hybrid\_gpu\_intra\_inter & 2 & 132.94 & 0.006 & 7.53$\times$ & 4255.6 & 2286.0 
 \end{tabular}
 }
 \end{table*}
+}
+\newcommand{\authoritativeBuildDetails}{%
+\begin{table}[t]
+\centering
+\small
+\caption{Automatic DRH CPU sidecar construction.}
+\label{tab:sidecar-build}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrrr}
+\toprule
+Dataset & Wall s & Blocks & Upper & Edges \\
+\midrule
+Genome & 44.2 & 264 & 18 & 10,088,461 \\
+Reviews & 120.4 & 217 & 16 & 27,590,479 \\
+VariousImg & 633.2 & 190 & 10 & 80,034,774 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
 \begin{table*}[htbp]
 \centering
 \small
-\caption{Composed end-to-end construction: accelerated base stage plus hierarchy sidecar versus the original CPU base builder. Stage medians are measured independently; timings do not establish matched-Recall quality.}
+\caption{Composed end-to-end construction: accelerated base stage plus hierarchy sidecar versus the original CPU base builder. Composed time is the sum of independently measured stage medians.}
 \label{tab:end-to-end-build}
-\begin{tabular}{lrrrrr}
+\begin{tabular}{lrrrr}
 \toprule
-Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup & Exploratory 95\% CI \\
+Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup \\
 \midrule
-cpu & 2 & 190.38 & 1051.42 & 0.18$\times$ & [0.18, 0.18] \\
-full\_gpu & 2 & 190.38 & 156.69 & 1.21$\times$ & [1.20, 1.23] \\
-full\_gpu\_wmma & 2 & 190.38 & 1061.91 & 0.18$\times$ & [0.18, 0.18] \\
-hybrid\_gpu\_intra & 2 & 190.38 & 141.27 & 1.35$\times$ & [1.33, 1.36] \\
-hybrid\_gpu\_intra\_inter & 2 & 190.38 & 183.72 & 1.04$\times$ & [1.03, 1.05] \\
+cpu & 2 & 190.38 & 1051.42 & 0.18$\times$ \\
+full\_gpu & 2 & 190.38 & 156.69 & 1.21$\times$ \\
+full\_gpu\_wmma & 2 & 190.38 & 1061.91 & 0.18$\times$ \\
+hybrid\_gpu\_intra & 2 & 190.38 & 141.27 & 1.35$\times$ \\
+hybrid\_gpu\_intra\_inter & 2 & 190.38 & 183.72 & 1.04$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -637,13 +633,13 @@ hybrid\_gpu\_intra\_inter & 2 & 190.38 & 183.72 & 1.04$\times$ & [1.03, 1.05] \\
 \begin{figure*}[htbp]
 \centering
 \includegraphics[width=0.98\textwidth]{\detokenize{generated_figures/principal_zero.pdf}}
-\caption{Measured Recall@10--QPS curves for the 0L-LNG/0L-Trie comparison. Markers are executed points; curves are not interpolated.}
+\caption{Measured Recall@10--QPS curves for the 0L[L]/0L[T] comparison. Markers are executed points; curves are not interpolated.}
 \label{fig:principal-zero}
 \end{figure*}
 \begin{figure*}[htbp]
 \centering
 \includegraphics[width=0.98\textwidth]{\detokenize{generated_figures/one_layer_topology.pdf}}
-\caption{Measured Recall@10--QPS curves for 1L-LNG/1L-Trie overlay topology at fixed threshold, level-0 LNG, and entry provider. Markers are executed points; curves are not interpolated.}
+\caption{Measured Recall@10--QPS curves for 1L[L|L]/1L[L|T] overlay topology at fixed threshold, level-0 LNG, and entry provider. Markers are executed points; curves are not interpolated.}
 \label{fig:one-layer-topology}
 \end{figure*}
 \begin{figure*}[htbp]
@@ -655,7 +651,7 @@ hybrid\_gpu\_intra\_inter & 2 & 190.38 & 183.72 & 1.04$\times$ & [1.03, 1.05] \\
 \begin{figure*}[htbp]
 \centering
 \includegraphics[width=0.98\textwidth]{\detokenize{generated_figures/upper_authorization.pdf}}
-\caption{Measured Recall@10--QPS curves for ungated versus DRH-v1 routing for 2L-LT. Markers are executed points; curves are not interpolated.}
+\caption{Measured Recall@10--QPS curves for ungated versus DRH-v1 routing for 2L[L|LT]. Markers are executed points; curves are not interpolated.}
 \label{fig:upper-authorization}
 \end{figure*}
 }

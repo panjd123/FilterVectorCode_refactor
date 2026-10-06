@@ -12,8 +12,8 @@
 |---|---:|---|---|
 | 1 Introduction | 1.25–1.5 页 | 为什么 eligibility 与 navigation 必须同时设计？为什么前缀入口与 block 互补？ | 三项贡献；谨慎引用实测收益与反例 |
 | 2 Problem and Motivation | 1–1.25 页 | AND-label 模型、选择率方向、现有路线各承担什么成本？ | 同一应用例；机制面板 + 实测 0L 阶段分解 |
-| 3 Prefix and Block Index | 1.5–2 页 | 如何定义 terminal forest、frontier 和 direct-member block？为什么必须保留 finer representation？ | 前缀/LNG 反例图，0–1 物理层架构图；独立 partition |
-| 4 Querying Certified Blocks | 1.5–2 页 | 合法入口如何覆盖前缀分支？候选如何标记层？为什么不计算非法点的距离？ | frontier 与搜索伪代码；条件化覆盖、安全性和层隔离证明 |
+| 3 Prefix and Block Index | 1.5–2 页 | 如何定义 terminal forest、frontier 和 direct-member block？为什么必须保留 finer representation？ | LNG/Trie/授权块三联图；独立 partition |
+| 4 Querying Certified Blocks | 1.5–2 页 | 合法入口如何覆盖前缀分支？候选如何标记层？为什么不计算非法点的距离？ | frontier 与搜索伪代码；两层 seed/淘汰例；覆盖、安全性和层隔离证明 |
 | 5 Construction and Configuration | 1.5–2 页 | 如何批量构建图并限制显存？层数/阈值如何无需查询校准？ | GPU 描述符流水线；输出敏感成本；DRH；维护边界 |
 | 6 Evaluation | 3–4 页 | 系统/入口/层数/拓扑/参数/GPU 各贡献多少？在何处失败？ | 0L、14×9 factorial、固定与逐档 oracle、held-out、build |
 | 7 Discussion and Related Work | 0.75–1 页 | 与 UNG、Curator、ACORN、FAVOR、HNSW 的准确区别和局限 | 能力对照与待验证项 |
@@ -55,3 +55,9 @@
 - 正式重复和误差分析；当前 query 1 cold + 2 warm 只支持 screening 结论。
 
 这些缺口不应伪装成已验证，也不通过文学化叙述消除。独立审阅记录随修订一起交付。
+
+## 当前写作纪律
+
+每段服务定义、推导、证据或解释。删除只为防止被质疑的重复自我免责；必要的测量口径与证明条件只在对应位置说明一次。结果按 matched topology、发现成本转移、自动方案转移、构建成本组织，构建 backend 清单移到附录。
+
+本轮新增 workload 元数据核对：选择率是混合谓词批次均值，多个高档位通过频繁标签替换获得；方法效果只能先对应这些 workload families。人工候选明确列出，单层候选在统一 presence gate 下回退 base。

@@ -4,10 +4,11 @@ Start with `ADVISOR_NOTE_CN.md` for the Chinese advisor briefing and `main.pdf`
 for the English manuscript. The paper leads with prefix-frontier entries and
 predicate-certified blocks. DRH is a secondary configuration heuristic.
 
-`main.tex` assembles seven files under `sections/`: introduction, motivation,
+`main.tex` assembles the main sections: introduction, motivation,
 frontier, block index/query, construction/configuration, evaluation, and
-related work/discussion. Four TikZ mechanism figures are embedded in those
-sections. Detailed factorial tables and Recall curves are in the appendix.
+related work/discussion. Three TikZ mechanism figures are embedded in those
+sections. Full metric definitions, search caps, provenance, detailed factorial tables,
+frozen construction profiles, and Recall curves are in the appendix.
 `PAPER_OUTLINE_CN.md` explains the argument and evidence boundaries.
 
 ## Evidence and scope
@@ -76,3 +77,8 @@ experimental blockers. `review/RESOLUTION.md` records addressed and remaining
 items. Citation metadata includes at least 16 related SIGMOD/PVLDB papers and
 two recent works explicitly labeled as preprints. The UNG ACM PDF access
 failure is disclosed; the mechanism was checked against official source code.
+
+The continuing writing-review loop is recorded in `review/POLISH_ROUNDS.md`.
+Each round freezes a compiled draft for independent SIGMOD- and VLDB-style
+agent reviews before the next revision. These are simulated reviews, not
+human approval or conference decisions.

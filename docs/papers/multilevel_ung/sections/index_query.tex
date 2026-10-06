@@ -7,14 +7,15 @@ graphs.  Physical level 1 adds vector graphs over groups aggregated into
 blocks.  Within an authorized block, proximity edges can connect vectors
 from different exact groups directly, avoiding a requirement to follow the
 fine label relation for every transition.  The base remains necessary for
-queries that cannot certify a useful coarse region.
+queries that cannot certify a useful coarse region. Figure~\ref{fig:method-overview}
+uses the catalog example to connect entry selection with this change of scale.
 
 We call this a \texttt{1L} index: one overlay above the base, hence two
 physical levels.  A \texttt{2L} index has levels 0, 1, and 2.  More generally,
 an $m$-overlay index has $m+1$ physical levels.  All levels reference the same
 vector identifiers, but their block counts, represented membership, and
-vector-edge counts can differ.  This is not HNSW's randomized subsampling of
-vector vertices, nor a bottom-up search from one level to the next.
+vector-edge counts can differ.  The levels aggregate label-space regions over shared vectors; the query
+algorithm below determines their participation.
 
 \begin{table}[t]
 \centering\small
@@ -35,40 +36,65 @@ Code & Level 0 & Level 1 & Level 2\\
 A configuration is $(m,\mathbf{T},\boldsymbol{\tau},e,r)$: overlay count,
 increasing thresholds, topology per physical level, entry provider, and
 routing policy.  In particular $\tau_0\in\{L,T\}$ is an independent choice;
-an LNG base is not part of the definition of \system.  Historical plot labels
+both base choices are evaluated.  Historical plot labels
 \texttt{1L-LNG} and \texttt{2L-LT} denote the fixed-LNG-base controls
 \texttt{1L[L|L]} and \texttt{2L[L|LT]}.  The full notation always lists the
 base before the separator.
 
 \begin{figure*}[t]
 \centering
-\begin{tikzpicture}[font=\small,>=Latex,
- b/.style={draw,rounded corners=2pt,align=center,text width=3.2cm,
- minimum height=0.85cm,inner sep=5pt}]
-\node[b] (labels) at (0,1.5) {Exact-label groups\\canonical prefix trie};
-\node[b] (base) at (4.0,2.25) {Level 0\\local graphs + prefix edges};
-\node[b] (blocks) at (4.0,0.75) {Level 1 at threshold $T_1$\\certified block graphs};
-\node[b] (query) at (0,-1.3) {Query $(q,Q)$};
-\node[b] (entry) at (4.0,-0.9) {Prefix frontier $F(Q)$\\block tests $Q\subseteq R_b$};
-\node[b] (seeds) at (8.0,-0.9) {Tag block and group seeds\\trim to search capacity};
-\node[b] (search) at (12.0,-0.9) {Shared bounded queue\\expand level-$\ell$ edges only};
-\draw[->] (labels) -- (base);
-\draw[->] (labels) -- (blocks);
-\draw[->] (query) -- (entry);
-\draw[->] (entry) -- (seeds);
-\draw[->] (seeds) -- (search);
-\draw[->,dashed] (base.east) -- (8,2.25) -- (seeds.north);
-\draw[->,dashed] (blocks.east) -- (8,0.75) -- (seeds.north);
-\node[align=left,font=\footnotesize] at (11.5,1.5)
- {Each level chooses prefix or LNG connectivity.\\
- Additional overlays repeat the independent partition.\\
- There is no query edge between physical levels.};
+\begin{tikzpicture}[font=\footnotesize,>=Latex,
+ group/.style={draw,rounded corners,minimum width=1.25cm,minimum height=1.08cm,align=center},
+ point/.style={circle,draw,inner sep=2pt,fill=white},
+ seed/.style={point,draw=blue!75!black,line width=1pt},
+ edge/.style={->,thick},lab/.style={align=center}]
+% The same four singleton exact groups appear in panels (a) and (b).
+\begin{scope}[xshift=0cm]
+\node[lab,font=\small\bfseries] at (1.55,2.6) {(a) LNG: one entry};
+\node[group] (lb) at (0,1.35) {$\{b\}$\\\phantom{$x_0$}};
+\node[group] (lab) at (1.55,1.35) {$\{a,b\}$\\\phantom{$x_1$}};
+\node[group] (labc) at (3.1,1.35) {$\{a,b,c\}$\\\phantom{$x_2$}};
+\node[seed] (lx0) at (0,1.1) {$x_0$};
+\node[point] (lx1) at (1.55,1.1) {$x_1$};
+\node[point] (lx2) at (3.1,1.1) {$x_2$};
+\draw[edge] (lx0)--(lx1);\draw[edge] (lx1)--(lx2);
+\node[group,fill=gray!12] (lac) at (3.1,-0.3) {$\{a,c\}$\\\phantom{$x_3$}};
+\node[point,fill=gray!12] (lx3) at (3.1,-0.55) {$x_3$};
+\draw[edge,gray] (lac.north)--(labc.south);
+\node[lab] at (1.1,-1.35) {Minimal entry: $\{b\}$\\Cross-group edges follow containment.};
+\end{scope}
+\begin{scope}[xshift=5.5cm]
+\node[lab,font=\small\bfseries] at (1.55,2.6) {(b) Prefix: two entries};
+\node[group] at (0,1.35) {$\{b\}$\\\phantom{$x_0$}};
+\node[group] at (1.55,1.35) {$\{a,b\}$\\\phantom{$x_1$}};
+\node[group] at (3.1,1.35) {$\{a,b,c\}$\\\phantom{$x_2$}};
+\node[seed] (tx0) at (0,1.1) {$x_0$};
+\node[seed] (tx1) at (1.55,1.1) {$x_1$};
+\node[point] (tx2) at (3.1,1.1) {$x_2$};
+\draw[edge] (tx1)--(tx2);
+\node[group,fill=gray!12] at (3.1,-0.3) {$\{a,c\}$\\\phantom{$x_3$}};
+\node[point,fill=gray!12] at (3.1,-0.55) {$x_3$};
+\node[lab] at (1.55,-1.35) {Frontier: $\{b\},\{a,b\}$\\Both eligible prefix branches are seeded.};
+\end{scope}
+\begin{scope}[xshift=11cm]
+\node[lab,font=\small\bfseries] at (1.4,2.6) {(c) An authorized block};
+\draw[rounded corners,fill=green!6] (-0.1,0.35) rectangle (3.05,2.05);
+\node[lab] at (1.45,1.78) {Level 1: root $R_b=\{a,b\}$};
+\node[seed] (bx1) at (0.65,1.05) {$x_1$};
+\node[point] (bx2) at (2.25,1.05) {$x_2$};
+\draw[<->,thick,green!40!black] (bx1)--(bx2);
+\node[lab,font=\scriptsize] at (1.45,0.58) {Local edges cross group boundaries.};
+\node[seed] at (0.4,-0.45) {$x_0$};
+\node[lab,anchor=west] at (0.8,-0.45) {Level 0 residual};
+\node[lab] at (1.45,-1.35) {$Q=\{b\}$: block authorized.\\$Q'=\{b,c\}$: use finer $\{a,b,c\}$.};
+\end{scope}
 \end{tikzpicture}
-\caption{The simplest block instance has physical levels 0 and 1. Solid
-arrows show construction or query flow; dashed arrows supply adjacency and
-membership metadata. The optional router can invoke base search before
-overlay seeding. A candidate's level is fixed at insertion and inherited by
-its successors.}
+\caption{One query, two entry contracts, and one block overlay. For
+$Q=\{b\}$, blue-ringed vertices are seeds and the gray group is ineligible.
+Panels (a) and (b) use the same singleton groups. With threshold $T_1=1$,
+$x_1,x_2$ form the block in (c); its prefix authorizes either direction of
+local navigation for $Q$. Query $Q'$ cannot authorize that block. Arrows denote permitted connections; each state uses one physical
+level throughout its traversal.}
 \label{fig:method-overview}
 \end{figure*}
 
@@ -143,28 +169,33 @@ on block roots at an overlay level.
 \section{Querying Certified Blocks}
 \label{sec:query}
 \subsection{Seeding and Optional Routing}
+Before graph expansion, a query certifies block roots, applies any routing
+gate, and attaches physical levels to its seeds. The retained states then
+compete in one bounded queue. Authorization decides which regions are safe;
+seeding decides which of them are actually represented in that search.
+
 Entry discovery returns actual group identifiers.  The prefix instance uses
 Algorithm~\ref{alg:frontier}; LNG-base controls use one of the two
 minimal-superset providers.  These contracts are separate from block
 authorization and vector entry-point setup.
 
-An ungated configuration uses every authorized block as a potential seed.
-The evaluated two-overlay DRH router instead requires at least one authorized
-level-2 block.  DRH-v2 additionally tests its total direct-member mass against
-a derived threshold.  If the test fails, the query calls the base-only search
-with the same base topology and entry provider.  In the general implementation
-the gate uses the highest authorized physical level at least 2, not necessarily
-the highest materialized level.  The two notions coincide in the evaluated
-two-overlay case.
+We evaluate three routing rules. Let $h$ be the highest authorized
+physical level at least 2, and let $M_h$ be the sum of its authorized
+blocks' direct-member counts.
+\begin{itemize}
+\item Ungated: admit the multilayer search.
+\item DRH-v1: admit it exactly when such an $h$ exists.
+\item DRH-v2: additionally require $M_h\ge T_{\mathrm{gate}}$.
+\end{itemize}
+A rejected query runs the base with the same topology and entry provider.
+In the two-overlay experiments, $h=2$ whenever it exists.
 
 For an accepted multilayer query, authorized blocks contribute their stored
 entry points tagged with their physical level.  Each group entry receives
-the finest authorized overlay owning that group, or level 0 if no such
-overlay exists.  The measured initializer prioritizes block seeds when
-trimming to capacity, then fills remaining space with group seeds.  It does
-not preserve a second base seed for every retagged entry.  Therefore the
-existence of the base graph is not a coverage guarantee inside an accepted
-multilayer search.
+the lowest numbered authorized overlay owning that group, or level 0
+if no such overlay exists.  The measured initializer prioritizes block seeds when
+trimming to capacity, then fills remaining space with group seeds.  Retagging replaces the base seed, so the initial queue determines
+which physical representations participate.
 
 \subsection{Level-Local Search}
 Search states are $(i,\delta,\ell)$: vector identifier, query distance, and
@@ -184,7 +215,7 @@ path with root-prefix authorization used in the reported experiments.
 \State $B_Q\gets\{b:Q\subseteq R_b\}$
 \If{$r$ is gated}
  \State find highest authorized physical level $h\ge2$, if any
- \If{no such $h$, or $\sum_{b\in B_Q:\ell(b)=h}|P_b|<T_{\mathrm{gate}}$}
+ \If{no such $h$, or ($r=\mathrm{DRH\mbox{-}v2}$ and $M_h<T_{\mathrm{gate}}$)}
   \State \Return \Call{BaseSearch}{$q,Q,e,L_s$}
  \EndIf
 \EndIf
@@ -193,7 +224,7 @@ path with root-prefix authorization used in the reported experiments.
 \State deduplicate by $(i,\ell)$, mark seeds seen, and score them before trimming
 \State prioritize block seeds; trim to $L_s$ and initialize the queue
 \While{an unexpanded state $(i,\delta,\ell)$ remains}
- \State mark the closest unexpanded state expanded; retain it as a result candidate
+ \State mark the closest active unexpanded state expanded (it stays in the queue)
  \State read only level-$\ell$ adjacency of $i$
  \For{each permitted edge to $j$ at level $\ell$}
   \If{$(j,\ell)$ is unseen}
@@ -201,9 +232,57 @@ path with root-prefix authorization used in the reported experiments.
   \EndIf
  \EndFor
 \EndWhile
-\State \Return the closest at most $K$ distinct vector identifiers retained
+\State \Return the closest at most $K$ distinct vector identifiers in the final active queue
 \end{algorithmic}
 \end{algorithm}
+
+\paragraph{Queue semantics.}
+Candidates are ordered by $(\delta,i,\ell)$, breaking distance ties by
+vector identifier and then level. Initialization retains the closest block
+seeds first and fills remaining capacity with the closest group seeds. All
+collected seeds are scored and marked seen before this selection. Expansion
+marks a state without removing it from the active queue. An offered state
+enters if capacity is available or it precedes the current worst state;
+in the latter case it evicts that state, whether expanded or unexpanded.
+Seen marks persist after rejection or eviction. Search ends when the active
+queue has no unexpanded state; answers are the closest distinct vector IDs
+in that final queue. Thus an evicted state contributes neither a future
+expansion nor an answer at its evicted level.
+
+\paragraph{A two-overlay execution example.}
+Consider singleton groups with vectors $y_0,\ldots,y_8$ and label sets,
+in order, $a,ab,abc,abd,ac$, followed by $acd,ace,acf,ad$.
+Concatenation denotes a set under $a<b<c<d<e<f$. For thresholds $T_1=1$ and $T_2=4$, the independent
+partitions produce the direct memberships in Table~\ref{tab:seed-trace}.
+At level 1, the $a$ block excludes the emitted $ab$ and $ac$ descendants;
+at level 2, $a$ owns all nine vectors. Query $Q=\{a\}$ certifies all four
+blocks. Its prefix-frontier group $a$ contributes $y_0$, retagged to level 1,
+which duplicates that block's seed and is removed during seed deduplication.
+
+\begin{table}[t]
+\centering\small
+\caption{Illustrative ownership and seed selection, with $K=1$ and $L_s=2$.
+Stored block entries and query distances are chosen for this example.}
+\label{tab:seed-trace}
+\begin{tabular}{clll}
+\toprule
+Level & Root & Direct members & Entry (distance)\\
+\midrule
+1 & $a$ & $y_0,y_8$ & $y_0\ (3)$\\
+1 & $ab$ & $y_1,y_2,y_3$ & $y_1\ (1)$\\
+1 & $ac$ & $y_4,y_5,y_6,y_7$ & $y_4\ (2)$\\
+2 & $a$ & $y_0,\ldots,y_8$ & $y_1\ (1)$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The two retained seeds are $(y_1,1)$ and $(y_1,2)$, distinct level states of
+the same vector. The first expansion uses only level-1 edges. If it exposes
+$y_2$ at distance $0.5$, the queue retains $(y_2,1)$ and $(y_1,1)$ and evicts
+$(y_1,2)$ before that coarse state expands. This trace shows how extra
+representations can compete for a fixed budget even with isolated adjacency.
+It also shows why coverage of the full frontier does not imply coverage
+after initialization and queue eviction.
 
 \paragraph{Proposition 2: predicate safety.}
 Assume all group seeds are eligible and every overlay-tagged group seed is
@@ -220,24 +299,16 @@ superset, preserving $Q$.  Inside a certified block every direct member
 satisfies $Q$; a cross-block edge moves to a root containing the source root
 and hence $Q$.  Induction over generated states proves the claim. \hfill$\square$
 
-The implementation relies on these construction and authorization invariants;
-it does not implement the guarantee by filtering every neighbor after
-computing its distance.  The authoritative experiments enable root-prefix
-authorization, including the one-overlay case.  Other predicate operators or
-legacy authorization modes require a separate proof.
+Construction and root-prefix authorization establish these invariants
+before traversal, allowing distance evaluation without per-neighbor
+predicate tests.
 
 \paragraph{Proposition 3: layer isolation and fallback.}
 A successor inherits its source state's physical level, and adjacency owned
 by other levels is rejected.  Induction therefore gives level-local
 expansion with no promotion or fallthrough.  When the router rejects an
 overlay before seeding, deterministic execution with identical base entries
-and budget reproduces the base-search path.  This equivalence excludes the
-extra routing time, and does not assert equivalence after overlay admission.
-
-These properties establish eligibility and ownership, not monotone Recall or
-latency.  Additional seeds and retagging can displace useful states in a
-bounded queue.  In particular, Proposition 1 cannot be applied after frontier
-seeds have been dropped without reinstating its coverage assumptions.
+and budget reproduces the base-search path.  The rejected query additionally pays for authorization and routing.
 
 \subsection{Query Cost}
 Let $D_q$ be distance evaluations, $E_q$ inspected adjacency entries, $A_q$
@@ -254,9 +325,6 @@ insertion is rejected, so a safe bound is
 \end{equation}
 This bound exposes why fewer group edges need not lower latency: the
 frontier, required budget, distances, and queue operations can all change.
-The optional lazy heap implementation has different costs; retained stale
-records can grow with successful insertions, so neither its storage nor its
-operation cost is correctly summarized as strictly $O(L_s)$ and
-$O(\log L_s)$.  Per-level visited state, seed buffers, and queue backing storage contribute
+Per-level visited state, seed buffers, and queue backing storage contribute
 query workspace beyond the bounded active queue. A vector reached at different
 levels can incur repeated distance evaluations.

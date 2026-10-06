@@ -1,14 +1,14 @@
 # ML-UNG 方法与论文汇报说明
 
-> 这份 note 对应本轮重写正文。阅读顺序：本文 → `main.pdf` 的方法图与结果 → `generated_data/` 完整数据。当前稿是可讨论的研究正文，不等于实验已达到投稿要求。
+> 这份 note 对应持续润色后的正文。阅读顺序：本文 → `main.pdf` 的方法图与结果 → `generated_data/` 完整数据。
 
 ## 1. 先讲清楚我们解决什么
 
 我们研究标签 AND 过滤的近似最近邻搜索。查询标签为 Q，向量标签为 A；只有 Q ⊆ A 的向量可以进入结果。选择率是符合条件的向量数占全库向量数的比例，低选择率表示可用向量少。
 
-UNG 把标签集合完全相同的向量分为一个 group，用最小严格超集关系连接 groups（LNG），再把这些关系落成向量边。它已经使用 Trie 辅助寻找入口，因此我们的贡献不能写成“首次引入 Trie”。
+UNG 把标签集合完全相同的向量分为一个 group，用最小严格超集关系连接 groups（LNG），再把这些关系落成向量边。它已经使用 Trie 辅助寻找入口；我们的改变是用 terminal-prefix 关系连接 groups，并设计与之配套的入口 frontier。
 
-我们的主线有两个相互配合的机制：**把 terminal-prefix 连接与覆盖它的入口 frontier 一起设计；再把可整体证明合法的多个 groups 聚成 block，改变向量搜索的粒度。** GPU 批处理使额外图的构建可行；自动参数 DRH 是这一结构的一个可解释实例，而不是全文唯一创新点。
+我们的主线有两个相互配合的机制：**把 terminal-prefix 连接与覆盖它的入口 frontier 一起设计；再把可整体证明合法的多个 groups 聚成 block，改变向量搜索的粒度。** GPU 批处理降低额外图的构建成本；自动参数 DRH 提供一个可解释的配置实例。
 
 ## 2. 用一个例子解释入口机制
 
@@ -18,7 +18,7 @@ UNG 把标签集合完全相同的向量分为一个 group，用最小严格超�
 - Trie 的 {b} 和 {a,b} 位于不同前缀分支；必须保留这两个入口。{a,b,c} 已能从 {a,b} 到达，不必再保留。
 - 因此 prefix frontier 保留“合法且没有合法 terminal 前缀祖先”的 groups。它省去了不同分支之间的最小超集筛选，但可能产生更多向量入口。
 
-实际计时的 Trie provider 使用 label-to-group 压缩位图交集，再查询缓存的 terminal 祖先；并非只做一次理想化 Trie 遍历。优化后的 LNG provider 已采用 cardinality buckets 和缓冲复用，但仍执行成对的集合包含判断。两者比较不能再描述成“Trie 对比未优化 LNG”。
+实际计时的 Trie provider 使用 label-to-group 压缩位图交集，再查询缓存的 terminal 祖先；并非只做一次理想化 Trie 遍历。优化后的 LNG provider 已采用 cardinality buckets 和缓冲复用，但仍执行成对的集合包含判断。
 
 论文 Proposition 1 证明：从完整 prefix frontier 出发，所有合法 terminal 在标签平面可达。它**不保证有限搜索预算下的 Recall**：入口裁剪、局部有向图可达性、向量 cross edges 和候选队列都可能限制覆盖。含 r 个根的 prefix forest 有 G−r 条 group 边；它不一定是 LNG cover edges 的子集。
 
@@ -37,13 +37,13 @@ UNG 把标签集合完全相同的向量分为一个 group，用最小严格超�
 
 `mL` 的 m 是 upper-overlay 数，物理层共 m+1 层。`L/T` 表示该层的 LNG/Trie 连接。旧图中 `2L-LT` 默认省略 LNG base，完整记号为 `2L[L|LT]`。L0 可以自由选 LNG 或 Trie，不存在方法定义要求它必须是 LNG。
 
-查询状态为 `(vector_id, distance, physical_level)`，只扩展所属层的边。不同层共享有界候选队列，但状态不晋级、不向下 fall through。入口 group 会被标记为拥有它的最细合法 overlay；不保留一份重复 L0 seed。所有 seeds 先计距离并标为已见，再优先保留 block seeds。因此增加层数可能改变队列竞争，不能推出“高层不用就一定零成本”。
+查询状态为 `(vector_id, distance, physical_level)`，只扩展所属层的边；顺序按 distance、vector ID、level 依次比较。不同层共享有界候选队列，但状态不晋级、不向下 fall through。入口 group 会被标记为拥有它的最细合法 overlay；不保留一份重复 L0 seed。所有 seeds 先计距离并标为已见，再优先保留 block seeds。队列满时，新候选会淘汰更差的状态；被淘汰状态的 seen 标记保留，最终答案只从终止时仍在队列中的状态按 vector ID 去重产生。正文新增九个 singleton groups 的两层例子，展示 `(y1,L1)` 和 `(y1,L2)` 同时入队后，高层状态在首次扩展前被淘汰。
 
 Proposition 2 的谓词安全依赖：seed 合法、overlay seed/edge 的 owner 被授权、层内 direct membership 正确、跨 block 边沿根标签超集方向。实现依靠这些不变量，而不是在每条邻边上补一次过滤。Proposition 3 证明层隔离；回退只保证相同 base 搜索路径，不包含额外授权和路由时间。
 
 ## 4. 当前数据说明什么
 
-Amazon：602,453 个 768 维向量，482,387 个 exact groups；每档 1,000 queries，100 query threads，1 cold + 2 warm。Recall@10 crossing 要求两次 warm 均达到 0.90，取最小实测 Lsearch，不插值。完整 factorial 为 14 种 topology × 9 个选择率，T1=1024、T2=16384、ungated。跨 L0 使用各自 matched provider，是系统比较；同一 L0/provider 下只改变一个 upper 字母才隔离该层 topology。
+Amazon：602,453 个 768 维向量，482,387 个 exact groups；每档 1,000 queries，100 query threads，1 cold + 2 warm。Recall@10 crossing 要求两次 warm 均达到 0.90，取最小实测 Lsearch，不插值。L2 距离作用于已有浮点坐标，Trie 按存储的整数 label ID 升序组织。5/30/60/80/95% 档通过将部分查询谓词替换为高频 `{1}` 得到；这是混合查询的平均选择率，例如 5% 档单次查询覆盖率可从 0.0033% 到 96.702%。因此不能把档位当作每条查询的固定选择率。完整 factorial 为 14 种 topology × 9 个选择率，T1=1024、T2=16384、ungated。跨 L0 使用各自 matched provider，是系统比较；同一 L0/provider 下只改变一个 upper 字母才隔离该层 topology。
 
 | 平均选择率 | `0L[T] / 0L[L]` QPS | 完整 factorial 最优配置 | 最优 QPS |
 |---:|---:|---|---:|
@@ -63,14 +63,14 @@ NC 表示共享实测预算内没有 crossing，不代表任意预算都不能�
 
 独立 profile 可以解释入口与搜索的成本转移：
 
-| 选择率 | 系统 | ELS ms/query | 向量 seed setup ms/query | Graph ms/query |
+| 平均选择率 | 系统 | ELS ms/query | 向量 seed setup ms/query | Graph ms/query |
 |---:|---|---:|---:|---:|
 | 0.499% | LNG + optimized LNG entry | 20.352 | 0.195 | 2.076 |
 | 0.499% | Trie + prefix entry | 0.645 | 1.769 | 0.868 |
 | 9.907% | LNG + optimized LNG entry | 36.631 | 0.646 | 98.747 |
 | 9.907% | Trie + prefix entry | 3.778 | 14.744 | 323.081 |
 
-这些是带 instrumentation 的多线程 per-query 阶段均值，不能求和后作为 QPS 的 batch latency。QPS 是 B / warm-median batch seconds；B 在 held-out 中为 2,864 或 3,000，不全是 1,000。Visited、edges、distances 分别为弹出扩展状态数、扫描邻接项数和距离计算次数。`timeout` 专指 0L-Trie/95% 详细 profile 超过 3300 秒，与性能表 NC 分开。
+这些是带 instrumentation 的多线程 per-query 阶段均值，不能求和后作为 QPS 的 batch latency。QPS 是 B / warm-median batch seconds；B 在 held-out 中为 2,864 或 3,000，不全是 1,000。论文将 CSV 的 `Visited` 显示为 **Encounters**。Encounters、edges、distances 分别为通过邻接首次发现的状态数、扫描邻接项数和距离计算次数。Visited 在距离计算/队列准入前增加，拒绝入队的候选也计数；它不是 pop/expansion 次数。初始化 seed 计距离，不计这次邻接发现。`timeout` 专指 0L-Trie/95% 详细 profile 超过 3300 秒，与性能表 NC 分开。
 
 ## 5. 自动方案与 GPU 构建怎样定位
 
@@ -78,13 +78,13 @@ DRH 用 T+N/T 的对称结构代理选择 T1≈sqrt(N)，取最近二次幂；rh
 
 N=602453、R=64、C=4 得到 1024:LNG、16384:Trie 两层。DRH-v1 在存在合法物理层 h≥2 时进入多层后端，DRH-v2 还要求最高合法 h≥2 的 direct mass 达到下一未物化尺度。当前 held-out DRH 固定 LNG base，不自动选择全部系统组件；不读取查询频率、计时或 Recall，但单次查询授权自然要读取 Q。
 
-Amazon 60%–99% 下自动方案为 Plain 的 14.40–26.70×；VariousImg 有明确退化。四个数据集都导出两个 overlays，所以还未验证自动深度变化后的性能。人工调优比较只覆盖冻结的五个人工替代方案，不是无限参数空间最优。
+Amazon 60%–99% 下自动方案为 Plain 的 14.40–26.70×；VariousImg 有明确退化。四个数据集都导出两个 overlays，所以还未验证自动深度变化后的性能。人工候选以自动 `(t,16t)` 为中心：`1L[L|L](t)`、`2L[L|LL](t,16t)`、`2L[L|TT](t,16t)`，以及 `2L[L|LT](t/2,8t)` 和 `2L[L|LT](2t,32t)`。三组 t 分别为 256/512/1024。它们使用相同 presence gate，因此单层候选始终回到 base。
 
-GPU 把 irregular local-graph 与 cross-edge tasks 组织成批，融合 distance/top-k，并在需要时只回传 IDs。小 block 默认 exact top-R，中 block sampled CPU Vamana，大 block CUDA candidate refinement；metadata 和最终 adjacency 仍在 host。当前 fastest hybrid sidecar 90.49s，独立 stage medians 组合总计 141.27s，原 CPU base 190.38s，即约 1.35×。这不是单次联合构建 wall time，也未证明最快构建索引保持同等查询质量。两次 timing repeats 的 bootstrap 只能看作探索性区间。
+GPU 把 irregular local-graph 与 cross-edge tasks 组织成批，融合 distance/top-k，并在需要时只回传 IDs。小 block 默认 exact top-R，中 block sampled CPU Vamana，大 block CUDA candidate refinement；metadata 和最终 adjacency 仍在 host。当前 fastest hybrid sidecar 90.49s，独立 stage medians 组合总计 141.27s，原 CPU base 190.38s，即约 1.35×。这不是单次联合构建 wall time，也未证明最快构建索引保持同等查询质量。论文主表已移除仅两次 repeats 的 bootstrap CI 列；原始统计及中文实验报告保留该数值，正文按实际 timing 和 resource 解释。
 
 ## 6. 文献定位与写法
 
-本文采用“具体瓶颈 → 结构观察 → 算法 → 有条件性质 → 对应实验证据”的组织，而不复制原论文表述。下列论文均已纳入引用；年份按出版记录，不擅自改成之后的会议举办年。
+本文采用“具体瓶颈 → 结构观察 → 算法 → 有条件性质 → 对应实验证据”的组织，而不复制原论文表述。下列论文均已纳入引用；年份按正式出版记录。
 
 | 已发表相关论文 | 出版记录 | 本文借鉴或区别 |
 |---|---|---|
@@ -107,7 +107,7 @@ GPU 把 irregular local-graph 与 cross-edge tasks 组织成批，融合 distanc
 
 还补充 LSSG（arXiv:2609.15058）及 Query-aware Routing（arXiv:2606.19898），明确标为预印本。前者已有 label-similarity tiers，所以“首次多层标签图”不成立；我们的区别是 direct-member aggregation、root-prefix authorization 与 level-local states。后者用离线性能表和 Recall 模型，DRH 则放弃这类校准，也承担适应性不足。
 
-完整逐条核查见 `review/literature_claim_audit.md`。UNG 的 ACM 全文拉取返回 403，因此本轮其机制还通过作者官方代码核验，不能把未取到全文说成已完整阅读。
+完整逐条核查见 `review/literature_claim_audit.md`。UNG 的 ACM 全文拉取返回 403，其机制通过作者官方代码核验。
 
 ## 7. 还差什么才能形成更强投稿证据
 
@@ -123,3 +123,11 @@ GPU 把 irregular local-graph 与 cross-edge tasks 组织成批，融合 distanc
 | 动态维护 | 仅讨论结构影响 | 未实现并测量，不宣称动态结果 |
 
 向老师汇报时建议先讲例子和两张机制图，再给低选择率入口/搜索 breakdown、完整 topology 最优表，最后介绍自动方案、GPU 与尚缺证据。论文定位应建立在可验证的区别上，而不是“所有选择率都优于已有工作”。
+
+## 8. 本轮写作与评审状态
+
+主线固定为“入口与连接共同设计 → 前缀授权跨组导航 → 有界队列中的实际收益和代价”。删去只防御质疑的重复句，正文每段尽量只承担定义、推导、实验证据或解释之一。结果部分重新按 factorial、阶段成本、自动转移、构建成本组织。
+
+三轮修改与独立模拟审阅已完成。第三轮 SIGMOD/VLDB 均确认表格布局、测量术语和回退行为说明通过，主线、方法与人类可评审性均为 4/5；实验支撑仍为 2/5。当前 PDF 共 23 页，结论在第 11 页；完整结果与测量定义在附录。手调结果已标明单层方案实际执行 base fallback。每轮独立意见与处理记录见 `review/POLISH_ROUNDS.md`。模拟审阅不等于导师或会议审稿人认可。
+
+原始 embedding 模型、存储前是否归一化、部分旧 query 文件的生成记录仍未找全；正文按已核实的预处理快照描述，不推测其来源。只读审计见 `review/workload_metadata_audit.json`。

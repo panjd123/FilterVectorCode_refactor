@@ -6,6 +6,7 @@
 \usepackage{algorithm}
 \usepackage[noend]{algpseudocode}
 \usepackage{graphicx}
+\usepackage{placeins}
 \usepackage{xcolor}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
@@ -21,6 +22,9 @@
 \acmDOI{}
 \acmISBN{}
 \emergencystretch=2em
+\renewcommand{\dbltopfraction}{0.9}
+\renewcommand{\textfraction}{0.1}
+\setcounter{dbltopnumber}{4}
 \input{generated_results}
 \input{generated_topology_factorial}
 
@@ -28,28 +32,23 @@
 
 \begin{document}
 \begin{abstract}
-Label-filtered approximate nearest-neighbor search must connect eligible
-vectors without letting metadata processing dominate search. In a
-containment-based index, replacing dense group relations by a prefix tree
-changes which entry groups are required; retaining the original entries can
-leave eligible branches unreachable. We present \system, which couples a
-terminal-prefix forest with a bitmap-backed covering frontier, and introduces
-independently constructed blocks for coarser predicate-safe navigation.
-A block is authorized when its root prefix contains the query labels. Search
-states carry a physical level and expand only that level's edges. We prove
-label-plane coverage and conditional predicate safety, while treating
-finite-budget ANN Recall as an experimental property. A structural rule
-instantiates overlay count and thresholds without query-performance
-calibration, and batched GPU tasks accelerate construction. On Amazon,
-matched 0L Trie/entry search is 2.77--18.43$\times$ faster than the optimized
-LNG system at three measured selectivities below 6\%, but is slower or lacks
-a Recall crossing on broader workloads. The automatic LNG-base plan,
-\texttt{2L[L|LT]}/DRH-v1, achieves 14.40--26.70$\times$ over optimized
-\texttt{0L[L]} at 60--99\% selectivity. These are screening
-results at measured Recall@10 crossings; held-out regressions remain.
-The fastest composed GPU-assisted build takes 141.27 seconds versus
-190.38 seconds for the original CPU base, with query-quality equivalence
-across construction backends still to be established.
+Label-filtered nearest-neighbor search needs both a way to enter eligible
+regions and a graph that connects them effectively. These choices are
+coupled: a simpler label graph may require more entry points, while a finer
+grouping can restrict geometric navigation. We present \system, a graph index
+that makes this tradeoff explicit. A terminal-prefix forest pairs with a
+covering entry frontier, replacing global minimal-superset reduction with
+bitmap intersection and prefix-ancestor checks. Independently constructed
+blocks then join exact-label groups under a shared prefix. When that prefix
+contains the query labels, a block permits proximity edges across its groups
+while preserving eligibility. Level-tagged search states use only the
+adjacency of their authorized scale. We establish label-plane coverage and
+conditional predicate safety. In an Amazon screening
+study at measured Recall@10 $\geq0.90$, the prefix-base system is
+2.77--18.43$\times$ faster than the optimized LNG system on three workloads
+with mean selectivity below 6\%. Among 14 tested configurations, the per-workload winner has a Trie base
+on seven of nine workloads; the LNG base wins near 10\% and 30\%. These results
+identify complementary roles for entry simplicity and coarse navigation.
 \end{abstract}
 \maketitle
 
@@ -61,16 +60,27 @@ across construction backends still to be established.
 \input{sections/evaluation}
 \input{sections/discussion_related}
 
-\authoritativeScreenAppendix
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{references}
 \clearpage
 \onecolumn
 \appendix
+\input{sections/measurement_details}
+\clearpage
 \section{Complete Topology and Measurement Tables}
 \baseTopologyFactorialTables
 \authoritativeOverlayControls
 \authoritativeProfileResults
+\clearpage
+\section{Policy and Construction Details}
+\authoritativePolicyDetails
+\authoritativeRouterResults
+\authoritativeHeldoutProfileResults
+\authoritativeBuildDetails
+\clearpage
+\section{Construction Profile Details}
+\label{sec:build-profiles}
+\input{sections/construction_profiles}
 \clearpage
 \section{Complete Recall--Throughput Curves}
 \authoritativeRecallQPSFigures

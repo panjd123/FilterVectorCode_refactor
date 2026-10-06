@@ -31,8 +31,8 @@ class DeadlinePaperResultsTest(unittest.TestCase):
                     "speedup_vs_baseline": "1.0",
                 })
         rendered, _ = deadline_results.amazon_table(rows)
-        self.assertIn("Plain QPS & 0L-Trie/plain & 1L-LNG/plain", rendered)
-        self.assertIn("2L-LT ungated/plain & 2L-LT DRH-v1/plain", rendered)
+        self.assertIn("Plain QPS & 0L[T]/plain & 1L[L|L]/plain", rendered)
+        self.assertIn("2L[L|LT] ungated/plain & 2L[L|LT] DRH-v1/plain", rendered)
 
     def test_two_layer_topology_table_fails_on_missing_method(self) -> None:
         methods = (
@@ -53,7 +53,7 @@ class DeadlinePaperResultsTest(unittest.TestCase):
         rendered, markdown = deadline_results.two_layer_topology_tables(
             points, points)
         self.assertIn(
-            "2L-LL QPS & 2L-LT QPS & 2L-TL QPS & 2L-TT QPS", rendered)
+            "2L[L|LL] QPS & 2L[L|LT] QPS & 2L[L|TL] QPS & 2L[L|TT] QPS", rendered)
         self.assertIn("## 2L overlay topology 公平消融", markdown)
         self.assertIn(
             "2L-XY 的 X/Y 依次表示 level 1/2 topology", markdown)
@@ -204,8 +204,8 @@ class DeadlinePaperResultsTest(unittest.TestCase):
 
             rendered, markdown = deadline_results.amazon_profile_tables(rows, manifest)
 
-            self.assertIn("10.000\\% & max & 0L-LNG", rendered)
-            self.assertIn("| 10.000% | max | 0L-LNG |", markdown)
+            self.assertIn("10.000\\% & max & 0L[L]", rendered)
+            self.assertIn("| 10.000% | max | 0L[L] |", markdown)
             rows[0]["total_edges_scanned_warm_median"] = "0"
             with self.assertRaisesRegex(ValueError, "edge counters are disabled"):
                 deadline_results.amazon_profile_tables(rows, manifest)
@@ -252,7 +252,7 @@ class DeadlinePaperResultsTest(unittest.TestCase):
             rendered, markdown = deadline_results.amazon_profile_tables(
                 rows, selection, supervisor)
 
-            self.assertIn("95.000\\% & timeout & 0L-Trie", rendered)
+            self.assertIn("95.000\\% & timeout & 0L[T]", rendered)
             self.assertIn("timeout at 3300.0s", markdown)
             with self.assertRaisesRegex(ValueError, "do not match selection manifest"):
                 deadline_results.amazon_profile_tables(rows, selection)

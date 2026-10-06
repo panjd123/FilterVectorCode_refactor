@@ -1,0 +1,465 @@
+{
+  "timestamp_utc": "2026-10-06T04:34:02.916615+00:00",
+  "scope": "read-only workload and source metadata audit; no benchmark execution",
+  "config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.authoritative_amazon_base_trie_query_grid.json",
+  "config_sha256": "4d7ff716053eed3bc17b3b147b39671cb314440ef19e4a22a4c67fc8ed689753",
+  "metric": "L2",
+  "metric_source": "experiments/multilevel_special/run_selection_sweep.py:475",
+  "canonical_order": "ascending stored integer label IDs",
+  "order_source": "UNG/codes/include/ung_special_block_activation.h:36-43 and sorted-label construction",
+  "workloads": [
+    {
+      "workload": "sel_0p5",
+      "query_dir": "/home/graphdb/FilterVectorData/Amazon/query_minlen5_avgsel05pct",
+      "queries": 1000,
+      "mean_selectivity": 0.0049924907,
+      "label_count_min": 5,
+      "label_count_mean": 5.939,
+      "label_count_max": 14,
+      "empty_predicates": 0,
+      "query_labels_sha256": "f48d3e5e841f9b19b01cc4ce2d02e44675d65f8a74f22add7bb963a52c14800d",
+      "generation_metadata": {}
+    },
+    {
+      "workload": "sel_1",
+      "query_dir": "/home/graphdb/FilterVectorData/Amazon/query_minlen5_avgsel1pct",
+      "queries": 1000,
+      "mean_selectivity": 0.0090305484,
+      "label_count_min": 5,
+      "label_count_mean": 5.763,
+      "label_count_max": 17,
+      "empty_predicates": 0,
+      "query_labels_sha256": "28c7ee691c563bb1763351f1325ce994dc3ecaa6371c74a3f09a6359f12b7b26",
+      "generation_metadata": {}
+    },
+    {
+      "workload": "sel_5",
+      "query_dir": "/home/graphdb/FilterVectorData/Amazon/query_nested_avgsel5pct",
+      "queries": 1000,
+      "mean_selectivity": 0.0503811667,
+      "label_count_min": 1,
+      "label_count_mean": 5.551,
+      "label_count_max": 17,
+      "empty_predicates": 0,
+      "query_labels_sha256": "d9e4b956c3b03de802b8783be0e18f92f719f6e2e9cd5ecf8498508934638f6f",
+      "generation_metadata": {
+        "schema_version": 1,
+        "name": "sel_5",
+        "query_dir": "query_nested_avgsel5pct",
+        "generation_algorithm": "nested-label1-substitution-v1",
+        "target_mean_selectivity": 0.05,
+        "num_queries": 1000,
+        "num_base_points": 602453,
+        "mean_selectivity": 0.05038116666362355,
+        "min_selectivity": 3.3197610436000814e-05,
+        "max_selectivity": 0.9670165141513114,
+        "unique_predicates": 888,
+        "empty_predicates": 0,
+        "vector_source_query_dir": "query_minlen5_avgsel1pct",
+        "predicate_source_query_dirs": [
+          "query_minlen5_avgsel1pct",
+          "query_minlen1_label1_sel967pct"
+        ],
+        "query_bin_sha256": "3916a31115849c7fc9067865312b5bcc2c3391d61ff10439d5698d9969c86e88",
+        "query_labels_sha256": "d9e4b956c3b03de802b8783be0e18f92f719f6e2e9cd5ecf8498508934638f6f",
+        "profile_sha256": "a0ad3653dc370975255ad3de582aa2309ea121fce3d35895e3950cde11f31fa2",
+        "groundtruth_sha256": "1fc5a5a0e9929a6841e8096099b9eb218b04a5d56d2d0182e272a1a615a2c6a0",
+        "groundtruth_bytes": 80000
+      }
+    },
+    {
+      "workload": "sel_10",
+      "query_dir": "/home/graphdb/FilterVectorData/Amazon/query_minlen3_avgsel10pct",
+      "queries": 1000,
+      "mean_selectivity": 0.0990661529,
+      "label_count_min": 3,
+      "label_count_mean": 3.396,
+      "label_count_max": 7,
+      "empty_predicates": 0,
+      "query_labels_sha256": "fde413ca5953e8bfd2254f4bb3f08be3e228dc770d8031b2e54ab410ee51232d",
+      "generation_metadata": {}
+    },
+    {
+      "workload": "sel_30",
+      "query_dir": "/home/graphdb/FilterVectorData/Amazon/query_nested_avgsel30pct",
+      "queries": 1000,
+      "mean_selectivity": 0.3002724229,
+      "label_count_min": 1,
+      "label_count_mean": 2.488,
+      "label_count_max": 6,
+      "empty_predicates": 0,
+      "query_labels_sha256": "398a5e6ebade28218439286e29cb6e466332faae48bd79e77948bd883e96acfc",
+      "generation_metadata": {
+        "schema_version": 1,
+        "name": "sel_30",
+        "query_dir": "query_nested_avgsel30pct",
+        "generation_algorithm": "nested-label1-substitution-v1",
+        "target_mean_selectivity": 0.3,
+        "num_queries": 1000,
+        "num_base_points": 602453,
+        "mean_selectivity": 0.30027242291099887,
+        "min_selectivity": 0.014714840825757362,
+        "max_selectivity": 0.9670165141513114,
+        "unique_predicates": 706,
+        "empty_predicates": 0,
+        "vector_source_query_dir": "query_minlen2_avgsel25pct",
+        "predicate_source_query_dirs": [
+          "query_minlen2_avgsel25pct",
+          "query_minlen1_label1_sel967pct"
+        ],
+        "query_bin_sha256": "91083111abced09c5fb2d1e5a1e8ebe16b4a3c98f7f7300de4777121fcdcd4ed",
+        "query_labels_sha256": "398a5e6ebade28218439286e29cb6e466332faae48bd79e77948bd883e96acfc",
+        "profile_sha256": "33cf4810ee139b0e0e3395f0eb47c0af4ec54c379bc5178f0f324c62900b4632",
+        "groundtruth_sha256": "0d9886a77cc8b673de32158de24e2baab71bf08aea4620713a6ee13b5f33e78a",
+        "groundtruth_bytes": 80000
+      }
+    },
+    {
+      "workload": "sel_60",
+      "query_dir": "/home/graphdb/FilterVectorData/Amazon/query_nested_avgsel60pct",
+      "queries": 1000,
+      "mean_selectivity": 0.6004749068,
+      "label_count_min": 1,
+      "label_count_mean": 1,
+      "label_count_max": 1,
+      "empty_predicates": 0,
+      "query_labels_sha256": "79f88598362068259b5ab36838bd2c0fc76f30dcc5320771bcb04493d3256138",
+      "generation_metadata": {
+        "schema_version": 1,
+        "name": "sel_60",
+        "query_dir": "query_nested_avgsel60pct",
+        "generation_algorithm": "nested-label1-substitution-v1",
+        "target_mean_selectivity": 0.6,
+        "num_queries": 1000,
+        "num_base_points": 602453,
+        "mean_selectivity": 0.6004749067562116,
+        "min_selectivity": 0.0013179451343092324,
+        "max_selectivity": 0.9670165141513114,
+        "unique_predicates": 388,
+        "empty_predicates": 0,
+        "vector_source_query_dir": "query_minlen1_avgsel50pct",
+        "predicate_source_query_dirs": [
+          "query_minlen1_avgsel50pct",
+          "query_minlen1_label1_sel967pct"
+        ],
+        "query_bin_sha256": "cbb0ddd94d9d31ccb0644d6fd46dbe5e5069a8b6b03cc9eb3c4d72b6900ff03b",
+        "query_labels_sha256": "79f88598362068259b5ab36838bd2c0fc76f30dcc5320771bcb04493d3256138",
+        "profile_sha256": "01275ebdefe79b3ac0f9b6fc796dce64d27010aec910d0c546c0dfe016cd13c9",
+        "groundtruth_sha256": "ee2105f814dce8e48dfd9e9ab512f683bc07aeb112649e9207c263ab8c6ace29",
+        "groundtruth_bytes": 80000
+      }
+    },
+    {
+      "workload": "sel_80",
+      "query_dir": "/home/graphdb/FilterVectorData/Amazon/query_minlen1_nested_avgsel80pct",
+      "queries": 1000,
+      "mean_selectivity": 0.8002369928,
+      "label_count_min": 1,
+      "label_count_mean": 1,
+      "label_count_max": 1,
+      "empty_predicates": 0,
+      "query_labels_sha256": "8bb4362839022d56514155b902cfce300d830a1dbeca73b6146925ff20b34280",
+      "generation_metadata": {
+        "schema_version": 1,
+        "name": "sel_80",
+        "query_dir": "query_minlen1_nested_avgsel80pct",
+        "source_query_dir": "query_minlen1_avgsel75pct",
+        "seed": 20260908,
+        "num_queries": 1000,
+        "num_base_points": 602453,
+        "mean_selectivity": 0.800236992761261,
+        "min_selectivity": 0.009559251925046435,
+        "max_selectivity": 0.9670165141513114,
+        "query_bin_sha256": "7fa7fe45b20dcf5d72bd343874532e6536128a3ba96f1b8ac3bcfeef6eea4a72",
+        "query_labels_sha256": "8bb4362839022d56514155b902cfce300d830a1dbeca73b6146925ff20b34280",
+        "profile_sha256": "f9d292747980038fd07f70af011113c04e145d66f507070d34abcd212982d116",
+        "groundtruth_sha256": "7a9f4d99f6e024ca57330e53808ca52595025487aa74915fc4e6d12085094065"
+      }
+    },
+    {
+      "workload": "sel_95",
+      "query_dir": "/home/graphdb/FilterVectorData/Amazon/query_minlen1_nested_avgsel95pct",
+      "queries": 1000,
+      "mean_selectivity": 0.9501978063,
+      "label_count_min": 1,
+      "label_count_mean": 1,
+      "label_count_max": 1,
+      "empty_predicates": 0,
+      "query_labels_sha256": "0cba55707ce46a3f25560f1e78d2c906b91c4ff1a4917037d706129c4d47b254",
+      "generation_metadata": {
+        "schema_version": 1,
+        "name": "sel_95",
+        "query_dir": "query_minlen1_nested_avgsel95pct",
+        "source_query_dir": "query_minlen1_avgsel75pct",
+        "seed": 20260908,
+        "num_queries": 1000,
+        "num_base_points": 602453,
+        "mean_selectivity": 0.9501978063019023,
+        "min_selectivity": 0.009599089057569636,
+        "max_selectivity": 0.9670165141513114,
+        "query_bin_sha256": "7fa7fe45b20dcf5d72bd343874532e6536128a3ba96f1b8ac3bcfeef6eea4a72",
+        "query_labels_sha256": "0cba55707ce46a3f25560f1e78d2c906b91c4ff1a4917037d706129c4d47b254",
+        "profile_sha256": "28b1a9e28899059376f9951328a9e12c68d9ff506724ce5a66cb169af2d6087c",
+        "groundtruth_sha256": "9859bfce670f927cdb557e84b14155edc8861c6e8b1838eafd29bf36713f6590"
+      }
+    },
+    {
+      "workload": "sel_99",
+      "query_dir": "/home/graphdb/FilterVectorData/Amazon/query_label1_empty_avgsel99pct",
+      "queries": 1000,
+      "mean_selectivity": 0.9900060038,
+      "label_count_min": 0,
+      "label_count_mean": 0.303,
+      "label_count_max": 1,
+      "empty_predicates": 697,
+      "query_labels_sha256": "9333184e09f79f2a0fbfb09be0df775f37fedb3934962b29a5d3c26f271886d2",
+      "generation_metadata": {
+        "schema_version": 1,
+        "name": "sel_99",
+        "query_dir": "query_label1_empty_avgsel99pct",
+        "generation_algorithm": "label1-empty-even-mixture-v1",
+        "target_mean_selectivity": 0.99,
+        "num_queries": 1000,
+        "num_base_points": 602453,
+        "mean_selectivity": 0.9900060037878474,
+        "min_selectivity": 0.9670165141513114,
+        "max_selectivity": 1.0,
+        "unique_predicates": 2,
+        "empty_predicates": 697,
+        "vector_source_query_dir": "query_minlen1_label1_sel967pct",
+        "predicate_source_query_dirs": [
+          "query_minlen1_label1_sel967pct",
+          "query_empty_full100pct"
+        ],
+        "query_bin_sha256": "7fa7fe45b20dcf5d72bd343874532e6536128a3ba96f1b8ac3bcfeef6eea4a72",
+        "query_labels_sha256": "9333184e09f79f2a0fbfb09be0df775f37fedb3934962b29a5d3c26f271886d2",
+        "profile_sha256": "d3101b61ca17d49f60697b88c6e2b6998e9d2ea5b965b26d72cf790bbf3cfd15",
+        "groundtruth_sha256": "afcd60266878c2423f983c102a94855133d570c1b613bdb79bf0adbfe0c73405",
+        "groundtruth_bytes": 80000
+      }
+    }
+  ],
+  "manual_plans": {
+    "genome": {
+      "source": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_heldout_genome_search.json",
+      "sha256": "19384fcdccc6048728b9fe40866f31cf34718d3384f81354a9722d4189375d58",
+      "plans": [
+        {
+          "name": "l1_t256_l_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 256,
+              "topology": "lng"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t256_4096_ll_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 256,
+              "topology": "lng"
+            },
+            {
+              "min_points": 4096,
+              "topology": "lng"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t256_4096_tt_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 256,
+              "topology": "trie"
+            },
+            {
+              "min_points": 4096,
+              "topology": "trie"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t128_2048_lt_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 128,
+              "topology": "lng"
+            },
+            {
+              "min_points": 2048,
+              "topology": "trie"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t512_8192_lt_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 512,
+              "topology": "lng"
+            },
+            {
+              "min_points": 8192,
+              "topology": "trie"
+            }
+          ],
+          "route": "require_upper_authorization"
+        }
+      ]
+    },
+    "reviews": {
+      "source": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_heldout_reviews_search.json",
+      "sha256": "3a6f8abce7b6e2404b6cb0db8409ca5c61ab3dec70f16b04f0b36413943d2add",
+      "plans": [
+        {
+          "name": "l1_t512_l_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 512,
+              "topology": "lng"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t512_8192_ll_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 512,
+              "topology": "lng"
+            },
+            {
+              "min_points": 8192,
+              "topology": "lng"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t512_8192_tt_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 512,
+              "topology": "trie"
+            },
+            {
+              "min_points": 8192,
+              "topology": "trie"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t256_4096_lt_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 256,
+              "topology": "lng"
+            },
+            {
+              "min_points": 4096,
+              "topology": "trie"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t1024_16384_lt_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 1024,
+              "topology": "lng"
+            },
+            {
+              "min_points": 16384,
+              "topology": "trie"
+            }
+          ],
+          "route": "require_upper_authorization"
+        }
+      ]
+    },
+    "variousimg": {
+      "source": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_heldout_variousimg_search.json",
+      "sha256": "4e5618f43a072f6ce81de1b2324337431ab6301287a74669aed610df7e3017c3",
+      "plans": [
+        {
+          "name": "l1_t1024_l_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 1024,
+              "topology": "lng"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t1024_16384_ll_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 1024,
+              "topology": "lng"
+            },
+            {
+              "min_points": 16384,
+              "topology": "lng"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t1024_16384_tt_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 1024,
+              "topology": "trie"
+            },
+            {
+              "min_points": 16384,
+              "topology": "trie"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t512_8192_lt_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 512,
+              "topology": "lng"
+            },
+            {
+              "min_points": 8192,
+              "topology": "trie"
+            }
+          ],
+          "route": "require_upper_authorization"
+        },
+        {
+          "name": "l2_t2048_32768_lt_entry_optimized_lng_upper_routed",
+          "layers": [
+            {
+              "min_points": 2048,
+              "topology": "lng"
+            },
+            {
+              "min_points": 32768,
+              "topology": "trie"
+            }
+          ],
+          "route": "require_upper_authorization"
+        }
+      ]
+    }
+  },
+  "unresolved_metadata": [
+    "original embedding model and normalization before the stored vectors were produced",
+    "original public-dataset-to-vector/label preprocessing for each repository snapshot",
+    "generation record for the reused 0.5%, 1%, and 10% batches"
+  ]
+}

@@ -920,12 +920,13 @@ class AuthoritativePaperResultsTest(unittest.TestCase):
         self.assertNotIn(r"\pending{", assembled)
         for name in (
                 "authoritativeDatasetTable",
-                "authoritativeQueryExecution",
                 "authoritativeSharedSearchBudgetTable",
                 "authoritativeAmazonSummary",
                 "authoritativeOverlayControls",
                 "authoritativeProfileResults",
                 "authoritativePolicyResults",
+                "authoritativeRouterResults",
+                "authoritativeHeldoutProfileResults",
                 "authoritativeBuildResults",
                 "authoritativeRecallQPSFigures",
                 "authoritativeScreenAppendix"):

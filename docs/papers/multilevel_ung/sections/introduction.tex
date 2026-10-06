@@ -1,104 +1,82 @@
 \section{Introduction}
-Vector search increasingly operates inside a structured database query.
-A product search combines semantic similarity with category and availability
-constraints; a retrieval application restricts documents by topic, language,
-or access labels before ranking their embeddings.  In each case the answer
-must be close to a query vector and satisfy the metadata predicate.  This
-paper studies conjunctions of labels: a vector is eligible when its label set
-contains every query label.  We define selectivity as the fraction of eligible
-vectors, so a low-selectivity query admits a small fraction of the database.
+Vector search increasingly appears inside structured database queries.
+A catalog search combines semantic similarity with product categories and
+availability; document retrieval restricts embeddings by topic or access
+labels. The index must find nearby vectors among those satisfying the whole
+predicate. We study conjunctions of labels: a vector is eligible when its
+label set contains every query label. Selectivity denotes the fraction of
+eligible vectors.
 
-The difficulty is that predicate eligibility and geometric proximity induce
-different organizations of the same data.  An unfiltered proximity graph can
-place eligible vectors behind many ineligible neighbors.  Filter-aware search
-and construction, including ACORN~\cite{patel2024acorn}, address this tension
-through richer neighborhoods and query-time expansion.  Label-aware indexes
-instead organize navigation around metadata.  UNG~\cite{cai2024ung} connects
-exact-label groups through set containment, while Curator~\cite{jin2026curator}
-shares label-specialized search structures through a clustering tree.  These
-approaches offer different ways to recover useful navigation under a filter;
-selectivity alone does not determine which one is fastest.
+Graph indexes must reconcile two organizations of this data: proximity in
+vector space and eligibility in label space. Filter-aware expansion, as in
+ACORN~\cite{patel2024acorn}, improves navigation through a global graph.
+Label-aware systems instead expose metadata structure. UNG~\cite{cai2024ung}
+partitions vectors by exact label set, connects groups through minimal
+strict-superset relations, and realizes those relations as vector edges.
+Curator~\cite{jin2026curator} shares label-specialized virtual indexes through
+a clustering tree. Our starting point is UNG's containment organization,
+which gives every cross-group transition a clear eligibility argument.
 
-We focus on a remaining coupling between \emph{entry discovery} and
-\emph{navigation granularity}.  UNG starts from the minimal observed
-supersets of the query labels, then follows containment-directed cross-group
-edges.  Computing this minimal set can require comparing eligible label sets
-across unrelated prefix branches.  Once the entries are found, vectors are
-still partitioned by exact label equality, even when a query admits many
-groups that could be searched together.  In our Amazon index, 602,453 vectors
-occupy 482,387 exact groups.  This fragmentation makes entry work and
-cross-group navigation separate costs rather than interchangeable measures
-of index quality.
+That organization couples two sources of work. Search first identifies the
+minimal observed label sets containing the query. It then traverses a vector
+graph whose group transitions respect containment. Entry minimality may
+require comparisons across unrelated label branches, while exact-group
+boundaries constrain which geometric transitions are available. On Amazon,
+602,453 vectors occupy 482,387 exact-label groups. A query can consequently
+spend substantial work both finding entries and navigating fragmented groups.
+The two costs need to be addressed together: reducing one can increase the
+other.
 
-Our measurements illustrate both sides of the coupling.
-At 0.499\% selectivity, even the optimized LNG-semantic provider takes
-20.352 ms/query in a separate instrumented run, compared with 0.195 ms for
-vector-entry setup and 2.076 ms for graph traversal.
-A prefix-based system reduces discovery to 0.645 ms, but at 9.907\%
-selectivity its graph traversal rises from the LNG system's 98.747 ms to
-323.081 ms.  Faster discovery does not imply faster search: changing the
-entry contract changes the initial frontier and the geometric paths that must
-be explored.  Figure~\ref{fig:motivation} presents this tradeoff rather than
-attributing every difference to one component.
+\paragraph{Design entries and connectivity together.}
+A canonical label trie connects each observed label set to its nearest
+terminal descendants. Its entry set consists of the first eligible terminal
+on every eligible prefix branch. This \emph{prefix frontier} covers all
+eligible groups in the resulting forest. It can be found without comparing
+eligible terminals across different branches for set minimality. The frontier
+may contain more groups than UNG's minimal-superset entries, but those extra
+entries are what make the simpler connectivity usable. Figure~\ref{fig:method-overview}
+shows this dependency on one catalog query.
 
-Our first idea is to replace global minimal-superset reduction with a
-\emph{prefix frontier}.  Fix a canonical order of labels and form a trie of
-observed label sets.  Every eligible terminal belongs to a branch below a
-first eligible terminal.  Seeding those first terminals covers every eligible
-group in the terminal-prefix forest.  Thus a prefix topology and its frontier
-can be designed together: the entry computation need not discard a terminal
-merely because another branch contains a smaller label set.  This removes a
-specific minimality computation, while retaining real costs for bitmap
-intersection, ancestor checks, and vector seed setup.  The frontier can also
-be larger than UNG's entry set; that tradeoff is part of the design.
+\paragraph{Authorize a region, then navigate geometrically.}
+The same trie supplies a way to relax exact-group boundaries. Every vector
+below a prefix $R_b$ contains $R_b$. If the query labels $Q$ satisfy
+$Q\subseteq R_b$, a local proximity graph may connect these vectors across
+groups in either label direction. The prefix thus certifies a whole search
+region. We materialize such regions as \emph{blocks}, whose direct members
+exclude separately emitted descendant blocks. Queries that cannot authorize
+a block still need the finer group representation. This yields an exact-group
+base and independently partitioned block overlays, with one overlay as the
+simplest instance.
 
-Our second idea is to search \emph{predicate-certified blocks} instead of
-always paying for exact-group boundaries.  A block rooted at trie prefix
-$R_b$ contains direct members whose label sets all include $R_b$.  When
-$Q\subseteq R_b$, the query may traverse a local vector graph spanning these
-groups without admitting an ineligible vector.  A finer representation is
-still necessary: a query containing a label absent from $R_b$ cannot certify
-the whole block, even though some members may satisfy it.  We therefore retain
-the exact-group base and independently materialize coarser block overlays.
-This yields a physical level-0/level-1 design as the simplest instance and
-extends to further scales without changing finer partitions.
+\system{} combines these mechanisms through level-tagged search states. Each
+state expands the adjacency of one physical level; entry selection and block
+authorization determine which states enter the bounded search. This makes
+predicate safety independent of the chosen LNG or prefix connectivity at each
+level. We also batch irregular graph-construction tasks on the GPU and give a
+structural rule that derives overlay thresholds and depth from dataset size
+and existing degree budgets.
 
-\system combines these two ideas with explicit search ownership.  Each
-candidate carries a physical level and expands only adjacency belonging to
-that level.  Each level may use prefix or LNG connectivity; the choice is
-empirical because sparse label connectivity alone does not guarantee good
-vector navigation.  Block certification establishes predicate safety, while
-frontier coverage is a group-level property.  Neither property promises exact
-nearest neighbors from a finite search budget.  This distinction lets us
-explain both gains and regressions without hiding them behind a correctness
-claim.
+We evaluate the tradeoff by separating matched entry/topology systems from
+controlled upper-level topology changes. The complete Amazon factorial
+contains 14 configurations over nine selectivities. At measured Recall@10
+$\geq0.90$, the prefix-base system is 2.77--18.43$\times$ faster than the
+optimized LNG base on three workloads near 0.5--5\%, whereas LNG wins near
+10\% and 30\%. Adding blocks changes this picture again: the best systems
+at 60\% and 80\% combine a Trie base with an LNG overlay. The detailed
+profiles explain how discovery savings can be offset by seed and graph work.
 
-The system must also be practical to build and configure.  We batch the many
-irregular within-block and cross-block construction tasks on the GPU,
-retaining explicit memory and host-output boundaries.  A secondary
-Degree-Ratio Hierarchy (DRH) rule derives overlay thresholds and depth from
-dataset cardinality and existing degree budgets without query-performance
-calibration.  Its held-out failures are reported alongside its favorable
-cases; it is a reproducible heuristic rather than a runtime-optimality theorem.
 
-This paper makes three contributions:
+The contributions are:
 \begin{itemize}
-\item \textbf{A prefix-frontier entry contract.} We define the entry set for
-  terminal-prefix connectivity, show group-level coverage, and explain the
-  cost and coverage differences from minimal-superset entry discovery.
-\item \textbf{Certified block navigation.} We construct independent
-  label-prefix blocks and give a level-local query algorithm with explicit
-  eligibility, seed, and fallback conditions.  The complete base-by-overlay
-  factorial exposes when sparse topology and coarser scales help or hurt.
-\item \textbf{Construction and empirical design guidance.} We provide a
-  batched GPU construction pipeline and a query-calibration-free hierarchy
-  rule, and evaluate them separately from topology and entry choices.
+\item \textbf{A joint entry and topology design.} A terminal-prefix forest
+  and bitmap-backed frontier provide label-plane coverage with an explicit
+  tradeoff between minimality work and entry count.
+\item \textbf{Predicate-certified block navigation.} Independent prefix
+  partitions let queries use coarser vector graphs when a root-prefix
+  certificate holds. We specify the seeding and level-local search algorithm
+  and establish its conditional safety properties.
+\item \textbf{An analysis of the entry--navigation tradeoff.} A complete
+  topology factorial and query profiles identify where discovery savings
+  are displaced into seed and graph work, and where blocks recover throughput.
+  Supporting studies examine structural configuration and GPU construction.
 \end{itemize}
-At measured Recall@10 $\geq0.90$, the matched-provider Trie base is
-2.77--18.43$\times$ faster than the LNG base at the three Amazon workloads
-near 0.5--5\% selectivity.  Among the 14 evaluated topology configurations,
-Trie-base systems win seven of nine workloads; 0L LNG wins near 10\% and
-30\%.  The fastest measured GPU-assisted construction composition takes
-141.27 s versus 190.38 s for the original CPU base builder.  These are scoped
-screening and construction results, not a claim of superiority over all
-filtered-search systems or all predicates.

@@ -1,25 +1,13 @@
 \section{Discussion and Related Work}
-\subsection{What the Evidence Establishes}
-The full factorial answers which measured configuration wins on each Amazon
-workload; it does not supply a query-independent oracle choosing those winners.
-Changing one upper topology at fixed base and entry provider is controlled.
-The 0L matched-provider comparison instead measures an integrated topology and
-entry-design choice. Its favorable low-selectivity results do not extend to
-all broad predicates. Fewer logical edges can reduce navigation alternatives,
-while a larger prefix frontier increases seed work. Additional overlays
-introduce authorization and seed competition even with isolated adjacency.
-
-The automatic policy provides a reproducible starting configuration without
-query-performance calibration. It does not automatically select the base,
-and its mass gate is a structural heuristic rather than a latency model.
-All four evaluated datasets derive two overlays, so threshold/topology transfer
-is tested but depth-change performance is not. The VariousImg regression is
-retained. A submission-strength evaluation still needs current-protocol
-external baselines, longer repeated timing, and query-quality checks for each
-accelerated construction profile. Historical external runs use a different
-protocol and are not merged with the factorial. Predicate safety here concerns
-static AND-containment indexes with root-prefix authorization; extending the
-predicate language or update model requires a new contract.
+\subsection{Design Implications}
+The entry frontier, geometric connectivity, and search budget interact.
+A prefix forest saves minimality work but creates more entry branches;
+blocks reconnect groups only where their prefixes certify a useful region.
+The observed winners therefore vary across the Amazon workloads. The
+construction rule offers a reproducible starting plan, while the VariousImg
+result shows that authorized mass alone can admit expensive searches.
+A planner that also models frontier size and expected navigation work is
+a natural next step.
 
 \subsection{Filtered and Range-Constrained Graph Search}
 HNSW~\cite{malkov2020hnsw} and DiskANN~\cite{subramanya2019diskann} organize
@@ -61,15 +49,13 @@ Elastic Index Selection~\cite{yang2025elastic} and SIEVE~\cite{li2025sieve}
 choose and share collections of indexes. Their selection problem differs from
 choosing block scales inside one containment-oriented system. Recent
 LSSG~\cite{wang2026lssg}, an arXiv preprint, stratifies edges by label-set
-similarity and traverses multiple tiers. Thus merely adding label-aware layers
-is not our novelty: our distinctive mechanism is direct-member block
-aggregation, exact root-prefix authorization, and states restricted to one
-physical adjacency level. Query-aware Routing~\cite{xiong2026routing}, also
+similarity and traverses multiple tiers. Our blocks instead aggregate direct members under a common prefix; exact
+root authorization permits local geometric navigation across their groups.
+Each search state remains at one physical adjacency level. Query-aware Routing~\cite{xiong2026routing}, also
 a preprint, uses an offline performance table and a learned Recall model;
 DRH deliberately uses neither, accepting the resulting loss of adaptability.
-These preprints are distinguished from accepted SIGMOD/PVLDB publications.
 
-\subsection{Construction and Maintenance}
+\subsection{Graph Construction}
 NN-Descent~\cite{dong2011nndescent} and relative-neighborhood pruning
 ~\cite{toussaint1980rng} provide building blocks for proximity graphs.
 Database work improves construction with tree/graph hybrids, LSH-assisted
@@ -77,19 +63,17 @@ insertion, monotonic neighborhoods, and revised pruning
 ~\cite{azizi2023elpis,zhao2023lshapg,peng2023taumng,yang2025pgbuild}.
 Starling~\cite{wang2024starling} co-designs navigation and storage for disk
 I/O. GPU similarity search~\cite{johnson2021gpu} emphasizes distance and
-selection throughput. Our contribution is to batch the irregular local-graph
-and cross-edge tasks induced by a metadata hierarchy, retaining an explicit
-host-output boundary. The static experiments do not establish dynamic-update
-cost or numerical-quality equivalence across construction backends.
+selection throughput. Our implementation applies batching to the irregular local-graph and
+cross-edge tasks induced by the metadata hierarchy, with final adjacency
+assembled on the host.
 
 \section{Conclusion}
-Entry discovery and graph topology form a joint contract in label-filtered
-ANN. A prefix frontier covers all eligible terminal branches at the label
-plane, while independently partitioned blocks admit coarser navigation when
-a root-prefix certificate holds. Level-tagged states make the adjacency used
-by each expansion explicit. These structural properties explain the design;
-measured Recall and timing establish where it is useful. The Amazon factorial
-shows both substantial improvements and topology-dependent regressions.
-DRH supplies a query-calibration-free starting plan, and batched GPU
-construction reduces measured build cost. Neither is claimed to dominate
-manual tuning or preserve quality without its corresponding evidence.
+Label-filtered graph search must choose both where to start and how to
+navigate after entry. \system{} couples a prefix forest with its covering
+frontier, then uses prefix certificates to authorize coarser block graphs.
+This gives a concrete division of work: the frontier covers eligible label
+branches, while a block relaxes exact-group boundaries for geometric search.
+The measured topology interactions show why neither entry count nor graph
+sparsity alone predicts performance. The GPU study reduces measured construction time, while policy transfer
+exposes the limits of size-based configuration. Together, the results favor
+choosing entry and navigation structures jointly at a common Recall target.

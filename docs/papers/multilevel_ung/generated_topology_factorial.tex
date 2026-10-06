@@ -6,7 +6,7 @@
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrrr}
 \toprule
-Sel. & 0L[L] & 0L[T] & 1L[L|L] & 1L[L|T] & 1L[T|L] & 1L[T|T] \\
+Mean sel. & 0L[L] & 0L[T] & 1L[L|L] & 1L[L|T] & 1L[T|L] & 1L[T|T] \\
 \midrule
 0.499\% & 2476.35 & 14921.90 & NC (0.888) & NC (0.888) & 15177.24 & 17937.69 \\
 0.903\% & 4191.04 & 11591.42 & NC (0.857) & NC (0.846) & 12447.15 & 12144.74 \\
@@ -28,7 +28,7 @@ Sel. & 0L[L] & 0L[T] & 1L[L|L] & 1L[L|T] & 1L[T|L] & 1L[T|T] \\
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{rrrrrrrrr}
 \toprule
-Sel. & 2L[L|LL] & 2L[L|LT] & 2L[L|TL] & 2L[L|TT] & 2L[T|LL] & 2L[T|LT] & 2L[T|TL] & 2L[T|TT] \\
+Mean sel. & 2L[L|LL] & 2L[L|LT] & 2L[L|TL] & 2L[L|TT] & 2L[T|LL] & 2L[T|LT] & 2L[T|TL] & 2L[T|TT] \\
 \midrule
 0.499\% & NC (0.888) & NC (0.888) & NC (0.888) & NC (0.888) & 19158.52 & 21707.89 & 20593.10 & 17565.42 \\
 0.903\% & NC (0.857) & NC (0.857) & NC (0.846) & NC (0.846) & 13242.16 & 14278.50 & 14062.30 & 12353.41 \\
@@ -45,18 +45,14 @@ Sel. & 2L[L|LL] & 2L[L|LT] & 2L[L|TL] & 2L[L|TT] & 2L[T|LL] & 2L[T|LT] & 2L[T|TL
 \end{table*}
 }
 \newcommand{\baseTopologyFactorialFindings}{%
-\paragraph{Complete base-by-overlay factorial.}
-The workload-wise oracle selects \texttt{2L[T|LT]} at 0.5\%, 1\%, 5\%, and 95\%; \texttt{0L[L]} at 10\% and 30\%; \texttt{1L[T|L]} at 60\% and 80\%; and \texttt{2L[T|TT]} at 99\%.  Thus no static topology dominates every workload. Among configurations crossing the Recall target at all nine selectivities, \texttt{2L[T|LT]} ranks first by geometric mean of QPS normalized to the per-workload oracle (0.868), but its worst fraction of the oracle is 0.482, at 30\%.  The matched-provider base-only comparison is equally non-monotone: \texttt{0L[T]} is 6.03$\times$, 2.77$\times$, and 18.43$\times$ faster at 0.5\%, 1\%, and 5\%, respectively, but is 0.60$\times$ at 10\%, does not cross at 30\% ($R_{\max}=0.8882$), and is 0.62$\times$--0.33$\times$ at 60\%--95\% (0.56$\times$ at 99\%).  These are end-to-end system ratios because the two bases use different compatible entry providers.
-
-The controlled upper-level comparisons reveal a more stable role for Trie. With a Trie base and LNG at level 1, changing only level 2 from LNG to Trie (\texttt{2L[T|LL]}$\rightarrow$\texttt{2L[T|LT]}) improves QPS in eight of nine workloads, by up to 1.251$\times$; the remaining 80\% point is effectively tied at 0.998$\times$.  In contrast, changing only the finer level 1 from LNG to Trie with level 2 fixed to LNG wins in five of nine workloads but loses 40.7\%--52.9\% at 10\%, 60\%, 80\%, and 95\%.  The evidence therefore favors Trie as a sparse coarse overlay more consistently than as the fine navigation topology, while retaining an LNG fallback for the 10\%--30\% region.
-
 \begin{table*}[htbp]
 \centering\small
-\caption{Best measured configuration at each Amazon selectivity.  Each depth column is optimized only within that depth; the overall column ranges over all 14 configurations.  Values are QPS at Recall@10 $\geq0.90$.}
+\caption{Best measured configuration at each Amazon batch-mean selectivity.  Each depth column is optimized only within that depth; the overall column ranges over all 14 configurations.  Values are QPS at Recall@10 $\geq0.90$.}
 \label{tab:base-topology-winners}
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{r rr rr rr rr}
 \toprule
-Sel. & \multicolumn{2}{c}{Overall} & \multicolumn{2}{c}{Best 0L} & \multicolumn{2}{c}{Best 1L} & \multicolumn{2}{c}{Best 2L} \\
+Mean sel. & \multicolumn{2}{c}{Overall} & \multicolumn{2}{c}{Best 0L} & \multicolumn{2}{c}{Best 1L} & \multicolumn{2}{c}{Best 2L} \\
  & Config. & QPS & Config. & QPS & Config. & QPS & Config. & QPS \\
 \midrule
 0.5\% & 2L[T|LT] & 21707.89 & 0L[T] & 14921.90 & 1L[T|T] & 17937.69 & 2L[T|LT] & 21707.89 \\
@@ -70,5 +66,11 @@ Sel. & \multicolumn{2}{c}{Overall} & \multicolumn{2}{c}{Best 0L} & \multicolumn{
 99.0\% & 2L[T|TT] & 267.67 & 0L[L] & 0.79 & 1L[T|T] & 264.44 & 2L[T|TT] & 267.67 \\
 \bottomrule
 \end{tabular}
+}
 \end{table*}
+\paragraph{Complete base-by-overlay factorial.}
+The workload-wise oracle selects \texttt{2L[T|LT]} at 0.5\%, 1\%, 5\%, and 95\%; \texttt{0L[L]} at 10\% and 30\%; \texttt{1L[T|L]} at 60\% and 80\%; and \texttt{2L[T|TT]} at 99\%.  Thus no static topology dominates every workload. Among configurations crossing the Recall target at all nine selectivities, \texttt{2L[T|LT]} ranks first by geometric mean of QPS normalized to the per-workload oracle (0.868), but its worst fraction of the oracle is 0.482, at 30\%.  The matched-provider base-only comparison is equally non-monotone: \texttt{0L[T]} is 6.03$\times$, 2.77$\times$, and 18.43$\times$ faster at 0.5\%, 1\%, and 5\%, respectively, but is 0.60$\times$ at 10\%, does not cross at 30\% ($R_{\max}=0.8882$), and is 0.62$\times$--0.33$\times$ at 60\%--95\% (0.56$\times$ at 99\%).  These are end-to-end system ratios because the two bases use different compatible entry providers.
+
+The controlled upper-level comparisons reveal a more stable role for Trie. With a Trie base and LNG at level 1, changing only level 2 from LNG to Trie (\texttt{2L[T|LL]}$\rightarrow$\texttt{2L[T|LT]}) improves QPS in eight of nine workloads, by up to 1.251$\times$; the remaining 80\% point is effectively tied at 0.998$\times$.  In contrast, changing only the finer level 1 from LNG to Trie with level 2 fixed to LNG wins in five of nine workloads but loses 40.7\%--52.9\% at 10\%, 60\%, 80\%, and 95\%.  The evidence therefore favors Trie as a sparse coarse overlay more consistently than as the fine navigation topology. The LNG base is best on these Amazon workloads near 10\% and 30\%; the evaluated policy does not select between base topologies.
+
 }

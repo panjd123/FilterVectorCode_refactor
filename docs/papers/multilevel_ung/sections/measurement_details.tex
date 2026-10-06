@@ -1,0 +1,26 @@
+\section{Measurement Definitions and Search Budgets}
+\label{sec:measurement-details}
+\begin{table*}[t]
+\caption{Measurement definitions.  A ``warm median'' uses the two warm repeats.  Per-query stage times and work counters are first averaged over all
+queries in one repeat and then summarized across warm repeats.}
+\label{tab:metric-definitions}
+\centering
+\small
+\begin{tabular}{p{0.19\textwidth}p{0.73\textwidth}}
+\toprule
+Reported quantity & Definition \\
+\midrule
+Mean selectivity & $B^{-1}\sum_{j=1}^{B}|\eligible(Q_j)|/N$ for the frozen query batch; it describes the workload and is not an input to DRH. \\
+Recall@10 & For one repeat, the mean over queries of $|R_{10}(q_j,Q_j)\cap R^*_{10}(q_j,Q_j)|/10$.  A crossing requires every warm repeat at that executed point to reach 0.90. \\
+$L_{search}$ & Capacity of the bounded candidate queue.  An equal-Recall operating point is the smallest executed $L_{search}$ that crosses the Recall target; values between executed points are not interpolated. \\
+Batch latency / QPS & Wall time to complete all $B$ queries with 100 query threads, after the cold repeat is discarded; $\mathrm{QPS}=1000B/\mathrm{batch\ latency\ (ms)}$. \\
+$A/B$ speedup & $\mathrm{QPS}_A/\mathrm{QPS}_B$, using each method's selected equal-Recall crossing.  A ratio above one favors $A$. \\
+NC / $R_{\max}$ & NC means no Recall crossing within the workload-wide measured $L_{search}$ budget.  $R_{\max}$ is the largest minimum-over-warm-repeats batch Recall observed in that budget. \\
+ELS / entry / authorization & Mean milliseconds per query for Entry Label Set (entry-group) discovery, vector entry-point setup, and exact block-authorization plus routing work, respectively. \\
+Graph / residual & Mean milliseconds per query inside bounded graph traversal, and the remaining measured query time outside the named stages. \\
+Encounters / edges / distances & The CSV counter \texttt{Visited} is reported as Encounters. These are mean per-query counts of first encounters through adjacency, scanned adjacency entries, and vector-distance evaluations. A first encounter is counted before distance scoring and queue admission; rejected candidates therefore count. Initial seed scoring contributes to distances, but not to this encounter counter. \\
+\bottomrule
+\end{tabular}
+\end{table*}
+\authoritativeSharedSearchBudgetTable
+\authoritativeScreenAppendix

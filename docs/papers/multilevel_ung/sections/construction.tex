@@ -80,8 +80,7 @@ when downstream adjacency does not consume distances.
 The base build uses the same task separation on exact groups.  In the
 accelerated base profile, optimized host metadata, CUDA local graphs, fused
 cross edges, and a configured CPU additional-edge completion path jointly
-determine construction time.  Consequently a full-builder speedup cannot be
-attributed to fusion alone.
+determine construction time.  These stages contribute separately to the full-builder time.
 
 \subsection{Costs and Quality Contract}
 The abstract uncovered-mass partition costs $O(m|\mathcal T|)$ for $m$
@@ -98,9 +97,8 @@ For an exact cross-edge batch with tasks $(U,V)$, distance arithmetic is
  \Theta\!\left(d\sum_{(U,V)}|U|\,|V|\right).
 \end{equation}
 The number of selected identifiers is at most
-$\sum_{(U,V)}|U|\min(C,|V|)$ for target budget $C$.  Fusing selection reduces
-intermediate traffic and launch overhead; it does not remove the underlying
-distance work.  Approximate local-graph construction depends on candidate
+$\sum_{(U,V)}|U|\min(C,|V|)$ for target budget $C$.  Fusing selection reduces intermediate traffic and launch overhead
+for this distance work.  Approximate local-graph construction depends on candidate
 counts and refinement rounds, so we report actual work and time rather than
 assign it an exact-search bound.
 
@@ -110,17 +108,10 @@ need not be duplicated per overlay.  Device residency or streaming must fit
 the declared memory budget, including candidates and output buffers.  Query
 workspace also includes per-level visited state, seed buffers, and queue backing storage.
 
-Numerical backend execution, successful serialization, and edge-ownership
-checks establish that an index was built as requested.  They do not establish
-equal ANN quality.  In particular, approximate candidate generation or TF32
-arithmetic can change adjacency.  A speed-quality claim therefore requires
-re-querying each accelerated index, including the fastest hybrid build.
-The construction table reports measured time and resources; the current
-paper does not infer a quality-preserving speedup from those columns alone.
-
 \subsection{A Query-Calibration-Free Instantiation}
 \label{sec:drh}
-Independent overlays introduce depth and scale choices.  DRH uses a simple
+Independent overlays introduce depth and scale choices. Our degree-ratio
+hierarchy (DRH) uses a simple
 structural proxy $T+N/T$, whose continuous minimum is $\sqrt N$, to choose
 the first threshold.  It then derives a growth ratio from local degree $R$
 and cross degree $C$:
@@ -137,8 +128,8 @@ An overlay uses LNG when $N/T_\ell>R$ and prefix topology otherwise.  The
 coarsest graph is thus sparsified once the estimated block count fits within
 one local neighborhood budget.  Here $N/T_\ell$ is a proxy, not the measured
 block count; threshold partitioning leaves residuals and can emit oversized
-blocks.  Neither the proxy objective nor the topology rule is a theorem about
-query runtime.
+blocks.  The rule balances this structural estimate; its effect on query
+time is evaluated empirically.
 
 \begin{algorithm}[t]
 \caption{DRH structure and optional mass gate}
@@ -160,19 +151,6 @@ the plan $1024{:}\mathrm{LNG}$ and $16384{:}\mathrm{Trie}$.
 DRH-v1 enables the multilayer backend when an authorized physical level
 $h\ge2$ exists (level 2 in the evaluated plans); DRH-v2 also requires
 sufficient direct mass at the highest such level, using the
-next unmaterialized threshold.  The held-out policy experiment uses a
-conservative LNG base.  It does not automatically choose between LNG and Trie
-bases, and must not be substituted for the matched-provider factorial
-winners.  The policy reads no query frequencies, latency, or Recall, but its
+next unmaterialized threshold.  The held-out policy experiment fixes the LNG base and derives
+only the overlays and gate.  The policy reads no query frequencies, latency, or Recall, but its
 per-query authorization and mass gate naturally depend on $Q$.
-
-\subsection{Maintenance Scope}
-Inserting a label set changes a canonical trie path and may change nearby
-terminal-prefix relations.  This avoids maintaining all minimal-superset
-relations across unrelated branches at the label-plane level.  It does not
-make full-index updates free: label postings and ancestor caches change,
-mass thresholds may trigger repartitioning, and local/cross-block vector
-graphs require repairs.  A deletion can split a block or invalidate portals.
-The evaluated implementation is a static builder; incremental publication,
-concurrent query visibility, and update amortization remain unmeasured design
-questions.  We claim no dynamic-index result from this structural observation.

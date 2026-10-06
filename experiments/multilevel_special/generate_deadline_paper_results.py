@@ -13,6 +13,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import statistics
 import tempfile
@@ -20,11 +21,11 @@ from pathlib import Path
 
 
 AMAZON_METHODS = [
-    ("l0_lng_entry_optimized_lng", "0L-LNG (Plain)"),
-    ("l0_trie_entry_trie", "0L-Trie"),
-    ("l1_t1024_lng_entry_optimized_lng", "1L-LNG, $T_1=1024$"),
-    ("l2_t1024_16384_lt_entry_optimized_lng", "2L-LT, ungated"),
-    ("l2_t1024_16384_lt_entry_optimized_lng_upper_routed", "2L-LT, DRH-v1"),
+    ("l0_lng_entry_optimized_lng", "0L[L] (Plain)"),
+    ("l0_trie_entry_trie", "0L[T]"),
+    ("l1_t1024_lng_entry_optimized_lng", "1L[L|L], $T_1=1024$"),
+    ("l2_t1024_16384_lt_entry_optimized_lng", "2L[L|LT], ungated"),
+    ("l2_t1024_16384_lt_entry_optimized_lng_upper_routed", "2L[L|LT], DRH-v1"),
 ]
 WORKLOAD_ORDER = ["sel_0p5", "sel_1", "sel_5", "sel_10", "sel_30", "sel_60", "sel_80", "sel_95", "sel_99"]
 DRH_V1_SUFFIX = "_upper_routed"
@@ -76,6 +77,15 @@ def tex(value: object) -> str:
     return text
 
 
+def table_blocks(value: str, labels: tuple[str, ...] = ()) -> str:
+    """Select complete tables; the manuscript owns narrative and placement."""
+    blocks = re.findall(r"\\begin\{table\*?\}.*?\\end\{table\*?\}", value, re.DOTALL)
+    if labels:
+        blocks = [block for block in blocks
+                  if any(r"\label{" + label + "}" in block for label in labels)]
+    return "\n\n".join(blocks)
+
+
 def fnum(value: str | float, digits: int = 2) -> str:
     return f"{float(value):.{digits}f}"
 
@@ -124,10 +134,10 @@ def amazon_table(rows: list[dict[str, str]]) -> tuple[str, dict[str, dict[str, d
             raise ValueError(f"missing Amazon baseline crossing for {workload}")
     lines = [
         r"\begin{table*}[htbp]", r"\centering", r"\small",
-        r"\caption{Amazon equal-Recall comparison. Plain QPS is the raw throughput of 0L-LNG; every other numeric column is QPS(method)/QPS(Plain) at that method's smallest measured point whose two warm repeats both reach Recall@10 $\geq0.90$. NC means no crossing in the shared measured budget.}",
+        r"\caption{Amazon equal-Recall comparison. Plain QPS is the raw throughput of 0L[L]; every other numeric column is QPS(method)/QPS(Plain) at that method's smallest measured point whose two warm repeats both reach Recall@10 $\geq0.90$. NC means no crossing in the shared measured budget.}",
         r"\label{tab:amazon-depth}",
         r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{rrrrrr}", r"\toprule",
-        r"Selectivity & Plain QPS & 0L-Trie/plain & 1L-LNG/plain & 2L-LT ungated/plain & 2L-LT DRH-v1/plain \\",
+        r"Mean sel. & Plain QPS & 0L[T]/plain & 1L[L|L]/plain & 2L[L|LT] ungated/plain & 2L[L|LT] DRH-v1/plain \\",
         r"\midrule",
     ]
     ids = [method for method, _ in AMAZON_METHODS]
@@ -164,7 +174,7 @@ def one_layer_topology_table(
         r"\caption{1L overlay-topology ablation at fixed $T_1=1024$, level-0 LNG, and optimized-LNG entry. QPS is reported only at a measured Recall@10 $\geq0.90$ crossing; $R_{\max}$ is the largest minimum warm-repeat Recall in the shared measured budget.}",
         r"\label{tab:one-layer-topology}",
         r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{rrrrrr}", r"\toprule",
-        r"Selectivity & 1L-LNG QPS & 1L-Trie QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\max}$ \\",
+        r"Mean sel. & 1L[L|L] QPS & 1L[L|T] QPS & Trie/LNG & LNG $R_{\max}$ & Trie $R_{\max}$ \\",
         r"\midrule",
     ]
     for workload in WORKLOAD_ORDER:
@@ -240,16 +250,16 @@ def two_layer_topology_tables(
             points.setdefault((row["workload"], row["method"]), []).append(row)
     tex_lines = [
         r"\begin{table*}[htbp]", r"\centering", r"\scriptsize",
-        r"\caption{2L topology ablation at fixed $T_1=1024$, $T_2=16384$, level-0 LNG, optimized-LNG entry, and ungated routing. In 2L-$XY$, $X$ is the level-1 topology and $Y$ the level-2 topology. QPS appears only at a measured Recall@10 $\geq0.90$ crossing.}",
+        r"\caption{2L topology ablation at fixed $T_1=1024$, $T_2=16384$, level-0 LNG, optimized-LNG entry, and ungated routing. In 2L[L|$XY$], $X$ is the level-1 topology and $Y$ the level-2 topology. QPS appears only at a measured Recall@10 $\geq0.90$ crossing.}",
         r"\label{tab:two-layer-topology}", r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{rrrrrrrrr}", r"\toprule",
-        r"Sel. & 2L-LL QPS & 2L-LT QPS & 2L-TL QPS & 2L-TT QPS & LL $R_{\max}$ & LT $R_{\max}$ & TL $R_{\max}$ & TT $R_{\max}$ \\",
+        r"Mean sel. & 2L[L|LL] QPS & 2L[L|LT] QPS & 2L[L|TL] QPS & 2L[L|TT] QPS & LL $R_{\max}$ & LT $R_{\max}$ & TL $R_{\max}$ & TT $R_{\max}$ \\",
         r"\midrule",
     ]
     md_lines = [
         "## 2L overlay topology 公平消融", "",
         "固定 level-0 LNG、T1=1024、T2=16384、optimized-LNG entry 和 ungated routing；2L-XY 的 X/Y 依次表示 level 1/2 topology。QPS 只在实测 Recall@10 >= 0.90 crossing 处报告。", "",
-        "| Sel. | 2L-LL QPS | 2L-LT QPS | 2L-TL QPS | 2L-TT QPS | LL max R | LT max R | TL max R | TT max R |",
+        "| Sel. | 2L[L|LL] QPS | 2L[L|LT] QPS | 2L[L|TL] QPS | 2L[L|TT] QPS | LL max R | LT max R | TL max R | TT max R |",
         "|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for workload in WORKLOAD_ORDER:
@@ -284,35 +294,35 @@ def dataset_table(policies: list[dict]) -> str:
         r"\begin{table*}[htbp]", r"\centering", r"\small",
         r"\caption{Held-out datasets and query-independent DRH plans. Selectivity characterizes the frozen queries and is not an input to DRH.}",
         r"\label{tab:heldout-datasets}",
-        r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{lrrlrrl}", r"\toprule",
-        r"Dataset & $N$ & $d$ & Workload & Queries & Selectivity & DRH plan \\", r"\midrule",
+        r"\begin{tabular}{lrrrrl}", r"\toprule",
+        r"Dataset & $N$ & $d$ & Queries & Mean sel. & DRH plan \\", r"\midrule",
     ]
     for policy in policies:
         plan = ", ".join(f"{layer['min_points']}:{str(layer['topology']).upper()}" for layer in policy["automatic_hierarchy_layers"])
         for workload in policy["workloads"]:
             lines.append(
                 f"{tex(policy['dataset'])} & {policy['inputs']['num_points']:,} & {policy['inputs']['dimension']} & "
-                f"{tex(workload['name'])} & {workload['num_queries']:,} & "
+                f"{workload['num_queries']:,} & "
                 f"{100.0 * float(workload['mean_selectivity']):.3f}\\% & {tex(plan)} " + r"\\")
-    lines.extend([r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}"])
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}"])
     return "\n".join(lines)
 
 
 def heldout_tables(workload_rows: list[dict[str, str]], global_rows: list[dict[str, str]]) -> str:
     lines = [
         r"\subsection{Automatic Versus Manual Hierarchies}",
-        "The bounded held-out study compares DRH-v1 with five pre-registered manual alternatives. DRH-v2 was evaluated later as a separate same-binary routing ablation and is not substituted into this frozen candidate set. The manual comparison is restricted to this finite candidate set.",
+        "The held-out study compares DRH-v1 with five pre-registered manual alternatives. Per-workload winners are hindsight comparisons, not executable query-independent policies. DRH-v2 was evaluated later as a separate same-binary routing ablation and is not substituted into this frozen candidate set. The manual comparison is restricted to this finite candidate set.",
         r"\begin{table*}[htbp]", r"\centering", r"\small",
-        r"\caption{Screen-level 2L-LT/DRH-v1 results at Recall@10 $\geq0.90$.}",
+        r"\caption{Screen-level 2L[L|LT]/DRH-v1 results at Recall@10 $\geq0.90$.}",
         r"\label{tab:heldout}",
         r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{lrrrrl}", r"\toprule",
-        r"Dataset & Selectivity & Plain QPS & DRH-v1/plain & DRH-v1/best manual & Best manual plan \\", r"\midrule",
+        r"Dataset & Mean sel. & Plain QPS & DRH-v1/plain & DRH-v1/best manual & Best manual plan / executed route \\", r"\midrule",
     ]
     for row in sorted(workload_rows, key=lambda r: (r["dataset"], float(r["mean_selectivity"]))):
         lines.append(
             f"{tex(row['dataset'])} & {100.0 * float(row['mean_selectivity']):.3f}\\% & "
             f"{float(row['baseline_qps']):.2f} & {float(row['automatic_speedup_vs_baseline']):.3f}$\\times$ & "
-            f"{float(row['automatic_qps_fraction_of_best_manual']):.3f} & {tex(row['best_manual_hierarchy'])} " + r"\\")
+            f"{float(row['automatic_qps_fraction_of_best_manual']):.3f} & {tex(row['best_manual_hierarchy']) + (' (base fallback)' if ',' not in row['best_manual_hierarchy'] else '')} " + r"\\")
     lines.extend([r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}",
                   r"\begin{table}[t]", r"\centering", r"\small",
                   r"\caption{One fixed DRH-v1 plan versus one fixed manual plan per held-out dataset (geometric-mean QPS).}",
@@ -337,15 +347,15 @@ def profile_table(profile_paths: list[Path]) -> str:
         selected.extend(r for r in data_rows if math.isclose(float(r["mean_selectivity"]), max_sel))
     lines = [
         r"\subsection{Mechanism Breakdown}",
-        "The separate detailed-profile binary is explanatory only and does not contribute primary QPS. Edge counts are measured here; disabled light-stat counters are never interpreted as zero.",
+        "A separate instrumented run measures graph time and work counters on the broader held-out workloads. It explains the primary throughput results without contributing to their timing; counters unavailable in the lightweight run are measured here.",
         r"\begin{table*}[htbp]", r"\centering", r"\small",
         r"\caption{Detailed profile at each held-out dataset's broader workload (ms/query and mean work per query). Active is the fraction of all queries that execute the multilayer backend, summarized over warm repeats.}",
         r"\label{tab:profile}", r"\resizebox{\textwidth}{!}{%", r"\begin{tabular}{llrrrrr}", r"\toprule",
-        r"Dataset & Method & Graph ms & Visited & Edges & Distances & Active \\", r"\midrule",
+        r"Dataset & Method & Graph ms & Encounters & Edges & Distances & Active \\", r"\midrule",
     ]
     for row in sorted(selected, key=lambda r: (r["summary_path"], r["method"])):
         dataset = next(name for name in ("Genome", "Reviews", "VariousImg") if name.lower() in row["summary_path"].lower())
-        label = "0L-LNG (Plain)" if row["layer_count"] == "0" else "2L-LT/DRH-v1"
+        label = "0L[L] (Plain)" if row["layer_count"] == "0" else "2L[L|LT]/DRH-v1"
         lines.append(
             f"{dataset} & {label} & {float(row['graph_ms_warm_median']):.3f} & "
             f"{float(row['nodes_visited_warm_median']):.1f} & {float(row['total_edges_scanned_warm_median']):.1f} & "
@@ -359,11 +369,11 @@ def amazon_profile_tables(
     supervisor_manifest: Path | None = None,
 ) -> tuple[str, str]:
     methods = (
-        ("l0_lng_entry_optimized_lng", "0L-LNG"),
-        ("l0_trie_entry_trie", "0L-Trie"),
-        ("l1_t1024_lng_entry_optimized_lng", "1L-LNG"),
-        ("l1_t1024_trie_entry_optimized_lng", "1L-Trie"),
-        ("l2_t1024_16384_lt_entry_optimized_lng_upper_routed", "2L-LT/DRH-v1"),
+        ("l0_lng_entry_optimized_lng", "0L[L]"),
+        ("l0_trie_entry_trie", "0L[T]"),
+        ("l1_t1024_lng_entry_optimized_lng", "1L[L|L]"),
+        ("l1_t1024_trie_entry_optimized_lng", "1L[L|T]"),
+        ("l2_t1024_16384_lt_entry_optimized_lng_upper_routed", "2L[L|LT]/DRH-v1"),
     )
     method_names = {name for name, _ in methods}
     manifest = json.loads(selection_manifest.read_text(encoding="utf-8"))
@@ -424,10 +434,10 @@ def amazon_profile_tables(
         "they explain work but are not equal-Recall speed comparisons. Timeout denotes a declared "
         "profile timeout at the fixed 3,300-second per-case cap; no partial counters are used.",
         r"\begin{table*}[htbp]", r"\centering", r"\scriptsize",
-        r"\caption{Amazon detailed profile. Times are ms/query; work counters are means/query.}",
+        r"\caption{Amazon detailed profile. Times are ms/query; counters are all-query means. Encounters are first visits through adjacency.}",
         r"\label{tab:amazon-profile}", r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{rrlrrrrrrr}", r"\toprule",
-        r"Sel. & Op. & Method & ELS & Entry & Auth. & Graph & Visited & Edges & Distances \\",
+        r"Mean sel. & Op. & Method & ELS & Entry & Auth. & Graph & Encounters & Edges & Distances \\",
         r"\midrule",
     ]
     md_lines = [
@@ -492,7 +502,7 @@ def drh_v2_table(root: Path) -> tuple[str, list[dict[str, str]]]:
         "DRH-v2 is a same-binary ablation: it rejects an upper layer when direct mass at the highest authorized layer is below the next derived scale.",
         r"\begin{table*}[htbp]", r"\centering", r"\small",
         r"\caption{Same-binary DRH-v2 screen results. Plain is measured in this routing cohort; it need not match the earlier DRH-v1 cohort.}", r"\label{tab:drh-v2}",
-        r"\begin{tabular}{lrrrrr}", r"\toprule", r"Dataset & Selectivity & Plain QPS & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\", r"\midrule",
+        r"\begin{tabular}{lrrrrr}", r"\toprule", r"Dataset & Mean sel. & Plain QPS & DRH-v1 QPS & DRH-v2 QPS & v2/plain \\", r"\midrule",
     ]
     usable = []
     for (dataset, workload), methods in sorted(
@@ -655,9 +665,9 @@ def construction_summary_tables(
     if end_to_end_rows:
         tex_lines.extend([
             r"\begin{table*}[htbp]", r"\centering", r"\small",
-            r"\caption{Composed end-to-end construction: accelerated base stage plus hierarchy sidecar versus the original CPU base builder. Stage medians are measured independently; timings do not establish matched-Recall quality.}",
-            r"\label{tab:end-to-end-build}", r"\begin{tabular}{lrrrrr}", r"\toprule",
-            r"Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup & Exploratory 95\% CI \\",
+            r"\caption{Composed end-to-end construction: accelerated base stage plus hierarchy sidecar versus the original CPU base builder. Composed time is the sum of independently measured stage medians.}",
+            r"\label{tab:end-to-end-build}", r"\begin{tabular}{lrrrr}", r"\toprule",
+            r"Hierarchy backend & Stage repeats & Original CPU (s) & Composed (s) & Speedup \\",
             r"\midrule",
         ])
         md_lines.extend([
@@ -670,9 +680,7 @@ def construction_summary_tables(
                 f"{tex(row['hierarchy_profile'])} & {row['stage_repeats']} & "
                 f"{float(row['original_cpu_base_median_seconds']):.2f} & "
                 f"{float(row['composed_base_plus_hierarchy_seconds']):.2f} & "
-                f"{float(row['speedup_vs_original_cpu']):.2f}$\\times$ & "
-                f"[{float(row['speedup_ci95_low']):.2f}, "
-                f"{float(row['speedup_ci95_high']):.2f}] " + r"\\")
+                f"{float(row['speedup_vs_original_cpu']):.2f}$\\times$ " + r"\\")
             md_lines.append(
                 f"| {row['hierarchy_profile']} | {row['stage_repeats']} | "
                 f"{float(row['original_cpu_base_median_seconds']):.2f} | "
@@ -686,10 +694,10 @@ def construction_summary_tables(
 
 def figures_macro(figures: dict[str, Path]) -> str:
     captions = {
-        "principal_zero": "the 0L-LNG/0L-Trie comparison",
-        "one_layer_topology": "1L-LNG/1L-Trie overlay topology at fixed threshold, level-0 LNG, and entry provider",
+        "principal_zero": "the 0L[L]/0L[T] comparison",
+        "one_layer_topology": "1L[L|L]/1L[L|T] overlay topology at fixed threshold, level-0 LNG, and entry provider",
         "representative_depth": "the representative 0L/1L/2L comparison",
-        "upper_authorization": "ungated versus DRH-v1 routing for 2L-LT",
+        "upper_authorization": "ungated versus DRH-v1 routing for 2L[L|LT]",
     }
     lines = [r"\newcommand{\authoritativeRecallQPSFigures}{%"]
     for name in ("principal_zero", "one_layer_topology", "representative_depth", "upper_authorization"):
@@ -870,14 +878,14 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
     max_budget = {}
     for row in all_points:
         max_budget[row["workload"]] = max(max_budget.get(row["workload"], 0), int(float(row["lsearch"])))
-    budget_lines = [r"\begin{table}[t]", r"\centering", r"\small", r"\caption{Measured Amazon crossing and screen caps.}", r"\label{tab:budgets}", r"\begin{tabular}{rrr}", r"\toprule", r"Selectivity & Plain crossing $L$ & Screen cap $L$ \\", r"\midrule"]
+    budget_lines = [r"\begin{table}[t]", r"\centering", r"\small", r"\caption{Measured Amazon crossing and screen caps.}", r"\label{tab:budgets}", r"\begin{tabular}{rrr}", r"\toprule", r"Mean sel. & Plain crossing $L$ & Screen cap $L$ \\", r"\midrule"]
     for workload in WORKLOAD_ORDER:
         row = amazon_index[workload]["l0_lng_entry_optimized_lng"]
         budget_lines.append(f"{100.0 * float(row['mean_selectivity']):.3f}\\% & {int(float(row['lsearch'])):,} & {max_budget[workload]:,} " + r"\\")
     budget_lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table}"])
     results = "\n\n".join([
         r"\subsection{Amazon Query Performance}",
-        r"These are bounded screen-level results (one discarded cold repeat and two warm repeats), not formal confidence-interval estimates. At low selectivity 0L-Trie changes level-0 group connectivity and can be substantially faster; its loss at 10\% and above shows that this is not a monotone hierarchy effect. The ungated 1L-LNG and 2L-LT methods do not cross the target at 30\%, while high-selectivity gains reach 27.99$\times$ and 27.57$\times$. DRH-v1 routing preserves low-selectivity crossings but remains 0.64--0.99$\times$ of Plain over 0.5--10\%.",
+        r"These are bounded screen-level results (one discarded cold repeat and two warm repeats), not formal confidence-interval estimates. At low selectivity 0L[T] changes level-0 group connectivity and can be substantially faster; its loss at 10\% and above shows that this is not a monotone hierarchy effect. The ungated 1L[L|L] and 2L[L|LT] methods do not cross the target at 30\%, while high-selectivity gains reach 27.99$\times$ and 27.57$\times$. DRH-v1 routing preserves low-selectivity crossings but remains 0.64--0.99$\times$ of Plain over 0.5--10\%.",
         amazon,
         topology,
         two_layer_topology_tex,
@@ -945,15 +953,19 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
         r"\newcommand{\authoritativeAbstractResult}{At equal measured Recall@10, the automatically derived 2L plan (two upper overlays above the level-0 base) improves QPS by 14.40--26.70$\times$ over the 0L baseline on Amazon at 60--99\% selectivity, while the fastest GPU-assisted base-plus-hierarchy timing composition is 1.35$\times$ faster than the original CPU base builder, without establishing quality equivalence across construction backends. Held-out results also expose a dataset-dependent routing failure mode; we therefore claim substantial gains in the target regime rather than universal dominance.}",
         rf"\newcommand{{\authoritativeConclusionResult}}{{The current evidence supports multilevel acceleration for broad Amazon predicates, but not a universal dominance claim: DRH-v1 is near plain and near the frozen manual set on Genome and Reviews, and substantially worse on VariousImg; the separate DRH-v2 router limits some regressions but remains non-monotone. {build_conclusion}}}",
         r"\newcommand{\authoritativeDatasetTable}{%", dataset_table(policies), "}",
-        r"\newcommand{\authoritativeQueryExecution}{All primary query values use 100 query threads over the full frozen batch. The deadline evidence is explicitly screen-level: one cold run followed by two warm repeats, with QPS from warm-median batch time.}",
+        r"\newcommand{\authoritativeQueryExecution}{All primary query values use 100 query threads over the full frozen batch. Measurements use one cold run followed by two warm repeats, with QPS from warm-median batch time.}",
         r"\newcommand{\authoritativeSharedSearchBudgetTable}{%", "\n".join(budget_lines), "}",
         r"\newcommand{\authoritativeResults}{%", results, "}",
         r"\newcommand{\authoritativeDepthResults}{%", amazon, topology, two_layer_topology_tex, "}",
         r"\newcommand{\authoritativeAmazonSummary}{%", amazon, "}",
         r"\newcommand{\authoritativeOverlayControls}{%", topology, two_layer_topology_tex, "}",
         r"\newcommand{\authoritativeProfileResults}{%", amazon_profile_tex, "}",
-        r"\newcommand{\authoritativePolicyResults}{%", heldout_tables(heldout, global_rows), drh_v2, profile, "}",
-        r"\newcommand{\authoritativeBuildResults}{%", construction, construction_tables_tex, "}",
+        r"\newcommand{\authoritativePolicyResults}{%", table_blocks(heldout_tables(heldout, global_rows), ("tab:heldout",)), "}",
+        r"\newcommand{\authoritativePolicyDetails}{%", table_blocks(heldout_tables(heldout, global_rows), ("tab:heldout-global",)), "}",
+        r"\newcommand{\authoritativeRouterResults}{%", table_blocks(drh_v2), "}",
+        r"\newcommand{\authoritativeHeldoutProfileResults}{%", table_blocks(profile), "}",
+        r"\newcommand{\authoritativeBuildResults}{%", table_blocks(construction_tables_tex, ("tab:hierarchy-build",)), "}",
+        r"\newcommand{\authoritativeBuildDetails}{%", table_blocks(construction), table_blocks(construction_tables_tex, ("tab:end-to-end-build",)), "}",
         figures_macro(figures),
         r"\newcommand{\authoritativeScreenAppendix}{%", provenance(evidence), "}", "",
     ])
@@ -973,8 +985,8 @@ ML-UNG 将三个维度解耦：upper-overlay 数量与阈值、每个物理层�
 ## 核心结论
 
 - Amazon 在 60%--99% 选择率出现明确多层收益，原 LNG-base screen 的最佳已测加速为 27.99x；LNG-base ungated 多层方法在 30% 的共同预算内未 crossing，而新增 Trie-base overlays 可以 crossing，但仍慢于 0L[L]。
-- 0L-Trie 在 0.5%、1%、5% 分别达到 6.03x、2.77x、18.43x，但 10% 仅 0.60x，说明收益来自 level-0 group topology 与入口覆盖的组合，而不是 overlay 数量的单调性。
-- 完整 14×9 factorial 中，逐档最优在 0.5/1/5/60/80/95/99% 来自 Trie base，在 10/30% 来自 0L-LNG；单一固定配置的归一化几何均值最优是 2L[T|LT]，但它在 30% 只有逐档最优的 0.482，因此仍不存在全域支配配置。
+- 0L[T] 在 0.5%、1%、5% 分别达到 6.03x、2.77x、18.43x，但 10% 仅 0.60x，说明收益来自 level-0 group topology 与入口覆盖的组合，而不是 overlay 数量的单调性。
+- 完整 14×9 factorial 中，逐档最优在 0.5/1/5/60/80/95/99% 来自 Trie base，在 10/30% 来自 0L[L]；单一固定配置的归一化几何均值最优是 2L[T|LT]，但它在 30% 只有逐档最优的 0.482，因此仍不存在全域支配配置。
 - DRH-v1 在 Genome/Reviews 为 plain 的 0.954--1.014x，且为最佳人工配置的 0.980--1.008；VariousImg 只有 plain 的 0.205x，是必须保留的反例。
 - DRH-v2 当前结果：{v2_sentence}
 - DRH-v2 将 Genome 两档恢复到 plain 的 0.992--1.005x，也把 VariousImg 从 v1 的约 0.21x 提升到 0.336x；但它在 Reviews 4.115% 过度回退到 0.972x，说明该 gate 能限制灾难性开销，却仍不能保证逐 workload 单调更优。
@@ -982,7 +994,7 @@ ML-UNG 将三个维度解耦：upper-overlay 数量与阈值、每个物理层�
 
 ## Amazon：0L/1L/2L 与 topology
 
-| Selectivity | Plain QPS | 0L-Trie/plain | 1L-LNG/plain | 2L-LT ungated/plain | 2L-LT DRH-v1/plain |
+| Selectivity | Plain QPS | 0L[T]/plain | 1L[L|L]/plain | 2L[L|LT] ungated/plain | 2L[L|LT] DRH-v1/plain |
 |---:|---:|---:|---:|---:|---:|
 """
     ids = [method for method, _ in AMAZON_METHODS]
@@ -996,7 +1008,7 @@ ML-UNG 将三个维度解耦：upper-overlay 数量与阈值、每个物理层�
         report += "| " + " | ".join(cells) + " |\n"
     report += """
 
-NC 表示在该 workload 的实测共同预算内未达到 Recall@10 >= 0.90，不表示算法无法在任意更大预算下达到该质量。低选择率下 2L-LT/DRH-v1 为 Plain 的 0.86x、0.99x、0.85x、0.64x，因此“额外 overlay 不用时必然无成本”在当前共享入口、授权和队列实现上不成立。
+NC 表示在该 workload 的实测共同预算内未达到 Recall@10 >= 0.90，不表示算法无法在任意更大预算下达到该质量。低选择率下 2L[L|LT]/DRH-v1 为 Plain 的 0.86x、0.99x、0.85x、0.64x，因此“额外 overlay 不用时必然无成本”在当前共享入口、授权和队列实现上不成立。
 
 """ + one_layer_topology_markdown(topology_rows) + "\n\n" + two_layer_topology_markdown + "\n\n" + factorial_markdown + """
 

@@ -1,0 +1,39 @@
+\subsection{Frozen Construction Profiles}
+\begin{table*}[t]
+\caption{Frozen base-graph construction profiles.  ``Optimized metadata''
+denotes bucketed minimal-superset discovery, optimized LNG construction,
+epoch-based descendants, and direct descendant coverage.}
+\label{tab:base-build-profiles}
+\centering
+\scriptsize
+\begin{tabular}{p{0.13\textwidth}p{0.19\textwidth}p{0.25\textwidth}p{0.32\textwidth}}
+\toprule
+Profile & Intra-group graph & Group metadata & Vector cross-group edges \\
+\midrule
+\texttt{original\_cpu} & CPU Vamana & Original sort/LNG, hash-BFS descendants, topological coverage & Original CPU builder \\
+\texttt{current\_cpu} & CPU Vamana & Optimized metadata & CPU Vamana cross-edge builder \\
+\texttt{naive\_gpu} & CPU Vamana & Optimized metadata & Batched GPU SGEMM plus separate top-$k$ \\
+\texttt{paper\_fused} & CPU Vamana & Optimized metadata & Descriptor-grouped fused distance/top-$k$ with identifier-only writeback \\
+\texttt{accelerated\_gpu} & FastGrnnd CUDA path & Optimized metadata & Fused GPU cross edges plus CPU exact-scan additional edges \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+\caption{Frozen hierarchy-sidecar construction profiles.  CPU completion is
+retained below the declared small-block threshold in every profile.}
+\label{tab:hierarchy-build-profiles}
+\centering
+\scriptsize
+\begin{tabular}{p{0.18\textwidth}p{0.35\textwidth}p{0.34\textwidth}}
+\toprule
+Profile & Intra-block route & Inter-block route \\
+\midrule
+\texttt{cpu} & Small exact/complete, medium sampled Vamana, large CPU Vamana & CPU \\
+\texttt{hybrid\_gpu\_intra} & Small exact/complete, medium sampled Vamana, large FastGrnnd-style CUDA & CPU \\
+\texttt{hybrid\_gpu\_intra\_inter} & Same hybrid intra route & Fused CUDA top-$k$ \\
+\texttt{full\_gpu} & Bounded completion, then CUDA & Fused CUDA-core top-$k$ \\
+\texttt{full\_gpu\_wmma} & Bounded completion, then CUDA & Fused TF32-WMMA top-$k$ \\
+\bottomrule
+\end{tabular}
+\end{table*}

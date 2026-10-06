@@ -553,7 +553,7 @@ def main() -> None:
                 r"\resizebox{\textwidth}{!}{%",
                 r"\begin{tabular}{r" + "r" * len(panel_codes) + "}",
                 r"\toprule",
-                "Sel. & " + " & ".join(display_code(code) for code in panel_codes) + r" \\",
+                "Mean sel. & " + " & ".join(display_code(code) for code in panel_codes) + r" \\",
                 r"\midrule",
             ]
         )
@@ -567,6 +567,7 @@ def main() -> None:
             )
         latex.extend([r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}"])
     latex.append("}")
+    findings_start = len(latex)
     latex.append(r"\newcommand{\baseTopologyFactorialFindings}{%")
     latex.extend(
         [
@@ -592,17 +593,19 @@ def main() -> None:
             r"to Trie with level 2 fixed to LNG wins in five of nine workloads but loses "
             r"40.7\%--52.9\% at 10\%, 60\%, 80\%, and 95\%.  The evidence therefore favors "
             r"Trie as a sparse coarse overlay more consistently than as the fine navigation "
-            r"topology, while retaining an LNG fallback for the 10\%--30\% region.",
+            r"topology. The LNG base is best on these Amazon workloads near 10\% and 30\%; "
+            r"the evaluated policy does not select between base topologies.",
             "",
             r"\begin{table*}[htbp]",
             r"\centering\small",
-            r"\caption{Best measured configuration at each Amazon selectivity.  Each depth "
+            r"\caption{Best measured configuration at each Amazon batch-mean selectivity.  Each depth "
             r"column is optimized only within that depth; the overall column ranges over all "
             r"14 configurations.  Values are QPS at Recall@10 $\geq0.90$.}",
             r"\label{tab:base-topology-winners}",
+            r"\resizebox{\textwidth}{!}{%",
             r"\begin{tabular}{r rr rr rr rr}",
             r"\toprule",
-            r"Sel. & \multicolumn{2}{c}{Overall} & \multicolumn{2}{c}{Best 0L} & "
+            r"Mean sel. & \multicolumn{2}{c}{Overall} & \multicolumn{2}{c}{Best 0L} & "
             "\\multicolumn{2}{c}{Best 1L} & \\multicolumn{2}{c}{Best 2L} \\\\",
             " & Config. & QPS & Config. & QPS & Config. & QPS & Config. & QPS \\\\",
             r"\midrule",
@@ -616,7 +619,12 @@ def main() -> None:
             f"{row['best_1L_topology']} & {float(row['best_1L_qps']):.2f} & "
             f"{row['best_2L_topology']} & {float(row['best_2L_qps']):.2f} \\\\"
         )
-    latex.extend([r"\bottomrule", r"\end{tabular}", r"\end{table*}", "}"])
+    latex.extend([r"\bottomrule", r"\end{tabular}", "}", r"\end{table*}", "}"])
+    # Enqueue the wide table before its interpretation so it can share the
+    # following spread with the Results text in a two-column manuscript.
+    findings = latex[findings_start + 1:-1]
+    table_start = findings.index(r"\begin{table*}[htbp]")
+    latex[findings_start + 1:] = findings[table_start:] + findings[:table_start] + ["}"]
     (args.output_dir / "generated_topology_factorial.tex").write_text("\n".join(latex) + "\n")
 
     (args.output_dir / "manifest.json").write_text(
