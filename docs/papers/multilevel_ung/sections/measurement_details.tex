@@ -1,6 +1,6 @@
 \section{Measurement Definitions and Search Budgets}
 \label{sec:measurement-details}
-\begin{table*}[t]
+\begin{table}[H]
 \caption{Measurement definitions.  A ``warm median'' uses the two warm repeats.  Per-query stage times and work counters are first averaged over all
 queries in one repeat and then summarized across warm repeats.}
 \label{tab:metric-definitions}
@@ -21,14 +21,34 @@ Graph / residual & Mean milliseconds per query inside bounded graph traversal, a
 Encounters / edges / distances & The CSV counter \texttt{Visited} is reported as Encounters. These are mean per-query counts of first encounters through adjacency, scanned adjacency entries, and vector-distance evaluations. A first encounter is counted before distance scoring and queue admission; rejected candidates therefore count. Initial seed scoring contributes to distances, but not to this encounter counter. \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 \authoritativeSharedSearchBudgetTable
 \authoritativeScreenAppendix
+
+\subsection{Variation in the Recorded Warm Repeats}
+Let $t_{A,1},t_{A,2}$ and $t_{B,1},t_{B,2}$ be the two warm batch times for
+configurations $A$ and $B$ at their selected crossings. The reported QPS
+ratio is $\operatorname{median}(t_B)/\operatorname{median}(t_A)$.
+For equal batch sizes, the smallest and largest of the four observed
+cross-repeat QPS ratios are
+\[
+ \left[\frac{\min(t_B)}{\max(t_A)},\;
+       \frac{\max(t_B)}{\min(t_A)}\right].
+\]
+This descriptive range does not assume paired executions. Its separation
+from one is not a significance test or evidence of stability across new
+process runs. Reconstructing all 95 crossings from their original two warm
+timings reproduces the frozen QPS and minimum Recall. Their sample
+time coefficients of variation have median 0.87\% and maximum 27.03\%.
+Table~\ref{tab:warm-repeat-ranges} compares adding L2 with replacing its
+connectivity. The 95\% TLT/TLL point ratio is 1.251, but its observed range
+is 1.004--1.502, illustrating why point rankings alone can overstate precision.
+\warmRepeatRanges
 
 \subsection{Artifact Access}
 The \href{https://github.com/panjd123/FilterVectorCode_refactor}{source repository}
 contains the manuscript, experiment scripts, and frozen summary CSVs under
-\texttt{docs/papers/multilevel\_ung/generated\_data/}. In particular,
+\path{docs/papers/multilevel_ung/generated_data/}. In particular,
 \texttt{factorial\_equal\_recall.csv} records selected capacity, minimum
 warm-repeat Recall, QPS, status, and method identifier for all 126 cells.
 The experiment README gives both a source-only plotting command and the
@@ -36,3 +56,6 @@ existing-run finalization command. Full timing reproduction additionally
 requires the vector, label, query, index, and raw-run files named by the
 recorded configurations; these large inputs are not distributed in the
 source repository.
+The extracted warm timing pairs and their source hashes are included under
+\path{generated_data/warm_repeats/}; a source-only script regenerates the
+descriptive ranges without rerunning search.

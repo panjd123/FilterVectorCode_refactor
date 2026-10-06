@@ -1,0 +1,22 @@
+\newcommand{\warmRepeatRanges}{%
+\begin{table}[H]
+\centering\small
+\caption{Selected capacities and observed QPS-ratio ranges from the two original warm repeats. The intervals span all four cross-repeat ratios, not confidence bounds. TL, TLT, and TLL denote \texttt{1L[T|L]}, \texttt{2L[T|LT]}, and \texttt{2L[T|LL]}.}
+\label{tab:warm-repeat-ranges}
+\begin{tabular}{r rrr cc}
+\toprule
+Mean sel. & Plain $L_s$ & TL $L_s$ & TLT $L_s$ & TLT/TL range & TLT/TLL range \\
+\midrule
+0.499\% & 2,000 & 1,000 & 1,000 & [1.166, 1.696] & [1.083, 1.183] \\
+0.903\% & 2,200 & 1,200 & 1,200 & [1.016, 1.279] & [1.034, 1.123] \\
+5.038\% & 3,200 & 400 & 400 & [1.129, 1.448] & [1.144, 1.307] \\
+9.907\% & 26,000 & 18,000 & 18,000 & [0.940, 0.963] & [1.015, 1.023] \\
+30.027\% & 120,000 & 60,000 & 60,000 & [0.880, 0.960] & [0.959, 1.085] \\
+60.047\% & 260,000 & 1,000 & 1,000 & [0.949, 1.033] & [1.006, 1.037] \\
+80.024\% & 320,000 & 2,500 & 2,500 & [0.960, 1.036] & [0.985, 1.011] \\
+95.020\% & 320,000 & 2,500 & 2,500 & [1.072, 1.098] & [1.004, 1.502] \\
+99.001\% & 400,000 & 5,000 & 5,000 & [1.001, 1.035] & [1.003, 1.027] \\
+\bottomrule
+\end{tabular}
+\end{table}
+}

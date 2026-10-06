@@ -113,6 +113,12 @@ def main() -> int:
         sys.executable, str(HERE / "plot_topology_factorial.py"),
         str(paper_data / "factorial_equal_recall.csv"), str(topology_figures),
     ], HERE)
+    warm_repeats = paper_data / "warm_repeats"
+    run([
+        sys.executable, str(HERE / "summarize_warm_repeat_ranges.py"),
+        str(warm_repeats / "warm_repeat_points.csv"),
+        str(paper_data / "factorial_equal_recall.csv"), str(warm_repeats),
+    ], HERE)
     command = [
         sys.executable, str(generator),
         "--amazon-equal-recall", str(amazon_summary / "equal_recall_conservative.csv"),
@@ -178,9 +184,12 @@ def main() -> int:
     outputs.extend(sorted(topology_figures.glob("*.png")))
     outputs.append(topology_figures / "topology_plot_manifest.json")
     outputs.append(HERE / "plot_topology_factorial.py")
+    outputs.append(HERE / "summarize_warm_repeat_ranges.py")
+    outputs.extend(sorted(warm_repeats.glob("*")))
     outputs.extend(sorted(PAPER.rglob("*.tex")))
     outputs.extend(sorted(PAPER.glob("*.bib")))
-    outputs.extend([PAPER / "ADVISOR_NOTE_CN.md", PAPER / "PAPER_OUTLINE_CN.md"])
+    outputs.extend([PAPER / "ADVISOR_NOTE_CN.md", PAPER / "PAPER_OUTLINE_CN.md",
+                    PAPER / "LITERATURE_NOTES_CN.md", PAPER / "ADVISOR_BACKUP_CN.md"])
     outputs = list(dict.fromkeys(outputs))
     for path in outputs:
         if not path.is_file() or path.stat().st_size == 0:

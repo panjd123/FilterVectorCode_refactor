@@ -1,49 +1,45 @@
-# ML-UNG：方法、固定配置表现与当前研究结论
+# ML-UNG：入口、连接与分层导航的共同设计
 
-这份材料用于约 10–15 分钟的导师汇报。完整推导与图示见[论文](main.pdf)，所有配置的原始汇总见[126 格数据](generated_data/factorial_equal_recall.csv)。
+这份材料用于10–15分钟导师汇报。主线是一个三组例子、一张固定配置表，以及正反两档耗时拆分。完整推导见[论文](main.pdf)，公式、完整网格与构建细节见[备查](ADVISOR_BACKUP_CN.md)。
 
-## 1. 要解决的问题
+## 1. 我们改变了什么
 
-我们研究标签 AND 过滤的近似最近邻搜索。查询标签为 Q，向量标签为 A；只有 Q ⊆ A 的向量能进入结果。UNG 把标签集完全相同的向量放入同一 group，再按最小严格超集关系连接 groups，形成 LNG，并将这些关系落实为向量边。
+我们研究标签AND过滤的近似最近邻搜索：查询标签Q必须包含于结果向量的标签集A。UNG把标签完全相同的向量放入一个group，再按最小严格超集关系连接groups，形成LNG，并把这些关系落实为向量边。Amazon的602,453个向量分成482,387个groups，体现了细组导航的场景。
 
-问题有两部分：找到入口需要跨标签分支做最小超集筛选；进入向量图后，exact-group 边界又限制了几何导航。Amazon 的 602,453 个向量分成 482,387 个 groups，是这种细粒度组织的一个实例。
+这里有两个相互影响的成本：搜索前的最小入口筛选，以及搜索中的跨组导航。**我们把prefix frontier入口与prefix连接配套，再用共同前缀授权跨group的block内导航。** UNG本身已用Trie辅助找入口；本文进一步改变group连接关系和入口要求，并增加粗粒度向量图。
 
-我们的核心设计是：**将 prefix frontier 入口与连接结构配套，再用共同前缀授权跨 group 的 block 内导航。** UNG 本身已使用 Trie 辅助找入口；区别在于我们改变 group 的连接关系和入口合同，并增加粗粒度的向量图。
+## 2. 用三个组解释机制
 
-## 2. 用同一个例子说明入口和 block
+设a<b<c，三个组{b}、{b,c}、{a,b}各含一个向量。Q={b}时全部合法。以下例子对应论文Figure 3，标题为“Entry coverage after owner-level retagging”。
 
-设 a < b < c，有三个 singleton groups：{b}、{b,c}、{a,b}。查询 Q={b} 时全部合法。
+- LNG从{b}能走到另外两个组，最小入口只有{b}。
+- Prefix只沿排序后的标签前缀连接，{a,b}位于另一分支，因此frontier保留{b}和{a,b}两个入口。
+- T=1时，{b}与{b,c}形成根为{b}的block；两个点都包含Q，可以在block内按向量邻近关系连边。{a,b}留在基层。
 
-- LNG 从 {b} 可以分别走到另外两个组，所以最小入口只有 {b}。
-- Prefix 连接只沿排序后的标签前缀。{b} 能走到 {b,c}，但 {a,b} 在另一分支，因此 prefix frontier 保留 {b} 和 {a,b} 两个入口。
-- 阈值 T=1 时，{b} 与 {b,c} 聚成根为 {b} 的 block；两个点都包含 Q，block 内可以按向量邻近关系连边。{a,b} 仍由基层表示。
+对于已进入overlay的查询，若唯一LNG入口被改标为L1而不保留L0状态，搜索就失去通往{a,b}的路径，即使队列无限。Prefix frontier保留其独立L0入口，避开这一失覆盖。换成Q={b,c}时，根{b}不满足整体授权，但合法的{b,c}组仍可由基层入口表示。
 
-实际 prefix provider 用 label-to-group 压缩位图交集和 terminal 祖先检查计算 frontier。优化后的 LNG provider 用 cardinality buckets 和缓冲复用，但仍做集合包含筛选。Prefix 入口可能更多，省下的发现时间可能转化为更多 seed 和图搜索工作。
+完整frontier在入口全部保留、各层必要路径可达且搜索穷尽的条件下有覆盖保证；有限队列下的Recall仍由实验检验。该性质属于入口要求，LNG基层也可以使用完整prefix frontier。
 
-**入口交给 block 后，覆盖问题也会改变。** 若将唯一 LNG 入口 {b} 改标为 L1 且不保留其 L0 状态，搜索就到不了 residual group {a,b}，即使队列无限。Prefix frontier 则保留 {a,b} 的 L0 入口。论文新增三联图展示这一区别。
+实现中，prefix入口用标签到group的压缩位图交集和terminal祖先检查；优化后的LNG入口仍做最小超集筛选。Prefix可能产生更多入口，因此入口发现更快也可能增加seed与图搜索工作。
 
-在完整保留 frontier 和所有授权 block 的入口、局部有向图能从入口到达全部 direct members、必要基层路径完整且穷尽搜索的条件下，prefix frontier 可以在这种转交后保留所有合法点的可达性。这是入口合同的性质：LNG 基层也能配合完整 prefix frontier。当前有界 ANN 的 Recall 仍由实测给出。
+## 3. 0L、1L、2L分别是什么
 
-## 3. 0L、1L、2L 与实际查询
-
-`mL` 表示 L0 之上的 m 个 overlay，物理层共 m+1 层。每一层的 `L/T` 分别表示 LNG/Trie 连接；L0 不被限定为 LNG。
+`mL`表示L0之上的m个overlay，共m+1个物理层。每层的`L/T`分别表示LNG/Trie连接，L0也可以自由选择。
 
 | 配置 | L0 | L1 | L2 |
 |---|---|---|---|
-| `0L[L]`，本文的 Plain | LNG exact groups | 无 | 无 |
+| `0L[L]`，Plain | LNG exact groups | 无 | 无 |
 | `0L[T]` | Trie exact groups | 无 | 无 |
 | `1L[T|L]` | Trie exact groups | LNG blocks | 无 |
 | `2L[T|LT]` | Trie exact groups | LNG blocks | Trie blocks |
 
-每个 overlay 独立从 canonical Trie 累计未覆盖点数；非根节点累计值严格超过 T 时发出 block。一个 block 的 direct members 排除同层已发出的后代 blocks。T 是发出阈值，不是最大点数。增大 T 不会增加 block 数，且 B(T) ≤ floor(N/(T+1))；不同尺度的成员分区仍可能交叉。
+各overlay独立分区，累计未覆盖点数严格超过阈值T时形成block。查询以Q⊆block根标签做整体授权；每个`(vector_id, physical_level)`状态只扩展本层边。授权blocks独立提供入口，group入口可以转交给最细合法owner。所有状态竞争同一个有界队列，所以保留原层边不等于增层后工作量和覆盖不变。
 
-查询先用 Q ⊆ block 根标签进行整体授权，再创建入口状态。状态携带 `(vector_id, physical_level)`，始终只扩展本层边。授权 blocks 独立提供入口；group 入口可转交给拥有它的最细合法 overlay。所有层的状态竞争同一个有界队列。因此“本层边保持不变”不意味着加入高层后参与搜索的状态、覆盖或工作量不变。
+## 4. 固定方案在什么情况下快
 
-## 4. 一个固定配置在各档表现如何
+下面四种结构在九档中保持拓扑与阈值不变，T1=1024、T2=16384；各档按同一Recall门槛选最小实测搜索容量。采用ungated routing，LNG基层配优化后的LNG入口，Trie基层配prefix入口。该配置来自Amazon开发集观察。
 
-下表各列在九档中保持 topology 和阈值不变，阈值为 T1=1024、T2=16384；每档只按统一 Recall 规则选择搜索预算。它们来自 Amazon 开发集，未被包装成跨数据集验证的自动 selector。
-
-所有性能列均为 **QPS，越大越好**。最后两列比较固定 `2L[T|LT]` 与 Plain、固定 `1L[T|L]`，不是逐档最优之间的比值。
+性能列为QPS，越大越好；倍率按未舍入QPS计算。最后两列比较固定方案，不是逐档重选最优拓扑。
 
 | 平均选择率 | Plain `0L[L]` | `0L[T]` | `1L[T|L]` | `2L[T|LT]` | 2L/Plain | 2L/1L |
 |---:|---:|---:|---:|---:|---:|---:|
@@ -57,17 +53,17 @@
 | 95.020% | 1.50 | 0.49 | 520.35 | 564.63 | 375.746× | 1.085× |
 | 99.001% | 0.79 | 0.44 | 253.23 | 257.77 | 327.562× | 1.018× |
 
-固定两层组合在七档超过 Plain，在约 10% 和 30% 落后。对固定一层组合的优势也随批次变化。完整网格另外保留各深度的事后赢家：在 60%/80% 最优一层已经足够，95% 的最佳 QPS 从一层 520.35 提高到两层 564.63。固定 Trie 基层和 L1=LNG，只将 L2 从 LNG 改成 Trie，在 8/9 档更快，最大 1.251×；80% 为 0.998×，几乎持平。
+两层固定方案在七档超过Plain，在约10%与30%落后。相对固定一层，前三档为1.15–1.43×，10%与30%反而较慢。60%–99%的大幅恢复在**一层时已经出现**：Plain容量为260,000–400,000，固定一层与两层均为1,000–5,000；三百多倍不能全算作第二层的贡献。
 
-![全配置相对吞吐](generated_figures/topology/topology_relative_qps.png)
+两次warm记录中，固定两层与一层在60%、80%的观测时间范围重叠；95%的四种跨repeat QPS比值为1.072–1.098。这些是每种配置两次计时派生的描述性范围，不是置信区间。
 
-图中每列相对该批次实测最大 QPS 归一化，红框为实测赢家，灰色为 NC。NC 指共享实测预算内没有达到 Recall 门槛。
+**测量口径：**Amazon为768维；每批1,000 queries，100 CPU query workers，1 cold+2 warm。每次warm的批次平均Recall@10都须≥0.90，各配置的实际Recall可不同。QPS=批次查询数/批次wall time，NC表示共享实测预算内未达到门槛。
 
-**如何读这些批次：** Amazon 向量维度为 768，每批 1,000 queries，100 CPU query workers，1 cold + 2 warm。每次 warm 的**批次平均** Recall@10 都须 ≥0.90，取最小实测 Lsearch。5/30/60/80/95% 批次通过替换一部分谓词为高频 {1} 得到；99% 含 697 个空谓词和 303 个 {1}。这是混合批次的平均选择率，例如 5% 档单查询选择率从 0.0033% 到 96.702%，不是控制单一变量的选择率实验。
+选择率是批次均值。5/30/60/80/95%批次混入高频{1}谓词；99%由697个空谓词和303个{1}构成。例如5%批次的单查询选择率跨0.0033%–96.702%，这些批次同时改变了谓词组成。
 
 ## 5. 加速来自哪里
 
-入口变快并不保证总查询变快。下面的正反两档来自独立 instrumented profile，单位为多线程执行下的 **ms/query 阶段均值**。
+下面是独立instrumented profile，单位为多线程执行下的ms/query阶段均值。
 
 | 平均选择率 | L0 系统与入口 | ELS 发现 | Seed 设置 | Graph 遍历 |
 |---:|---|---:|---:|---:|
@@ -76,40 +72,19 @@
 | 9.907% | LNG + optimized LNG | 36.631 | 0.646 | 98.747 |
 | 9.907% | Trie + prefix frontier | 3.778 | 14.744 | 323.081 |
 
-0.499% 时，发现与图搜索都变快，独立吞吐比为 6.03×；9.907% 时，入口发现仍变快，但 seed 和图搜索成本增加，吞吐比仅 0.60×。这里比较的是拓扑与各自入口的组合。
+0.499%时发现和图搜索都变快，主吞吐比为6.03×；9.907%时发现仍变快，但seed与图搜索成本增加，吞吐比仅0.60×。因此需要共同评价入口和后续导航。
 
-高平均选择率的大倍数还伴随很大的搜索预算差异：60%–99% 下，Plain 的 Lsearch 为 260,000–400,000，固定 `2L[T|LT]` 为 1,000–5,000。Lsearch 是候选容量，不是实际距离计算数；当前数组队列的扫描、插入和移动成本会随容量增加。因而这些吞吐比同时反映导航路径和达到质量门槛所需预算的变化。现有 profile 没有单独分离队列耗时，不能将大倍数全部归于几何导航。
+Lsearch是容量，不是距离计算数。数组队列的扫描或移动成本可能随有效队列长度增长，上界受容量影响。现有profile未单独分离队列耗时，大倍数同时包含导航路径与达到Recall门槛所需预算的变化。阶段均值也不能相加替代并发batch耗时。
 
-QPS 用整个 batch 的 wall time 计算：B / batch seconds。上述阶段均值不能相加替代并发 batch latency。完整 counter 定义与所有 crossing 的 Lsearch/Recall 均在论文测量附录和 CSV 中。
+## 6. 与已有方法的区别和当前判断
 
-## 6. 与已有工作的区别
-
-| 相关方法 | 主要组织方式 | 本文的区别或所需对照 |
-|---|---|---|
-| UNG | exact-label groups + LNG containment cover + 最小入口 | 本文共同改变 prefix 连接、入口 frontier 与 block 粒度；Plain 使用优化后的 LNG 入口及共同执行后端 |
-| ACORN | 全局图上的谓词无关扩展及过滤搜索 | 是必要的外部路线对照；目前完整网格仍是内部实现比较 |
-| Curator | 共享聚类树与按查询组合的 qualified-subset indexes | 本文预先物化 prefix direct-member blocks，并用根标签授权导航 |
-| FAVOR | 低选择率扫描，其余采用 exclusion-distance HNSW | 需要与其策略切换及高效 exact scan 在相同 AND 语义下比较 |
-| LSSG，预印本 | 多层 label-similarity graphs | 多层标签图已有相关工作；本文需要突出 direct-member 聚合、prefix 授权和入口覆盖合同 |
-
-至少 16 篇已发表 SIGMOD/PVLDB 相关工作及两个预印本见[文献备查](LITERATURE_NOTES_CN.md)与论文 references。当前证据建立了内部结构之间的性能交换，尚未建立相对外部强方法的整体竞争优势。
-
-## 7. 自动参数与 GPU 构建：支持性研究
-
-**DRH 无需 query 校准，但迁移表现不稳定。** R 为局部图度预算，C 为跨组度预算。DRH 用 T+N/T 的对称代理选 T1≈sqrt(N)，取最近二次幂；下一层阈值乘 rho=max(2,round(R/C))，N/T<C 时停止。N/T 是 block 数的宽松上界，T 不是局部搜索工作量上界，因此这不是最优延迟推导。
-
-Amazon 的 N=602453、R=64、C=4 给出 1024:LNG、16384:Trie。DRH-v1 仅在存在合法物理层 h≥2 时进入多层后端；v2 再检查最高合法层的 direct mass。它们固定 LNG base，未选择完整系统的所有组件。
-
-Genome/Reviews 的 DRH-v1 为 Plain 的 0.954–1.014×，VariousImg 仅 **0.205×**；后者的 v2 改到 **0.336×**。四个数据集都导出两个 overlays，未验证深度变化的有效性。五个人工候选使用同一 presence gate，单层候选因此始终执行 base；这组结果不能回答“自动方案是否优于充分调优的一层导航”。
-
-**GPU 结果是构建后端的时间与资源测量。** Amazon 同一声明层级的 CPU builder 为 1000.64s，最快 hybrid 为 90.49s，即 11.06×。独立 base 与 hierarchy 阶段中位数之和为 141.27s，原 CPU base-only 为 190.38s；约 1.35× 是组合计时之比。最快输出索引的等 Recall 查询质量尚未验证。每个后端测量两次 warm，并另做资源 pass；查询本身在 CPU 上执行。
-
-## 8. 下一步需要形成什么证据
-
-| 需要回答的问题 | 当前缺少的证据 |
+| 方法 | 对比位置 |
 |---|---|
-| 固定系统是否有竞争力 | 相同 AND、Recall、线程与调参口径下的外部强基线及高效 exact scan |
-| 哪些数据形态适合 prefix/blocks | 核心组合跨数据集；标签顺序、query cardinality 与选择率分层的 Recall 分布 |
-| 增层后为什么有 NC | 逐查询入口/owner/可达性诊断，以及保持覆盖的对照 |
-| 大倍数值不值得额外空间 | 同质量下的队列成本、加载索引大小、每层邻接和并发 workspace |
-| 自动选参与 GPU 是否能独立成立 | 有效的一层候选、会导出不同深度的数据形态、构建输出的质量对照 |
+| UNG | 本文共同改变prefix连接、frontier入口和block粒度；Plain已使用优化后的LNG入口 |
+| ACORN、FAVOR | 全局图过滤及扫描/图搜索切换，是需要补充的外部强对照 |
+| Curator | 共享聚类树并按查询组成qualified-subset索引；本文预先物化prefix blocks并由根标签授权 |
+| LSSG，预印本 | 已有多层label-similarity图；本文的区别需落实到direct-member聚合、prefix授权和入口覆盖 |
+
+当前证据支持内部结构间的性能交换。下一步优先验证：外部强基线及高效exact scan；核心组合跨数据集与查询子类的表现；增层后的覆盖、加载内存和队列成本。
+
+两项支持性研究各有明确边界：DRH只看数据规模和度预算，四个数据集均导出两层，在VariousImg仅达Plain的0.205×，尚不能作为通用自动选择方案；GPU hierarchy构建从1000.64s降至90.49s，但输出索引的同Recall查询质量尚未验证。公式、独立v2对照和完整构建预算见[备查](ADVISOR_BACKUP_CN.md)。

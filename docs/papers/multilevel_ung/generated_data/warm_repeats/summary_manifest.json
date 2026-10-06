@@ -1,0 +1,33 @@
+{
+  "scope": "Descriptive reanalysis of original warm timings; no new experiment.",
+  "warm_repeats_per_point": 2,
+  "queries_per_batch": 1000,
+  "crossings": 95,
+  "comparison_rows": 35,
+  "cv_median": 0.008706773400037572,
+  "cv_max": 0.27032244771035185,
+  "not_a_confidence_interval": true,
+  "range_definition": "min(time_B)/max(time_A) through max(time_B)/min(time_A).",
+  "limitation": "Observed overlap or separation does not establish statistical significance or reproducibility across independent runs.",
+  "inputs": [
+    {
+      "name": "warm_repeat_points.csv",
+      "sha256": "9410e2b3348e927c993f20115899c7fde8937d3031db87a74454137bd11b9eea"
+    },
+    {
+      "name": "factorial_equal_recall.csv",
+      "sha256": "9e56a1ed859152382b829e612c5e62ff4f90d50a5ce3b9a6a3e8230c426b6505"
+    }
+  ],
+  "script_sha256": "40785530624eec16a000ba190dabfc23a7b5fb73ae2dcc6d35bd8655f3f674b5",
+  "outputs": [
+    {
+      "name": "warm_repeat_comparisons.csv",
+      "sha256": "6011c3c85613eeee14dd31d606e805c0c2c3f1671879953cc2b847b899f11682"
+    },
+    {
+      "name": "generated_warm_repeat_ranges.tex",
+      "sha256": "56f648f87a2f898e1061188d91543d72757ea38eaca4a9aefd5c615dcc7dc2c4"
+    }
+  ]
+}

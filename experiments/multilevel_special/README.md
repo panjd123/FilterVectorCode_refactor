@@ -47,6 +47,7 @@ existing raw manifests and summaries
   → validate_selection_sweep.py / summarize_selection_sweep.py
   → summarize_base_topology_factorial.py
   → plot_topology_factorial.py
+  → summarize_warm_repeat_ranges.py (published timing pairs)
   → generate_deadline_paper_results.py
   → generated tables, Chinese report, figures, compiled PDF
 ```
@@ -71,6 +72,21 @@ or duplicate cells, sub-target crossings, and NC cells populated with QPS.
 The QPS panel normalizes each configuration by the best measured QPS in the
 same batch. A red border identifies that observed winner; grey cells remain
 NC. The companion panel shows the selected search capacities.
+
+To reproduce observed timing ranges from the 95 published warm timing pairs:
+
+```bash
+python3 experiments/multilevel_special/summarize_warm_repeat_ranges.py \
+  docs/papers/multilevel_ung/generated_data/warm_repeats/warm_repeat_points.csv \
+  docs/papers/multilevel_ung/generated_data/factorial_equal_recall.csv \
+  /tmp/mlung-warm-ranges
+```
+
+This checks the complete grid, each selected capacity, both warm Recalls, and
+QPS derived from median batch time before writing the 35 comparisons and a
+LaTeX table. The interval spans the four observed cross-repeat ratios; it is
+neither a confidence interval nor four independent timing repetitions. Raw
+source hashes and extraction details accompany the published timing pairs.
 
 ## Declare and run a new experiment
 

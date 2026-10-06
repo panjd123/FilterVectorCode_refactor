@@ -3,6 +3,8 @@
 Start with `ADVISOR_NOTE_CN.md` for the Chinese advisor briefing and `main.pdf`
 for the English manuscript. The paper leads with prefix-frontier entries and
 predicate-certified blocks. DRH is a secondary configuration heuristic.
+`ADVISOR_BACKUP_CN.md` holds the full grid, threshold rules, and construction
+details for questions after the short briefing.
 
 `main.tex` assembles the main sections: introduction, motivation,
 frontier, block index/query and seed coverage, construction/configuration, evaluation, and
@@ -34,7 +36,7 @@ established by the construction timing table.
 The current manuscript does not claim submission-ready evidence. Required
 extensions include current-protocol external baselines, controlled entry
 attribution, prefix/block transfer beyond Amazon, changing-depth DRH tests,
-and build-quality checks. See the final table in `ADVISOR_NOTE_CN.md`.
+and build-quality checks. See the final section in `ADVISOR_NOTE_CN.md`.
 
 ## Regenerate and validate on the experiment host
 
@@ -87,3 +89,10 @@ final manuscript. The C0 full-manuscript review used newly created reviewers giv
 PDF, without previous scores or revision lists. Both recommended Reject; both
 rated empirical support 2/5 and clarity 4/5. Their complete reports and the
 subsequent C1 response are in `review/`. These are simulated agent judgments.
+
+C1's returning reviewers accepted the core coverage and partition arguments
+but retained the missing-evidence basis for Reject. C2 makes the integer
+threshold and own-group reachability premises explicit and adds reproducible
+observed timing ranges. The 95 timing pairs and 35 comparisons are under
+`generated_data/warm_repeats/`; the four combinations per comparison are not
+independent experiments or confidence intervals.

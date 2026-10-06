@@ -63,8 +63,9 @@ controlled upper-level topology changes. The complete Amazon factorial
 contains 14 configurations over nine query batches. At measured Recall@10
 $\geq0.90$, the prefix-base system is 2.77--18.43$\times$ faster than the
 optimized LNG base on three workloads near 0.5--5\%, whereas LNG wins near
-10\% and 30\%. Adding blocks changes this picture again: the best systems
-at 60\% and 80\% combine a Trie base with an LNG overlay. The detailed
+10\% and 30\%. A Trie base with one LNG overlay already recovers much of
+the high-mean-selectivity throughput; the marginal effect of a second
+overlay varies. The detailed
 profiles explain how discovery savings can be offset by seed and graph work.
 
 

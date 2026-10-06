@@ -878,7 +878,7 @@ def generate(args: argparse.Namespace) -> tuple[str, str, list[Path]]:
     max_budget = {}
     for row in all_points:
         max_budget[row["workload"]] = max(max_budget.get(row["workload"], 0), int(float(row["lsearch"])))
-    budget_lines = [r"\begin{table}[t]", r"\centering", r"\small", r"\caption{Measured Amazon crossing and screen caps.}", r"\label{tab:budgets}", r"\begin{tabular}{rrr}", r"\toprule", r"Mean sel. & Plain crossing $L$ & Screen cap $L$ \\", r"\midrule"]
+    budget_lines = [r"\begin{table}[H]", r"\centering", r"\small", r"\caption{Measured Amazon crossing and screen caps.}", r"\label{tab:budgets}", r"\begin{tabular}{rrr}", r"\toprule", r"Mean sel. & Plain crossing $L$ & Screen cap $L$ \\", r"\midrule"]
     for workload in WORKLOAD_ORDER:
         row = amazon_index[workload]["l0_lng_entry_optimized_lng"]
         budget_lines.append(f"{100.0 * float(row['mean_selectivity']):.3f}\\% & {int(float(row['lsearch'])):,} & {max_budget[workload]:,} " + r"\\")

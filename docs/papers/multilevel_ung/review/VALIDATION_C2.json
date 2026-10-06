@@ -1,0 +1,24 @@
+{
+  "phase": "C2",
+  "paper_pages": 27,
+  "paper_sha256": "fdf4f22c3f97cdfa13420b2ac482290955f00d24d65f060cece0efbdd51e167a",
+  "review_scope": "Targeted changes; no new cold score",
+  "tests": "262 tests passed in 1.750 seconds; 13 focused tests passed locally",
+  "warm_points": 95,
+  "warm_recalls": 190,
+  "warm_comparisons": 35,
+  "primary_factorial_sha256": "9e56a1ed859152382b829e612c5e62ff4f90d50a5ce3b9a6a3e8230c426b6505",
+  "source_only_reproduction": "warm CSV, TeX and initial manifest reproduced byte for byte; final changes affect float placement only",
+  "undefined_references_or_citations": false,
+  "new_benchmarks": false,
+  "finalization_manifest": "runs/paper_c2_20261007/finalization_manifest.json",
+  "review_reports": [
+    "c1_proof_check.md",
+    "c1_fixed_config_check.json",
+    "c1_advisor_review.md",
+    "c1_sigmod_review.md",
+    "c2_warm_range_check.md",
+    "c2_advisor_check.md",
+    "c2_source_reproduction_check.md"
+  ]
+}

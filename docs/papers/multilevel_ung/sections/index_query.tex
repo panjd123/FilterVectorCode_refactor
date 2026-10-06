@@ -109,7 +109,7 @@ root up to, but excluding, another block root at the same level.
 \caption{One independent block partition}
 \label{alg:partition}
 \begin{algorithmic}[1]
-\Require canonical trie, terminal weights $w(v)$, threshold $T$
+\Require canonical trie, terminal weights $w(v)$, integer threshold $T\ge0$
 \For{nodes $v$ in postorder}
   \State $u(v)\gets w(v)+\sum_{c\in\mathrm{child}(v)}u(c)$
   \If{$v\ne\mathrm{root}$ and $u(v)>T$}
@@ -126,7 +126,8 @@ cover: residual groups below no emitted root remain represented by the base.
 Threshold $T_\ell$ is an emission threshold, not a maximum block size.  A
 large exact group or branching node can yield a block exceeding it.  Separate
 partition passes for $T_1<T_2<\cdots$ leave earlier levels unchanged.
-For $B(T)$ emitted blocks representing $M(T)$ points, disjointness gives
+For a nonnegative integer threshold $T$, let $B(T)$ blocks represent $M(T)$
+points. Disjointness gives
 \begin{equation}
  B(T)(T+1)\le M(T)\le N,\qquad
  B(T)\le\left\lfloor\frac{N}{T+1}\right\rfloor.
@@ -296,7 +297,7 @@ of an entry, whereas its assigned block represents a prefix region.
 Let $a<b<c$ and let $\{b\}$, $\{b,c\}$, and $\{a,b\}$ each contain one
 vector. With $T_1=1$, Algorithm~\ref{alg:partition} emits one block rooted
 at $\{b\}$, owning the first two groups; $\{a,b\}$ remains residual.
-For $Q=\{b\}$, the LNG-minimal entry is only $\{b\}$. Retagging it to
+For an ungated query $Q=\{b\}$, the LNG-minimal entry is only $\{b\}$. Retagging it to
 level 1 removes the sole base seed. The residual group is then unreachable,
 even with an unlimited queue and a fully connected local block graph.
 The prefix frontier also includes $\{a,b\}$ and retains its base seed
@@ -358,7 +359,8 @@ Suppose the group entries contain the complete prefix frontier, each entry
 is retained at level 0 or retagged to an authorized direct owner, and every
 authorized block has a retained portal seed. Assume each block's directed
 local graph reaches all its direct members from that portal, each retained
-base entry reaches all points in its terminal prefix descendants, and search
+base entry reaches all points in its own exact group and its terminal
+prefix descendants, and search
 exhausts these paths without seed, candidate, or edge pruning. Then every
 eligible vector is reachable after retagging.
 

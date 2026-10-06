@@ -1,0 +1,2 @@
+# Preserve the audited CSV bytes; recognize CSV CRLF as line endings.
+*.csv whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

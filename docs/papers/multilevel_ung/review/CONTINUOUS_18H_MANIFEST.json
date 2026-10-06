@@ -73,32 +73,66 @@
     },
     {
       "id": "C1",
-      "status": "focused_review",
+      "status": "review_complete",
       "purpose": "Analyze retagging coverage, fixed configurations, search budgets, and first-reading advisor flow.",
       "evidence_change": "No new vector benchmark; proofs and finite structural checks added.",
       "frozen_package": "/tmp/mlung-c1-review-20261007",
       "pdf_sha256": "17457b1362f6791fabc2e183d770690340c21f46668ad4e0c2bf0dcb4a3e7009",
       "pdf_pages": 26,
-      "review_scope": "Returning reviewers inspect changes; not a new context-free overall score."
+      "review_scope": "Returning reviewers inspect changes; not a new context-free overall score.",
+      "reports": [
+        "c1_proof_check.md",
+        "c1_fixed_config_check.json",
+        "c1_fixed_config_check.md",
+        "c1_advisor_review.md",
+        "c1_sigmod_review.md"
+      ],
+      "outcome": "Core analysis accepted with domain/wording fixes; original empirical rejection basis retained. No new overall scores."
+    },
+    {
+      "id": "C2",
+      "status": "validated_pending_publication",
+      "purpose": "Explicit proof domains; observed warm ranges; shorter advisor briefing; reproducible range script and layout fixes.",
+      "evidence_change": "Original 95 crossing timing pairs exposed and reconstructed; no new vector benchmark.",
+      "reviews": [
+        "c2_warm_range_check.md"
+      ],
+      "review_scope": "Returning reviewers; targeted math/data/presentation checks.",
+      "pdf_sha256": "fdf4f22c3f97cdfa13420b2ac482290955f00d24d65f060cece0efbdd51e167a",
+      "pdf_pages": 27,
+      "frozen_package": "/tmp/mlung-c2-review-20261007",
+      "reports": [
+        "c2_warm_range_check.md",
+        "c2_advisor_check.md",
+        "c2_source_reproduction_check.md"
+      ]
     }
   ],
-  "latest_checkpoint": "ed4c48cab3ac56f6bc36e7ef895d6afd3a18c989",
+  "latest_checkpoint": "99bfe4c26f812a0c9be3959c7708007d6448e934",
   "checkpoint_pushed_from": "W300-pub",
-  "last_activity_at_utc": "2026-10-06T19:19:41.150992+00:00",
-  "current_work": "C1 compiled and frozen; focused proof, data, advisor, and PDF reviews running.",
+  "last_activity_at_utc": "2026-10-06T23:38:40.383932+00:00",
+  "current_work": "Publish validated C2; existing query-detail field and query-size Recall audits are running for C3.",
   "sharelatex_document_sync": {
-    "commit": "ed4c48cab3ac56f6bc36e7ef895d6afd3a18c989",
-    "verified_files": 3,
-    "receipt": "/tmp/mlung18h-doc-sync-receipt.json",
-    "scope": "Markdown only; frozen TeX/PDF unchanged"
+    "commit": "99bfe4c26f812a0c9be3959c7708007d6448e934",
+    "verified_files": 63,
+    "receipt": "review/SHARELATEX_C1_PUBLICATION.json",
+    "scope": "Full C1 paper source, PDF, figures, data and reading documents",
+    "server_pdf_pages": 25,
+    "server_pdf_sha256": "f0990fafc883b43b6771f441614b1215d557193a040a02a9f28e66f0d01534b0"
   },
   "work_in_progress": {
     "coverage_derivation": "docs/papers/multilevel_ung/review/partition_and_retagging_audit_c0.md",
     "pending_reviews": [
-      "/tmp/mlung-c1-proof-check.md",
-      "/tmp/mlung-c1-fixed-config-check.json",
-      "/tmp/mlung-c1-advisor-review.md",
-      "/tmp/mlung-c1-sigmod-review.md"
-    ]
+      "/tmp/mlung-c2-pdf-check.md",
+      "/tmp/mlung-c3-query-fields-audit.md",
+      "/tmp/mlung-c3-query-size-strata.md"
+    ],
+    "warm_repeat_audit": {
+      "script": "/tmp/mlung-c1-repeat-audit.py",
+      "output": "runs/paper_c1_20261007/warm_repeat_audit",
+      "crossings_reconstructed": 95,
+      "primary_results_changed": false,
+      "not_a_confidence_interval": true
+    }
   }
 }

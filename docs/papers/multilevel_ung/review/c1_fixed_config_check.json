@@ -1,0 +1,744 @@
+{
+  "source": "/tmp/filtervector-paper-18h-20261006/docs/papers/multilevel_ung/generated_data/factorial_equal_recall.csv",
+  "sha256": "9e56a1ed859152382b829e612c5e62ff4f90d50a5ce3b9a6a3e8230c426b6505",
+  "scope": "Frozen Amazon development-set screening data. TLT is one unchanged configuration across nine workloads, selected using development-set observations; neither held-out nor preregistered. No new experiments.",
+  "configuration_key": {
+    "L": "0L[L] / Plain",
+    "T": "0L[T]",
+    "TL": "1L[T|L]",
+    "TLT": "2L[T|LT]"
+  },
+  "metric_definition": "QPS at each method's smallest measured Lsearch for which both warm repeats reach Recall@10 >= 0.90. Equal target, not necessarily identical attained Recall.",
+  "missing_policy": "status=unavailable means no measured Recall crossing. QPS/Lsearch/recall_min remain null, not zero. max_recall is retained.",
+  "workloads": [
+    {
+      "workload": "sel_0p5",
+      "mean_selectivity": 0.0049924907,
+      "configurations": {
+        "L": {
+          "configuration": "0L[L] / Plain",
+          "method": "l0_lng_entry_optimized_lng",
+          "base_topology": "lng",
+          "entry_strategy": "optimized_lng",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 2476.3508493883414,
+          "lsearch": 2000,
+          "recall_min": 0.9168,
+          "max_recall": 0.9168,
+          "reason": ""
+        },
+        "T": {
+          "configuration": "0L[T]",
+          "method": "l0_trie_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 14921.898781776183,
+          "lsearch": 1000,
+          "recall_min": 0.9598,
+          "max_recall": 0.9745,
+          "reason": ""
+        },
+        "TL": {
+          "configuration": "1L[T|L]",
+          "method": "l1_base_trie_t1024_lng_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 1,
+          "status": "complete",
+          "qps": 15177.235967317341,
+          "lsearch": 1000,
+          "recall_min": 0.9592,
+          "max_recall": 0.9745,
+          "reason": ""
+        },
+        "TLT": {
+          "configuration": "2L[T|LT]",
+          "method": "l2_base_trie_t1024_16384_lt_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 2,
+          "status": "complete",
+          "qps": 21707.889949681114,
+          "lsearch": 1000,
+          "recall_min": 0.9592,
+          "max_recall": 0.9745,
+          "reason": ""
+        }
+      },
+      "ratios": {
+        "TLT_over_Plain": 8.766080119480227,
+        "TLT_over_TL": 1.4302927091880815
+      },
+      "all_14_configuration_oracle_qps": 21707.889949681114,
+      "TLT_over_all_14_oracle": 1.0
+    },
+    {
+      "workload": "sel_1",
+      "mean_selectivity": 0.0090305484,
+      "configurations": {
+        "L": {
+          "configuration": "0L[L] / Plain",
+          "method": "l0_lng_entry_optimized_lng",
+          "base_topology": "lng",
+          "entry_strategy": "optimized_lng",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 4191.04457595011,
+          "lsearch": 2200,
+          "recall_min": 0.9106,
+          "max_recall": 0.9106,
+          "reason": ""
+        },
+        "T": {
+          "configuration": "0L[T]",
+          "method": "l0_trie_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 11591.420957520919,
+          "lsearch": 1200,
+          "recall_min": 0.946,
+          "max_recall": 0.9623,
+          "reason": ""
+        },
+        "TL": {
+          "configuration": "1L[T|L]",
+          "method": "l1_base_trie_t1024_lng_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 1,
+          "status": "complete",
+          "qps": 12447.146305002385,
+          "lsearch": 1200,
+          "recall_min": 0.9543,
+          "max_recall": 0.9682,
+          "reason": ""
+        },
+        "TLT": {
+          "configuration": "2L[T|LT]",
+          "method": "l2_base_trie_t1024_16384_lt_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 2,
+          "status": "complete",
+          "qps": 14278.503641375393,
+          "lsearch": 1200,
+          "recall_min": 0.9543,
+          "max_recall": 0.9682,
+          "reason": ""
+        }
+      },
+      "ratios": {
+        "TLT_over_Plain": 3.4069080828467344,
+        "TLT_over_TL": 1.1471306989970065
+      },
+      "all_14_configuration_oracle_qps": 14278.503641375393,
+      "TLT_over_all_14_oracle": 1.0
+    },
+    {
+      "workload": "sel_5",
+      "mean_selectivity": 0.0503811667,
+      "configurations": {
+        "L": {
+          "configuration": "0L[L] / Plain",
+          "method": "l0_lng_entry_optimized_lng",
+          "base_topology": "lng",
+          "entry_strategy": "optimized_lng",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 544.9324011356391,
+          "lsearch": 3200,
+          "recall_min": 0.9097,
+          "max_recall": 0.9097,
+          "reason": ""
+        },
+        "T": {
+          "configuration": "0L[T]",
+          "method": "l0_trie_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 10044.229765773583,
+          "lsearch": 800,
+          "recall_min": 0.9026,
+          "max_recall": 0.9399,
+          "reason": ""
+        },
+        "TL": {
+          "configuration": "1L[T|L]",
+          "method": "l1_base_trie_t1024_lng_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 1,
+          "status": "complete",
+          "qps": 9105.216697328484,
+          "lsearch": 400,
+          "recall_min": 0.9181,
+          "max_recall": 0.9755,
+          "reason": ""
+        },
+        "TLT": {
+          "configuration": "2L[T|LT]",
+          "method": "l2_base_trie_t1024_16384_lt_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 2,
+          "status": "complete",
+          "qps": 11718.349470477082,
+          "lsearch": 400,
+          "recall_min": 0.9186,
+          "max_recall": 0.9755,
+          "reason": ""
+        }
+      },
+      "ratios": {
+        "TLT_over_Plain": 21.50422592977779,
+        "TLT_over_TL": 1.286992925046507
+      },
+      "all_14_configuration_oracle_qps": 11718.349470477082,
+      "TLT_over_all_14_oracle": 1.0
+    },
+    {
+      "workload": "sel_10",
+      "mean_selectivity": 0.0990661529,
+      "configurations": {
+        "L": {
+          "configuration": "0L[L] / Plain",
+          "method": "l0_lng_entry_optimized_lng",
+          "base_topology": "lng",
+          "entry_strategy": "optimized_lng",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 450.17061466295723,
+          "lsearch": 26000,
+          "recall_min": 0.9035,
+          "max_recall": 0.9147,
+          "reason": ""
+        },
+        "T": {
+          "configuration": "0L[T]",
+          "method": "l0_trie_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 270.63013520681557,
+          "lsearch": 64000,
+          "recall_min": 0.9318,
+          "max_recall": 0.9318,
+          "reason": ""
+        },
+        "TL": {
+          "configuration": "1L[T|L]",
+          "method": "l1_base_trie_t1024_lng_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 1,
+          "status": "complete",
+          "qps": 289.72532590477596,
+          "lsearch": 18000,
+          "recall_min": 0.9225,
+          "max_recall": 0.9551,
+          "reason": ""
+        },
+        "TLT": {
+          "configuration": "2L[T|LT]",
+          "method": "l2_base_trie_t1024_16384_lt_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 2,
+          "status": "complete",
+          "qps": 275.64383508780634,
+          "lsearch": 18000,
+          "recall_min": 0.907,
+          "max_recall": 0.9314,
+          "reason": ""
+        }
+      },
+      "ratios": {
+        "TLT_over_Plain": 0.6123097023873513,
+        "TLT_over_TL": 0.9513971007781425
+      },
+      "all_14_configuration_oracle_qps": 450.17061466295723,
+      "TLT_over_all_14_oracle": 0.6123097023873513
+    },
+    {
+      "workload": "sel_30",
+      "mean_selectivity": 0.3002724229,
+      "configurations": {
+        "L": {
+          "configuration": "0L[L] / Plain",
+          "method": "l0_lng_entry_optimized_lng",
+          "base_topology": "lng",
+          "entry_strategy": "optimized_lng",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 52.768777769569304,
+          "lsearch": 120000,
+          "recall_min": 0.9047,
+          "max_recall": 0.9192,
+          "reason": ""
+        },
+        "T": {
+          "configuration": "0L[T]",
+          "method": "l0_trie_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 0,
+          "status": "unavailable",
+          "qps": null,
+          "lsearch": null,
+          "recall_min": null,
+          "max_recall": 0.8882,
+          "reason": "no measured Lsearch reaches Recall 0.9"
+        },
+        "TL": {
+          "configuration": "1L[T|L]",
+          "method": "l1_base_trie_t1024_lng_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 1,
+          "status": "complete",
+          "qps": 27.662211206515003,
+          "lsearch": 60000,
+          "recall_min": 0.9054,
+          "max_recall": 0.9189,
+          "reason": ""
+        },
+        "TLT": {
+          "configuration": "2L[T|LT]",
+          "method": "l2_base_trie_t1024_16384_lt_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 2,
+          "status": "complete",
+          "qps": 25.417191425764646,
+          "lsearch": 60000,
+          "recall_min": 0.9082,
+          "max_recall": 0.9171,
+          "reason": ""
+        }
+      },
+      "ratios": {
+        "TLT_over_Plain": 0.48167102783309546,
+        "TLT_over_TL": 0.9188416369179623
+      },
+      "all_14_configuration_oracle_qps": 52.768777769569304,
+      "TLT_over_all_14_oracle": 0.48167102783309546
+    },
+    {
+      "workload": "sel_60",
+      "mean_selectivity": 0.6004749068,
+      "configurations": {
+        "L": {
+          "configuration": "0L[L] / Plain",
+          "method": "l0_lng_entry_optimized_lng",
+          "base_topology": "lng",
+          "entry_strategy": "optimized_lng",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 4.069167712781866,
+          "lsearch": 260000,
+          "recall_min": 0.9283,
+          "max_recall": 0.9283,
+          "reason": ""
+        },
+        "T": {
+          "configuration": "0L[T]",
+          "method": "l0_trie_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 2.511471144452286,
+          "lsearch": 320000,
+          "recall_min": 0.9125,
+          "max_recall": 0.9125,
+          "reason": ""
+        },
+        "TL": {
+          "configuration": "1L[T|L]",
+          "method": "l1_base_trie_t1024_lng_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 1,
+          "status": "complete",
+          "qps": 1613.6840406648378,
+          "lsearch": 1000,
+          "recall_min": 0.9011,
+          "max_recall": 0.9454,
+          "reason": ""
+        },
+        "TLT": {
+          "configuration": "2L[T|LT]",
+          "method": "l2_base_trie_t1024_16384_lt_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 2,
+          "status": "complete",
+          "qps": 1598.4182053439915,
+          "lsearch": 1000,
+          "recall_min": 0.9023,
+          "max_recall": 0.9456,
+          "reason": ""
+        }
+      },
+      "ratios": {
+        "TLT_over_Plain": 392.81207317238864,
+        "TLT_over_TL": 0.9905397618516716
+      },
+      "all_14_configuration_oracle_qps": 1613.6840406648378,
+      "TLT_over_all_14_oracle": 0.9905397618516716
+    },
+    {
+      "workload": "sel_80",
+      "mean_selectivity": 0.8002369928,
+      "configurations": {
+        "L": {
+          "configuration": "0L[L] / Plain",
+          "method": "l0_lng_entry_optimized_lng",
+          "base_topology": "lng",
+          "entry_strategy": "optimized_lng",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 1.802899784012606,
+          "lsearch": 320000,
+          "recall_min": 0.9257,
+          "max_recall": 0.9257,
+          "reason": ""
+        },
+        "T": {
+          "configuration": "0L[T]",
+          "method": "l0_trie_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 0.5860771511961834,
+          "lsearch": 602453,
+          "recall_min": 0.9699,
+          "max_recall": 0.9699,
+          "reason": ""
+        },
+        "TL": {
+          "configuration": "1L[T|L]",
+          "method": "l1_base_trie_t1024_lng_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 1,
+          "status": "complete",
+          "qps": 648.3465542001511,
+          "lsearch": 2500,
+          "recall_min": 0.9167,
+          "max_recall": 0.9323,
+          "reason": ""
+        },
+        "TLT": {
+          "configuration": "2L[T|LT]",
+          "method": "l2_base_trie_t1024_16384_lt_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 2,
+          "status": "complete",
+          "qps": 646.832622356476,
+          "lsearch": 2500,
+          "recall_min": 0.916,
+          "max_recall": 0.933,
+          "reason": ""
+        }
+      },
+      "ratios": {
+        "TLT_over_Plain": 358.77347598148765,
+        "TLT_over_TL": 0.9976649342332932
+      },
+      "all_14_configuration_oracle_qps": 648.3465542001511,
+      "TLT_over_all_14_oracle": 0.9976649342332932
+    },
+    {
+      "workload": "sel_95",
+      "mean_selectivity": 0.9501978063,
+      "configurations": {
+        "L": {
+          "configuration": "0L[L] / Plain",
+          "method": "l0_lng_entry_optimized_lng",
+          "base_topology": "lng",
+          "entry_strategy": "optimized_lng",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 1.5026815351995637,
+          "lsearch": 320000,
+          "recall_min": 0.9134,
+          "max_recall": 0.9134,
+          "reason": ""
+        },
+        "T": {
+          "configuration": "0L[T]",
+          "method": "l0_trie_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 0.48865704826709994,
+          "lsearch": 602453,
+          "recall_min": 0.9666,
+          "max_recall": 0.9666,
+          "reason": ""
+        },
+        "TL": {
+          "configuration": "1L[T|L]",
+          "method": "l1_base_trie_t1024_lng_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 1,
+          "status": "complete",
+          "qps": 520.3468632190218,
+          "lsearch": 2500,
+          "recall_min": 0.9098,
+          "max_recall": 0.9211,
+          "reason": ""
+        },
+        "TLT": {
+          "configuration": "2L[T|LT]",
+          "method": "l2_base_trie_t1024_16384_lt_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 2,
+          "status": "complete",
+          "qps": 564.6272331007069,
+          "lsearch": 2500,
+          "recall_min": 0.9091,
+          "max_recall": 0.9203,
+          "reason": ""
+        }
+      },
+      "ratios": {
+        "TLT_over_Plain": 375.7464372021591,
+        "TLT_over_TL": 1.0850977934367732
+      },
+      "all_14_configuration_oracle_qps": 564.6272331007069,
+      "TLT_over_all_14_oracle": 1.0
+    },
+    {
+      "workload": "sel_99",
+      "mean_selectivity": 0.9900060038,
+      "configurations": {
+        "L": {
+          "configuration": "0L[L] / Plain",
+          "method": "l0_lng_entry_optimized_lng",
+          "base_topology": "lng",
+          "entry_strategy": "optimized_lng",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 0.7869399446781219,
+          "lsearch": 400000,
+          "recall_min": 0.9408,
+          "max_recall": 0.9408,
+          "reason": ""
+        },
+        "T": {
+          "configuration": "0L[T]",
+          "method": "l0_trie_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 0,
+          "status": "complete",
+          "qps": 0.4418473638281656,
+          "lsearch": 602453,
+          "recall_min": 0.9656,
+          "max_recall": 0.9656,
+          "reason": ""
+        },
+        "TL": {
+          "configuration": "1L[T|L]",
+          "method": "l1_base_trie_t1024_lng_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 1,
+          "status": "complete",
+          "qps": 253.22610052063285,
+          "lsearch": 5000,
+          "recall_min": 0.9224,
+          "max_recall": 0.9293,
+          "reason": ""
+        },
+        "TLT": {
+          "configuration": "2L[T|LT]",
+          "method": "l2_base_trie_t1024_16384_lt_entry_trie",
+          "base_topology": "trie",
+          "entry_strategy": "trie",
+          "overlay_count": 2,
+          "status": "complete",
+          "qps": 257.77182038459557,
+          "lsearch": 5000,
+          "recall_min": 0.9215,
+          "max_recall": 0.9306,
+          "reason": ""
+        }
+      },
+      "ratios": {
+        "TLT_over_Plain": 327.5622518946229,
+        "TLT_over_TL": 1.0179512295715833
+      },
+      "all_14_configuration_oracle_qps": 267.6706099008682,
+      "TLT_over_all_14_oracle": 0.963018765788524
+    }
+  ],
+  "summary": {
+    "TLT_over_Plain": {
+      "workload_count": 9,
+      "geometric_mean": 24.5886062221518,
+      "minimum": {
+        "workload": "sel_30",
+        "ratio": 0.48167102783309546
+      },
+      "maximum": {
+        "workload": "sel_60",
+        "ratio": 392.81207317238864
+      },
+      "wins_above_one": 7,
+      "losses_below_one": 2,
+      "ties_equal_one": 0,
+      "weighting": "Each workload receives equal weight; mean of log ratios."
+    },
+    "TLT_over_TL": {
+      "workload_count": 9,
+      "geometric_mean": 1.0809551155479424,
+      "minimum": {
+        "workload": "sel_30",
+        "ratio": 0.9188416369179623
+      },
+      "maximum": {
+        "workload": "sel_0p5",
+        "ratio": 1.4302927091880815
+      },
+      "wins_above_one": 5,
+      "losses_below_one": 4,
+      "ties_equal_one": 0,
+      "weighting": "Each workload receives equal weight; mean of log ratios."
+    },
+    "TLT_over_all_14_oracle": {
+      "geometric_mean": 0.8683410602061006,
+      "minimum": {
+        "workload": "sel_30",
+        "ratio": 0.48167102783309546
+      },
+      "scope": "Post-hoc oracle across all 14 configurations; explanatory only, not a fixed deployable selector."
+    },
+    "per_configuration": {
+      "L": {
+        "crossings": 9,
+        "no_crossings": 0,
+        "recall_min_range_over_crossings": [
+          0.9035,
+          0.9408
+        ],
+        "lsearch_range_over_crossings": [
+          2000,
+          400000
+        ],
+        "geometric_mean_qps_all_nine": 47.212548328991495
+      },
+      "T": {
+        "crossings": 8,
+        "no_crossings": 1,
+        "recall_min_range_over_crossings": [
+          0.9026,
+          0.9699
+        ],
+        "lsearch_range_over_crossings": [
+          800,
+          602453
+        ],
+        "geometric_mean_qps_all_nine": null
+      },
+      "TL": {
+        "crossings": 9,
+        "no_crossings": 0,
+        "recall_min_range_over_crossings": [
+          0.9011,
+          0.9592
+        ],
+        "lsearch_range_over_crossings": [
+          400,
+          60000
+        ],
+        "geometric_mean_qps_all_nine": 1073.9490871620708
+      },
+      "TLT": {
+        "crossings": 9,
+        "no_crossings": 0,
+        "recall_min_range_over_crossings": [
+          0.9023,
+          0.9592
+        ],
+        "lsearch_range_over_crossings": [
+          400,
+          60000
+        ],
+        "geometric_mean_qps_all_nine": 1160.8907596058827
+      }
+    }
+  },
+  "stored_speedup_consistency_checks": [
+    {
+      "workload": "sel_0p5",
+      "stored_speedup_vs_L": 8.766080119480227,
+      "computed_speedup_vs_L": 8.766080119480227,
+      "match": true
+    },
+    {
+      "workload": "sel_1",
+      "stored_speedup_vs_L": 3.4069080828467344,
+      "computed_speedup_vs_L": 3.4069080828467344,
+      "match": true
+    },
+    {
+      "workload": "sel_5",
+      "stored_speedup_vs_L": 21.50422592977779,
+      "computed_speedup_vs_L": 21.50422592977779,
+      "match": true
+    },
+    {
+      "workload": "sel_10",
+      "stored_speedup_vs_L": 0.6123097023873513,
+      "computed_speedup_vs_L": 0.6123097023873513,
+      "match": true
+    },
+    {
+      "workload": "sel_30",
+      "stored_speedup_vs_L": 0.48167102783309546,
+      "computed_speedup_vs_L": 0.48167102783309546,
+      "match": true
+    },
+    {
+      "workload": "sel_60",
+      "stored_speedup_vs_L": 392.81207317238864,
+      "computed_speedup_vs_L": 392.81207317238864,
+      "match": true
+    },
+    {
+      "workload": "sel_80",
+      "stored_speedup_vs_L": 358.77347598148765,
+      "computed_speedup_vs_L": 358.77347598148765,
+      "match": true
+    },
+    {
+      "workload": "sel_95",
+      "stored_speedup_vs_L": 375.7464372021591,
+      "computed_speedup_vs_L": 375.7464372021591,
+      "match": true
+    },
+    {
+      "workload": "sel_99",
+      "stored_speedup_vs_L": 327.5622518946229,
+      "computed_speedup_vs_L": 327.5622518946229,
+      "match": true
+    }
+  ],
+  "not_included": "Warm cross-repeat ratio range audit is a separate later task; no confidence intervals inferred here."
+}

@@ -79,3 +79,15 @@ C0原始意见全部归档，两位全文reviewer都建议Reject。C1加入新�
 无undefined refs/citations，CSV SHA仍为9e56a1ed...。新图和固定表已目视检查。
 C1冻结输入 /tmp/mlung-c1-review-20261007；返回reviewer做定向复核，不称cold。
 较早的两份retagging working scratch已删除，其完整独立审计和枚举脚本保留。
+
+## C1 发布检查点
+
+99bfe4c 已由 W300 非强制推送 GitHub main 并回读确认。ShareLaTeX在全部46个旧文件通过哈希预检后，上传并回读验证63个文件。服务端编译25页，仓库Tectonic编译26页；固定配置表及关键覆盖文本验证通过，两份PDF未发现未解析引用标记。receipt见SHARELATEX_C1_PUBLICATION.json。18小时时间窗口和实验证据缺口保持不变。
+
+## C2：计时范围、数学条件与短汇报
+
+C1定向复核全部返回并原样归档；核心证明通过，补明整数阈值、自身group与ungated语境。全部95个crossing的190条warm Recall和35组范围已由另一个reviewer对原始文件与hash核验。C2新增source-only范围生成器与5项输入/数学测试，完整测试共262项通过。主汇报由6147字符压缩到约4100字符，完整细节保留在ADVISOR_BACKUP_CN.md，定向复核认为适合12–15分钟。
+
+修正了长路径越界、参考文献孤立DOI尾行和附录标题/表格顺序；C2共27页，完整保留原126格实验结果。新的正文说明60/80%的TLT/TL观测范围重叠、95%的TLT/TLL点估计1.251对应宽范围，未称CI或稳定改进。
+
+C3开始只读审计旧query_details。已发现CandSize不是eligible向量数；LIGHT_STATS下的零work counters不能用于扫描量归因。QuerySize分层Recall分析正在进行，不重跑query/build campaign。

@@ -1,0 +1,416 @@
+{
+  "scope": "Descriptive ranges from the original two warm repeats. No new timing run.",
+  "not_a_confidence_interval": true,
+  "range_definition": "All four observed cross-repeat QPS ratios; repeats are not treated as paired.",
+  "limitations": "Overlap or separation of these two observed ranges does not establish statistical significance or cross-run reproducibility.",
+  "crossings_checked": 95,
+  "nc_cells_excluded": 31,
+  "all_qps_recall_cv_reconstructed": true,
+  "input_summaries": [
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv",
+      "sha256": "16d1b52936d9d80f86416a56e870fbe51a93c6aa5892b325dd152cb039ded70b"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/summary/performance/all_points.csv",
+      "sha256": "4706bbe14f8c013d03a6c1faaeb60d8b4aa22133598caa0f0c9a7d7467d9076e"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/docs/papers/multilevel_ung/generated_data/factorial_equal_recall.csv",
+      "sha256": "9e56a1ed859152382b829e612c5e62ff4f90d50a5ce3b9a6a3e8230c426b6505"
+    }
+  ],
+  "raw_time_inputs": [
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_lng_entry_optimized_lng/sel_0p5/search_time_details.csv",
+      "sha256": "955e420fcebde2cd01d9845cbf53dace1be5018ae0926292ac04a02b71e23acf"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_lng_entry_optimized_lng/sel_1/search_time_details.csv",
+      "sha256": "1a96bfabab858d229f887bc4c651c8db2bbbf8d6eae35826e5bc791cd6bfce4a"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_lng_entry_optimized_lng/sel_10/search_time_details.csv",
+      "sha256": "71b18aac3a2fe26c053d0790733179e56d69d801f06413481884e24c781c0221"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_lng_entry_optimized_lng/sel_30/search_time_details.csv",
+      "sha256": "35eac5dc55945b4be67893d8b8adbdefd3f16f4bfdbcba4c7fb54729f4a87e53"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_lng_entry_optimized_lng/sel_5/search_time_details.csv",
+      "sha256": "7a787db2d10fac7130c398f822ad34569342d6150dd13490c21f64fcd1d0cfed"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_lng_entry_optimized_lng/sel_60/search_time_details.csv",
+      "sha256": "e0dbb70cf23d139adaf082c2f58f9362d2524ed902e4e9daabd53dd293b96b7b"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_lng_entry_optimized_lng/sel_80/search_time_details.csv",
+      "sha256": "0dba64f7a2a9492f9b1cba4689d98950f560b34f68b2b35ed331ec03a3c772f8"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_lng_entry_optimized_lng/sel_95/search_time_details.csv",
+      "sha256": "1abb875ac02923dec64479d38d851d0d0c24f4dfed2bf7dcd9b0c522e9960948"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_lng_entry_optimized_lng/sel_99/search_time_details.csv",
+      "sha256": "a6e6efa495bf54571e562ff1a260168fcd21d20a283259d7cc29d0c6699700f4"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_trie_entry_trie/sel_0p5/search_time_details.csv",
+      "sha256": "4632747b9f46ea5e2195ea15e2850c6beea1876f34c7f1045796e9fc86b5cb28"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_trie_entry_trie/sel_1/search_time_details.csv",
+      "sha256": "2d3e385f5869eb6a07cb5c272e0f9c6f8f90eba75cc8eff0018d83b8ecab49c9"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_trie_entry_trie/sel_10/search_time_details.csv",
+      "sha256": "8ece2c4aca7f1880aa8bd4aa725346615716434c67fdcfb4ab11fcdd3b5e0421"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_trie_entry_trie/sel_5/search_time_details.csv",
+      "sha256": "fa6b4f331151d17e186b634b724e1fbe2664a363c2b4777a563d505d38c9d3e0"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_trie_entry_trie/sel_60/search_time_details.csv",
+      "sha256": "99591d4ac63172de19facf9252601c0aa7cf5cc4fef9c214aaad73adb5b9d86b"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_trie_entry_trie/sel_80/search_time_details.csv",
+      "sha256": "95c1c1cabe3b99b8d338cbf301c501d4044a34c44385420fee0e753da55e3d52"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_trie_entry_trie/sel_95/search_time_details.csv",
+      "sha256": "e172989e51aee111d646b34b1985a5f49bebae6c9f1deb6edbd5822e45b1290c"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l0_trie_entry_trie/sel_99/search_time_details.csv",
+      "sha256": "89a381aa9601018d632ba93e911d1e9bb9f3c2d7e602614597aab58a54aff1bb"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l1_t1024_lng_entry_optimized_lng/sel_60/search_time_details.csv",
+      "sha256": "77418178de534ffbdcd1227382964d0432b4e4c61b39c426602398f5c3756f0d"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l1_t1024_lng_entry_optimized_lng/sel_80/search_time_details.csv",
+      "sha256": "9b7b5242acb29cda5132055d3c479dfee105fce1094bc080c1eb3e05a6c872b3"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l1_t1024_lng_entry_optimized_lng/sel_95/search_time_details.csv",
+      "sha256": "0d4108c660d09ac07a4d37207ad66b3592b56ebcc5556bbd6cd7419da004c4c4"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l1_t1024_lng_entry_optimized_lng/sel_99/search_time_details.csv",
+      "sha256": "856e1d6d3071ad4371fe040c3d7dd5958e7150c5d15e5b43b82e38d80af9c231"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l1_t1024_trie_entry_optimized_lng/sel_60/search_time_details.csv",
+      "sha256": "4a20324e76efe855ee0966d14d317776b4e3d393a25022f20068c8cc3184fc00"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l1_t1024_trie_entry_optimized_lng/sel_80/search_time_details.csv",
+      "sha256": "1128fc907dbff49040498d41da91b2f2d5ae2d4d879a575c9ae6d37457391c83"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l1_t1024_trie_entry_optimized_lng/sel_95/search_time_details.csv",
+      "sha256": "718778cd5194176fce0f5651b0b33195457cb2d716655158f7057d6548b2bc91"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l1_t1024_trie_entry_optimized_lng/sel_99/search_time_details.csv",
+      "sha256": "a48ec67b1a06cbe0decd7ee096bb853102db9aadc883675eb3ae9b33d7fe659b"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_ll_entry_optimized_lng/sel_60/search_time_details.csv",
+      "sha256": "8bd85c3358e33f85fa47ebd684df1fc42ccfb68ba60fd9b360f90d3320ef2a7e"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_ll_entry_optimized_lng/sel_80/search_time_details.csv",
+      "sha256": "96ab779a5b3a58a398cced8993fd1daca7cf67543db47bed50b33bbb9333a289"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_ll_entry_optimized_lng/sel_95/search_time_details.csv",
+      "sha256": "e95cf6c1ad3eef8f6aefeb7f72b0b3197974f89ece25767b2ff5266fb8323281"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_ll_entry_optimized_lng/sel_99/search_time_details.csv",
+      "sha256": "71ce23c7f039694efa13f1dcdbf3967325acd283e1f793670e5a3b360aaf2875"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_lt_entry_optimized_lng/sel_60/search_time_details.csv",
+      "sha256": "838dad4259f63f8fff81623f8a364db6e65f401cfd854be5816a299d9a893841"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_lt_entry_optimized_lng/sel_80/search_time_details.csv",
+      "sha256": "33f9e398eb9c945e5cb3121570232b59b47870529c182945387b874646cc91ed"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_lt_entry_optimized_lng/sel_95/search_time_details.csv",
+      "sha256": "86cf9a558fa1ab895904440fb8db91bfc7650269c515dc571481a58ab676236f"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_lt_entry_optimized_lng/sel_99/search_time_details.csv",
+      "sha256": "b92a0fe872886f984f1636ad92e3702fc571c81cb30f4ae49894ad9230adf27c"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_tl_entry_optimized_lng/sel_60/search_time_details.csv",
+      "sha256": "65bd34c7abcf603c938b84c16e1709fd669f4bdb697042d3acb96a313b0bcbbe"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_tl_entry_optimized_lng/sel_80/search_time_details.csv",
+      "sha256": "3f63564b912f7906747bfa1c1999bacf2f5eb3126361388e37d5ce8d8ad4ef06"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_tl_entry_optimized_lng/sel_95/search_time_details.csv",
+      "sha256": "ff759e554e660a3220414577edd350b33eb5e2add0971445a24439f6639906a9"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_tl_entry_optimized_lng/sel_99/search_time_details.csv",
+      "sha256": "01e3c6df1f47f7f59657c446539e1ec97fd632ee91934dd560e8de5e27da2705"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_tt_entry_optimized_lng/sel_60/search_time_details.csv",
+      "sha256": "4472ee7dce3378cbce08c9da79649c2c0c91b411a417fbc406d01261a8669da7"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_tt_entry_optimized_lng/sel_80/search_time_details.csv",
+      "sha256": "fb924ffb04f9419a036c2731ecc57e0e68e0fe404385c4607c8139816b7609bd"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_tt_entry_optimized_lng/sel_95/search_time_details.csv",
+      "sha256": "e23633b33e6525d8fc0f1b46d7c87bdea3d147c974a3c18ccf0159b4c1de04e9"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/performance/l2_t1024_16384_tt_entry_optimized_lng/sel_99/search_time_details.csv",
+      "sha256": "4ec8093141321064f1c101b40f58134b9359b5055f16c79cd30c5fe133beaee0"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_lng_entry_trie/sel_0p5/search_time_details.csv",
+      "sha256": "2c54b2ffdcbbff42718c424f855d5fc8e426066d29431216605ec196edecf1ea"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_lng_entry_trie/sel_1/search_time_details.csv",
+      "sha256": "73afd019758f09355b4f3aa88434acbd1d7e83c92925bfde783a317bd1d72aea"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_lng_entry_trie/sel_10/search_time_details.csv",
+      "sha256": "375a87bbce1b6cb5d766851d50ff98e1b5c39ab4f80c99f17904b55ef7794ba4"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_lng_entry_trie/sel_30/search_time_details.csv",
+      "sha256": "6d82e7a9f87e65e63f2c2463ee53d8c78760c6bb6cd9e4b78314e46b83c71559"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_lng_entry_trie/sel_5/search_time_details.csv",
+      "sha256": "f3f30a916cbf7baeeca5026be58694f6efcf2f7038210e47bb0a0a7f09435d6a"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_lng_entry_trie/sel_60/search_time_details.csv",
+      "sha256": "1b849f295c4ea6785d004e1ef7e65342cc9fd5554f63ec000e367da077166758"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_lng_entry_trie/sel_80/search_time_details.csv",
+      "sha256": "8af91ff11645193c589fc9abc1f1757ea75e71920d2b2b9185ba2b24f6c8795a"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_lng_entry_trie/sel_95/search_time_details.csv",
+      "sha256": "1c1b0b3e40cd48b80927a4f47da889b957f19526e19f76e737e8e874f2b6a4f6"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_lng_entry_trie/sel_99/search_time_details.csv",
+      "sha256": "3f30aa90927af3ead0b33e849a00acd1ba6a42091709819230dd198586d25a38"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_trie_entry_trie/sel_0p5/search_time_details.csv",
+      "sha256": "af505405cb566ceda605424d24c8918e5326e3fc261568fbc348d471a1cdec59"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_trie_entry_trie/sel_1/search_time_details.csv",
+      "sha256": "b5de12e41dc6e724aaac9de9fbc71cd87c43990bb72b67295673b50af6ef325b"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_trie_entry_trie/sel_10/search_time_details.csv",
+      "sha256": "9706a37815f7309aac8108cac13c496a0d398054454d8a35f57155147d2a054f"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_trie_entry_trie/sel_30/search_time_details.csv",
+      "sha256": "7f7a0153926ecf2c78c31010d34c5c32b91b66ec13952bd012cf682f36641f34"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_trie_entry_trie/sel_5/search_time_details.csv",
+      "sha256": "5abe8cde1b9e96c2db3f83409193d5918908ab5331a859c870364b462b1a1a3a"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_trie_entry_trie/sel_60/search_time_details.csv",
+      "sha256": "9390ca395ef25548906c5c2333f946d90db59fce07f1d20df94af972a88c2694"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_trie_entry_trie/sel_80/search_time_details.csv",
+      "sha256": "b5b697df06b0fba9644acde8bef2dd2aa43fd7fe98a6d4ffdb128f7ff6f9b74f"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_trie_entry_trie/sel_95/search_time_details.csv",
+      "sha256": "0a73d4a47e41a45ea22874b8b1c967e06bdfc480c83dea453f6dda6321340a8f"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l1_base_trie_t1024_trie_entry_trie/sel_99/search_time_details.csv",
+      "sha256": "bda191fb35d441698b01fe452de27193e7e361dd3dc96242ceea22aedac1ca19"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_ll_entry_trie/sel_0p5/search_time_details.csv",
+      "sha256": "fdd273fd9c7e1c6ccc26ee48d692df16a30303cc55db6b01ff20ae31f5acbcdd"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_ll_entry_trie/sel_1/search_time_details.csv",
+      "sha256": "5d688e16527f6ca5a678cf1ed7e93a0cd7e7e4d6b6a97f2e1f4b6a53d69dda1a"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_ll_entry_trie/sel_10/search_time_details.csv",
+      "sha256": "2ee888e21bf135df8f21f38be06b36a2142877f1fc9cb585e6da83871bbd3ea9"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_ll_entry_trie/sel_30/search_time_details.csv",
+      "sha256": "06bcb77945b617f99ed05a5365ae8ef06708a8ca8bb5f64dbe0f474f4e28e272"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_ll_entry_trie/sel_5/search_time_details.csv",
+      "sha256": "9ff2de2ddf716c43dc0099925fab226c420b57f56ec297fcec9234007b949335"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_ll_entry_trie/sel_60/search_time_details.csv",
+      "sha256": "dc02cdc08f86101bfa9692f4af9c9e4f812ef5909758f4aa040810c0fb24c7da"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_ll_entry_trie/sel_80/search_time_details.csv",
+      "sha256": "7d8d2b1026f09cd189528d8055bdeaba0876a9297fa5ed32a4f0f56a526ae290"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_ll_entry_trie/sel_95/search_time_details.csv",
+      "sha256": "d88446b7a60480f76b5209746e3d8cfadf33781367b9812caccacb8230bb6788"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_ll_entry_trie/sel_99/search_time_details.csv",
+      "sha256": "73ed98261f1f8eeecb6715341243c2e237a2b4b6c1ae53e328e00ee03f954ae6"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_lt_entry_trie/sel_0p5/search_time_details.csv",
+      "sha256": "285dac127cc1bfe0845039cccdc2e6940afb1839d717a72d0c0864e44ceb20c4"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_lt_entry_trie/sel_1/search_time_details.csv",
+      "sha256": "22c929960772ef34edf5a3bc9671607e677941dcf066de2f6e079ea9d6c425a0"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_lt_entry_trie/sel_10/search_time_details.csv",
+      "sha256": "9594df65e8ba8fedd283d8fdc28b17df6618bcb80b465040c851c725820f6bab"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_lt_entry_trie/sel_30/search_time_details.csv",
+      "sha256": "f4734592906caf69f4ec95ce961615536fa00d6c32537f77bab2529423d67c63"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_lt_entry_trie/sel_5/search_time_details.csv",
+      "sha256": "892abf892f3c63a5ad37160e994c841d2fab60da929c85f3fccb8ad466446b5e"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_lt_entry_trie/sel_60/search_time_details.csv",
+      "sha256": "c42490d8a2dd0e9d45c4909f5c2da2d74a5fb362f9c7c87fea2001a96780a926"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_lt_entry_trie/sel_80/search_time_details.csv",
+      "sha256": "428310fb11c6039886eaa3c9991cf501dfbc520a01593bd8300a871fc3e11a87"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_lt_entry_trie/sel_95/search_time_details.csv",
+      "sha256": "139677f0616104422932eea2b57164694dc339f1b1e051d4a3b0e083e4180b47"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_lt_entry_trie/sel_99/search_time_details.csv",
+      "sha256": "d1ff03c61754ebe244aea0b33c2c63058174451365c04f9690f3865676e5663f"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tl_entry_trie/sel_0p5/search_time_details.csv",
+      "sha256": "cb3cc003b4ae5983be653beadb1c44a29cbb474dc1810a508e06e6a2748664df"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tl_entry_trie/sel_1/search_time_details.csv",
+      "sha256": "f44dce9314f37bbaac0e490d66f87418e053bfa4ee991f130fde789b785be583"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tl_entry_trie/sel_10/search_time_details.csv",
+      "sha256": "9ca54baf5c720ef56f495512e2d2b14fccf9995eced7f5e54972654cd98dca51"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tl_entry_trie/sel_30/search_time_details.csv",
+      "sha256": "d6b13f1ea504096f29e1a0557ffde020afb4a11be394c95ad3bab89f615a0493"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tl_entry_trie/sel_5/search_time_details.csv",
+      "sha256": "6a609933ee824b2cb7b21e06dd8ee1e71cad95497c4ec416139a1eee9d7ba3b6"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tl_entry_trie/sel_60/search_time_details.csv",
+      "sha256": "5a0ceacad48772fd3519e692035f39fa909ffe9be366d8484719db59b793c6ae"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tl_entry_trie/sel_80/search_time_details.csv",
+      "sha256": "b642999f82f663a8bbbb12947ab351c45aaedd6e0a7cf299fb83b9cfdca42077"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tl_entry_trie/sel_95/search_time_details.csv",
+      "sha256": "2ef938461de368283595e4788acdaeeee956bb0a08a9f8af75d131034102accb"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tl_entry_trie/sel_99/search_time_details.csv",
+      "sha256": "c5b7bc950f12ec2ae97e23ebab7f1f6dc5394e61ddb8f1aa67b121d26a6d01cc"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tt_entry_trie/sel_0p5/search_time_details.csv",
+      "sha256": "b33e60ae1b6ca92d3b034e011faac4faa7f6f466c909d6bb61e761a58da5eaa8"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tt_entry_trie/sel_1/search_time_details.csv",
+      "sha256": "2772554cc9bb381bc47b56ff921a3fb479b3aeda2c555159999e07ed5cacaa8f"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tt_entry_trie/sel_10/search_time_details.csv",
+      "sha256": "1eea06d517fa305020bf88c2b9e0f5069b277d286f2a52f822a958fcbd144741"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tt_entry_trie/sel_30/search_time_details.csv",
+      "sha256": "637481485448fb380439b51831a2bfe73f7cce03f57aca235b596ec9ab7e879a"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tt_entry_trie/sel_5/search_time_details.csv",
+      "sha256": "2a4d14c7c94f56486c494f3b8a58717136da15b490de497f31b8363ddd8f7809"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tt_entry_trie/sel_60/search_time_details.csv",
+      "sha256": "198db0178130be54c5c90240c1ada7340129026760664437bb5f5b794c78c919"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tt_entry_trie/sel_80/search_time_details.csv",
+      "sha256": "f27c621a19c8277d1c95a7ed10a3eaafba436a4f7e64776a6303b0ea5d55c291"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tt_entry_trie/sel_95/search_time_details.csv",
+      "sha256": "e49442d867788cb4545150d27f01ff7aed611740572378783f8bdd35ee11a585"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/performance/l2_base_trie_t1024_16384_tt_entry_trie/sel_99/search_time_details.csv",
+      "sha256": "b5eba59f734b9d2dc8865ebbb32913269fdf5329b309bda1876483d6b36cf13c"
+    }
+  ],
+  "script_sha256": "d91415d3eef6619863b4e6065e7f2d2f3747645007ac3bb8dd83311333d49857",
+  "outputs": [
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/paper_c1_20261007/warm_repeat_audit/warm_repeat_points.csv",
+      "sha256": "9410e2b3348e927c993f20115899c7fde8937d3031db87a74454137bd11b9eea"
+    },
+    {
+      "path": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/paper_c1_20261007/warm_repeat_audit/warm_repeat_comparisons.csv",
+      "sha256": "78c365f452fd96e47dfb385f96df320ea2def7a59645f9ba809b9dc17db3112f"
+    }
+  ]
+}

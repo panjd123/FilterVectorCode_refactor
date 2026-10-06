@@ -118,6 +118,13 @@ The complete grid and its per-workload winners appear in
 Tables~\ref{tab:base-topology-winners}--\ref{tab:base-topology-factorial-b}.
 \baseTopologyFactorialFindings
 
+The original warm repeats also qualify the small depth differences.
+For fixed \texttt{2L[T|LT]} versus \texttt{1L[T|L]}, the observed QPS ranges
+overlap near 60\% and 80\%. Near 95\%, all four cross-repeat ratios lie
+between 1.072 and 1.098. These describe the two recorded executions per
+configuration; they are not confidence intervals. Table~\ref{tab:warm-repeat-ranges}
+reports the ranges alongside exact selected capacities.
+
 The selected search budget is part of the observed performance difference.
 On the four batches near 60--99\%, Plain requires capacities of
 260,000--400,000, whereas \texttt{2L[T|LT]} uses 1,000--5,000.

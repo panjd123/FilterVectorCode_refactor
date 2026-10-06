@@ -259,7 +259,8 @@ def fixed_configuration_latex(long_rows: list[dict[str, object]]) -> list[str]:
         r"\caption{Four fixed configurations across the Amazon development workloads. "
         r"Each QPS uses its smallest measured capacity with both warm batch recalls at least 0.90. "
         r"Topology and thresholds remain unchanged across batches: $T_1=1024$, $T_2=16384$. "
-        r"The last two columns compare the fixed two-overlay configuration with Plain and the fixed one-overlay configuration.}",
+        r"Routing is ungated; LNG bases use optimized-LNG entries and Trie bases use prefix entries. "
+        r"The last two columns use unrounded QPS to compare the fixed two-overlay configuration with Plain and the fixed one-overlay configuration.}",
         r"\label{tab:fixed-topology-configurations}",
         r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}r rrrr rr@{}}",
         r"\toprule",
@@ -602,9 +603,7 @@ def main() -> None:
     latex.extend(
         [
             r"\paragraph{Complete base-by-overlay factorial.}",
-            r"The workload-wise oracle selects \texttt{2L[T|LT]} at 0.5\%, 1\%, 5\%, and 95\%; "
-            r"\texttt{0L[L]} at 10\% and 30\%; \texttt{1L[T|L]} at 60\% and 80\%; and "
-            r"\texttt{2L[T|TT]} at 99\%.  Thus no static topology dominates every workload. "
+            r"No static topology dominates every workload in the measured grid. "
             r"Among configurations crossing the Recall target at all nine selectivities, "
             r"\texttt{2L[T|LT]} ranks first by geometric mean of QPS normalized to the "
             r"per-workload oracle (0.868), but its worst fraction of the oracle is 0.482, "
@@ -615,15 +614,16 @@ def main() -> None:
             r"60\%--95\% (0.56$\times$ at 99\%).  These are end-to-end system ratios "
             r"because the two bases use different compatible entry providers.",
             "",
-            r"The controlled upper-level comparisons reveal a more stable role for Trie. "
+            r"The controlled upper-level comparisons distinguish the roles of coarse and fine connectivity. "
             r"With a Trie base and LNG at level 1, changing only level 2 from LNG to Trie "
-            r"(\texttt{2L[T|LL]}$\rightarrow$\texttt{2L[T|LT]}) improves QPS in eight of "
-            r"nine workloads, by up to 1.251$\times$; the remaining 80\% point is effectively "
-            r"tied at 0.998$\times$.  In contrast, changing only the finer level 1 from LNG "
+            r"(\texttt{2L[T|LL]}$\rightarrow$\texttt{2L[T|LT]}) gives higher point estimates in eight of "
+            r"nine workloads, by up to 1.251$\times$. The two warm timing ranges overlap at "
+            r"30\% and 80\%, and the largest point ratio has a wide observed range "
+            r"(Table~\ref{tab:warm-repeat-ranges}). In contrast, changing only the finer level 1 from LNG "
             r"to Trie with level 2 fixed to LNG wins in five of nine workloads but loses "
-            r"40.7\%--52.9\% at 10\%, 60\%, 80\%, and 95\%.  The evidence therefore favors "
-            r"Trie as a sparse coarse overlay more consistently than as the fine navigation "
-            r"topology. The LNG base is best on these Amazon workloads near 10\% and 30\%; "
+            r"40.7\%--52.9\% at 10\%, 60\%, 80\%, and 95\%. The larger fine-level regressions "
+            r"make the scale of a topology replacement consequential. The LNG base is best on "
+            r"these Amazon workloads near 10\% and 30\%; "
             r"the evaluated policy does not select between base topologies.",
             "",
             r"\begin{table*}[htbp]",

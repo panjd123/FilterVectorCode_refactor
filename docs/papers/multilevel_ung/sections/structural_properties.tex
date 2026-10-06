@@ -25,7 +25,7 @@ are zero, and the childwise invariant passes to their union. This proves
 both assertions by postorder induction. Taking complements at the root shows
 that equal global block counts imply containment of the represented point
 sets in the opposite direction. Equation~\ref{eq:block-count-bound} follows
-because each disjoint emitted set contains at least $T+1$ points.
+because each disjoint emitted set contains at least $T+1$ points for integer $T\ge0$.
 
 \paragraph{Equal counts do not imply nested blocks.}
 Let terminal weights be $a:2,ab:1,ac:1,abc:2$, with $a<b<c$ and $N=6$.
@@ -56,7 +56,7 @@ at level 2, $a$ owns all nine vectors. Query $Q=\{a\}$ certifies all four
 blocks. Its prefix-frontier group $a$ contributes $y_0$, retagged to level 1,
 which duplicates that block's seed and is removed during seed deduplication.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering\small
 \caption{Illustrative ownership and seed selection, with $K=1$ and $L_s=2$.
 Stored block entries and query distances are chosen for this example.}
@@ -74,8 +74,9 @@ Level & Root & Direct members & Entry (distance)\\
 \end{table}
 
 The two retained seeds are $(y_1,1)$ and $(y_1,2)$, distinct level states of
-the same vector. The first expansion uses only level-1 edges. If it exposes
-$y_2$ at distance $0.5$, the queue retains $(y_2,1)$ and $(y_1,1)$ and evicts
+the same vector. The first expansion uses only level-1 edges. On offering
+$y_2$ at distance $0.5$, before any other improving offer, the queue retains
+$(y_2,1)$ and $(y_1,1)$ and evicts
 $(y_1,2)$ before that coarse state expands. This trace shows how extra
 representations can compete for a fixed budget even with isolated adjacency.
 It also shows why coverage of the full frontier does not imply coverage

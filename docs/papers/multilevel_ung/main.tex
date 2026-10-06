@@ -7,6 +7,8 @@
 \usepackage[noend]{algpseudocode}
 \usepackage{graphicx}
 \usepackage{placeins}
+\usepackage{float}
+\usepackage{balance}
 \usepackage{xcolor}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
@@ -27,6 +29,7 @@
 \setcounter{dbltopnumber}{4}
 \input{generated_results}
 \input{generated_topology_factorial}
+\input{generated_data/warm_repeats/generated_warm_repeat_ranges}
 
 \title{\system: Prefix-Frontier Entries and Predicate-Safe Block Navigation for Filtered Vector Search}
 
@@ -61,15 +64,16 @@ retained search states, and the capacity required to reach the Recall target.
 \input{sections/evaluation}
 \input{sections/discussion_related}
 
+\balance
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{references}
 \clearpage
 \onecolumn
 \appendix
 \input{sections/measurement_details}
-\clearpage
+\FloatBarrier
 \input{sections/structural_properties}
-\clearpage
+\FloatBarrier
 \section{Complete Topology and Measurement Tables}
 \begin{figure}[p]
 \centering
