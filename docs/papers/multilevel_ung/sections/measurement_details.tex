@@ -11,7 +11,7 @@ queries in one repeat and then summarized across warm repeats.}
 Reported quantity & Definition \\
 \midrule
 Mean selectivity & $B^{-1}\sum_{j=1}^{B}|\eligible(Q_j)|/N$ for the frozen query batch; it describes the workload and is not an input to DRH. \\
-Recall@10 & For one repeat, the mean over queries of $|R_{10}(q_j,Q_j)\cap R^*_{10}(q_j,Q_j)|/10$.  A crossing requires every warm repeat at that executed point to reach 0.90. \\
+Recall@10 & Per query, $|R_{10}(q_j,Q_j)\cap R^*_{10}(q_j,Q_j)|/10$. The batch mean averages this quantity over all queries in one repeat. A crossing requires every warm batch mean at that executed point to reach 0.90. \\
 $L_{search}$ & Capacity of the bounded candidate queue.  An equal-Recall operating point is the smallest executed $L_{search}$ that crosses the Recall target; values between executed points are not interpolated. \\
 Batch latency / QPS & Wall time to complete all $B$ queries with 100 query threads, after the cold repeat is discarded; $\mathrm{QPS}=1000B/\mathrm{batch\ latency\ (ms)}$. \\
 $A/B$ speedup & $\mathrm{QPS}_A/\mathrm{QPS}_B$, using each method's selected equal-Recall crossing.  A ratio above one favors $A$. \\
@@ -59,3 +59,6 @@ source repository.
 The extracted warm timing pairs and their source hashes are included under
 \path{generated_data/warm_repeats/}; a source-only script regenerates the
 descriptive ranges without rerunning search.
+The compact query records, exact label coverages, and size/selectivity
+histograms are included under \path{generated_data/query_strata/}; they
+reproduce the subgroup tables without the external vector files.

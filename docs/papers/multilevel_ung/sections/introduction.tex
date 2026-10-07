@@ -60,12 +60,13 @@ and existing degree budgets.
 
 We evaluate the tradeoff by separating matched entry/topology systems from
 controlled upper-level topology changes. The complete Amazon factorial
-contains 14 configurations over nine query batches. At measured Recall@10
+contains 14 configurations over nine query batches. At measured batch-mean Recall@10
 $\geq0.90$, the prefix-base system is 2.77--18.43$\times$ faster than the
 optimized LNG base on three workloads near 0.5--5\%, whereas LNG wins near
 10\% and 30\%. A Trie base with one LNG overlay already recovers much of
 the high-mean-selectivity throughput; the marginal effect of a second
-overlay varies. The detailed
+overlay varies. Query-level reanalysis further shows that a batch crossing
+can hide much lower Recall for a repeated predicate subset. The detailed
 profiles explain how discovery savings can be offset by seed and graph work.
 
 
@@ -79,7 +80,8 @@ The contributions are:
   certificate holds. We specify the seeding and level-local search algorithm
   and characterize both predicate safety and coverage after entry retagging.
 \item \textbf{An analysis of the entry--navigation tradeoff.} A complete
-  topology factorial and query profiles identify where discovery savings
-  are displaced into seed and graph work, and where blocks recover throughput.
+  topology factorial, query-subset Recall distributions, and stage profiles
+  identify where discovery savings are displaced into seed and graph work,
+  where blocks recover throughput, and where batch means hide poor queries.
   Supporting studies examine structural configuration and GPU construction.
 \end{itemize}

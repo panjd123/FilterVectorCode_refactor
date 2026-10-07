@@ -1,0 +1,33 @@
+\section{Query Composition and Recall Distributions}
+\label{sec:query-strata}
+For a query subset $S$ and warm execution $r$, we report
+\[
+ \overline{R}_{r,S}=\frac{1}{|S|}\sum_{j\in S} R_{r,j},
+ \qquad Z_{r,S}=\sum_{j\in S}\mathbf{1}[R_{r,j}=0],
+\]
+where $R_{r,j}$ is exported per-query Recall@10. The tables give the range
+across the two original warm executions of each method, at its own
+batch-selected crossing. The same query IDs define each subset across
+methods and repeats. An empty predicate admits the whole database;
+an empty stratum has no mean Recall. A method with NC has no selected
+operating point and contributes no subgroup Recall.
+
+The reanalysis joins 190,000 selected records with 9,000 workload/query-ID
+coverage records. Integer hit histograms reproduce all 190 batch means,
+with maximum absolute error below $2\times10^{-16}$, and agree with an
+independent extraction of all 570 predicate-size histograms, including
+empty subsets. The label-only coverage pass checks 3,239 unique predicates
+against all 602,453 base label rows. Regrouping exported Recall does not
+independently recompute nearest neighbors; exact coverage validates the
+filter cardinalities used to define the subsets.
+
+\querySizeRecallTable
+\querySelectivityRecallTable
+
+The coverage audit matches the base-label hash recorded for all 95
+crossings. Six workload-generation manifests corroborate 24 input hashes;
+the pre-existing 0.5\%, 1\%, and 10\% workloads lack those manifests.
+Current query labels therefore establish exact coverage of the files
+audited here, while a complete historical query-content hash chain remains
+unavailable for those three workloads. Source hashes and reproduction
+commands are distributed with the compact records.

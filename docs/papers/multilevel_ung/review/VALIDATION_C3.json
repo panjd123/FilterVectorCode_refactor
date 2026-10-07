@@ -1,0 +1,51 @@
+{
+  "phase": "C3",
+  "status": "pass",
+  "scope": "Query-composition and subgroup-Recall reanalysis of existing frozen crossings; no ANN or build benchmark.",
+  "validation_finished_at_utc": "2026-10-07T06:53:48.747465+00:00",
+  "paper": {
+    "pages": 28,
+    "sha256": "ce12f3edb743bab3fd4600a91557820f54ea6eb7e0fbf3dbf5c0812d336d6ca9",
+    "undefined_references_or_citations": 0,
+    "rendered_pages_checked": [1, 8, 9, 10, 12, 15, 16]
+  },
+  "reanalysis": {
+    "query_records": 190000,
+    "coverage_rows": 9000,
+    "unique_predicates": 3239,
+    "selected_crossings": 95,
+    "warm_batches_reconstructed": 190,
+    "batch_reconstruction_max_absolute_error": 1.1102230246251565e-16,
+    "prior_size_histograms_checked": 570,
+    "size_summary_rows": 756,
+    "selectivity_summary_rows": 2268,
+    "exact_coverage_profile_mismatches": 0,
+    "queries_with_fewer_than_10_eligible_vectors": 0
+  },
+  "tests": {
+    "command": "/home/lijiakang/miniconda3/bin/python3 -m unittest discover -s experiments/multilevel_special -p test_*.py",
+    "passed": 271,
+    "failed": 0
+  },
+  "source_only_reproduction": {
+    "independent_checker": "review/mlung-c3-independent-data-check.md",
+    "six_outputs_byte_identical": true,
+    "generator_sha256": "886fda37c4573aa5f8eec9830ab66d039728b34dc7c07e08425f3aec0f0e70b2"
+  },
+  "input_sha256": {
+    "query_recall.csv.gz": "e9b95f3e4e64061df030db2b4f3aa251c00aeb0455e3c14c43d84b2e0c77a657",
+    "query_coverage_exact.csv": "29c00ef5f85a7ae61a5565f85e4362f575e4c236ca5c05c1fc11dda213a294a8"
+  },
+  "output_sha256": {
+    "query_size_summary.csv": "c765fc2d6f2fe4e99092fe70b3b320e45ff01eb6120d9ca09f145ddd1ea40be6",
+    "query_selectivity_summary.csv": "03590bbe37ed2feff19de9c50002126e06599b636c61b50a1c0aecc2ae387b2f",
+    "generated_query_strata.tex": "80b4d2680ac9f26b07ce064c59dcacbd5458c7d859b9ed9028da9ff93784d755",
+    "query_composition.pdf": "988b9b917e884c8c10c7181927669b63b799cdbaa0686fd7af0abfd836f64325"
+  },
+  "declared_limits": [
+    "Each method keeps its own batch-selected search capacity; no subgroup-matched-Recall throughput is claimed.",
+    "Exported Recall scalars are regrouped rather than independently recomputed from returned neighbor IDs.",
+    "The 43-query and 226-query highlighted subsets repeat one predicate each and do not represent predicate diversity within their bins.",
+    "External baselines, principal-system transfer beyond Amazon, label-order sensitivity, loaded memory, changing-depth policy validation, and accelerated-build output quality remain open."
+  ]
+}

@@ -30,6 +30,7 @@
 \input{generated_results}
 \input{generated_topology_factorial}
 \input{generated_data/warm_repeats/generated_warm_repeat_ranges}
+\input{generated_data/query_strata/generated_query_strata}
 
 \title{\system: Prefix-Frontier Entries and Predicate-Safe Block Navigation for Filtered Vector Search}
 
@@ -47,7 +48,7 @@ contains the query labels, a block permits proximity edges across its groups
 while preserving eligibility. Level-tagged search states use only the
 adjacency of their authorized scale. We characterize coverage after entry retagging and establish
 conditional predicate safety. In an Amazon screening
-study at measured Recall@10 $\geq0.90$, the prefix-base system is
+study at measured batch-mean Recall@10 $\geq0.90$, the prefix-base system is
 2.77--18.43$\times$ faster than the optimized LNG system on three workloads
 with mean selectivity below 6\%. A fixed Trie/LNG/Trie organization exceeds the LNG baseline on seven of
 nine development workloads, but reaches only 0.482$\times$ its throughput
@@ -71,6 +72,8 @@ retained search states, and the capacity required to reach the Recall target.
 \onecolumn
 \appendix
 \input{sections/measurement_details}
+\FloatBarrier
+\input{sections/query_strata}
 \FloatBarrier
 \input{sections/structural_properties}
 \FloatBarrier

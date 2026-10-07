@@ -91,7 +91,7 @@
     },
     {
       "id": "C2",
-      "status": "validated_pending_publication",
+      "status": "published",
       "purpose": "Explicit proof domains; observed warm ranges; shorter advisor briefing; reproducible range script and layout fixes.",
       "evidence_change": "Original 95 crossing timing pairs exposed and reconstructed; no new vector benchmark.",
       "reviews": [
@@ -105,34 +105,44 @@
         "c2_warm_range_check.md",
         "c2_advisor_check.md",
         "c2_source_reproduction_check.md"
-      ]
+      ],
+      "commit": "25afcd7ddafcbe3798c96eb05e6934109b69021c"
+    },
+    {
+      "id": "C3",
+      "status": "validated_pending_publication",
+      "purpose": "Expose subgroup Recall and actual selectivity using old per-query records.",
+      "evidence_change": "190000 existing query records regrouped; 9000 query coverages independently recomputed from labels. No ANN/build benchmark.",
+      "artifacts": [
+        "docs/papers/multilevel_ung/generated_data/query_strata",
+        "docs/papers/multilevel_ung/generated_figures/query_strata",
+        "runs/paper_c3_20261007/finalization_manifest.json"
+      ],
+      "validation": "271 tests; 28-page PDF; independent 190000-record and 9000-coverage audit passed",
+      "pdf_sha256": "ce12f3edb743bab3fd4600a91557820f54ea6eb7e0fbf3dbf5c0812d336d6ca9"
     }
   ],
-  "latest_checkpoint": "99bfe4c26f812a0c9be3959c7708007d6448e934",
+  "latest_checkpoint": "25afcd7ddafcbe3798c96eb05e6934109b69021c",
   "checkpoint_pushed_from": "W300-pub",
-  "last_activity_at_utc": "2026-10-06T23:38:40.383932+00:00",
-  "current_work": "Publish validated C2; existing query-detail field and query-size Recall audits are running for C3.",
+  "last_activity_at_utc": "2026-10-07T06:58:00+00:00",
+  "current_work": "C3 content and validation complete after the 18-hour boundary; GitHub and ShareLaTeX publication audit in progress.",
   "sharelatex_document_sync": {
-    "commit": "99bfe4c26f812a0c9be3959c7708007d6448e934",
-    "verified_files": 63,
-    "receipt": "review/SHARELATEX_C1_PUBLICATION.json",
-    "scope": "Full C1 paper source, PDF, figures, data and reading documents",
-    "server_pdf_pages": 25,
-    "server_pdf_sha256": "f0990fafc883b43b6771f441614b1215d557193a040a02a9f28e66f0d01534b0"
+    "commit": "25afcd7ddafcbe3798c96eb05e6934109b69021c",
+    "verified_files": 80,
+    "receipt": "review/SHARELATEX_C2_PUBLICATION.json",
+    "server_pdf_pages": 26,
+    "server_pdf_sha256": "3f9ca1a630988926c190a72e189d5122593cca7a3b3a55a7fb6be6a2d8e9f6c0"
   },
   "work_in_progress": {
     "coverage_derivation": "docs/papers/multilevel_ung/review/partition_and_retagging_audit_c0.md",
-    "pending_reviews": [
-      "/tmp/mlung-c2-pdf-check.md",
-      "/tmp/mlung-c3-query-fields-audit.md",
-      "/tmp/mlung-c3-query-size-strata.md"
-    ],
+    "pending_reviews": [],
     "warm_repeat_audit": {
       "script": "/tmp/mlung-c1-repeat-audit.py",
       "output": "runs/paper_c1_20261007/warm_repeat_audit",
       "crossings_reconstructed": 95,
       "primary_results_changed": false,
       "not_a_confidence_interval": true
-    }
+    },
+    "next_step": "Commit and push C3 from the clean W300 publisher checkout, then upload/read back ShareLaTeX sources and compile the service PDF."
   }
 }

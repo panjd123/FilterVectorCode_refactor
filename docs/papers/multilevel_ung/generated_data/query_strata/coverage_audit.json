@@ -1,0 +1,304 @@
+{
+  "algorithm": "One bit per base row in each queried label posting; exact AND plus popcount, cached by sorted unique predicate; empty predicate count is N.",
+  "base_duplicate_occurrences": 0,
+  "base_labels_path": "/home/graphdb/FilterVectorData/Amazon/Amazon_base_labels.txt",
+  "base_labels_sha256": "aec768bba7092af445252835be3f1ef7f708305ea646af19ae72738df3dd2f96",
+  "base_rows": 602453,
+  "base_rows_with_duplicate_labels": 0,
+  "base_unique_labels": 30723,
+  "bitmap_storage_bytes": 33361001,
+  "cached_predicate_reuses": 5761,
+  "direct_full_scan_checks": 12,
+  "elapsed_seconds": 6.607625083997846,
+  "empty_base_rows": 0,
+  "errors": [],
+  "finished_at_utc": "2026-10-06T23:44:03.941764+00:00",
+  "generation_hash_checks": 24,
+  "generation_hash_matches": 24,
+  "historical_base_sha_matches": 95,
+  "historical_crossings_checked": 95,
+  "historical_manifest_paths": [
+    "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/manifest_performance.json",
+    "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/base_topology_factorial_20260929/search/amazon_base_trie_4c99/manifest_performance.json"
+  ],
+  "historical_query_identity_limit": "Run commands establish file paths; generation hashes corroborate available manifests. Exact run-time query-content snapshots are not asserted for workloads lacking recorded hashes.",
+  "no_ann_or_vector_distance_evaluation": true,
+  "outputs": {
+    "duplicate_label_audit.json": {
+      "bytes": 190,
+      "sha256": "98c6a4e38ce3d9baa0d0129580c385cc682eb19b5500bd9161fdfa026a0b709b"
+    },
+    "generation_manifest_checks.json": {
+      "bytes": 8813,
+      "sha256": "8728a934ae3dd8e63bfba73f2690fe038a7b7a814f5f35d437ffb1dea88ea7e1"
+    },
+    "historical_provenance.csv": {
+      "bytes": 82864,
+      "sha256": "fd1cbfd0123bd65846afba4988d76a4b6e660ae781f5486d27dce4bafaf0bccf"
+    },
+    "independent_direct_checks.csv": {
+      "bytes": 331,
+      "sha256": "4cf7175bb14b94b61be93851ec204e91668d4950085b66c8e4ce17779d37a609"
+    },
+    "profile_comparison.csv": {
+      "bytes": 507805,
+      "sha256": "0888bbebc0b617be041a954ab5d5de5e2aa204fd6ad4970819c078e780e2bc10"
+    },
+    "profile_mismatches.csv": {
+      "bytes": 125,
+      "sha256": "55a6c310cbcb312c70577ca36c88f18e3855f8a643cc49336787b4efcd04ab53"
+    },
+    "query_coverage_exact.csv": {
+      "bytes": 417219,
+      "sha256": "29c00ef5f85a7ae61a5565f85e4362f575e4c236ca5c05c1fc11dda213a294a8"
+    },
+    "source_hashes.json": {
+      "bytes": 70761,
+      "sha256": "b91a3af6acc12c93358f2fc1f05f725e40bbf9c7ef5f2b1dcf1101267fff608a"
+    },
+    "workload_summary.csv": {
+      "bytes": 785,
+      "sha256": "760a4c8671d4126528b60509e0e8f17d0887e6f9206d9fe9bf91a8bc1627e238"
+    }
+  },
+  "peak_rss_kib_linux": 68832,
+  "profile_mismatches": 0,
+  "queried_unique_labels": 443,
+  "query_rows": 9000,
+  "query_rows_with_duplicate_labels": 0,
+  "sources_changed": [],
+  "sources_hashed": 142,
+  "started_at_utc": "2026-10-06T23:43:57.334143+00:00",
+  "status": "pass",
+  "timeout_seconds": 1800,
+  "unique_predicates": 3239,
+  "workload_inputs": {
+    "sel_0p5": {
+      "generation_manifest_present": false,
+      "hashes": {
+        "groundtruth_sha256": "93723e322e541ac472224eed55ad88aeabeaa74780379dfceed72b550f84c7f4",
+        "profile_sha256": "9b94d0efe843d92ecbcc8a49d64f6dac6a81096cd06a9976927fbe952f786823",
+        "query_bin_sha256": "02b945fe81293162a6253167b1410c218a74ccf610abc8e8079c2100be9a42cf",
+        "query_labels_sha256": "f48d3e5e841f9b19b01cc4ce2d02e44675d65f8a74f22add7bb963a52c14800d"
+      },
+      "profile_file": "/home/graphdb/FilterVectorData/Amazon/query_minlen5_avgsel05pct/profiled_minlen5_avgsel05pct.csv",
+      "query_label_file": "/home/graphdb/FilterVectorData/Amazon/query_minlen5_avgsel05pct/Amazon_query_labels.txt"
+    },
+    "sel_1": {
+      "generation_manifest_present": false,
+      "hashes": {
+        "groundtruth_sha256": "f8cb46c03bf74f2a9f912c00ca5795ed6be5a6e4ccf993c35316a8349c043f3e",
+        "profile_sha256": "0846b896021610e6e5b97872b278f184bbee1dad4244754270591d11c41796cc",
+        "query_bin_sha256": "3916a31115849c7fc9067865312b5bcc2c3391d61ff10439d5698d9969c86e88",
+        "query_labels_sha256": "28c7ee691c563bb1763351f1325ce994dc3ecaa6371c74a3f09a6359f12b7b26"
+      },
+      "profile_file": "/home/graphdb/FilterVectorData/Amazon/query_minlen5_avgsel1pct/profiled_minlen5_avgsel1pct.csv",
+      "query_label_file": "/home/graphdb/FilterVectorData/Amazon/query_minlen5_avgsel1pct/Amazon_query_labels.txt"
+    },
+    "sel_10": {
+      "generation_manifest_present": false,
+      "hashes": {
+        "groundtruth_sha256": "aa508e9be84bc466c8161149967df7f45da2fc55782d7cdc8cd086479017d613",
+        "profile_sha256": "35d0e6a8ccd1a2063839d2cdfa4b81fb7fc4b1cd29aa25b954b3404140ac1ec3",
+        "query_bin_sha256": "0673f4f2e9e00f39a8e06e569e9520d16b67abd944999c62b8fb66111df36d00",
+        "query_labels_sha256": "fde413ca5953e8bfd2254f4bb3f08be3e228dc770d8031b2e54ab410ee51232d"
+      },
+      "profile_file": "/home/graphdb/FilterVectorData/Amazon/query_minlen3_avgsel10pct/profiled_minlen3_avgsel10pct.csv",
+      "query_label_file": "/home/graphdb/FilterVectorData/Amazon/query_minlen3_avgsel10pct/Amazon_query_labels.txt"
+    },
+    "sel_30": {
+      "generation_manifest_present": true,
+      "hashes": {
+        "groundtruth_sha256": "0d9886a77cc8b673de32158de24e2baab71bf08aea4620713a6ee13b5f33e78a",
+        "profile_sha256": "33cf4810ee139b0e0e3395f0eb47c0af4ec54c379bc5178f0f324c62900b4632",
+        "query_bin_sha256": "91083111abced09c5fb2d1e5a1e8ebe16b4a3c98f7f7300de4777121fcdcd4ed",
+        "query_labels_sha256": "398a5e6ebade28218439286e29cb6e466332faae48bd79e77948bd883e96acfc"
+      },
+      "profile_file": "/home/graphdb/FilterVectorData/Amazon/query_nested_avgsel30pct/profiled_nested_avgsel30pct.csv",
+      "query_label_file": "/home/graphdb/FilterVectorData/Amazon/query_nested_avgsel30pct/Amazon_query_labels.txt"
+    },
+    "sel_5": {
+      "generation_manifest_present": true,
+      "hashes": {
+        "groundtruth_sha256": "1fc5a5a0e9929a6841e8096099b9eb218b04a5d56d2d0182e272a1a615a2c6a0",
+        "profile_sha256": "a0ad3653dc370975255ad3de582aa2309ea121fce3d35895e3950cde11f31fa2",
+        "query_bin_sha256": "3916a31115849c7fc9067865312b5bcc2c3391d61ff10439d5698d9969c86e88",
+        "query_labels_sha256": "d9e4b956c3b03de802b8783be0e18f92f719f6e2e9cd5ecf8498508934638f6f"
+      },
+      "profile_file": "/home/graphdb/FilterVectorData/Amazon/query_nested_avgsel5pct/profiled_nested_avgsel5pct.csv",
+      "query_label_file": "/home/graphdb/FilterVectorData/Amazon/query_nested_avgsel5pct/Amazon_query_labels.txt"
+    },
+    "sel_60": {
+      "generation_manifest_present": true,
+      "hashes": {
+        "groundtruth_sha256": "ee2105f814dce8e48dfd9e9ab512f683bc07aeb112649e9207c263ab8c6ace29",
+        "profile_sha256": "01275ebdefe79b3ac0f9b6fc796dce64d27010aec910d0c546c0dfe016cd13c9",
+        "query_bin_sha256": "cbb0ddd94d9d31ccb0644d6fd46dbe5e5069a8b6b03cc9eb3c4d72b6900ff03b",
+        "query_labels_sha256": "79f88598362068259b5ab36838bd2c0fc76f30dcc5320771bcb04493d3256138"
+      },
+      "profile_file": "/home/graphdb/FilterVectorData/Amazon/query_nested_avgsel60pct/profiled_nested_avgsel60pct.csv",
+      "query_label_file": "/home/graphdb/FilterVectorData/Amazon/query_nested_avgsel60pct/Amazon_query_labels.txt"
+    },
+    "sel_80": {
+      "generation_manifest_present": true,
+      "hashes": {
+        "groundtruth_sha256": "7a9f4d99f6e024ca57330e53808ca52595025487aa74915fc4e6d12085094065",
+        "profile_sha256": "f9d292747980038fd07f70af011113c04e145d66f507070d34abcd212982d116",
+        "query_bin_sha256": "7fa7fe45b20dcf5d72bd343874532e6536128a3ba96f1b8ac3bcfeef6eea4a72",
+        "query_labels_sha256": "8bb4362839022d56514155b902cfce300d830a1dbeca73b6146925ff20b34280"
+      },
+      "profile_file": "/home/graphdb/FilterVectorData/Amazon/query_minlen1_nested_avgsel80pct/profiled_minlen1_nested_avgsel80pct.csv",
+      "query_label_file": "/home/graphdb/FilterVectorData/Amazon/query_minlen1_nested_avgsel80pct/Amazon_query_labels.txt"
+    },
+    "sel_95": {
+      "generation_manifest_present": true,
+      "hashes": {
+        "groundtruth_sha256": "9859bfce670f927cdb557e84b14155edc8861c6e8b1838eafd29bf36713f6590",
+        "profile_sha256": "28b1a9e28899059376f9951328a9e12c68d9ff506724ce5a66cb169af2d6087c",
+        "query_bin_sha256": "7fa7fe45b20dcf5d72bd343874532e6536128a3ba96f1b8ac3bcfeef6eea4a72",
+        "query_labels_sha256": "0cba55707ce46a3f25560f1e78d2c906b91c4ff1a4917037d706129c4d47b254"
+      },
+      "profile_file": "/home/graphdb/FilterVectorData/Amazon/query_minlen1_nested_avgsel95pct/profiled_minlen1_nested_avgsel95pct.csv",
+      "query_label_file": "/home/graphdb/FilterVectorData/Amazon/query_minlen1_nested_avgsel95pct/Amazon_query_labels.txt"
+    },
+    "sel_99": {
+      "generation_manifest_present": true,
+      "hashes": {
+        "groundtruth_sha256": "afcd60266878c2423f983c102a94855133d570c1b613bdb79bf0adbfe0c73405",
+        "profile_sha256": "d3101b61ca17d49f60697b88c6e2b6998e9d2ea5b965b26d72cf790bbf3cfd15",
+        "query_bin_sha256": "7fa7fe45b20dcf5d72bd343874532e6536128a3ba96f1b8ac3bcfeef6eea4a72",
+        "query_labels_sha256": "9333184e09f79f2a0fbfb09be0df775f37fedb3934962b29a5d3c26f271886d2"
+      },
+      "profile_file": "/home/graphdb/FilterVectorData/Amazon/query_label1_empty_avgsel99pct/profiled_label1_empty_avgsel99pct.csv",
+      "query_label_file": "/home/graphdb/FilterVectorData/Amazon/query_label1_empty_avgsel99pct/Amazon_query_labels.txt"
+    }
+  },
+  "workloads": [
+    {
+      "empty_queries": 0,
+      "fewer_than_10_eligible_queries": 0,
+      "max_eligible_count": 10810,
+      "mean_true_selectivity": 0.0049924907005193765,
+      "min_eligible_count": 20,
+      "multiple_label_queries": 1000,
+      "num_queries": 1000,
+      "profile_mismatches": 0,
+      "single_label_queries": 0,
+      "unique_predicates": 1000,
+      "workload": "sel_0p5",
+      "zero_eligible_queries": 0
+    },
+    {
+      "empty_queries": 0,
+      "fewer_than_10_eligible_queries": 0,
+      "max_eligible_count": 29771,
+      "mean_true_selectivity": 0.009030548441123207,
+      "min_eligible_count": 20,
+      "multiple_label_queries": 1000,
+      "num_queries": 1000,
+      "profile_mismatches": 0,
+      "single_label_queries": 0,
+      "unique_predicates": 930,
+      "workload": "sel_1",
+      "zero_eligible_queries": 0
+    },
+    {
+      "empty_queries": 0,
+      "fewer_than_10_eligible_queries": 0,
+      "max_eligible_count": 582582,
+      "mean_true_selectivity": 0.05038116666362355,
+      "min_eligible_count": 20,
+      "multiple_label_queries": 957,
+      "num_queries": 1000,
+      "profile_mismatches": 0,
+      "single_label_queries": 43,
+      "unique_predicates": 888,
+      "workload": "sel_5",
+      "zero_eligible_queries": 0
+    },
+    {
+      "empty_queries": 0,
+      "fewer_than_10_eligible_queries": 0,
+      "max_eligible_count": 143527,
+      "mean_true_selectivity": 0.09906615287831581,
+      "min_eligible_count": 6045,
+      "multiple_label_queries": 1000,
+      "num_queries": 1000,
+      "profile_mismatches": 0,
+      "single_label_queries": 0,
+      "unique_predicates": 660,
+      "workload": "sel_10",
+      "zero_eligible_queries": 0
+    },
+    {
+      "empty_queries": 0,
+      "fewer_than_10_eligible_queries": 0,
+      "max_eligible_count": 582582,
+      "mean_true_selectivity": 0.30027242291099887,
+      "min_eligible_count": 8865,
+      "multiple_label_queries": 930,
+      "num_queries": 1000,
+      "profile_mismatches": 0,
+      "single_label_queries": 70,
+      "unique_predicates": 706,
+      "workload": "sel_30",
+      "zero_eligible_queries": 0
+    },
+    {
+      "empty_queries": 0,
+      "fewer_than_10_eligible_queries": 0,
+      "max_eligible_count": 582582,
+      "mean_true_selectivity": 0.6004749067562116,
+      "min_eligible_count": 794,
+      "multiple_label_queries": 0,
+      "num_queries": 1000,
+      "profile_mismatches": 0,
+      "single_label_queries": 1000,
+      "unique_predicates": 388,
+      "workload": "sel_60",
+      "zero_eligible_queries": 0
+    },
+    {
+      "empty_queries": 0,
+      "fewer_than_10_eligible_queries": 0,
+      "max_eligible_count": 582582,
+      "mean_true_selectivity": 0.800236992761261,
+      "min_eligible_count": 5759,
+      "multiple_label_queries": 0,
+      "num_queries": 1000,
+      "profile_mismatches": 0,
+      "single_label_queries": 1000,
+      "unique_predicates": 179,
+      "workload": "sel_80",
+      "zero_eligible_queries": 0
+    },
+    {
+      "empty_queries": 0,
+      "fewer_than_10_eligible_queries": 0,
+      "max_eligible_count": 582582,
+      "mean_true_selectivity": 0.9501978063019023,
+      "min_eligible_count": 5783,
+      "multiple_label_queries": 0,
+      "num_queries": 1000,
+      "profile_mismatches": 0,
+      "single_label_queries": 1000,
+      "unique_predicates": 19,
+      "workload": "sel_95",
+      "zero_eligible_queries": 0
+    },
+    {
+      "empty_queries": 697,
+      "fewer_than_10_eligible_queries": 0,
+      "max_eligible_count": 602453,
+      "mean_true_selectivity": 0.9900060037878474,
+      "min_eligible_count": 582582,
+      "multiple_label_queries": 0,
+      "num_queries": 1000,
+      "profile_mismatches": 0,
+      "single_label_queries": 303,
+      "unique_predicates": 2,
+      "workload": "sel_99",
+      "zero_eligible_queries": 0
+    }
+  ]
+}

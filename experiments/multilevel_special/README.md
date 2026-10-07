@@ -88,6 +88,15 @@ LaTeX table. The interval spans the four observed cross-repeat ratios; it is
 neither a confidence interval nor four independent timing repetitions. Raw
 source hashes and extraction details accompany the published timing pairs.
 
+To reproduce query composition and Recall distributions, use the source-only
+command in [the query-strata artifact README](../../docs/papers/multilevel_ung/generated_data/query_strata/README.md).
+It joins 190,000 frozen query records with 9,000 exact label coverages,
+reconstructs all 190 warm batch means, and generates predicate-size and
+individual-selectivity tables plus PDF/PNG composition panels. The records
+retain each method's batch-selected capacity; no subgroup QPS is inferred.
+`extract_query_recall.py` can re-extract from original query-detail files;
+`verify_query_coverage.py` checks label coverage without vector search.
+
 ## Declare and run a new experiment
 
 Use `experiment_cli.py` as the stable front door. The commands below run from

@@ -96,3 +96,14 @@ threshold and own-group reachability premises explicit and adds reproducible
 observed timing ranges. The 95 timing pairs and 35 comparisons are under
 `generated_data/warm_repeats/`; the four combinations per comparison are not
 independent experiments or confidence intervals.
+
+C3 adds the query-composition figure and subgroup Recall tables, reconstructed
+from 190,000 existing per-query records and 9,000 independently counted label
+coverages. [The source-only reproduction guide](generated_data/query_strata/README.md)
+explains the inputs, NC/empty-stratum distinction, and remaining provenance
+limits. The 5% singleton subset repeats predicate `{1}`; the 30% subset at
+80–95% individual selectivity repeats `{1,2}`. These are query-subset results,
+not evidence about many different predicates in those bins. C1–C3 checks use
+returning reviewers for stated, bounded tasks and do not provide a new cold
+overall score. The original C0 launch arguments were rechecked against tool
+records in `review/C0_REVIEW_SETUP_VERIFIED.json`.

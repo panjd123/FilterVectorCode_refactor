@@ -119,6 +119,15 @@ def main() -> int:
         str(warm_repeats / "warm_repeat_points.csv"),
         str(paper_data / "factorial_equal_recall.csv"), str(warm_repeats),
     ], HERE)
+    query_strata = paper_data / "query_strata"
+    query_figures = PAPER / "generated_figures/query_strata"
+    run([
+        sys.executable, str(HERE / "summarize_query_strata.py"),
+        "--data-dir", str(query_strata),
+        "--factorial", str(paper_data / "factorial_equal_recall.csv"),
+        "--warm-points", str(warm_repeats / "warm_repeat_points.csv"),
+        "--output-dir", str(query_strata), "--figure-dir", str(query_figures),
+    ], HERE)
     command = [
         sys.executable, str(generator),
         "--amazon-equal-recall", str(amazon_summary / "equal_recall_conservative.csv"),
@@ -186,6 +195,10 @@ def main() -> int:
     outputs.append(HERE / "plot_topology_factorial.py")
     outputs.append(HERE / "summarize_warm_repeat_ranges.py")
     outputs.extend(sorted(warm_repeats.glob("*")))
+    outputs.extend(sorted(query_strata.glob("*")))
+    outputs.extend(sorted(query_figures.glob("*")))
+    outputs.extend([HERE / "summarize_query_strata.py", HERE / "extract_query_recall.py",
+                    HERE / "verify_query_coverage.py"])
     outputs.extend(sorted(PAPER.rglob("*.tex")))
     outputs.extend(sorted(PAPER.glob("*.bib")))
     outputs.extend([PAPER / "ADVISOR_NOTE_CN.md", PAPER / "PAPER_OUTLINE_CN.md",

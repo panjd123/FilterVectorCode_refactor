@@ -1,0 +1,68 @@
+{
+  "scope": "Regrouped frozen exported Recall; no new ANN or build benchmark.",
+  "coverage_rows": 9000,
+  "crossing_batches": 190,
+  "query_records": 190000,
+  "prior_size_histograms_checked": 570,
+  "base_size": 602453,
+  "max_reconstruction_error": 0.0,
+  "size_summary_rows": 756,
+  "selectivity_summary_rows": 2268,
+  "selection": "Each method retains its own globally selected batch-mean Recall crossing.",
+  "selectivity": "Exact eligible_count / 602453; right-closed bins in (0,1].",
+  "repeats": "Two executions of the same queries, not independent query samples.",
+  "limitations": [
+    "No subgroup-matched Recall or subgroup throughput.",
+    "Exported Recall regrouping does not recompute nearest-neighbor ground truth.",
+    "Current label coverage does not supply missing historical query-content hashes."
+  ],
+  "inputs": [
+    {
+      "name": "query_coverage_exact.csv",
+      "sha256": "29c00ef5f85a7ae61a5565f85e4362f575e4c236ca5c05c1fc11dda213a294a8"
+    },
+    {
+      "name": "query_recall.csv.gz",
+      "sha256": "e9b95f3e4e64061df030db2b4f3aa251c00aeb0455e3c14c43d84b2e0c77a657"
+    },
+    {
+      "name": "query_size_reference.csv",
+      "sha256": "bfbd42e9c394a51c48f56bcfb48ad0037f1e7432655ee8a97d512400e7b19e35"
+    },
+    {
+      "name": "factorial_equal_recall.csv",
+      "sha256": "9e56a1ed859152382b829e612c5e62ff4f90d50a5ce3b9a6a3e8230c426b6505"
+    },
+    {
+      "name": "warm_repeat_points.csv",
+      "sha256": "9410e2b3348e927c993f20115899c7fde8937d3031db87a74454137bd11b9eea"
+    }
+  ],
+  "script_sha256": "886fda37c4573aa5f8eec9830ab66d039728b34dc7c07e08425f3aec0f0e70b2",
+  "outputs": [
+    {
+      "name": "query_size_summary.csv",
+      "sha256": "c765fc2d6f2fe4e99092fe70b3b320e45ff01eb6120d9ca09f145ddd1ea40be6"
+    },
+    {
+      "name": "query_selectivity_summary.csv",
+      "sha256": "03590bbe37ed2feff19de9c50002126e06599b636c61b50a1c0aecc2ae387b2f"
+    },
+    {
+      "name": "repeat_reconstruction.csv",
+      "sha256": "00583465f8077e90778021d8f2d2a16779c247b18a5fe0a45c144c7da193bf84"
+    },
+    {
+      "name": "generated_query_strata.tex",
+      "sha256": "80b4d2680ac9f26b07ce064c59dcacbd5458c7d859b9ed9028da9ff93784d755"
+    },
+    {
+      "name": "query_composition.pdf",
+      "sha256": "988b9b917e884c8c10c7181927669b63b799cdbaa0686fd7af0abfd836f64325"
+    },
+    {
+      "name": "query_composition.png",
+      "sha256": "e300456ba652cb81f6cdd7d53f4d55a23baf45148f82ce79a6b7da7ce9834ac7"
+    }
+  ]
+}

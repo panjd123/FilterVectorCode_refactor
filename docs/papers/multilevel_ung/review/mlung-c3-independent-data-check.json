@@ -1,0 +1,1392 @@
+{
+  "scope": "Returning targeted C3 data/semantics auditor. No overall paper review, score, or recommendation.",
+  "status": "PASS",
+  "rows": 190000,
+  "coverage_rows": 9000,
+  "unique_predicates": 3239,
+  "complete_crossings": 95,
+  "NC_cells": 31,
+  "reconstructions": 190,
+  "max_reconstruction_error": 0.0,
+  "reference_histograms": 570,
+  "summary_status_counts": {
+    "query_size_summary.csv": {
+      "empty_stratum": 322,
+      "complete": 248,
+      "no_crossing": 186
+    },
+    "query_selectivity_summary.csv": {
+      "complete": 782,
+      "empty_stratum": 928,
+      "no_crossing": 558
+    }
+  },
+  "scientific_source_hashes": {
+    "docs/papers/multilevel_ung/generated_data/query_strata/query_recall.csv.gz": "e9b95f3e4e64061df030db2b4f3aa251c00aeb0455e3c14c43d84b2e0c77a657",
+    "docs/papers/multilevel_ung/generated_data/query_strata/query_coverage_exact.csv": "29c00ef5f85a7ae61a5565f85e4362f575e4c236ca5c05c1fc11dda213a294a8",
+    "docs/papers/multilevel_ung/generated_data/query_strata/query_size_reference.csv": "bfbd42e9c394a51c48f56bcfb48ad0037f1e7432655ee8a97d512400e7b19e35",
+    "docs/papers/multilevel_ung/generated_data/query_strata/query_size_summary.csv": "c765fc2d6f2fe4e99092fe70b3b320e45ff01eb6120d9ca09f145ddd1ea40be6",
+    "docs/papers/multilevel_ung/generated_data/query_strata/query_selectivity_summary.csv": "03590bbe37ed2feff19de9c50002126e06599b636c61b50a1c0aecc2ae387b2f",
+    "docs/papers/multilevel_ung/generated_data/query_strata/repeat_reconstruction.csv": "00583465f8077e90778021d8f2d2a16779c247b18a5fe0a45c144c7da193bf84",
+    "docs/papers/multilevel_ung/generated_data/query_strata/coverage_audit.json": "875cf69db2329a5c496561e2e189db036b0baef9cd11e8447177eca9a0f6b58e",
+    "docs/papers/multilevel_ung/generated_data/query_strata/recall_extraction_manifest.json": "f193921f5413b0425787a528cc525990107c1f89d6293a935c7c8172197e7042",
+    "docs/papers/multilevel_ung/generated_data/query_strata/size_extraction_manifest.json": "1217aec2558bad936e673fe3ff0873c1fc709df47ba755245345f0bb01c396c2",
+    "docs/papers/multilevel_ung/generated_data/query_strata/input_hashes.json": "d98b13f946ba8d7898e20dfbb46481bf7d78ca570bfd3424e795daf7b6543c11",
+    "docs/papers/multilevel_ung/generated_data/query_strata/summary_manifest.json": "ce344912dd5a228a5e496a6878166ff61eec1419738335e63482f82113c107c0",
+    "docs/papers/multilevel_ung/generated_data/factorial_equal_recall.csv": "9e56a1ed859152382b829e612c5e62ff4f90d50a5ce3b9a6a3e8230c426b6505",
+    "docs/papers/multilevel_ung/generated_data/warm_repeats/warm_repeat_points.csv": "9410e2b3348e927c993f20115899c7fde8937d3031db87a74454137bd11b9eea"
+  },
+  "two_raw_extractions_agree_on_95_input_hashes": true,
+  "claims": {
+    "sel_5_singletons": {
+      "count": 43,
+      "unique_predicates": 1,
+      "predicate_counts": {
+        "1": 43
+      },
+      "query_sizes": {
+        "1": 43
+      },
+      "eligible_counts": {
+        "582582": 43
+      },
+      "methods": {
+        "L": {
+          "lsearch": "3200",
+          "repeats": {
+            "1": {
+              "count": 43,
+              "mean_recall": 0.28837209302325584,
+              "recall_zero": 10,
+              "recall_below_0p9": 39,
+              "histogram": [
+                10,
+                10,
+                7,
+                2,
+                2,
+                3,
+                3,
+                1,
+                1,
+                2,
+                2
+              ]
+            },
+            "2": {
+              "count": 43,
+              "mean_recall": 0.28837209302325584,
+              "recall_zero": 10,
+              "recall_below_0p9": 39,
+              "histogram": [
+                10,
+                10,
+                7,
+                2,
+                2,
+                3,
+                3,
+                1,
+                1,
+                2,
+                2
+              ]
+            }
+          },
+          "zero_ids_intersection": 10,
+          "zero_ids_union": 10
+        },
+        "T": {
+          "lsearch": "800",
+          "repeats": {
+            "1": {
+              "count": 43,
+              "mean_recall": 0.14883720930232558,
+              "recall_zero": 23,
+              "recall_below_0p9": 41,
+              "histogram": [
+                23,
+                9,
+                3,
+                2,
+                1,
+                1,
+                0,
+                1,
+                1,
+                1,
+                1
+              ]
+            },
+            "2": {
+              "count": 43,
+              "mean_recall": 0.14883720930232558,
+              "recall_zero": 23,
+              "recall_below_0p9": 41,
+              "histogram": [
+                23,
+                9,
+                3,
+                2,
+                1,
+                1,
+                0,
+                1,
+                1,
+                1,
+                1
+              ]
+            }
+          },
+          "zero_ids_intersection": 23,
+          "zero_ids_union": 23
+        },
+        "TL": {
+          "lsearch": "400",
+          "repeats": {
+            "1": {
+              "count": 43,
+              "mean_recall": 0.7325581395348837,
+              "recall_zero": 5,
+              "recall_below_0p9": 21,
+              "histogram": [
+                5,
+                1,
+                0,
+                1,
+                0,
+                1,
+                3,
+                3,
+                7,
+                9,
+                13
+              ]
+            },
+            "2": {
+              "count": 43,
+              "mean_recall": 0.7325581395348837,
+              "recall_zero": 5,
+              "recall_below_0p9": 21,
+              "histogram": [
+                5,
+                1,
+                0,
+                1,
+                0,
+                1,
+                3,
+                3,
+                7,
+                9,
+                13
+              ]
+            }
+          },
+          "zero_ids_intersection": 5,
+          "zero_ids_union": 5
+        },
+        "TLT": {
+          "lsearch": "400",
+          "repeats": {
+            "1": {
+              "count": 43,
+              "mean_recall": 0.7441860465116279,
+              "recall_zero": 4,
+              "recall_below_0p9": 19,
+              "histogram": [
+                4,
+                2,
+                0,
+                1,
+                0,
+                1,
+                2,
+                3,
+                6,
+                11,
+                13
+              ]
+            },
+            "2": {
+              "count": 43,
+              "mean_recall": 0.7441860465116279,
+              "recall_zero": 4,
+              "recall_below_0p9": 19,
+              "histogram": [
+                4,
+                2,
+                0,
+                1,
+                0,
+                1,
+                2,
+                3,
+                6,
+                11,
+                13
+              ]
+            }
+          },
+          "zero_ids_intersection": 4,
+          "zero_ids_union": 4
+        }
+      }
+    },
+    "sel_30_actual_80_95": {
+      "count": 226,
+      "unique_predicates": 1,
+      "predicate_counts": {
+        "1,2": 226
+      },
+      "query_sizes": {
+        "2": 226
+      },
+      "eligible_counts": {
+        "548561": 226
+      },
+      "methods": {
+        "L": {
+          "lsearch": "120000",
+          "repeats": {
+            "1": {
+              "count": 226,
+              "mean_recall": 0.7429203539823008,
+              "recall_zero": 10,
+              "recall_below_0p9": 106,
+              "histogram": [
+                10,
+                8,
+                9,
+                9,
+                9,
+                11,
+                8,
+                23,
+                19,
+                26,
+                94
+              ]
+            },
+            "2": {
+              "count": 226,
+              "mean_recall": 0.7163716814159292,
+              "recall_zero": 9,
+              "recall_below_0p9": 115,
+              "histogram": [
+                9,
+                7,
+                16,
+                10,
+                12,
+                13,
+                6,
+                19,
+                23,
+                26,
+                85
+              ]
+            }
+          },
+          "zero_ids_intersection": 8,
+          "zero_ids_union": 11
+        },
+        "T": {
+          "status": "no_crossing"
+        },
+        "TL": {
+          "lsearch": "60000",
+          "repeats": {
+            "1": {
+              "count": 226,
+              "mean_recall": 0.6641592920353983,
+              "recall_zero": 8,
+              "recall_below_0p9": 150,
+              "histogram": [
+                8,
+                6,
+                11,
+                14,
+                18,
+                21,
+                18,
+                18,
+                36,
+                28,
+                48
+              ]
+            },
+            "2": {
+              "count": 226,
+              "mean_recall": 0.6641592920353983,
+              "recall_zero": 8,
+              "recall_below_0p9": 150,
+              "histogram": [
+                8,
+                6,
+                11,
+                14,
+                18,
+                21,
+                18,
+                18,
+                36,
+                28,
+                48
+              ]
+            }
+          },
+          "zero_ids_intersection": 8,
+          "zero_ids_union": 8
+        },
+        "TLT": {
+          "lsearch": "60000",
+          "repeats": {
+            "1": {
+              "count": 226,
+              "mean_recall": 0.668141592920354,
+              "recall_zero": 8,
+              "recall_below_0p9": 145,
+              "histogram": [
+                8,
+                5,
+                9,
+                15,
+                19,
+                19,
+                23,
+                22,
+                25,
+                31,
+                50
+              ]
+            },
+            "2": {
+              "count": 226,
+              "mean_recall": 0.668141592920354,
+              "recall_zero": 8,
+              "recall_below_0p9": 145,
+              "histogram": [
+                8,
+                5,
+                9,
+                15,
+                19,
+                19,
+                23,
+                22,
+                25,
+                31,
+                50
+              ]
+            }
+          },
+          "zero_ids_intersection": 8,
+          "zero_ids_union": 8
+        }
+      }
+    }
+  },
+  "broad_batch_tails": {
+    "sel_60": {
+      "count": 1000,
+      "unique_predicates": 388,
+      "query_sizes": {
+        "1": 1000
+      },
+      "methods": {
+        "L": {
+          "lsearch": "260000",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9283,
+              "recall_zero": 12,
+              "recall_below_0p9": 156,
+              "histogram": [
+                12,
+                3,
+                2,
+                4,
+                10,
+                10,
+                33,
+                28,
+                54,
+                92,
+                752
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9295,
+              "recall_zero": 11,
+              "recall_below_0p9": 155,
+              "histogram": [
+                11,
+                3,
+                2,
+                3,
+                10,
+                14,
+                30,
+                27,
+                55,
+                90,
+                755
+              ]
+            }
+          },
+          "zero_ids_intersection": 11,
+          "zero_ids_union": 12
+        },
+        "T": {
+          "lsearch": "320000",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9143,
+              "recall_zero": 13,
+              "recall_below_0p9": 199,
+              "histogram": [
+                13,
+                2,
+                2,
+                5,
+                7,
+                20,
+                29,
+                43,
+                78,
+                115,
+                686
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9125,
+              "recall_zero": 13,
+              "recall_below_0p9": 202,
+              "histogram": [
+                13,
+                2,
+                3,
+                5,
+                9,
+                21,
+                28,
+                44,
+                77,
+                111,
+                687
+              ]
+            }
+          },
+          "zero_ids_intersection": 13,
+          "zero_ids_union": 13
+        },
+        "TL": {
+          "lsearch": "1000",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9011,
+              "recall_zero": 32,
+              "recall_below_0p9": 153,
+              "histogram": [
+                32,
+                16,
+                2,
+                10,
+                10,
+                9,
+                13,
+                19,
+                42,
+                141,
+                706
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9011,
+              "recall_zero": 32,
+              "recall_below_0p9": 153,
+              "histogram": [
+                32,
+                16,
+                2,
+                10,
+                10,
+                9,
+                13,
+                19,
+                42,
+                141,
+                706
+              ]
+            }
+          },
+          "zero_ids_intersection": 32,
+          "zero_ids_union": 32
+        },
+        "TLT": {
+          "lsearch": "1000",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9023,
+              "recall_zero": 31,
+              "recall_below_0p9": 150,
+              "histogram": [
+                31,
+                14,
+                3,
+                10,
+                13,
+                8,
+                12,
+                20,
+                39,
+                143,
+                707
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9023,
+              "recall_zero": 31,
+              "recall_below_0p9": 150,
+              "histogram": [
+                31,
+                14,
+                3,
+                10,
+                13,
+                8,
+                12,
+                20,
+                39,
+                143,
+                707
+              ]
+            }
+          },
+          "zero_ids_intersection": 31,
+          "zero_ids_union": 31
+        }
+      }
+    },
+    "sel_80": {
+      "count": 1000,
+      "unique_predicates": 179,
+      "query_sizes": {
+        "1": 1000
+      },
+      "methods": {
+        "L": {
+          "lsearch": "320000",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9257,
+              "recall_zero": 12,
+              "recall_below_0p9": 152,
+              "histogram": [
+                12,
+                9,
+                2,
+                5,
+                11,
+                15,
+                23,
+                27,
+                48,
+                81,
+                767
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9271,
+              "recall_zero": 12,
+              "recall_below_0p9": 151,
+              "histogram": [
+                12,
+                9,
+                2,
+                5,
+                12,
+                12,
+                23,
+                27,
+                49,
+                74,
+                775
+              ]
+            }
+          },
+          "zero_ids_intersection": 12,
+          "zero_ids_union": 12
+        },
+        "T": {
+          "lsearch": "602453",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9699,
+              "recall_zero": 10,
+              "recall_below_0p9": 48,
+              "histogram": [
+                10,
+                8,
+                1,
+                2,
+                4,
+                3,
+                10,
+                4,
+                6,
+                4,
+                948
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9699,
+              "recall_zero": 10,
+              "recall_below_0p9": 48,
+              "histogram": [
+                10,
+                8,
+                1,
+                2,
+                4,
+                3,
+                10,
+                4,
+                6,
+                4,
+                948
+              ]
+            }
+          },
+          "zero_ids_intersection": 10,
+          "zero_ids_union": 10
+        },
+        "TL": {
+          "lsearch": "2500",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9167,
+              "recall_zero": 27,
+              "recall_below_0p9": 134,
+              "histogram": [
+                27,
+                17,
+                3,
+                5,
+                5,
+                5,
+                9,
+                25,
+                38,
+                109,
+                757
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9167,
+              "recall_zero": 27,
+              "recall_below_0p9": 134,
+              "histogram": [
+                27,
+                17,
+                3,
+                5,
+                5,
+                5,
+                9,
+                25,
+                38,
+                109,
+                757
+              ]
+            }
+          },
+          "zero_ids_intersection": 27,
+          "zero_ids_union": 27
+        },
+        "TLT": {
+          "lsearch": "2500",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.916,
+              "recall_zero": 29,
+              "recall_below_0p9": 135,
+              "histogram": [
+                29,
+                15,
+                4,
+                5,
+                5,
+                5,
+                9,
+                24,
+                39,
+                107,
+                758
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.916,
+              "recall_zero": 29,
+              "recall_below_0p9": 135,
+              "histogram": [
+                29,
+                15,
+                4,
+                5,
+                5,
+                5,
+                9,
+                24,
+                39,
+                107,
+                758
+              ]
+            }
+          },
+          "zero_ids_intersection": 29,
+          "zero_ids_union": 29
+        }
+      }
+    },
+    "sel_95": {
+      "count": 1000,
+      "unique_predicates": 19,
+      "query_sizes": {
+        "1": 1000
+      },
+      "methods": {
+        "L": {
+          "lsearch": "320000",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9136,
+              "recall_zero": 14,
+              "recall_below_0p9": 177,
+              "histogram": [
+                14,
+                10,
+                2,
+                6,
+                11,
+                17,
+                26,
+                34,
+                57,
+                105,
+                718
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9134,
+              "recall_zero": 14,
+              "recall_below_0p9": 179,
+              "histogram": [
+                14,
+                10,
+                2,
+                6,
+                12,
+                18,
+                24,
+                36,
+                57,
+                98,
+                723
+              ]
+            }
+          },
+          "zero_ids_intersection": 14,
+          "zero_ids_union": 14
+        },
+        "T": {
+          "lsearch": "602453",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9666,
+              "recall_zero": 12,
+              "recall_below_0p9": 52,
+              "histogram": [
+                12,
+                9,
+                1,
+                2,
+                4,
+                3,
+                11,
+                4,
+                6,
+                4,
+                944
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9666,
+              "recall_zero": 12,
+              "recall_below_0p9": 52,
+              "histogram": [
+                12,
+                9,
+                1,
+                2,
+                4,
+                3,
+                11,
+                4,
+                6,
+                4,
+                944
+              ]
+            }
+          },
+          "zero_ids_intersection": 12,
+          "zero_ids_union": 12
+        },
+        "TL": {
+          "lsearch": "2500",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9098,
+              "recall_zero": 31,
+              "recall_below_0p9": 140,
+              "histogram": [
+                31,
+                19,
+                3,
+                5,
+                6,
+                5,
+                9,
+                25,
+                37,
+                116,
+                744
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9098,
+              "recall_zero": 31,
+              "recall_below_0p9": 140,
+              "histogram": [
+                31,
+                19,
+                3,
+                5,
+                6,
+                5,
+                9,
+                25,
+                37,
+                116,
+                744
+              ]
+            }
+          },
+          "zero_ids_intersection": 31,
+          "zero_ids_union": 31
+        },
+        "TLT": {
+          "lsearch": "2500",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9091,
+              "recall_zero": 33,
+              "recall_below_0p9": 142,
+              "histogram": [
+                33,
+                17,
+                4,
+                5,
+                6,
+                5,
+                8,
+                26,
+                38,
+                112,
+                746
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9091,
+              "recall_zero": 33,
+              "recall_below_0p9": 142,
+              "histogram": [
+                33,
+                17,
+                4,
+                5,
+                6,
+                5,
+                8,
+                26,
+                38,
+                112,
+                746
+              ]
+            }
+          },
+          "zero_ids_intersection": 33,
+          "zero_ids_union": 33
+        }
+      }
+    },
+    "sel_99": {
+      "count": 1000,
+      "unique_predicates": 2,
+      "query_sizes": {
+        "1": 303,
+        "0": 697
+      },
+      "methods": {
+        "L": {
+          "lsearch": "400000",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9408,
+              "recall_zero": 12,
+              "recall_below_0p9": 111,
+              "histogram": [
+                12,
+                9,
+                2,
+                5,
+                6,
+                6,
+                15,
+                22,
+                34,
+                80,
+                809
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9408,
+              "recall_zero": 12,
+              "recall_below_0p9": 112,
+              "histogram": [
+                12,
+                9,
+                2,
+                4,
+                6,
+                7,
+                15,
+                23,
+                34,
+                79,
+                809
+              ]
+            }
+          },
+          "zero_ids_intersection": 12,
+          "zero_ids_union": 12
+        },
+        "T": {
+          "lsearch": "602453",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9656,
+              "recall_zero": 12,
+              "recall_below_0p9": 53,
+              "histogram": [
+                12,
+                9,
+                1,
+                3,
+                4,
+                3,
+                11,
+                5,
+                5,
+                6,
+                941
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9656,
+              "recall_zero": 12,
+              "recall_below_0p9": 53,
+              "histogram": [
+                12,
+                9,
+                1,
+                3,
+                4,
+                3,
+                11,
+                5,
+                5,
+                6,
+                941
+              ]
+            }
+          },
+          "zero_ids_intersection": 12,
+          "zero_ids_union": 12
+        },
+        "TL": {
+          "lsearch": "5000",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9224,
+              "recall_zero": 28,
+              "recall_below_0p9": 119,
+              "histogram": [
+                28,
+                16,
+                3,
+                7,
+                4,
+                5,
+                4,
+                23,
+                29,
+                87,
+                794
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9224,
+              "recall_zero": 28,
+              "recall_below_0p9": 119,
+              "histogram": [
+                28,
+                16,
+                3,
+                7,
+                4,
+                5,
+                4,
+                23,
+                29,
+                87,
+                794
+              ]
+            }
+          },
+          "zero_ids_intersection": 28,
+          "zero_ids_union": 28
+        },
+        "TLT": {
+          "lsearch": "5000",
+          "repeats": {
+            "1": {
+              "count": 1000,
+              "mean_recall": 0.9215,
+              "recall_zero": 29,
+              "recall_below_0p9": 120,
+              "histogram": [
+                29,
+                16,
+                3,
+                7,
+                4,
+                6,
+                4,
+                22,
+                29,
+                84,
+                796
+              ]
+            },
+            "2": {
+              "count": 1000,
+              "mean_recall": 0.9215,
+              "recall_zero": 29,
+              "recall_below_0p9": 120,
+              "histogram": [
+                29,
+                16,
+                3,
+                7,
+                4,
+                6,
+                4,
+                22,
+                29,
+                84,
+                796
+              ]
+            }
+          },
+          "zero_ids_intersection": 29,
+          "zero_ids_union": 29
+        }
+      }
+    }
+  },
+  "empty_predicate_subset": {
+    "count": 697,
+    "unique_predicates": 1,
+    "predicate_counts": {
+      "": 697
+    },
+    "query_sizes": {
+      "0": 697
+    },
+    "eligible_counts": {
+      "602453": 697
+    },
+    "methods": {
+      "L": {
+        "lsearch": "400000",
+        "repeats": {
+          "1": {
+            "count": 697,
+            "mean_recall": 0.9378766140602582,
+            "recall_zero": 8,
+            "recall_below_0p9": 87,
+            "histogram": [
+              8,
+              5,
+              2,
+              3,
+              5,
+              6,
+              11,
+              19,
+              28,
+              54,
+              556
+            ]
+          },
+          "2": {
+            "count": 697,
+            "mean_recall": 0.9384505021520804,
+            "recall_zero": 8,
+            "recall_below_0p9": 87,
+            "histogram": [
+              8,
+              5,
+              2,
+              3,
+              5,
+              6,
+              10,
+              19,
+              29,
+              52,
+              558
+            ]
+          }
+        },
+        "zero_ids_intersection": 8,
+        "zero_ids_union": 8
+      },
+      "T": {
+        "lsearch": "602453",
+        "repeats": {
+          "1": {
+            "count": 697,
+            "mean_recall": 0.9658536585365853,
+            "recall_zero": 8,
+            "recall_below_0p9": 38,
+            "histogram": [
+              8,
+              5,
+              1,
+              2,
+              3,
+              3,
+              8,
+              4,
+              4,
+              6,
+              653
+            ]
+          },
+          "2": {
+            "count": 697,
+            "mean_recall": 0.9658536585365853,
+            "recall_zero": 8,
+            "recall_below_0p9": 38,
+            "histogram": [
+              8,
+              5,
+              1,
+              2,
+              3,
+              3,
+              8,
+              4,
+              4,
+              6,
+              653
+            ]
+          }
+        },
+        "zero_ids_intersection": 8,
+        "zero_ids_union": 8
+      },
+      "TL": {
+        "lsearch": "5000",
+        "repeats": {
+          "1": {
+            "count": 697,
+            "mean_recall": 0.9256814921090387,
+            "recall_zero": 16,
+            "recall_below_0p9": 81,
+            "histogram": [
+              16,
+              11,
+              2,
+              5,
+              4,
+              4,
+              2,
+              16,
+              21,
+              66,
+              550
+            ]
+          },
+          "2": {
+            "count": 697,
+            "mean_recall": 0.9256814921090387,
+            "recall_zero": 16,
+            "recall_below_0p9": 81,
+            "histogram": [
+              16,
+              11,
+              2,
+              5,
+              4,
+              4,
+              2,
+              16,
+              21,
+              66,
+              550
+            ]
+          }
+        },
+        "zero_ids_intersection": 16,
+        "zero_ids_union": 16
+      },
+      "TLT": {
+        "lsearch": "5000",
+        "repeats": {
+          "1": {
+            "count": 697,
+            "mean_recall": 0.9253945480631277,
+            "recall_zero": 16,
+            "recall_below_0p9": 83,
+            "histogram": [
+              16,
+              11,
+              2,
+              5,
+              4,
+              5,
+              2,
+              16,
+              22,
+              61,
+              553
+            ]
+          },
+          "2": {
+            "count": 697,
+            "mean_recall": 0.9253945480631277,
+            "recall_zero": 16,
+            "recall_below_0p9": 83,
+            "histogram": [
+              16,
+              11,
+              2,
+              5,
+              4,
+              5,
+              2,
+              16,
+              22,
+              61,
+              553
+            ]
+          }
+        },
+        "zero_ids_intersection": 16,
+        "zero_ids_union": 16
+      }
+    }
+  },
+  "source_only_reproduction": {
+    "status": "PASS",
+    "interpreter": "/private/tmp/filtervector-paper-tools/bin/python",
+    "python": "3.14.6",
+    "numpy": "2.5.3",
+    "matplotlib": "3.11.2",
+    "output_directory": "/tmp/mlung-c3-independent-reproduction-complete",
+    "script_sha256": "886fda37c4573aa5f8eec9830ab66d039728b34dc7c07e08425f3aec0f0e70b2",
+    "outputs": [
+      {
+        "output": "query_size_summary.csv",
+        "published": "docs/papers/multilevel_ung/generated_data/query_strata/query_size_summary.csv",
+        "byte_match": true,
+        "reproduced_sha256": "c765fc2d6f2fe4e99092fe70b3b320e45ff01eb6120d9ca09f145ddd1ea40be6"
+      },
+      {
+        "output": "query_selectivity_summary.csv",
+        "published": "docs/papers/multilevel_ung/generated_data/query_strata/query_selectivity_summary.csv",
+        "byte_match": true,
+        "reproduced_sha256": "03590bbe37ed2feff19de9c50002126e06599b636c61b50a1c0aecc2ae387b2f"
+      },
+      {
+        "output": "repeat_reconstruction.csv",
+        "published": "docs/papers/multilevel_ung/generated_data/query_strata/repeat_reconstruction.csv",
+        "byte_match": true,
+        "reproduced_sha256": "00583465f8077e90778021d8f2d2a16779c247b18a5fe0a45c144c7da193bf84"
+      },
+      {
+        "output": "generated_query_strata.tex",
+        "published": "docs/papers/multilevel_ung/generated_data/query_strata/generated_query_strata.tex",
+        "byte_match": true,
+        "reproduced_sha256": "80b4d2680ac9f26b07ce064c59dcacbd5458c7d859b9ed9028da9ff93784d755"
+      },
+      {
+        "output": "query_composition.pdf",
+        "published": "docs/papers/multilevel_ung/generated_figures/query_strata/query_composition.pdf",
+        "byte_match": true,
+        "reproduced_sha256": "988b9b917e884c8c10c7181927669b63b799cdbaa0686fd7af0abfd836f64325"
+      },
+      {
+        "output": "query_composition.png",
+        "published": "docs/papers/multilevel_ung/generated_figures/query_strata/query_composition.png",
+        "byte_match": true,
+        "reproduced_sha256": "e300456ba652cb81f6cdd7d53f4d55a23baf45148f82ce79a6b7da7ce9834ac7"
+      }
+    ],
+    "system_python_attempt": "Failed only at plotting import: matplotlib not installed; repeated successfully with existing plotting interpreter."
+  }
+}

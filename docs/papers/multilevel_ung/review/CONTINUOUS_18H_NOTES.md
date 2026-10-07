@@ -91,3 +91,15 @@ C1定向复核全部返回并原样归档；核心证明通过，补明整数阈
 修正了长路径越界、参考文献孤立DOI尾行和附录标题/表格顺序；C2共27页，完整保留原126格实验结果。新的正文说明60/80%的TLT/TL观测范围重叠、95%的TLT/TLL点估计1.251对应宽范围，未称CI或稳定改进。
 
 C3开始只读审计旧query_details。已发现CandSize不是eligible向量数；LIGHT_STATS下的零work counters不能用于扫描量归因。QuerySize分层Recall分析正在进行，不重跑query/build campaign。
+
+C2发布：25afcd7已由W300推送main并回读确认，80份ShareLaTeX源逐字节验证，服务端26页PDF内容检查通过。最终定向PDF复核通过；不产生新的总评分。CSV保留已审计的CRLF原字节，在目录.gitattributes中将CR识别为行结束，避免改变数据hash。
+
+C3已重分组190000条query记录，所有190次warm均值匹配，5%混合批次43个单标签query的TLT Recall仅0.74419。精确coverage审计重算9000条query/3239个唯一谓词，与全部profile一致；base/query无行内重复标签。下一步将这些新派生证据整合到正文与可再生附录，仍不运行ANN benchmark。
+
+## C3：查询组成与子群Recall
+
+C3已写入正文、附录和中文材料。新图同时展示标签数与逐查询精确选择率；完整summary保留14配置、9批次和两次warm。独立实现重算190000条记录、9000条coverage、190个batch均值、570个旧直方图、756条size summary和2268条selectivity summary，未发现数值或join差异；source-only六个产物逐字节一致。
+
+5%批次中的43条是同一{1}谓词；30%批次80--95%区间的226条是同一{1,2}谓词。正文与导师材料已明确这一重复谓词边界，不将它们外推为完整查询族。零Recall计数仅描述选定吞吐点的质量尾部，不用于推断结构原因或子群QPS。
+
+最终远程finalizer通过271项测试并编译28页PDF，SHA为ce12f3edb743bab3fd4600a91557820f54ea6eb7e0fbf3dbf5c0812d336d6ca9；无undefined refs/citations。C3使用返回reviewer做数值和导师材料定向复核，不产生新的全文总评分。18小时时间边界在发布审计前已经满足。

@@ -1,0 +1,5 @@
+{
+  "query_coverage_exact.csv": "29c00ef5f85a7ae61a5565f85e4362f575e4c236ca5c05c1fc11dda213a294a8",
+  "query_recall.csv.gz": "e9b95f3e4e64061df030db2b4f3aa251c00aeb0455e3c14c43d84b2e0c77a657",
+  "query_size_reference.csv": "bfbd42e9c394a51c48f56bcfb48ad0037f1e7432655ee8a97d512400e7b19e35"
+}

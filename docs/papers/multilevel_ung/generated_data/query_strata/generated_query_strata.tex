@@ -1,0 +1,47 @@
+\newcommand{\querySizeRecallTable}{%
+\begin{table}[H]
+\centering\small
+\caption{Recall within predicate-size strata at each method's own batch-selected crossing. Each cell gives mean Recall@10 in percent, followed by the number of queries with zero Recall in parentheses. Ranges span the two original warm executions. $n$ is the number of queries per execution, not a count of independent repetitions. TL and TLT denote \texttt{1L[T|L]} and \texttt{2L[T|LT]}; L and T are their matched-provider 0L systems. NC has no selected crossing.}
+\label{tab:query-size-recall}
+\begin{tabular}{rrrllll}
+\toprule
+Mean sel. & $|Q|$ & $n$ & L & T & TL & TLT \\
+\midrule
+0.499\% & $\geq2$ & 1000 & 91.68--91.70 (3--4) & 95.98--96.09 (0) & 95.92 (0) & 95.92 (0) \\
+0.903\% & $\geq2$ & 1000 & 91.06--91.08 (4) & 94.60--94.61 (3) & 95.43 (0) & 95.43 (0) \\
+5.038\% & 1 & 43 & 28.84 (10) & 14.88 (23) & 73.26 (5) & 74.42 (4) \\
+5.038\% & $\geq2$ & 957 & 93.76--93.78 (3) & 93.65--93.71 (3--4) & 92.64 (1) & 92.64 (1) \\
+9.907\% & $\geq2$ & 1000 & 90.35 (15) & 93.18--93.24 (7) & 92.25 (13) & 90.70 (16) \\
+30.027\% & 1 & 70 & 71.71--71.86 (0) & NC & 94.29 (1) & 94.57 (1) \\
+30.027\% & $\geq2$ & 930 & 91.87--92.52 (10--11) & NC & 90.26 (10) & 90.54 (9) \\
+60.047\% & 1 & 1000 & 92.83--92.95 (11--12) & 91.25--91.43 (13) & 90.11 (32) & 90.23 (31) \\
+80.024\% & 1 & 1000 & 92.57--92.71 (12) & 96.99 (10) & 91.67 (27) & 91.60 (29) \\
+95.020\% & 1 & 1000 & 91.34--91.36 (14) & 96.66 (12) & 90.98 (31) & 90.91 (33) \\
+99.001\% & 0 & 697 & 93.79--93.85 (8) & 96.59 (8) & 92.57 (16) & 92.54 (16) \\
+99.001\% & 1 & 303 & 94.62--94.75 (4) & 96.50 (4) & 91.49 (12) & 91.25 (13) \\
+\bottomrule
+\end{tabular}
+\end{table}
+}
+\newcommand{\querySelectivityRecallTable}{%
+\begin{table}[H]
+\centering\small
+\caption{Recall by exact individual-query selectivity in the two mixed batches discussed in the text. Bins are open on the left and closed on the right. Cells use the Recall-percent (zero-count) convention of Table~\ref{tab:query-size-recall}, at the same batch-selected crossings. The source CSV retains all nine workloads, every bin, and all 14 configurations.}
+\label{tab:query-selectivity-recall}
+\begin{tabular}{rlrllll}
+\toprule
+Mean sel. & Query sel. (\%) & $n$ & L & T & TL & TLT \\
+\midrule
+5.038\% & (0,0.5] & 550 & 99.07 (0) & 97.02--97.15 (0) & 95.78 (0) & 95.78 (0) \\
+5.038\% & (0.5,1] & 206 & 95.24 (0) & 95.87--95.97 (0--1) & 94.13 (0) & 94.13 (0) \\
+5.038\% & (1,5] & 201 & 77.71--77.81 (3) & 81.99--82.14 (3) & 82.54 (1) & 82.54 (1) \\
+5.038\% & (95,100] & 43 & 28.84 (10) & 14.88 (23) & 73.26 (5) & 74.42 (4) \\
+30.027\% & (1,5] & 576 & 98.02 (1) & NC & 97.90 (1) & 97.90 (1) \\
+30.027\% & (5,10] & 96 & 99.90 (0) & NC & 99.27 (0) & 99.69 (0) \\
+30.027\% & (10,30] & 32 & 100.00 (0) & NC & 94.06 (1) & 98.12 (0) \\
+30.027\% & (80,95] & 226 & 71.64--74.29 (9--10) & NC & 66.42 (8) & 66.81 (8) \\
+30.027\% & (95,100] & 70 & 71.71--71.86 (0) & NC & 94.29 (1) & 94.57 (1) \\
+\bottomrule
+\end{tabular}
+\end{table}
+}

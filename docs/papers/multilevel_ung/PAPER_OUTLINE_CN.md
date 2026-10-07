@@ -13,7 +13,7 @@ Prefix frontier 为每个合法前缀子树保留入口。Prefix certificate 允
 3. 若 block 根前缀包含查询标签，其 direct members 都合法，可以在其中按几何邻近关系导航。
 4. 转交入口给 block 会替换其 L0 状态；LNG 最小入口依赖的非前缀路径可能永久丢失。
 5. 完整 prefix frontier 在明确的入口保留与有向可达性条件下可以保留覆盖。有限队列随后决定实际参加搜索的状态。
-6. 固定配置在不同批次有收益和退化；搜索预算、入口设置和图工作共同影响吞吐。
+6. 固定配置在不同批次有收益和退化；搜索预算、入口设置和图工作共同影响吞吐。批次Recall门槛掩盖的子群差异决定这些吞吐结果如何解读。
 7. 自动参数和 GPU 构建是支持性研究，分别需要迁移性能与输出质量证据。
 
 ## 正文各部分的职责
@@ -27,7 +27,7 @@ Prefix frontier 为每个合法前缀子树保留入口。Prefix certificate 允
 | Querying Certified Blocks | seed 如何标层？安全与覆盖各由什么条件保证？ | 搜索算法；retagging 反例图；Propositions 2–4 |
 | Construction and Hierarchy Configuration | 怎么构建不规则图？DRH 中哪些量有结构依据？ | 构建数据流；复杂度；N/T 上界与启发式选择 |
 | Experimental Methodology | 实际数据、批次、执行与测量对象是什么？ | Amazon 和 held-out 描述；重复与 Recall 规则 |
-| Results | 固定配置怎样表现？入口节省去了哪里？ | 四个固定配置主表；profile；自动方案反例；构建计时 |
+| Results | 固定配置怎样表现？哪些查询仍失败？入口节省去了哪里？ | 固定配置主表；子群Recall；profile；自动方案反例；构建计时 |
 | Discussion and Related Work | 与直接相关工作的结构区别是什么？ | UNG、Curator、ACORN、FAVOR、LSSG 等 |
 | Conclusion | 从现有分析和测量可以形成什么设计认识？ | 入口覆盖、几何导航和预算共同决定效果 |
 
@@ -45,7 +45,7 @@ Prefix frontier 为每个合法前缀子树保留入口。Prefix certificate 允
 
 主表先给 Plain、Trie base、固定一层和固定两层，分别沿九个批次保持结构不变。逐档赢家用于了解配置空间，放在完整分析中。跨 L0 比较注明各自 provider；同 L0/provider 下改变一个 upper 字母才隔离该层 topology。
 
-高平均选择率的数百倍比率与 260k–400k 对 1k–5k 的搜索预算差异一起解释。发现、seed、graph 的 instrumented ms/query 与主 QPS 分开定义。批次平均 Recall 及混合谓词组成在实验方法处说明。
+高平均选择率的数百倍比率与 260k–400k 对 1k–5k 的搜索预算差异一起解释。发现、seed、graph 的 instrumented ms/query 与主 QPS 分开定义。实验方法用图区分标签数与精确选择率；Results紧接吞吐表解释5%与30%批次的子群Recall，附录列出完整标签数分组和两档真实选择率分组。这样将批次平均门槛的含义落实到具体证据。
 
 ## 后续研究需要补齐的证据
 
