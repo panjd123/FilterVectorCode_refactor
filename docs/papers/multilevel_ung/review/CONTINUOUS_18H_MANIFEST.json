@@ -4,7 +4,7 @@
   "not_before_completion_utc": "2026-10-07T06:52:13+00:00",
   "minimum_hours": 18,
   "baseline_commit": "14c213eff53c36d4fdafcdf50f2f95c8e999b46c",
-  "status": "active",
+  "status": "complete",
   "clock_scope": "This new objective only; historical goal elapsed time does not count.",
   "baseline_pdf_sha256": "40663b20bed86e887a534936204bf690fe630a69209ed5d35b03d7867b96a468",
   "cold_review_package": "/tmp/mlung-cold-c0-20261006",
@@ -110,7 +110,7 @@
     },
     {
       "id": "C3",
-      "status": "validated_pending_publication",
+      "status": "published",
       "purpose": "Expose subgroup Recall and actual selectivity using old per-query records.",
       "evidence_change": "190000 existing query records regrouped; 9000 query coverages independently recomputed from labels. No ANN/build benchmark.",
       "artifacts": [
@@ -119,21 +119,23 @@
         "runs/paper_c3_20261007/finalization_manifest.json"
       ],
       "validation": "271 tests; 28-page PDF; independent 190000-record and 9000-coverage audit passed",
-      "pdf_sha256": "ce12f3edb743bab3fd4600a91557820f54ea6eb7e0fbf3dbf5c0812d336d6ca9"
+      "pdf_sha256": "ce12f3edb743bab3fd4600a91557820f54ea6eb7e0fbf3dbf5c0812d336d6ca9",
+      "commit": "6cc09d60a712bba7e680aebe1154e33e778d8fda"
     }
   ],
-  "latest_checkpoint": "25afcd7ddafcbe3798c96eb05e6934109b69021c",
+  "latest_checkpoint": "6cc09d60a712bba7e680aebe1154e33e778d8fda",
   "checkpoint_pushed_from": "W300-pub",
-  "last_activity_at_utc": "2026-10-07T06:58:00+00:00",
-  "current_work": "C3 content and validation complete after the 18-hour boundary; GitHub and ShareLaTeX publication audit in progress.",
+  "last_activity_at_utc": "2026-10-07T07:08:46+00:00",
+  "current_work": "Complete after the 18-hour boundary: C3 content, validation, GitHub publication, and ShareLaTeX publication audit all passed.",
   "sharelatex_document_sync": {
-    "commit": "25afcd7ddafcbe3798c96eb05e6934109b69021c",
-    "verified_files": 80,
-    "receipt": "review/SHARELATEX_C2_PUBLICATION.json",
-    "server_pdf_pages": 26,
-    "server_pdf_sha256": "3f9ca1a630988926c190a72e189d5122593cca7a3b3a55a7fb6be6a2d8e9f6c0"
+    "commit": "6cc09d60a712bba7e680aebe1154e33e778d8fda",
+    "verified_files": 108,
+    "receipt": "review/SHARELATEX_C3_PUBLICATION.json",
+    "server_pdf_pages": 28,
+    "server_pdf_sha256": "eed4744c1b48a1c1ddb5d82ae5fd49989d21a653c7cb8cd6812735e52ff07943",
+    "content_audit_passed": true
   },
-  "work_in_progress": {
+  "audit_history": {
     "coverage_derivation": "docs/papers/multilevel_ung/review/partition_and_retagging_audit_c0.md",
     "pending_reviews": [],
     "warm_repeat_audit": {
@@ -143,6 +145,6 @@
       "primary_results_changed": false,
       "not_a_confidence_interval": true
     },
-    "next_step": "Commit and push C3 from the clean W300 publisher checkout, then upload/read back ShareLaTeX sources and compile the service PDF."
+    "next_step": "None; all requested publication and audit work is complete."
   }
 }
