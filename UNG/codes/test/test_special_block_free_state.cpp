@@ -74,6 +74,44 @@ int main()
                                               std::vector<uint8_t>{0, 0}),
           "an uncovered block must remain regular");
 
+   const std::vector<std::vector<ANNS::IdxType>> point_owners_by_level{
+       {0, 1, 1, 0},
+       {0, 2, 2, 2},
+       {0, 3, 0, 3}};
+   const std::vector<uint8_t> authorized_blocks{0, 1, 1, 1};
+   expect(ANNS::special_block_authorized_levels_for_point(
+              1, point_owners_by_level, authorized_blocks) ==
+              std::vector<uint8_t>({3, 2, 1}),
+          "a point free at every layer must jump directly to the coarsest layer");
+   expect(ANNS::special_block_authorized_levels_for_point(
+              2, point_owners_by_level, authorized_blocks) ==
+              std::vector<uint8_t>({2, 1}),
+          "all authorized layer states must remain available as independent paths");
+   expect(ANNS::special_block_authorized_levels_for_point(
+              3, point_owners_by_level, authorized_blocks) ==
+              std::vector<uint8_t>({3, 2}),
+          "a point need not belong to the finest block in order to use upper layers");
+   expect(ANNS::special_block_monotone_levels_for_point(
+              1, 0, point_owners_by_level, authorized_blocks) ==
+              std::vector<uint8_t>({3, 2, 1, 0}),
+          "base traversal may retain its current path and promote to every upper layer");
+   expect(ANNS::special_block_monotone_levels_for_point(
+              1, 1, point_owners_by_level, authorized_blocks) ==
+              std::vector<uint8_t>({3, 2, 1}),
+          "level-one traversal must never create a base-graph state");
+   expect(ANNS::special_block_monotone_levels_for_point(
+              1, 2, point_owners_by_level, authorized_blocks) ==
+              std::vector<uint8_t>({3, 2}),
+          "level-two traversal may only remain there or promote farther upward");
+   expect(ANNS::special_block_monotone_levels_for_point(
+              1, 3, point_owners_by_level, authorized_blocks) ==
+              std::vector<uint8_t>({3}),
+          "the coarsest traversal must remain in its own layer");
+   expect(ANNS::special_block_monotone_levels_for_point(
+              0, 0, point_owners_by_level, authorized_blocks) ==
+              std::vector<uint8_t>({0}),
+          "a point outside every free block must remain on the base graph");
+
    ANNS::SpecialBlock middle_block;
    middle_block.level = 0;
    ANNS::SpecialBlock upper_block;

@@ -6,19 +6,6 @@
 #include <stdexcept>
 #include <utility>
 
-namespace
-{
-bool disable_entry_route_stats()
-{
-   const char *value = std::getenv("UNG_DISABLE_ENTRY_ROUTE_STATS");
-   if (value == nullptr)
-      return false;
-   return value[0] != '\0' && !(value[0] == '0' || value[0] == 'f' || value[0] == 'F' ||
-                                value[0] == 'n' || value[0] == 'N' || value[0] == 'o' ||
-                                value[0] == 'O');
-}
-}
-
 namespace ANNS
 {
 
@@ -30,12 +17,7 @@ void UniNavGraph::prepare_entry_groups_for_execution(
    EntryGroupProviderResult result = run_entry_group_provider(request, stats);
    entry_group_ids = std::move(result.group_ids);
    stats.num_entry_points = entry_group_ids.size();
-   if (disable_entry_route_stats())
-      return;
-   if (result.route_stats.valid)
-      apply_entry_group_route_stats(result.route_stats, stats);
-   else
-      populate_entry_group_route_stats(entry_group_ids, stats);
+
 }
 
 EntryGroupProviderResult UniNavGraph::run_entry_group_provider(

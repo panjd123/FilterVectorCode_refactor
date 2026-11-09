@@ -1,0 +1,51 @@
+{
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "rwalks_source_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/RWalks",
+  "rwalks_adapter_build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/RWalks/project_adapter/build",
+  "build_jobs": 16,
+  "build": {
+    "data_type": "float",
+    "dist_fn": "L2",
+    "scenario": "containment",
+    "num_threads": 60,
+    "M": 16,
+    "ef_construction": 100,
+    "attr_depth": 3,
+    "attr_steps": 20,
+    "random_seed": 100,
+    "attribute_scope": "configured_queries"
+  },
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "search_mode": 0,
+    "hybrid_factor": 0.0,
+    "pruning_factor": 0.0,
+    "lsearch_start": 1000,
+    "lsearch_end": 20000,
+    "lsearch_step": 1000
+  },
+  "datasets": [
+    {
+      "dataset": "Tiktok",
+      "query_task": "query_minlen1_sel0to10pct"
+    },
+    {
+      "dataset": "Tiktok",
+      "query_task": "query_minlen1_sel10to40pct"
+    },
+    {
+      "dataset": "Tiktok",
+      "query_task": "query_minlen1_sel40to100pct"
+    }
+  ],
+  "methods": [
+    {
+      "name": "rwalks",
+      "index_name": "RWalks_default"
+    }
+  ],
+  "auto_build_rwalks": true
+}

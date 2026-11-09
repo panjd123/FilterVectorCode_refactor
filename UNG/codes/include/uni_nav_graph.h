@@ -19,6 +19,7 @@
 #include "ung_special_blocks.h"
 #include "ung_special_block_trie.h"
 #include "ung_special_edge_io.h"
+#include "ung_upper_hnsw.h"
 #include "ung_search_execution_context.h"
 #include <unordered_map>
 #include <bitset>
@@ -26,19 +27,8 @@
 #include <memory>
 #include <optional>
 #include <queue>
-#include <boost/dynamic_bitset.hpp>
 #include <roaring/roaring.h>
 #include <roaring/roaring.hh>
-
-
-using BitsetType = boost::dynamic_bitset<>;
-
-class MethodSelector;
-
-namespace faiss
-{
-   struct IndexACORNFlat;
-}
 
 namespace ANNS
 {
@@ -58,16 +48,6 @@ namespace ANNS
                  IdxType max_degree, IdxType Lbuild, float alpha, std::string dataset,
                  ANNS::AcornInUng new_cross_edge);
 
-      void calculate_query_features_only(
-          std::shared_ptr<IStorage> query_storage,
-          uint32_t num_threads,
-          const std::string &output_csv_path,
-          bool is_new_trie_method,
-          bool is_rec_more_start);
-      void search(std::shared_ptr<IStorage> query_storage, std::shared_ptr<DistanceHandler> distance_handler,
-                 uint32_t num_threads, IdxType Lsearch, IdxType num_entry_points, std::string scenario,
-                 IdxType K, std::pair<IdxType, float> *results, std::vector<float> &num_cmps,
-                 std::vector<std::bitset<10000001>> &bitmap);
       void search_hybrid(std::shared_ptr<IStorage> &query_storage,
                          std::shared_ptr<DistanceHandler> &distance_handler,
                          const SearchRuntimeConfig &runtime,
@@ -102,23 +82,14 @@ namespace ANNS
 
       // I/O
       void save(std::string index_path_prefix, std::string results_path_prefix);
-      void load(std::string index_path_prefix, std::string selector_model_prefix, const std::string &data_type, const std::string &acorn_index_path, const std::string &acorn_1_index_path, const std::string &dataset);
+      void load(std::string index_path_prefix, const std::string &data_type, const std::string &dataset);
       void load_special_block_index(const std::string &block_index_path_prefix);
-      void load_bipartite_graph(const std::string &filename);
+      bool has_upper_hnsw() const;
+      UpperHnswStats upper_hnsw_stats() const;
+      std::vector<UpperHnswCandidate> search_upper_hnsw(
+          const float *query, size_t top_n, size_t ef_search) const;
+      IdxType bottom_block_for_original_point(IdxType original_point_id) const;
 
-      // Diagnostic and benchmark-facing helpers. These are intentionally
-      // public because search_UNG_index and bitmap benchmarks call them
-      // directly; new production search providers should go through
-      // prepare_entry_groups_for_execution() instead of expanding this API.
-      static bool compare_graphs(const ANNS::UniNavGraph &g1, const ANNS::UniNavGraph &g2);
-      std::pair<std::bitset<10000001>, double> compute_attribute_bitmap(const std::vector<LabelType> &query_attributes) const;
-      roaring::Roaring compute_bitmap_from_groups(const std::vector<IdxType> &group_ids) const;
-      std::vector<roaring::Roaring> batch_compute_ung_bitmaps(
-          const ANNS::UniNavGraph &index,
-          const std::shared_ptr<ANNS::IStorage> &query_storage,
-          uint32_t num_threads,
-          bool is_new_trie_method,
-          bool is_rec_more_start);
       // Timing-external correctness audit for filtered-search benchmarks.
       // Result ids are in the original dataset order; the loaded index stores
       // labels in reordered graph order, so this helper owns the id mapping.
@@ -140,8 +111,6 @@ namespace ANNS
                                     bool avoid_self, bool need_containment,
                                     std::atomic<int> &print_counter, bool is_new_trie_method, bool is_rec_more_start, QueryStats &stats,
                                     bool skip_group_id_check) const;
-
-      void warmup_selectors(uint32_t num_threads);
 
    private:
       friend class SpecialBlockIndexBuilder;
@@ -190,7 +159,6 @@ namespace ANNS
          }
       };
 
-
       // Search runtime orchestration. This layer owns query-level threading,
       // runtime config fan-out, and result writeback only.
       // Implementation: uni_nav_graph_search.cpp.
@@ -208,13 +176,7 @@ namespace ANNS
       // expansion.
       // Implementation: uni_nav_graph_query_route.cpp.
       QueryRouteDecision decide_query_route(const std::vector<LabelType> &query_labels,
-                                            bool is_idea2_available,
-                                            bool is_new_trie_method,
-                                            bool is_rec_more_start,
-                                            int force_use_alg,
-                                            bool is_bfs_filter,
-                                            std::vector<IdxType> &entry_group_ids,
-                                            QueryStats &stats);
+                                            int force_use_alg, QueryStats &stats);
 
       // Entry-group strategy. Search backends consume only the resulting group
       // IDs; hierarchy and group-edge topology are independent choices.
@@ -232,29 +194,9 @@ namespace ANNS
           const EntryGroupProviderRequest &request,
           QueryStats &stats);
 
-      // Search backends. These execute ACORN-compatible or UNG graph expansion
+      // Search backends. These execute UNG graph expansion
       // after the route and entry-group provider have finished.
       // Implementation: uni_nav_graph_search_backend.cpp.
-      bool execute_acorn_query(const char *query,
-                               const std::vector<LabelType> &query_labels,
-                               const std::vector<IdxType> &entry_group_ids,
-                               IdxType query_id,
-                               IdxType K,
-                               IdxType Lsearch,
-                               int lsearch_start,
-                               int lsearch_step,
-                               int efs_start,
-                               int efs_step_slow,
-                               int efs_step_fast,
-                               int lsearch_threshold,
-                               int force_use_alg,
-                               int algorithm,
-                               bool is_bfs_filter,
-                               bool use_old_bitmap_search,
-                               std::pair<IdxType, float> *results,
-                               std::vector<float> &num_cmps,
-                               SearchQueue &cur_result,
-                               QueryStats &stats);
       bool execute_ung_query(const char *query,
                              std::shared_ptr<SearchCache> search_cache,
                              const GraphSearchBackend &graph_backend,
@@ -283,6 +225,15 @@ namespace ANNS
                                          std::vector<float> &num_cmps,
                                          SearchQueue &cur_result,
                                          QueryStats &stats);
+      bool execute_hnsw_block_ung_query(const char *query,
+                                        std::shared_ptr<SearchCache> search_cache,
+                                        const SearchRuntimeConfig &runtime,
+                                        const GraphSearchBackend &graph_backend,
+                                        const std::vector<IdxType> &entry_group_ids,
+                                        IdxType query_id,
+                                        std::vector<float> &num_cmps,
+                                        SearchQueue &cur_result,
+                                        QueryStats &stats);
       bool execute_special_batch_gpu_candidate_search(std::shared_ptr<IStorage> &query_storage,
                                                       std::shared_ptr<DistanceHandler> &distance_handler,
                                                       const SearchRuntimeConfig &runtime,
@@ -290,18 +241,6 @@ namespace ANNS
                                                       std::vector<float> &num_cmps,
                                                       std::vector<QueryStats> &query_stats,
                                                       const std::vector<IdxType> &true_query_group_ids);
-
-      // Query feature and selector diagnostics. These helpers feed route
-      // decisions and benchmark CSVs; they should stay side-effect-light.
-      // Implementation: uni_nav_graph_query_features.cpp.
-      size_t get_candidate_count_for_label(LabelType label) const;
-      std::vector<float> calculate_idea1_features(const QueryStats &stats) const;
-      std::vector<float> calculate_idea2_features(const QueryStats &stats) const;
-      std::optional<bool> check_pre_trie_heuristic(const std::string& dataset_name, size_t query_length, size_t candidate_set_size) const;
-      EntryGroupRouteStats compute_entry_group_route_stats(
-          const std::vector<IdxType> &entry_group_ids) const;
-      void populate_entry_group_route_stats(const std::vector<IdxType> &entry_group_ids,
-                                            QueryStats &stats) const;
 
       // Low-level UNG graph expansion helpers used by the search backend and
       // by legacy cross-edge construction paths.
@@ -330,14 +269,6 @@ namespace ANNS
       std::shared_ptr<Graph> _graph;
       IdxType _num_points = 0;
 
-      // Vector-attribute bipartite graph. This supports bitmap generation,
-      // persistence, and ACORN/filter compatibility; it is not a backend
-      // extension point.
-      std::vector<std::vector<IdxType>> _vector_attr_graph;
-      std::unordered_map<LabelType, AtrType> _attr_to_id;
-      std::unordered_map<AtrType, LabelType> _id_to_attr;
-      AtrType _num_attributes = 0;
-
       // trie index and vector groups
       IdxType _num_groups = 0;
       TrieIndex _trie_index;
@@ -362,6 +293,11 @@ namespace ANNS
       SpecialEdgeCsr _special_edges_csr;
       SpecialEdgeCsr _special_heavy_edges_csr;
       SpecialBlockBuildSummary _special_block_summary;
+      // Block-major centroids and covering radii for each complete same-layer
+      // block subtree. Populated only for the FLOAT/L2 query-time router.
+      std::vector<float> _special_block_router_centroids;
+      std::vector<float> _special_block_router_radii;
+      std::unique_ptr<UpperHnswIndex> _upper_hnsw;
       void build_special_block_index(const std::string &ung_index_path_prefix,
                                      const std::string &base_bin_file,
                                      const std::string &base_label_file,
@@ -382,6 +318,11 @@ namespace ANNS
       void load_special_blocks(const std::string &prefix,
                                const std::map<std::string, std::string> &meta_data,
                                bool require_binary_sidecars = false);
+      bool load_special_block_router_bounds(const std::string &path);
+      void build_special_block_router_bounds();
+      void save_special_block_router_bounds(const std::string &path) const;
+      void load_or_build_special_block_router_bounds(
+          const std::string &block_index_prefix);
       void refresh_special_block_memory_stats();
       SpecialEdgeView special_edges_for_point(IdxType point_id) const;
       SpecialEdgeView special_heavy_edges_for_point(IdxType point_id) const;
@@ -389,12 +330,8 @@ namespace ANNS
       bool is_trivial_special_block_root_group(IdxType group_id) const;
       bool is_special_block_root_group(IdxType group_id) const;
       bool is_special_block_root_point(IdxType point_id) const;
-      bool query_covers_special_block(const std::vector<LabelType> &query_labels,
-                                      const SpecialBlock &block) const;
-      void populate_special_query_stats(const std::vector<LabelType> &query_labels,
-                                        QueryStats &stats) const;
 
-      // Label navigating graph and coverage metadata.
+      // Core group topology and label navigation.
       std::shared_ptr<LabelNavGraph> _label_nav_graph = nullptr;
       // Relation used only to generate cross-group vector edges. It may share
       // the LNG graph or hold an independent Trie-terminal topology.
@@ -405,16 +342,10 @@ namespace ANNS
                                                bool avoid_self = false, bool need_containment = true);
       void get_min_super_sets_original_sort(const std::vector<LabelType> &query_label_set, std::vector<IdxType> &min_super_set_ids,
                                             bool avoid_self = false, bool need_containment = true);
-      void cal_f_coverage_ratio();
       void build_label_nav_graph();
       void build_label_nav_graph_optimized_phase1();
       void build_label_nav_graph_legacy_allocating();
       void build_label_nav_graph_original_cpu();
-      size_t count_all_descendants(IdxType group_id) const;
-      void print_lng_descendants_num(const std::string &filename) const;
-      void get_descendants_info();
-      void get_descendants_info_optimized_epoch_bfs();
-      void get_descendants_info_legacy_hash_bfs();
 
       // Group storage and ID mappings.
       std::vector<IdxType> _new_to_old_vec_ids;
@@ -459,19 +390,8 @@ namespace ANNS
       std::shared_ptr<Graph> _global_graph;
       IdxType _global_vamana_entry_point = 0;
 
-      // Vector-attribute graph and persistence helpers.
-      void build_vector_and_attr_graph();
-      size_t count_graph_edges() const;
-      void save_bipartite_graph(const std::string &filename);
-      uint32_t compute_checksum() const;
-
-      // LNG descendant and coverage caches used by filtering and bitmap helpers.
-      std::vector<BitsetType> _lng_descendants_bits;
-      std::vector<BitsetType> _covered_sets_bits;
-      std::vector<roaring::Roaring> _lng_descendants_rb;
-      std::vector<roaring::Roaring> _covered_sets_rb;
-      void initialize_lng_descendants_coverage_bitsets();
-      void initialize_roaring_bitsets();
+      // Query-local target filtering for graph block backends, without global caches.
+      roaring::Roaring collect_target_points(const std::vector<IdxType> &group_ids) const;
 
       // Legacy distance-oriented edge augmentation.
       void add_new_distance_oriented_edges(
@@ -503,6 +423,8 @@ namespace ANNS
       void build_cross_edges_generate_cpu_exact_scan(std::vector<SearchQueue> &cross_group_neighbors);
       void build_cross_edges_generate_cpu_hybrid_scan_vamana(std::vector<SearchQueue> &cross_group_neighbors,
                                                              SearchCacheList &search_cache_list);
+      void build_cross_edges_generate_trie_source_exact(
+          std::vector<SearchQueue> &cross_group_neighbors);
       void append_cross_edges_from_target_range(IdxType source_point_id,
                                                 IdxType target_first,
                                                 IdxType target_second,
@@ -516,7 +438,8 @@ namespace ANNS
                                                  SearchCacheList *search_cache_list,
                                                  bool use_exact_scan,
                                                  SearchQueue &out_neighbors,
-                                                 IdxType max_neighbors) const;
+                                                 IdxType max_neighbors,
+                                                 uint64_t *distance_computations = nullptr) const;
       bool build_cross_edges_generate_gpu_optimized(std::vector<SearchQueue> &cross_group_neighbors,
                                                     const CrossEdgeGpuRuntimeConfig &gpu_route,
                                                     std::vector<std::vector<IdxType>> *cross_group_neighbor_ids,
@@ -577,9 +500,8 @@ namespace ANNS
       void add_offset_for_uni_nav_graph();
 
       // statistics
-      float _index_time = 0, _label_processing_time = 0, _build_graph_time = 0, _build_vector_attr_graph_time = 0, _cal_descendants_time = 0, _cal_coverage_ratio_time = 0;
+      float _index_time = 0, _label_processing_time = 0, _build_graph_time = 0;
       float _build_LNG_time = 0, _build_cross_edges_time = 0;
-      double _build_roaring_bitsets_time = 0.0;
       float _index_size = 0.0f, _index_size_add_rb = 0.0f;
       IdxType _graph_num_edges = 0, _LNG_num_edges = 0;
 
@@ -613,14 +535,6 @@ namespace ANNS
 
       std::string _dataset;
 
-      // idea1 selector
-      std::unique_ptr<MethodSelector> _trie_method_selector;
-      TrieStaticMetrics _trie_static_metrics;
-
-      // idea2 selector
-      std::shared_ptr<faiss::IndexACORNFlat> _acorn_index;
-      std::shared_ptr<faiss::IndexACORNFlat> _acorn_1_index;
-      std::unique_ptr<MethodSelector> _ung_acorn_selector;
    };
 }
 

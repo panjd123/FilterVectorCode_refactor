@@ -40,6 +40,59 @@ class AcornIndexExistsTest(unittest.TestCase):
             self.assertFalse(run_acorn_baseline.acorn_index_exists(index_dir))
 
 
+class AcornGammaOnlyTest(unittest.TestCase):
+    def test_gamma_only_index_does_not_require_acorn1_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            index_dir = Path(tmp)
+            for name in ["acorn.index", "acorn.index.meta", "acorn.index.inverted_index"]:
+                (index_dir / name).write_text("index data\n", encoding="utf-8")
+
+            self.assertTrue(run_acorn_baseline.acorn_index_exists(index_dir, require_acorn1=False))
+            self.assertFalse(run_acorn_baseline.acorn_index_exists(index_dir, require_acorn1=True))
+
+    def test_command_passes_gamma_only_switch(self):
+        cmd = run_acorn_baseline.acorn_cmd(
+            Path("/bin/test_acorn"),
+            "search",
+            {"run_acorn1": False},
+            {
+                "dataset": "Tiny",
+                "base_fvecs": Path("/data/Tiny_base.fvecs"),
+                "base_labels": Path("/data/Tiny_base_labels.txt"),
+                "query_dir": Path("/data/query"),
+                "index_dir": Path("/index"),
+                "result_dir": Path("/results"),
+            },
+            {"M": 32, "M_beta": 64, "gamma": 80, "num_threads": 7},
+            {"K": 10, "num_repeats": 1, "num_threads": 5, "efs_start": 10, "efs_end": 30, "efs_step": 10},
+            1,
+            Path("/gt.bin"),
+        )
+
+        self.assertEqual(cmd[-1], "0")
+
+    def test_gamma_only_normalization_does_not_create_acorn1_results(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result_dir = Path(tmp) / "results" / "ACORN" / "task" / "results"
+            result_dir.mkdir(parents=True)
+            (result_dir / "avg_Tiny.csv").write_text(
+                "efs,acorn_Time_ms,acorn_QPS,acorn_Recall\n10,2,500,1\n",
+                encoding="utf-8",
+            )
+
+            run_acorn_baseline.normalize_acorn_summary(result_dir, include_acorn1=False)
+
+            self.assertTrue((result_dir / "search_time_summary.csv").exists())
+            self.assertFalse(run_acorn_baseline.acorn1_result_dir(result_dir).exists())
+
+    def test_all_batch_configs_disable_acorn1(self):
+        config_dir = Path(__file__).resolve().parent
+        datasets = ["Amazon", "BReviews", "Laion", "Music", "Tiktok", "VImg", "Genome", "Reviews"]
+        for dataset in datasets:
+            cfg = json.loads((config_dir / f"{dataset}_config.json").read_text(encoding="utf-8"))
+            self.assertFalse(cfg["run_acorn1"], dataset)
+
+
 class AcornDefaultConfigTest(unittest.TestCase):
     def test_default_config_runs_only_selected_recall_advantage_tasks(self):
         config_path = Path(__file__).with_name("config.json")
@@ -230,6 +283,8 @@ class AcornBaselineRunnerTest(unittest.TestCase):
             self.assertEqual(calls[0][:2], ["cmake", "-S"])
             self.assertEqual(calls[1][:2], ["cmake", "--build"])
             self.assertNotIn("utils", calls[1])
+            self.assertIn("-DUNG_BUILD_TOOLS=ON", calls[2])
+            self.assertIn("-DUNG_BUILD_TESTS=OFF", calls[2])
             acorn_build_calls = [cmd for cmd in calls if cmd[0].endswith("test_acorn") and cmd[1] == "build"]
             acorn_search_calls = [cmd for cmd in calls if cmd[0].endswith("test_acorn") and cmd[1] == "search"]
             self.assertEqual(len(acorn_build_calls), 1)

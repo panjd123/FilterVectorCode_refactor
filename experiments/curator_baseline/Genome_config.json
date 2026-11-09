@@ -1,9 +1,9 @@
 {
-  "curator_repo": "/home/dev/graphdb/FilterVectorCode_refactor/thirdparty/curator-v2",
+  "curator_repo": "/home/dev/graphdb/FilterVectorCode_multilevel_special/thirdparty/curator-v2",
   "data_root": "/home/dev/graphdb/FilterVectorData",
   "result_root": "/home/dev/graphdb/FilterVectorResult",
-  "source_dir": "/home/dev/graphdb/FilterVectorCode_refactor/UNG/codes",
-  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "source_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/UNG/codes",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/build_ung_multilevel_trie_gpu",
   "auto_compile": false,
   "allow_fvecs_conversion": true,
   "allow_gt_generation": true,
@@ -50,7 +50,15 @@
   "datasets": [
     {
       "dataset": "Genome",
-      "query_task": "query_selected_mixed_advantage"
+      "query_task": "query_minlen1_sel0to10pct"
+    },
+    {
+      "dataset": "Genome",
+      "query_task": "query_minlen1_sel10to40pct"
+    },
+    {
+      "dataset": "Genome",
+      "query_task": "query_minlen1_sel40to100pct"
     }
   ]
 }

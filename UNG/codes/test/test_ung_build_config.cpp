@@ -51,10 +51,12 @@ int main()
    setenv("UNG_SPECIAL_BLOCKS", "1", 1);
    setenv("UNG_BASE_GROUP_TOPOLOGY", "trie", 1);
    setenv("UNG_HIERARCHY_LAYERS", "1000:trie,16000:lng,400000:trie", 1);
+   setenv("UNG_TRIE_CROSS_SOURCE_EXACT", "0", 1);
    const ANNS::UngBuildConfig multilevel = ANNS::UngBuildConfig::from_env(1);
    expect(multilevel.special_blocks_enabled &&
               multilevel.hierarchy.base_topology == ANNS::GroupTopologyKind::Trie &&
               multilevel.hierarchy.layer_count() == 3 &&
+              !multilevel.trie_cross_source_exact &&
               multilevel.hierarchy.layers[0].min_points == 1000 &&
               multilevel.hierarchy.layers[1].topology == ANNS::GroupTopologyKind::Lng &&
               multilevel.hierarchy.layers[2].min_points == 400000,
@@ -68,6 +70,7 @@ int main()
 
    unsetenv("UNG_SPECIAL_BLOCKS");
    unsetenv("UNG_BASE_GROUP_TOPOLOGY");
+   unsetenv("UNG_TRIE_CROSS_SOURCE_EXACT");
    std::cout << "UNG build config checks passed\n";
    return 0;
 }

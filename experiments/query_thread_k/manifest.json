@@ -1,0 +1,517 @@
+{
+  "query_task": "query_minlen1_sel10to40pct",
+  "groups": {
+    "threads10": {
+      "K": 10,
+      "num_threads": 10
+    },
+    "k20": {
+      "K": 20,
+      "num_threads": 100
+    }
+  },
+  "datasets": [
+    "Amazon",
+    "VImg",
+    "Music"
+  ],
+  "methods": [
+    "trie_block",
+    "ung",
+    "acorn",
+    "favor",
+    "milvus_hnsw",
+    "navix",
+    "pathseer",
+    "rwalks",
+    "curator"
+  ],
+  "jobs": [
+    {
+      "group": "threads10",
+      "dataset": "Amazon",
+      "method": "trie_block",
+      "config": "configs/threads10/Amazon/trie_block.json",
+      "source_config": "experiments/search_comparison/config_amazon.json",
+      "source_sha256": "10813308ce35d235b5077d420ee17597fd95606956f5e9d70690d3d85bb32496",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Amazon",
+      "method": "ung",
+      "config": "configs/threads10/Amazon/ung.json",
+      "source_config": "experiments/search_comparison/config_amazon_ung.json",
+      "source_sha256": "8b72145dc7e1d572bf36647e719be029d6656954d9865fdab40feed4e04092db",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Amazon",
+      "method": "acorn",
+      "config": "configs/threads10/Amazon/acorn.json",
+      "source_config": "experiments/acorn_baseline/Amazon_config.json",
+      "source_sha256": "67c0d04a7c6af200fbe04e7201d464c9e669ccbdc069827d1570a88a90d4c132",
+      "runner": "experiments/acorn_baseline/run_acorn_baseline.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Amazon",
+      "method": "favor",
+      "config": "configs/threads10/Amazon/favor.json",
+      "source_config": "experiments/favor/Amazon_config.json",
+      "source_sha256": "02d1058ea11fab80634c3fa631377aef065739afc1cde462829fe529d3911f6a",
+      "runner": "experiments/favor/run_favor_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Amazon",
+      "method": "milvus_hnsw",
+      "config": "configs/threads10/Amazon/milvus_hnsw.json",
+      "source_config": "experiments/milvus_hnsw/Amazon_config.json",
+      "source_sha256": "c90c05971b607e35ea18de1bf86df22bfaef7840370ad4088444d17f2a6e8b19",
+      "runner": "experiments/milvus_hnsw/run_milvus_hnsw_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Amazon",
+      "method": "navix",
+      "config": "configs/threads10/Amazon/navix.json",
+      "source_config": "experiments/navix_baseline/Amazon_config.json",
+      "source_sha256": "ce1f1292cacbc8202b98a9da109ac74b7956b7ab639e55794fd4b4554d9f873b",
+      "runner": "experiments/navix_baseline/run_navix_baseline.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Amazon",
+      "method": "pathseer",
+      "config": "configs/threads10/Amazon/pathseer.json",
+      "source_config": "experiments/pathseer/Amazon_config.json",
+      "source_sha256": "bf04c856e65b50232f41868be44dd8f8ec7ef8e403b299e6aa090f0aaaf07cc4",
+      "runner": "experiments/pathseer/run_pathseer_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Amazon",
+      "method": "rwalks",
+      "config": "configs/threads10/Amazon/rwalks.json",
+      "source_config": "experiments/rwalks/Amazon_config.json",
+      "source_sha256": "de9ccf8590a15a74ce06ea1b0b0f2a9e67c96c128b2bdb98b3d638bfc46f55c9",
+      "runner": "experiments/rwalks/run_rwalks_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Amazon",
+      "method": "curator",
+      "config": "configs/threads10/Amazon/curator.json",
+      "source_config": "experiments/curator_baseline/Amazon_config.json",
+      "source_sha256": "8b925b13a5feefe26435f3496ee139b1d20dc0d415b3ed6a70c806a1ecf0af07",
+      "runner": "experiments/curator_baseline/run_curator_baseline_with_env.sh"
+    },
+    {
+      "group": "threads10",
+      "dataset": "VImg",
+      "method": "trie_block",
+      "config": "configs/threads10/VImg/trie_block.json",
+      "source_config": "experiments/search_comparison/config_VImg.json",
+      "source_sha256": "233600d26061d3585cc054787de9db284b32e6803442a5308f7b89efa9c0294b",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "VImg",
+      "method": "ung",
+      "config": "configs/threads10/VImg/ung.json",
+      "source_config": "experiments/search_comparison/config_VImg_ung.json",
+      "source_sha256": "f4a6933055b21291f15243036fc9c42a21cc4769540ca529da84ed2003807cfb",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "VImg",
+      "method": "acorn",
+      "config": "configs/threads10/VImg/acorn.json",
+      "source_config": "experiments/acorn_baseline/VImg_config.json",
+      "source_sha256": "c6fc05db85bfcad047d1272978395e3616cc5e68d9a44c57979d0b5e1a221cf6",
+      "runner": "experiments/acorn_baseline/run_acorn_baseline.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "VImg",
+      "method": "favor",
+      "config": "configs/threads10/VImg/favor.json",
+      "source_config": "experiments/favor/VImg_config.json",
+      "source_sha256": "6b67318ae9f88923269a53bf0901d092d2e0fcdd31d756067fcce9ceb85c27de",
+      "runner": "experiments/favor/run_favor_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "VImg",
+      "method": "milvus_hnsw",
+      "config": "configs/threads10/VImg/milvus_hnsw.json",
+      "source_config": "experiments/milvus_hnsw/VImg_config.json",
+      "source_sha256": "6524c331b804641a1bc9ecfefdd19adca2b7d3609d1b3405999708a24f5464d4",
+      "runner": "experiments/milvus_hnsw/run_milvus_hnsw_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "VImg",
+      "method": "navix",
+      "config": "configs/threads10/VImg/navix.json",
+      "source_config": "experiments/navix_baseline/VImg_config.json",
+      "source_sha256": "17e03a7ff711a5bdc1f818e2249c17169c2f954a9be2ef11d507c3f59bf5c57e",
+      "runner": "experiments/navix_baseline/run_navix_baseline.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "VImg",
+      "method": "pathseer",
+      "config": "configs/threads10/VImg/pathseer.json",
+      "source_config": "experiments/pathseer/VImg_config.json",
+      "source_sha256": "78dd7f16928c44e0fa50c48b5eeb89a1311ccaac9a1db72ad8f979dc9e598baa",
+      "runner": "experiments/pathseer/run_pathseer_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "VImg",
+      "method": "rwalks",
+      "config": "configs/threads10/VImg/rwalks.json",
+      "source_config": "experiments/rwalks/VImg_config.json",
+      "source_sha256": "89f26b577fb9db7dbb55dc3a17742377d2fb83fe6b0bc726a69e35169a053623",
+      "runner": "experiments/rwalks/run_rwalks_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "VImg",
+      "method": "curator",
+      "config": "configs/threads10/VImg/curator.json",
+      "source_config": "experiments/curator_baseline/VImg_config.json",
+      "source_sha256": "7c2b4fc3f41b7deb584bf479999a384a96c1b787377f71f75fc59b982738c204",
+      "runner": "experiments/curator_baseline/run_curator_baseline_with_env.sh"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Music",
+      "method": "trie_block",
+      "config": "configs/threads10/Music/trie_block.json",
+      "source_config": "experiments/search_comparison/config_music.json",
+      "source_sha256": "7051943246ccb4ccf6ead9a9a6357f2e0987e45d8abda657c5bebf33a000de14",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Music",
+      "method": "ung",
+      "config": "configs/threads10/Music/ung.json",
+      "source_config": "experiments/search_comparison/config_music_ung.json",
+      "source_sha256": "62e16ee69c633a555e3e19ba0f0a5e8d1e3305c75a94eb287fcf6920c2407234",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Music",
+      "method": "acorn",
+      "config": "configs/threads10/Music/acorn.json",
+      "source_config": "experiments/acorn_baseline/Music_config.json",
+      "source_sha256": "576cf613c5d675cce26259cb217c16ea2d3234b067c30915979c6791c1108105",
+      "runner": "experiments/acorn_baseline/run_acorn_baseline.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Music",
+      "method": "favor",
+      "config": "configs/threads10/Music/favor.json",
+      "source_config": "experiments/favor/Music_config.json",
+      "source_sha256": "be543f2bf09c21640e18e80a60581e04c46f7ad3972e69601f0648eb35ccd321",
+      "runner": "experiments/favor/run_favor_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Music",
+      "method": "milvus_hnsw",
+      "config": "configs/threads10/Music/milvus_hnsw.json",
+      "source_config": "experiments/milvus_hnsw/Music_config.json",
+      "source_sha256": "6046313755bbf2f1143439ef8fa9daffa5676ed3edc9db7feb6b7a97d87d8dee",
+      "runner": "experiments/milvus_hnsw/run_milvus_hnsw_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Music",
+      "method": "navix",
+      "config": "configs/threads10/Music/navix.json",
+      "source_config": "experiments/navix_baseline/Music_config.json",
+      "source_sha256": "6cc7794770576bf1e8d322aebd39ba33c0dce2f8ada6300dddb090d1299f930e",
+      "runner": "experiments/navix_baseline/run_navix_baseline.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Music",
+      "method": "pathseer",
+      "config": "configs/threads10/Music/pathseer.json",
+      "source_config": "experiments/pathseer/Music_config.json",
+      "source_sha256": "f1683d03918faf132f27cffe2cd845d9eba92188d35165d928705d4854088895",
+      "runner": "experiments/pathseer/run_pathseer_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Music",
+      "method": "rwalks",
+      "config": "configs/threads10/Music/rwalks.json",
+      "source_config": "experiments/rwalks/Music_config.json",
+      "source_sha256": "06109a410bf92dc58a668d451ec150091883c0039a45047a692823ae58cd7e15",
+      "runner": "experiments/rwalks/run_rwalks_experiment.py"
+    },
+    {
+      "group": "threads10",
+      "dataset": "Music",
+      "method": "curator",
+      "config": "configs/threads10/Music/curator.json",
+      "source_config": "experiments/curator_baseline/Music_config.json",
+      "source_sha256": "9e85ff4a62970f2841b84471b51260c07c86155bb2b7702db77a82311b64ec24",
+      "runner": "experiments/curator_baseline/run_curator_baseline_with_env.sh"
+    },
+    {
+      "group": "k20",
+      "dataset": "Amazon",
+      "method": "trie_block",
+      "config": "configs/k20/Amazon/trie_block.json",
+      "source_config": "experiments/search_comparison/config_amazon.json",
+      "source_sha256": "10813308ce35d235b5077d420ee17597fd95606956f5e9d70690d3d85bb32496",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Amazon",
+      "method": "ung",
+      "config": "configs/k20/Amazon/ung.json",
+      "source_config": "experiments/search_comparison/config_amazon_ung.json",
+      "source_sha256": "8b72145dc7e1d572bf36647e719be029d6656954d9865fdab40feed4e04092db",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Amazon",
+      "method": "acorn",
+      "config": "configs/k20/Amazon/acorn.json",
+      "source_config": "experiments/acorn_baseline/Amazon_config.json",
+      "source_sha256": "67c0d04a7c6af200fbe04e7201d464c9e669ccbdc069827d1570a88a90d4c132",
+      "runner": "experiments/acorn_baseline/run_acorn_baseline.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Amazon",
+      "method": "favor",
+      "config": "configs/k20/Amazon/favor.json",
+      "source_config": "experiments/favor/Amazon_config.json",
+      "source_sha256": "02d1058ea11fab80634c3fa631377aef065739afc1cde462829fe529d3911f6a",
+      "runner": "experiments/favor/run_favor_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Amazon",
+      "method": "milvus_hnsw",
+      "config": "configs/k20/Amazon/milvus_hnsw.json",
+      "source_config": "experiments/milvus_hnsw/Amazon_config.json",
+      "source_sha256": "c90c05971b607e35ea18de1bf86df22bfaef7840370ad4088444d17f2a6e8b19",
+      "runner": "experiments/milvus_hnsw/run_milvus_hnsw_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Amazon",
+      "method": "navix",
+      "config": "configs/k20/Amazon/navix.json",
+      "source_config": "experiments/navix_baseline/Amazon_config.json",
+      "source_sha256": "ce1f1292cacbc8202b98a9da109ac74b7956b7ab639e55794fd4b4554d9f873b",
+      "runner": "experiments/navix_baseline/run_navix_baseline.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Amazon",
+      "method": "pathseer",
+      "config": "configs/k20/Amazon/pathseer.json",
+      "source_config": "experiments/pathseer/Amazon_config.json",
+      "source_sha256": "bf04c856e65b50232f41868be44dd8f8ec7ef8e403b299e6aa090f0aaaf07cc4",
+      "runner": "experiments/pathseer/run_pathseer_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Amazon",
+      "method": "rwalks",
+      "config": "configs/k20/Amazon/rwalks.json",
+      "source_config": "experiments/rwalks/Amazon_config.json",
+      "source_sha256": "de9ccf8590a15a74ce06ea1b0b0f2a9e67c96c128b2bdb98b3d638bfc46f55c9",
+      "runner": "experiments/rwalks/run_rwalks_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Amazon",
+      "method": "curator",
+      "config": "configs/k20/Amazon/curator.json",
+      "source_config": "experiments/curator_baseline/Amazon_config.json",
+      "source_sha256": "8b925b13a5feefe26435f3496ee139b1d20dc0d415b3ed6a70c806a1ecf0af07",
+      "runner": "experiments/curator_baseline/run_curator_baseline_with_env.sh"
+    },
+    {
+      "group": "k20",
+      "dataset": "VImg",
+      "method": "trie_block",
+      "config": "configs/k20/VImg/trie_block.json",
+      "source_config": "experiments/search_comparison/config_VImg.json",
+      "source_sha256": "233600d26061d3585cc054787de9db284b32e6803442a5308f7b89efa9c0294b",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "VImg",
+      "method": "ung",
+      "config": "configs/k20/VImg/ung.json",
+      "source_config": "experiments/search_comparison/config_VImg_ung.json",
+      "source_sha256": "f4a6933055b21291f15243036fc9c42a21cc4769540ca529da84ed2003807cfb",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "VImg",
+      "method": "acorn",
+      "config": "configs/k20/VImg/acorn.json",
+      "source_config": "experiments/acorn_baseline/VImg_config.json",
+      "source_sha256": "c6fc05db85bfcad047d1272978395e3616cc5e68d9a44c57979d0b5e1a221cf6",
+      "runner": "experiments/acorn_baseline/run_acorn_baseline.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "VImg",
+      "method": "favor",
+      "config": "configs/k20/VImg/favor.json",
+      "source_config": "experiments/favor/VImg_config.json",
+      "source_sha256": "6b67318ae9f88923269a53bf0901d092d2e0fcdd31d756067fcce9ceb85c27de",
+      "runner": "experiments/favor/run_favor_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "VImg",
+      "method": "milvus_hnsw",
+      "config": "configs/k20/VImg/milvus_hnsw.json",
+      "source_config": "experiments/milvus_hnsw/VImg_config.json",
+      "source_sha256": "6524c331b804641a1bc9ecfefdd19adca2b7d3609d1b3405999708a24f5464d4",
+      "runner": "experiments/milvus_hnsw/run_milvus_hnsw_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "VImg",
+      "method": "navix",
+      "config": "configs/k20/VImg/navix.json",
+      "source_config": "experiments/navix_baseline/VImg_config.json",
+      "source_sha256": "17e03a7ff711a5bdc1f818e2249c17169c2f954a9be2ef11d507c3f59bf5c57e",
+      "runner": "experiments/navix_baseline/run_navix_baseline.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "VImg",
+      "method": "pathseer",
+      "config": "configs/k20/VImg/pathseer.json",
+      "source_config": "experiments/pathseer/VImg_config.json",
+      "source_sha256": "78dd7f16928c44e0fa50c48b5eeb89a1311ccaac9a1db72ad8f979dc9e598baa",
+      "runner": "experiments/pathseer/run_pathseer_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "VImg",
+      "method": "rwalks",
+      "config": "configs/k20/VImg/rwalks.json",
+      "source_config": "experiments/rwalks/VImg_config.json",
+      "source_sha256": "89f26b577fb9db7dbb55dc3a17742377d2fb83fe6b0bc726a69e35169a053623",
+      "runner": "experiments/rwalks/run_rwalks_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "VImg",
+      "method": "curator",
+      "config": "configs/k20/VImg/curator.json",
+      "source_config": "experiments/curator_baseline/VImg_config.json",
+      "source_sha256": "7c2b4fc3f41b7deb584bf479999a384a96c1b787377f71f75fc59b982738c204",
+      "runner": "experiments/curator_baseline/run_curator_baseline_with_env.sh"
+    },
+    {
+      "group": "k20",
+      "dataset": "Music",
+      "method": "trie_block",
+      "config": "configs/k20/Music/trie_block.json",
+      "source_config": "experiments/search_comparison/config_music.json",
+      "source_sha256": "7051943246ccb4ccf6ead9a9a6357f2e0987e45d8abda657c5bebf33a000de14",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Music",
+      "method": "ung",
+      "config": "configs/k20/Music/ung.json",
+      "source_config": "experiments/search_comparison/config_music_ung.json",
+      "source_sha256": "62e16ee69c633a555e3e19ba0f0a5e8d1e3305c75a94eb287fcf6920c2407234",
+      "runner": "experiments/search_comparison/run_search_comparison.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Music",
+      "method": "acorn",
+      "config": "configs/k20/Music/acorn.json",
+      "source_config": "experiments/acorn_baseline/Music_config.json",
+      "source_sha256": "576cf613c5d675cce26259cb217c16ea2d3234b067c30915979c6791c1108105",
+      "runner": "experiments/acorn_baseline/run_acorn_baseline.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Music",
+      "method": "favor",
+      "config": "configs/k20/Music/favor.json",
+      "source_config": "experiments/favor/Music_config.json",
+      "source_sha256": "be543f2bf09c21640e18e80a60581e04c46f7ad3972e69601f0648eb35ccd321",
+      "runner": "experiments/favor/run_favor_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Music",
+      "method": "milvus_hnsw",
+      "config": "configs/k20/Music/milvus_hnsw.json",
+      "source_config": "experiments/milvus_hnsw/Music_config.json",
+      "source_sha256": "6046313755bbf2f1143439ef8fa9daffa5676ed3edc9db7feb6b7a97d87d8dee",
+      "runner": "experiments/milvus_hnsw/run_milvus_hnsw_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Music",
+      "method": "navix",
+      "config": "configs/k20/Music/navix.json",
+      "source_config": "experiments/navix_baseline/Music_config.json",
+      "source_sha256": "6cc7794770576bf1e8d322aebd39ba33c0dce2f8ada6300dddb090d1299f930e",
+      "runner": "experiments/navix_baseline/run_navix_baseline.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Music",
+      "method": "pathseer",
+      "config": "configs/k20/Music/pathseer.json",
+      "source_config": "experiments/pathseer/Music_config.json",
+      "source_sha256": "f1683d03918faf132f27cffe2cd845d9eba92188d35165d928705d4854088895",
+      "runner": "experiments/pathseer/run_pathseer_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Music",
+      "method": "rwalks",
+      "config": "configs/k20/Music/rwalks.json",
+      "source_config": "experiments/rwalks/Music_config.json",
+      "source_sha256": "06109a410bf92dc58a668d451ec150091883c0039a45047a692823ae58cd7e15",
+      "runner": "experiments/rwalks/run_rwalks_experiment.py"
+    },
+    {
+      "group": "k20",
+      "dataset": "Music",
+      "method": "curator",
+      "config": "configs/k20/Music/curator.json",
+      "source_config": "experiments/curator_baseline/Music_config.json",
+      "source_sha256": "9e85ff4a62970f2841b84471b51260c07c86155bb2b7702db77a82311b64ec24",
+      "runner": "experiments/curator_baseline/run_curator_baseline_with_env.sh"
+    }
+  ]
+}

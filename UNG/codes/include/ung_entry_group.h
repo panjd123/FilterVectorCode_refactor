@@ -67,7 +67,6 @@ struct EntryGroupProviderResult
    EntryGroupStrategy requested_strategy = EntryGroupStrategy::OptimizedLng;
    EntryGroupProviderKind provider = EntryGroupProviderKind::Passthrough;
    std::vector<IdxType> group_ids;
-   EntryGroupRouteStats route_stats;
    bool coverage_correct = true;
    bool exact_minimal = false;
    double elapsed_ms = 0.0;

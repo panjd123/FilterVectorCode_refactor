@@ -1,0 +1,876 @@
+{
+  "source_plot": "/home/dev/graphdb/FilterVectorCode_multilevel_special/tools/pic-draw/plot_recall_qps_all_datasets.py",
+  "missing_curves": [],
+  "inputs": [
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/milvus_hnsw/query_minlen1_sel0to10pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "b9fcb9227b0d4271d04cdcf5a76517869208dbcde51c0235eacc3f196f042e9b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/ACORN/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "2b1e8ac60299550be3ff4dcce991410e5f5e665dc464aac812c72647d00967c5"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/NaviX/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "9fc1836751a318fd889aba2f9ca922c782df340c6e43b1a4a24fedf210547522"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/rwalks/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "c225ec0bd0e87bce179bef7078e85f802425de45b05e8b5be931f1b9440347dc"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/pathseer/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "934eaf9dd4eed8680b32c8fc5407a302c1f885a40b2605bab8b9c724de9fec2b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/Curator/query_minlen1_sel0to10pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "939188c5b9f1c95892ab1cd1c1091b396b48f86420d70d75c0271c3fcce3b86f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/UNG/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "0ca3a251d967435fc27f24fe1b7ce8394a0714e92a99bea0a9f354d017747b18"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/favor/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "1a3938361da4d73aa09dc831d2fc549b76809fb87e481f9be7429106cc47ef9f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel0to10pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "46a74d818d141976b7b2768e319299ccb0453be449cc840211189af51a861199"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/milvus_hnsw/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "8433596e783381fe91035e19a233885025d16e6a37e906e6b54e75580d91cc05"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/ACORN/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "31c61d9c61d46ef969996916aa3ef531382617606a8783eef3015b7260b7d44b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/NaviX/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "768f38b71f95273bc5e79f8ab1f6badc09d836c5fc1fbbb9d284742ae3fcaf1b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/rwalks/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "15c046ae53a9d74db25608aa6a84c9a4beb889d6cbc2e333746d8c83d29350b2"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/pathseer/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "265bb78ea01e4bea02def0b83de98718a2baa5b772e75e2025d0b0cc60df6b71"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/Curator/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "935e6e210370cb5989789a386c66ae6c7ea3e7dc4636e8b80d55196db72709b9"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/UNG/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "c055f8826e46a7c9b5cea4e675621a58b24107c562e8f42a564c6adcee633629"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/favor/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "fc0ca3c98fc8d105e92dfaaaf1e77636ed569d659b5ae798b1943376925ad9cf"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "9ab81d08ccb70be028e0394634d595bea3b397aa636642c300b7ee2dfc1af6e4"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/milvus_hnsw/query_minlen1_sel40to100pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "50075019281277b549fc4c654deb3e635a4ff91a08c01a1e362ef4b1cb709be0"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/ACORN/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "187ec072a75cd6d544f3b176bb0a580abb220aa7acc0946993a74388ab2841a2"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/NaviX/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "b0a0f145b4e4090ebe76974b8764e1446663a57141aacf261eb4df4feac4e18b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/rwalks/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "df2f59446569c38b72f60f3fb7f509df52b5f19856fae78b16522c9e7d2efcaa"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/pathseer/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "7e525516db9f6b387e1563b1cb63e9130ec790f6422edd7b0ad2c1c109ba358d"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/Curator/query_minlen1_sel40to100pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "1cf267a33cc5e2288018274ae6408e550de0470eaa7bcbb3b2efdcadb68a591c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/UNG/query_minlen1_sel40to100pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "6f4d33a09da714cf2ecec325e3c8d712a34b1b24d611de6b14878af5e1d78a6b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/favor/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "d04f7ae1ff8364622f752454dec4448a9b75053290982dedfef82e051d402ec7"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Genome/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel40to100pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "bb38e123d748aa97f5a51768d08512a763777e1ffc9e13bbacf50b88bab8506e"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/milvus_hnsw/query_minlen1_sel0to10pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "e9f72e9b4a9b8df1c1d94e9adb194de323e131f467d979bc0dcc1675d26d026c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/ACORN/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "086bf616a3a2df07b1acc40cb24fdb7271c54d962e6247e756196ea986cb6d6a"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/NaviX/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "d68ec4477b2f80a47c21e56c043fe35f4d04129d1c302ad6ca1fae9ef99d0f99"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/rwalks/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "a3d7fb26af23215ff4ec69b46db37e84f483c15cbdefe27b32e66dfd03a10878"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/pathseer/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "483b9b9cbdf47501e3fbec5ff2e8f11a4e12140ddb500fcbe071018b64b7e7ce"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/Curator/query_minlen1_sel0to10pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "b7d80bf1ca9195a75815147b25e807802d7a1e6498d9151e688a1e6ea5669ed1"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/UNG/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "e4b0af7f94b5b8b4780550ae8cb25683c1586e0c358df8a9283bc56130277f52"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/favor/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "f2b03d929cfbc8cba3836c7602e6b6130cb88a007442b980c75c9bdf5d652262"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel0to10pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "ded0216d9c6027d65fccf92df913f40b581624f49c09618e4ca1d3fd745711b4"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/milvus_hnsw/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "77112ba7ba0674002524f5a8e02438f06fe9fb146a935321510769af07f1bc1e"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/ACORN/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "d49b503c7f00774b63f15a078915ff4c18a2654399c389c13bb9c27ab4f4c148"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/NaviX/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "55d539626f10665766da3fda1c3a1f6601aa0093c890eed0f6c51ea1f1686c14"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/rwalks/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "e524c14f691aadd9b4c2a8f085c646c08f1b22cab9c50a9894b412eb7a0ac028"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/pathseer/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "97f64a6918b63491b75b73aa4768cda7b143725ea126919c3ba4d635d91be4e9"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/Curator/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "cafa021d7694ba00e29c6b2d41bb13b3d940261496284330e52f67fb567a6d95"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/UNG/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "d5189722c4c20e95ffe32d6fe30279ae07183d3ce9bca9e9d2e546810248fd39"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/favor/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "e147c71ae78afd066214ea7e58d68d4518964959208fb93a3c788e70a5c93650"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "07368b5470480ce71fe4e5659a9d3dcc6137229bb46661f1dfb9fca16848ddbf"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/milvus_hnsw/query_minlen1_sel40to100pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "c773983b2aa5ac8826b5fe789880cc96fd3526e1f695bd40a3ddcaf113fbcc0b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/ACORN/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "b61c703b89992cd1246d678e5a84665a5b62ee112341e5017a3dd8814bbe22a2"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/NaviX/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "7585df96d669126263c2ef385bd37852ab97c39a6690f1083dad5f7343803677"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/rwalks/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "d206050e6b0fa1d1b97724fcdd245b2b826eee697f8d1d41bd9fca560379b74a"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/pathseer/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "ea6a063c5d7a6c6ce808f52d532fb23505e0559dd1196a3fa444ea24f089bc91"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/Curator/query_minlen1_sel40to100pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "07460187a721c0ef0719ef02592c37461e520df929bd81ed316f79d75dacc639"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/UNG/query_minlen1_sel40to100pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "f24d951f6fa334f7acdea148a31fe03b2f64b50239a6a855b0ddd81c0dd0087f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/favor/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "762742a26dd646e92cd47d6625353f187f24d0e259b0c747ab0be529aa70eb72"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Reviews/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel40to100pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "9ab10241635f7c638772368bdc285b6c2b5301a16dffcb9250cf99d2c44b2192"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/milvus_hnsw/query_minlen1_sel0to10pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "03f8ecc44e6bee60066b21e1b34804f992b4ad3b6481541054ec3ab3167159e7"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/ACORN/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "31cc5d5343624fa00df9fec569ceedca8314562746547a74db221b582bea05e9"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/NaviX/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "a969677d1818250948b07e9f5da47a01afefa272a7f7063268399d82b36c5488"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/rwalks/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "321fd96973ff38d89752fcc8ee5e97178a81a76015409fe4e9b8a5dbe061d2d6"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/pathseer/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "84b5f88676c74cecced5df09cce18943fb222358dd05abea41e57e992f96a388"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/Curator/query_minlen1_sel0to10pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "cf9b303d5e69b45c6acbb7033a0cd340daa73a3a90e30d178de482a2b8517025"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/UNG/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "5950a77893b4e99b7140604b6d017402953c86bf609de45f3004cb962d92c5b7"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/favor/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "83d36ab40210f1ad7d4d1bd6d6b1d6e83431dcc6d7e1d9888f482e597416d427"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel0to10pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "4706bde2844b7444effa30c8e3969bdda688522efed3807518273b3bc685710c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/milvus_hnsw/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "70a7afa81a869cf27828919979d92751bf6315c84f5eddf29a493bfc68f7d70c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/ACORN/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "f4bd3c9010145bd4ff7f44bad1497b9efdb062de77f04a45517c836b8e8aaa5f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/NaviX/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "b07ec81fdc784a1ba310eb5f1bbeb4fa1cfb9951b78048326582604174cc923e"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/rwalks/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "744e5da98f2a3763b2ca3f22a52ab8ee78cef85898f362b099549a6a42c6064b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/pathseer/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "48029b5481d8d206615272c231ed8fb6e7e3f98a7b03f3f6277bafdb6832c711"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/Curator/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "0f52097aeaccf0a734b7c3edc893db14743e1d306d6f81f199810417fbaecd95"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/UNG/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "34426522fccd779c0a1471f6b8087b51863f4c0a16ce9cb848e852149e05838a"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/favor/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "64a8580af433ad9d1c1efa7dba4edf37bf1966f56c5404c51a860d53f7d11b4b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "6dc87275758bc9a6d9f4c475e1184d9f7360c6e9e92d2d94a4df608f1d22849e"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/milvus_hnsw/query_minlen1_sel40to100pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "77567f5d5a3148d8a90b155533c1369bbaae7e9f905441139a7d86464020808e"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/ACORN/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "e8d26e889275a85f06c19c49221e4b3910a34259dc31e7e88db9a0f719c94297"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/NaviX/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "6165e12355d13b6462b8828e6374b793583d109d9ff7cdea308e6536d9e04a4d"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/rwalks/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "31610663d20de74dbb85752688afb0cfbebc64992299c49783a6ffcec167bdff"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/pathseer/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "6aef85b248d07e57cc94879657bc523f2cc298d95dde91dc05d9c82acb05e465"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/Curator/query_minlen1_sel40to100pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "0f0041a1e9bc8daaf54f077950029203e14ff5b7f68b9b7498c8a23410763ba7"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/UNG/query_minlen1_sel40to100pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "275d8345ef89c36cc9c9912609a7dfd84a47752751511f94b710b17af5fbdb95"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/favor/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "bb19cc700d1d5cc16487020ca3fe38f8782c1d5182d95dea636229aa71f0902f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Amazon/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel40to100pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "a1ddd77caa11539479ec64d4584b7800bbf9ece6021c8d23384245f88088710f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/milvus_hnsw/query_minlen1_sel0to10pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "9028fef58961f0060405e9c676641b3e65a6b910c6076d533261e7a7282d02ef"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/ACORN/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "2804cec285c45f291afac0e77cb1aae17d6f3af57c4b1171f89f3568ebee6a5b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/NaviX/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "f177fe0f1ac7ccf192076612bcfb88d03b669c9a9d63e51faca5c932d0958c89"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/rwalks/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "f514222e0122716089bbdac4c5d1caba3f27a54ea6b377789a315fe8b34f938f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/pathseer/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "e1091e43b37da5879d95ce5b162a975bd06af7fbc15630254546dc179b968d73"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/Curator/query_minlen1_sel0to10pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "7b45f902c385d27cf15bf0256b7ee5fb407b44ebf7b35cb25c143b330c97d0a0"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/UNG/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "96cecba2180118fb8c1081881b085e45fceaf92b804b6911e10d41bf6f6ee581"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/favor/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "c12475411761ed66834353ebaeb0d8b59b03c406022029186f54bb3ea1dfeae9"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel0to10pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "3a883b6f5bc06074d34b0c43ba018aee4ecda80892d16fe2a44d9fbbd9f96c10"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/milvus_hnsw/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "1dd781cc7b9d4044c9a937f7eb49ebb8e41e47b89b75f29380daa28b67d03c81"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/ACORN/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "9ea40da1b5d7c22a291aa4faccdca55a0604ffc8b2d0fcdd004b722077f52926"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/NaviX/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "7e38bb31ef8e516ba8e490aacd77f793cf9bcae6bd0a9c4a4b4fc379d534a712"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/rwalks/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "8fff838d3668076153e4d03d77bb1fc5eb9b89db9fdf5646c12339c44a3cffc4"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/pathseer/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "2c92106a973c9a611ff89d2bccc5503d2818201dcff84013a35c66e79f1d2dcb"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/Curator/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "2bb93f2df102c71bf3b7e72df002ac440155020e7b78aeda526084f30330c532"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/UNG/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "e2a35b6f10be32dba644f1f48f3db2b51d37852b73a2ca9b16ac4e7b23b72313"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/favor/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "36e50883fb30e6f8287ebb69b834a79d766e543dff06e5fbcccba24af119c032"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "1aa974e861ebf7b7594aedc6ce5fd62ecb59934904902d2511b9a5e22e59bcc5"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/milvus_hnsw/query_minlen1_sel40to100pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "3d901893edae8767a960b2592b1c5d460bc9c81bad26e3c1d83e06da746b4695"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/ACORN/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "9c581563007ee1dd2efd993f0e9ae45ff002875c42c738a3b8f20f95b91d6c5c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/NaviX/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "2f9adf42879d60479abc9c8280781a2bd5444c0291e60ae4a4f4cb157ddf9a4c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/rwalks/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "b781fd8f901a536bd631db48cf17dd5bd1b42fb1cb193672bded035c83e8dae2"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/pathseer/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "b4fbeed026409699e82c56a10d2ed7d01e9d3f8b25570a5b5464549ec40aeb0d"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/Curator/query_minlen1_sel40to100pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "394496948209123f101fcb3e1f8230f1f81800be5280556d8cbc9c675f9efae7"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/UNG/query_minlen1_sel40to100pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "49d3356bf65d9975d879c711db61399f37e13645742b2669e17332ff76bff4f6"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/favor/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "c99f68d58661282686798ecb4be1715ff981accc2305ade6ffb5ebae6dafb392"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/VImg/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel40to100pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "2264e84f2d86b2e2c97cb30b7cc48acec67d4edcb4be6daba8eaf2c10ad18782"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/milvus_hnsw/query_minlen1_sel0to10pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "6481ea4c859a61ae4a071e8f5895cec1d85e8b80126554bb93f8b36002e2050f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/ACORN/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "5b61396fc46e392b152e2b26d5b9aaf6f351a4524d8fec68277d5d096bee01cd"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/NaviX/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "78879af576b588f9d9fed09ad09c42ff975a3f57a4698f158ec44469fb51cf5d"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/rwalks/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "5b87eee7cac3523a9d29301849f906dee636bd29506b753e1e8092cdda71961f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/pathseer/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "116ca4b0b19ad9ba763c43e66f32a63fe6de2c2108a336356becb215cadd7b35"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/Curator/query_minlen1_sel0to10pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "e946c54c8e78d991390516c3f315e54dd93d491213678d0d33919b39244983a3"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/UNG/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "ca0a7667d80780b0bb5bc0dd8c93df319ec87ba9597dea16d0467a3390d9672a"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/favor/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "23fafa888e2f5bc9f521d0f9d24a57a6455a6e322fca370e825e4d2aea897bb6"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel0to10pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "e2312a5e49d3e799369ee6c8960dbc115444aa30910a23678e608874e03943bf"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/milvus_hnsw/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "5f42ecadd6f26248d761fc66f335d7191acd02f0e4b7314c9b88f76a979f4305"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/ACORN/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "b45ab76db592369788d0e799fc372e117a019f0d48416dfe3b26854528296990"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/NaviX/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "0cd378b6c01896b55a4d7945406354e86a9e962ddcd4620cf04c3f5a52b6a9e8"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/rwalks/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "28f98dd3e48e506c46e7585e621fd9a13fc8d6c307909dfc294d99c86f3e0dd0"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/pathseer/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "af7ce22c23ff418a42c3f0f088d079f9bef6cfca0351b09c94a27bca2bdd3ef1"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/Curator/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "92afe8813300363b961e7212bb2be3d546407ad20eac8d8cdfa6e34d0f2eeff5"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/UNG/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "ee695a82b25a9981c61c1c0da4e8104629e0e71d1fc95c01a1c70ce9d6c8a91d"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/favor/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "12e95e014a481ec2a3b2ec290538d96ad408844d948b0dd3b83230633459b4ad"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "d9a2e53547017318eab0da0fcad64544771eb90ddf96d4890f53186e20f48b58"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/milvus_hnsw/query_minlen1_sel40to100pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "61586e088289fad3d2f6695824db12cd2e2629da466cc41d8b2c16b940916741"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/ACORN/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "1af40618e8e5fccf54985fd5261daa3ba0aee7f38cf103b184c031672f015347"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/NaviX/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "0a6b9a13c4755bdb26d7f5f38ff33cba07eae54523931bfb00b3cf32d877bb83"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/rwalks/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "f236da3137bf988151b8a4213d971c3a145ef2b57f200b2653bf62ef216ce918"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/pathseer/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "ddb2f5321680be93b69a93b47d4c79a9df9e09855d30ddd411cb538c5e5331ff"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/Curator/query_minlen1_sel40to100pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "ed016456610d17c3af24dff22491183e62dc4ff2cfb3cf92774d5de60e536f65"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/UNG/query_minlen1_sel40to100pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "21c953c13c974e331491a52ddc36ecb13ccfd9c43bdd12b75fb9e390a40a90ef"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/favor/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "d8b516455a02eafe3a00f0c21703522e78f0f7e31027bb7c46d9e41b4c76033a"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Music/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel40to100pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "588d834556117a4d4501fedbabe41721d2b5a67fcb15e4e862977a5bdfd93458"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/milvus_hnsw/query_minlen1_sel0to10pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "0f0ff8cb79e7ab88851b0079333b857e1ded698f0a96b2f222f0c153ed8d0f33"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/ACORN/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "ec9c7e15aee4697fd7727a681afed082cd9cf724cd8ad694aacd41a5495aa66d"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/NaviX/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "11ec0b80763ff95af892a8f633ccbfe198de7703f5da799d6e1ba1fbfd344206"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/rwalks/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "e8d29b1c039610afeb0b7a16afbebcdceac9f57125285009292fa1033c29b43c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/pathseer/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "671ae6b143ae84aba5a60746c724fbab869e4006eb4569b111e984ea489ec03b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/Curator/query_minlen1_sel0to10pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "79f59625eaad9407f2cb402ad091b48539aa0cf1cf4d5f4c56fd62b05359a98e"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/UNG/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "6acdd21401ab9da6a2a2611a96f3c2d5c3195658c674c660e3bee218da4f0a5c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/favor/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "795193fbc7aefa1167ef2ad41b7b64205975ce763da6008cd0892ea0abeec898"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel0to10pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "83a47ca373eef84f7c4723145cff3d2e48823c6faeab67b94786549c71e21605"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/milvus_hnsw/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "465232a1540d854d5c5753168f5061721a47adbf5523abcbcd0dc7c44451c178"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/ACORN/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "5549b9125f870f6fb9bcf675992a1036ddca83ff4901e0d2eec68387c14e16a5"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/NaviX/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "75696aa5025b869ee5fe121b0a27ac2853e7a7f3868ebcd723fe7f73b5c39884"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/rwalks/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "63cb5204bb76ad6af35c983584fb20486412d3ab0aa907e7e138f873cd27285e"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/pathseer/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "92e781ebf362d98a2deab06d0f4c9b0876b6a1d905eaae496a333bcae47884a6"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/Curator/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "028f0073c28485e4b1467acf19a90c1553810568cc99c2ac659f80ac6661322a"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/UNG/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "40a71731e44feafee05429ecbe3b7a973f46a4b2fd699f26529fad06c9961dd6"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/favor/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "0f4a7a0ca206a57b998b75d705a70a966d691fb5791c93ca284a29491619bd04"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "f47cb55f5054345a4f73c5542fc766e1ba17a1b8d56f0eb4171a8d843022d43c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/milvus_hnsw/query_minlen1_sel40to100pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "1088455783e330c376d09276a7a44f4c9a746ab23554f536b1e6a100e59fe0ad"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/ACORN/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "d519e1dd44b94c568b1469120bcc9aeff7de824dfcf80dbce68559aeb8abc36a"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/NaviX/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "33567c17ceaa06d0ef9847d3bea232750cedbefa648ae043360640fbf688180a"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/rwalks/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "481349bb8438cd81a38b0b0f4afd8a835e6e6d0f7aca5c62d9bb22bcf5d5d1f9"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/pathseer/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "b5740eb00948a75f8201fd2866aa5a557682c644e9a5e615b72f1cec0318c92c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/Curator/query_minlen1_sel40to100pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "7933dbd0abdf3938c6253b8161871c16b7cab61cda6c271e7bf155153bccd0da"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/UNG/query_minlen1_sel40to100pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "8e849b59521c98d38520ca719b8a42bedb1f614cca115de372c1befcb30a7b3d"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/favor/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "52dcfae72cea652b49fd5691562c40bd6b47c4aa35eb669051a7eb2ae85e5d18"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/BReviews/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel40to100pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "36f2964e5f1c2dcce4fccaac3e4e129b26ae56e71f062d5aa1281cf3be5ccccd"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/milvus_hnsw/query_minlen1_sel0to10pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "2081d2288203fb993047314516f63372016547895a072ac9830516bf4f7ad48f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/ACORN/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "ab196c366c40869b5531d95afd2ed9e61545860627963baf46479158de61b52d"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/NaviX/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "c718af3bd6825a225adfd7d061a53c31263bca8511ad263224c7165212c6316a"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/rwalks/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "f2b6a378f4b446f9a3373719d7129ca5b36ba2f45b7e31f4df86c887cfe23c4b"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/pathseer/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "9c35888b96077ca68d61adf439d4d01d40572600a55176f8090a23e738b325f3"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/Curator/query_minlen1_sel0to10pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "927c3576785b94f823942b02828814c0e6aa43cfebddbae7b1e87bbaad6eec79"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/UNG/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "304fc5534a38da7b3c1a760d492aefeaec7baac336b3b6647ff3270bf6620751"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/favor/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "050cbc9e1f269efb9acb2f07e60f64c3eea16bf9f14ccc38d432776ea97f7138"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel0to10pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "239181a5078d7805a3ff07c8b1b03c5cb2b98781bdab207f760b66df7d541ea9"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/milvus_hnsw/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "89423469f327eab267f2a2e33e7cdfbd130b55b6b0ae7dcebf54fa44aa3fa938"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/ACORN/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "76546ab916032b8bf9b44f7cfe6df15e5f21e062f3f6b900fd7f4c91992dd30d"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/NaviX/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "1c76dae314a015c4169c805b94afb8ad67ae38a223e0330347098ea5f2700a26"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/rwalks/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "e7c51d58f1b9eb317a7e5ae27c1f82850801d95035fe5340b4d940f0bc42c15c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/pathseer/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "376de972335208ede3136b43e932106ebdc172fc7cf16e13b7d8d364780d66e0"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/Curator/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "08431cf3df855eaf3e965038d303af1f91e5ae25b80c66f5be0cde7b519ae442"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/UNG/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "d18869c41337011a222050de285eb8b6eb7a8e92c945bd52e6c8e170459cbdfb"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/favor/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "2f78a2b4cab9094b6a1cb6ed1fa6387723318b0a87361b80de82f171d4d01c6a"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "0cb1e1741bfff49a94339ffa0b5ccbd482dd82407093828d9a8bd12ddbda1eba"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/milvus_hnsw/query_minlen1_sel40to100pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "f84c6013bed4a4c1b4bd93d4e03e00a362fcd6f1bef3c2b83f5a663448596408"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/ACORN/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "1d40240aa7d10507bfb0fe645ff8525c2da9dd4db883ed8f3b0d26fc1f21cc6e"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/NaviX/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "bd5e2791b804decc6eeae028374342c159fb76f7340037deca8ec29dee284b45"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/rwalks/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "0519b74ed8121fff5fcaf0f28ef5ea41136c184b2bd85d1ca84d11671e1e80c4"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/pathseer/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "73353d660a849b20d01f639a82e104b3d1ea6ac1982951c2400bef9cf049bcc9"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/Curator/query_minlen1_sel40to100pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "c54e44b61af0a87c75be14660b79fde8ff6f6db5212a79aaf976e9dc6e1f4e18"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/UNG/query_minlen1_sel40to100pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "f6ee2210846ead82963d98c4e19bdf58d01d274699e1497a3dbd43c4e99f6495"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/favor/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "25a15a94fb5c9bb81da238d3c2eed72d96dbe11817b374410cb55252758ff3e0"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Tiktok/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel40to100pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "aeb741fb112e95fef8767f8ce89f1e3f46d06eb082f1521a8ffd314775a90675"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/milvus_hnsw/query_minlen1_sel0to10pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "b12302e517f66226066d68782fd66a7de6e93c6f767f1d89ad28b5854af84aff"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/ACORN/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "e6cbe1431885024d130be32d374640d89116f851df17a35d61cebd9da438ff45"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/NaviX/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "4c77c8b395bc2d3c3869d425a72424214dc0349244a3f1326a1f7f0ab89bdde6"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/rwalks/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "82b0e4e3dbc3bafa3c594a8628255feacf0f00775b6c21208a6f4f03dd2dfb5f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/pathseer/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "a1c9bbfb2026413dec3609a898385191315cc8bd8791d057435b19a96a62faea"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/Curator/query_minlen1_sel0to10pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "b1cac92bfe2d827d48ce9187922e483f2275ffb33a360a9d03f03f4025acd5c5"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/UNG/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "9f8ce44d85ed26aba2db8a4c07557d48793b57457450b97bf2193c011f40e4f0"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/favor/query_minlen1_sel0to10pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "981c8b93e85e4ba8e6d73c03dde0380a88b2ab98cc9a10ef5822765e1c06b068"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel0to10pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "32204251dcd99e13faeb1d8835d5b814f0a9295a0685d35c81f48281a95d11f0"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/milvus_hnsw/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "4d12dbd42005396d4d25e99ebb0acc795800235a692d7d974354c91f78718d19"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/ACORN/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "03b92b1d6a56e9b72ddf83c3ebfa5d7aefce676eebe20b4ef32e9f66b07b04e4"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/NaviX/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "c64eacff0fa485ec96cb6a6ab16300435a49d007e1146f30ee50524fdc2d707f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/rwalks/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "6cf8cb38cd11917aa4f42fbb27d8f969f91f20ff5daaabd4ab60dac17864fca2"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/pathseer/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "0ba8ba45a61cfeb8c1dcea1f140cd5aa889726b01671698bc7b27fa8b088d427"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/Curator/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "b6a2d3b864b7bd7c7cda091f0d687fba122f08dd2a86533fb821c1ca8564a5a9"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/UNG/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "1b029726df496d40cbcccf088988b37012f49b62b047ed3a74c4c09390627fa0"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/favor/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "d9f5c57c42523a49a9e031eda16694c561c039d5bd0771adf2a4d4db03f4efa0"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "41e17e2154f3d781487547fc2f9bda650d92430052bf139ed4956d405bc201d3"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/milvus_hnsw/query_minlen1_sel40to100pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "sha256": "509106f40114676c0da4833bd8203ddb0c4b49a3bf95dfe1d0e9f5e83dd7840c"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/ACORN/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "d49229c633b1653def79507e664295146b7186e06d8835e82d30f4e5dc1aa4c3"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/NaviX/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "849c0234c8cdfe3144e5d01e288f7e8dedbe49595bedc588a412f8d20efb2dc2"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/rwalks/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "68464caafd4563e155186d0b094e5b150a9d6ea696adc86cd30740bf41d9f3c4"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/pathseer/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "8923055d9d1bc7e5ed1c0f9e883216575907f653837e5c8d7c0e132cbe75b5ef"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/Curator/query_minlen1_sel40to100pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "sha256": "12fcd8dbfa9aa0c31588335e6b3aba3a4e158fe544a316528a0dca6b13c0e677"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/UNG/query_minlen1_sel40to100pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "sha256": "304a2a40bfc28edaf0597eb62d51c0683bf9bffe68f72f054a3604feb680fe2f"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/favor/query_minlen1_sel40to100pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "sha256": "107484c64cc0ccbffcdebf6893d1234cb66b267ad01c6be99445505c96eda3db"
+    },
+    {
+      "drawing_csv": "/home/dev/graphdb/FilterVectorResult/Laion/results/Trie_block_500_M_32_cross_block_4/query_minlen1_sel40to100pct_100_100_20000/results/search_time_summary_draw.csv",
+      "sha256": "2d74d1d81544d91defc64b9ad84e24881606ea55717c422dbc6afcfb4695b8ef"
+    }
+  ],
+  "method": "PTNC max QPS with recall >= threshold / fastest qualifying baseline QPS; no interpolation",
+  "comparisons": 48,
+  "figure_width_layout_px": 1800,
+  "figure_height_layout_px": 510,
+  "layout_dpi": 96,
+  "png_dpi": 400
+}

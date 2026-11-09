@@ -1,0 +1,48 @@
+{
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "knowhere_source_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/Knowhere",
+  "knowhere_faiss_build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/Knowhere/thirdparty/faiss/build_adapter",
+  "knowhere_adapter_build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/Knowhere/project_adapter/build",
+  "openblas_library": "/home/dev/graphdb/openblas/lib/libopenblas.so",
+  "build_jobs": 16,
+  "build": {
+    "data_type": "float",
+    "dist_fn": "L2",
+    "scenario": "containment",
+    "num_threads": 60,
+    "M": 32,
+    "ef_construction": 100,
+    "add_batch_size": 0
+  },
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "disable_fallback_brute_force": false,
+    "lsearch_start": 1000,
+    "lsearch_end": 5000,
+    "lsearch_step": 1000
+  },
+  "datasets": [
+    {
+      "dataset": "Tiktok",
+      "query_task": "query_minlen1_sel0to10pct"
+    },
+    {
+      "dataset": "Tiktok",
+      "query_task": "query_minlen1_sel10to40pct"
+    },
+    {
+      "dataset": "Tiktok",
+      "query_task": "query_minlen1_sel40to100pct"
+    }
+  ],
+  "methods": [
+    {
+      "name": "milvus_hnsw",
+      "index_name": "Milvus_HNSW_default"
+    }
+  ],
+  "auto_build_milvus_hnsw": true
+}

@@ -1,0 +1,85 @@
+{
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/build_ung_multilevel_trie_gpu",
+  "query_tasks": [
+    {
+      "enabled": true,
+      "task_name": "minlen1_sel0to10pct",
+      "mode": "variable_sub_base",
+      "dataset": "Music",
+      "data_dir": "/home/dev/graphdb/FilterVectorData/Music",
+      "overwrite": true,
+      "sub_base_params": {
+        "num_points": 1000,
+        "min_query_length": 1,
+        "max_query_length": 6,
+        "min_groundtruth": 20,
+        "min_selectivity": 0.0,
+        "max_selectivity": 0.1,
+        "selectivity_candidate_pool_size": 200000,
+        "random_seed": 20261009,
+        "min_children": 0,
+        "parent_range_start": 0,
+        "parent_range_end": 1,
+        "selection_target_selectivity": 0.01,
+        "include_selectivity_extremes": true
+      },
+      "analysis_params": {
+        "analyze": true
+      }
+    },
+    {
+      "enabled": true,
+      "task_name": "minlen1_sel10to40pct",
+      "mode": "variable_sub_base",
+      "dataset": "Music",
+      "data_dir": "/home/dev/graphdb/FilterVectorData/Music",
+      "overwrite": true,
+      "sub_base_params": {
+        "num_points": 700,
+        "min_query_length": 1,
+        "max_query_length": 6,
+        "min_groundtruth": 20,
+        "min_selectivity": 0.1,
+        "max_selectivity": 0.4,
+        "selectivity_candidate_pool_size": 0,
+        "random_seed": 20261010,
+        "min_children": 0,
+        "parent_range_start": 0,
+        "parent_range_end": 1,
+        "preferred_selectivity_min": 0.1,
+        "preferred_selectivity_max": 0.2,
+        "include_selectivity_extremes": true
+      },
+      "analysis_params": {
+        "analyze": true
+      }
+    },
+    {
+      "enabled": true,
+      "task_name": "minlen1_sel40to100pct",
+      "mode": "variable_sub_base",
+      "dataset": "Music",
+      "data_dir": "/home/dev/graphdb/FilterVectorData/Music",
+      "overwrite": true,
+      "sub_base_params": {
+        "num_points": 300,
+        "min_query_length": 1,
+        "max_query_length": 6,
+        "min_groundtruth": 20,
+        "min_selectivity": 0.4,
+        "max_selectivity": 1.0,
+        "selectivity_candidate_pool_size": 0,
+        "random_seed": 20261011,
+        "min_children": 0,
+        "parent_range_start": 0,
+        "parent_range_end": 1,
+        "duplicate_selectivity_min": 0.4,
+        "duplicate_selectivity_max": 0.5,
+        "include_selectivity_extremes": true
+      },
+      "analysis_params": {
+        "analyze": true
+      }
+    }
+  ]
+}

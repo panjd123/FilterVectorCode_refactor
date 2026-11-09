@@ -19,3 +19,19 @@ runs/
 **/._*
 .venv_curator/
 thirdparty/curator-v2/3rd_party/faiss/build/
+
+# Local environment, experiment logs, and patch backups
+.env
+.env.*
+!.env.example
+logs/
+*.orig
+*.rej
+
+# Generated LaTeX build state
+docs/papers/**/*.aux
+docs/papers/**/*.bbl
+docs/papers/**/*.blg
+docs/papers/**/*.out
+docs/papers/**/*.fdb_latexmk
+docs/papers/**/*.fls

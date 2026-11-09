@@ -1,0 +1,55 @@
+{
+  "dataset_order": [
+    "Genome",
+    "Reviews",
+    "Amazon",
+    "VImg",
+    "Music",
+    "BReviews",
+    "Tiktok",
+    "Laion"
+  ],
+  "historical_sources": [
+    {
+      "run_dir": "trie_block_build_ablation/20261018_234449_171644",
+      "variant_mapping": {
+        "cpu": "cpu",
+        "gpu": "gpu",
+        "gpu_balance": "gpu_balance",
+        "gpu_balance_topk": "gpu_balance_topk"
+      }
+    },
+    {
+      "run_dir": "Amazon/intra_build_ablation/20261018_230152_261121",
+      "dataset": "Amazon",
+      "variant_mapping": {
+        "cpu": "cpu",
+        "load_balance_only": "gpu_balance",
+        "load_balance_topk": "gpu_balance_topk"
+      }
+    },
+    {
+      "run_dir": "Amazon/intra_build_ablation/20261018_231622_240730",
+      "dataset": "Amazon",
+      "variant_mapping": {
+        "gpu_baseline": "gpu"
+      }
+    }
+  ],
+  "graph_only_sources": [
+    {
+      "run_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only",
+      "variant_mapping": {
+        "gpu_balance_topk": "gpu_balance_topk"
+      }
+    },
+    {
+      "run_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three",
+      "variant_mapping": {
+        "cpu": "cpu",
+        "gpu": "gpu",
+        "gpu_balance": "gpu_balance"
+      }
+    }
+  ]
+}

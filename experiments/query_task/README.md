@@ -17,7 +17,7 @@ custom_query_tasks.example.json
 在项目根目录执行：
 
 ```bash
-cd /home/dev/graphdb/FilterVectorCode_refactor
+cd /home/dev/graphdb/FilterVectorCode_multilevel_special
 
 python3 scripts/run_custom_query_tasks.py \
   experiments/query_task/custom_query_tasks.example.json
@@ -26,7 +26,7 @@ python3 scripts/run_custom_query_tasks.py \
 也可以用 shell 包装脚本：
 
 ```bash
-cd /home/dev/graphdb/FilterVectorCode_refactor
+cd /home/dev/graphdb/FilterVectorCode_multilevel_special
 
 bash scripts/run_custom_query_tasks.sh \
   experiments/query_task/custom_query_tasks.example.json
@@ -51,7 +51,7 @@ cmake --build build_ung_rel --target generate_mixed_queries fvecs_to_bin -j 16
 
 ```json
 {
-  "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/build_ung_rel",
   "query_tasks": [
     {
       "task_name": "minlen1_cov20k",
@@ -118,9 +118,14 @@ profiled_minlen1_cov20k.csv
 - `max_coverage`：最大覆盖向量数。通常可以写数据集总向量数。
 - `min_groundtruth`：每条 query 必须拥有的最小有效真值数量，默认 `20`。生成器会在所有 `sub_base` 模式（包括批次平均选择率模式）中强制执行该下限。
 - `min_children`：对 query label set 的 superset group 数量要求。`variable_sub_base` 常用 `0`，表示只按 coverage 过滤。
-- `target_average_selectivity`：可选，范围 `[0, 1]`。设置后启用批次平均选择率模式，使整批 query 的 `平均 coverage / base 向量数` 接近该值；此模式不再对每条 query 应用 `K` 和 `max_coverage`，但仍强制 `min_groundtruth`。
-- `average_selectivity_tolerance`：批次实际平均选择率与目标值允许的绝对误差，默认 `0.001`。
-- `average_candidate_pool_size`：单标签候选无法达到目标容差时，最多额外采样的候选数，默认 `20000`。
+- `min_selectivity`：每条 query 的 containment 选择率下界（包含），必须与 `max_selectivity` 同时设置。
+- `max_selectivity`：每条 query 的 containment 选择率上界；小于 `1.0` 时不包含上界，等于 `1.0` 时包含。因此三个连续区间可配置为 `[0,0.1)`、`[0.1,0.4)`、`[0.4,1.0]`。
+- `selection_target_selectivity`：最终选择候选时优先选择最接近该目标选择率的不同 label set；相同距离随机打散。
+- `preferred_selectivity_min` / `preferred_selectivity_max`：最终选择优先使用的子区间。只要子区间内存在候选，初次选择和普通重复补足都从该子池抽取。
+- `duplicate_selectivity_min` / `duplicate_selectivity_max`：候选不足、必须重复补足时使用的优先子区间，不影响初次选择不同 label set。
+- `include_selectivity_extremes`：设为 `true` 时预留两个位置，分别放入完整候选池中选择率最低和最高的查询；两者仍满足标签长度、选择率区间和 `min_groundtruth` 约束。
+- `selectivity_candidate_pool_size`：额外随机生成并计算 coverage 的候选数量。低选择率标签空间很大时应提高；中高选择率会对达到下界的少量高频标签进行完整子集枚举。
+- `random_seed`：候选抽样、最终标签选择和查询向量选择的随机种子；`0` 表示使用系统随机源。
 - `parent_range_start`：parent label set 来源区间起点比例，范围 `[0.0, 1.0)`。比如前 70% 写 `0.0`。
 - `parent_range_end`：parent label set 来源区间终点比例，范围 `(0.0, 1.0]`。比如前 70% 写 `0.7`，后 30% 写 `1.0` 且 start 写 `0.7`。
 - `cache-file`：superset 统计缓存。存在时可以加速生成。
@@ -167,8 +172,9 @@ profiled_minlen1_cov20k.csv
 
 - `variable_sub_base` 不保证固定标签长度，只保证长度不小于 `min_query_length`。
 - `K` 是 coverage 下限，不是搜索时返回的 TopK。
-- 批次平均选择率模式优先混合目标两侧的可达 coverage。例如目标 `0.5` 不要求每条 query 都有 50% 的选择率，只保证整批平均值在容差内。
-- 在满足平均选择率容差的前提下，生成器优先选择尚未使用过的 label set；候选种类不足或继续使用新标签会破坏平均选择率时才会重复。日志中的 `unique_label_sets` 和 `duplicate_queries` 可用于检查多样性。
-- 若采样到的 coverage 无法包围目标，或者离散 coverage 在给定 query 数量下无法满足容差，生成器会直接失败并打印可达范围，不会进行逐 query 的百万级无效重试。
+- 固定区间模式按每个候选查询标签自身的 `coverage / base_count` 分桶，不再使用目标值上下浮动或软容差。
+- 中高选择率区间利用反单调性：达到下界的多标签集合，其每个单标签也必须达到下界；高频标签不超过 20 个时会完整枚举其子集。
+- 候选数不少于 `num_points` 时优先无放回随机选择；候选不足时随机复用，日志中的 `selected_unique_label_sets` 和 `duplicate_queries` 会报告多样性。
+- 固定区间模式仍强制 `min_groundtruth`、标签长度和 `min_children`，并忽略旧的目标值/容差配置字段。
 - 如果生成速度很慢，通常说明满足 `min_query_length` 和 coverage 条件的 query 很稀疏，可以适当降低 `K`、提高 `max_coverage`，或增加 `num_points` 之外的候选尝试逻辑。
 - 如果 `overwrite=false` 且目标 `.fvecs` 已存在，脚本会跳过生成，但仍会补 `.bin` 和 profile。

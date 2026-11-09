@@ -1,0 +1,111 @@
+# Curator: Efficient Tree-Based Vector Indexing for Filtered Search
+
+At its core, Curator constructs a memory-efficient clustering tree that indexes all vectors and embeds multiple per-label indexes as sub-trees. These per-label indexes are not only extremely lightweight but also capture the unique vector distribution of each label, leading to high search performance and a low memory footprint. Furthermore, each per-label index can be constructed and updated independently with minimal cost, and multiple per-label indexes can be flexibly composed to handle queries with complex filter predicates.
+
+## Repository Structure
+
+- `3rd_party/faiss`: C++ impl of Curator and baselines
+
+  - `MultiTenantIndexIVFHierarchical.cpp`: Curator
+  - `MultiTenantIndexIVFFlat.cpp`: Shared IVF (inline filtering)
+  - `MultiTenantIndexIVFFlatSep.cpp`: Per-label IVF (separate indexes)
+  - `MultiTenantIndexHNSW.cpp`: Shared HNSW (inline filtering)
+
+- `indexes`: Python API for indexes
+
+  - `curator.py`: Curator
+  - `shared_ivf.py`: Shared IVF (inline filtering)
+  - `per_label_ivf.py`: Per-label IVF (separate indexes)
+  - `shared_hnsw.py`: Shared HNSW (inline filtering)
+  - `per_label_hnsw.py`: Per-label HNSW (separate indexes)
+
+- `dataset`: code for evaluation datasets
+
+  - `arxiv_dataset.py`: arXiv dataset
+  - `yfcc100m_dataset.py`: YFCC100M dataset
+
+- `benchmark`: code for running benchmarks
+
+## How to Use
+
+### Install Dependencies
+
+We assume that you have installed Anaconda. To install the required Python packages, run the following command:
+
+```bash
+conda env create -f environment.yml -n ann_bench
+conda activate ann_bench
+```
+
+### Build from Source
+
+```bash
+cd 3rd_party/faiss
+
+cmake -B build . \
+  -DFAISS_ENABLE_GPU=OFF \
+  -DFAISS_ENABLE_PYTHON=ON \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DFAISS_OPT_LEVEL=avx2 \
+  -DBUILD_TESTING=ON
+
+make -C build -j32 faiss_avx2
+make -C build -j32 swigfaiss_avx2
+cd build/faiss/python
+python setup.py install
+```
+
+### Generate Datasets
+
+```bash
+mkdir -p data/yfcc100m
+yfcc100m_base_url="https://dl.fbaipublicfiles.com/billion-scale-ann-benchmarks/yfcc100M"
+wget -P data/yfcc100m ${yfcc100m_base_url}/base.10M.u8bin
+wget -P data/yfcc100m ${yfcc100m_base_url}/base.metadata.10M.spmat
+
+mkdir -p data/arxiv
+# manually download arxiv dataset from https://www.kaggle.com/datasets/Cornell-University/arxiv
+# and put it at data/arxiv/arxiv-metadata-oai-snapshot.json
+
+python -m dataset.yfcc100m_dataset
+python -m dataset.arxiv_dataset
+```
+
+### Run Benchmarks
+
+Use the shell scripts in `scripts/benchmark/` to run experiments:
+
+```bash
+# Run overall results evaluation
+./scripts/benchmark/run_overall_results.sh <baseline> <dataset> [output_dir] [cpu_cores]
+# Example: ./scripts/benchmark/run_overall_results.sh curator yfcc100m
+
+# Generate plots from existing results
+./scripts/benchmark/run_overall_results.sh plot yfcc100m output/overall_results2
+
+# Run complex predicate evaluation
+./scripts/benchmark/run_complex_predicate.sh <baseline> [output_dir] [cpu_cores]
+# Example: ./scripts/benchmark/run_complex_predicate.sh all
+
+# Generate complex predicate plots
+./scripts/benchmark/run_complex_predicate.sh plot output/complex_predicate_optimal
+
+# Run scalability experiments (nlabels)
+./scripts/benchmark/run_scalability.sh <baseline|all> [output_dir] [n_labels_list]
+# Example: ./scripts/benchmark/run_scalability.sh curator
+# Example: ./scripts/benchmark/run_scalability.sh all output/scalability 19,38,76
+
+# Generate scalability plots (memory vs nlabels/nvecs)
+./scripts/benchmark/run_scalability.sh plot
+
+# Generate ablation study plots (structural constraint, skewness)
+./scripts/benchmark/run_ablation.sh plot
+```
+
+Available baselines for scalability: `curator`, `per_label_hnsw`, `per_label_ivf`, `shared_hnsw`, `parlay_ivf`, `filtered_diskann`, `all`, `plot`
+
+Available baselines for overall results: `curator`, `per_label_hnsw`, `per_label_ivf`, `shared_hnsw`, `shared_ivf`, `parlay_ivf`, `filtered_diskann`, `acorn_1`, `acorn_gamma`, `all`, `plot`
+
+Available datasets: `yfcc100m`, `arxiv`
+
+See each script's help (`./scripts/benchmark/<script>.sh`) for full usage details.

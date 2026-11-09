@@ -120,13 +120,14 @@ int main(int argc, char *argv[])
    std::string base_path, base_label_path, query_path, csv_dir, avg_csv_dir, gt_bin_path;
    std::vector<int> efs_list;
    bool if_bfs_filter = true;
+   bool run_acorn1 = true;
    std::string mode, index_path_acorn, index_path_acorn1;
 
    // --- 参数解析 ---
    {
       if (argc < 20)
       {
-         fprintf(stderr, "Usage: %s <mode> <N> <gamma> <dataset> <M> <M_beta> <base_path> <base_label_path> <query_path> <csv_dir> <avg_csv_dir> <gt_bin_path> <nthreads> <repeat_num> <if_bfs_filter> <efs_list> <index_path_acorn> <index_path_acorn1><k> \n", argv[0]);
+         fprintf(stderr, "Usage: %s <mode> <N> <gamma> <dataset> <M> <M_beta> <base_path> <base_label_path> <query_path> <csv_dir> <avg_csv_dir> <gt_bin_path> <nthreads> <repeat_num> <if_bfs_filter> <efs_list> <index_path_acorn> <index_path_acorn1> <k> [run_acorn1]\n", argv[0]);
          fprintf(stderr, "       <mode> must be 'build' or 'search'\n");
          exit(1);
       }
@@ -155,9 +156,11 @@ int main(int argc, char *argv[])
       index_path_acorn = argv[17];
       index_path_acorn1 = argv[18];
       k = atoi(argv[19]);
+      if (argc > 20)
+         run_acorn1 = atoi(argv[20]) != 0;
 
       printf("Running in '%s' mode\n", mode.c_str());
-      printf("DEBUG: N=%zu, gamma=%d, M=%d, M_beta=%d, threads=%d, repeat=%d\n", N, gamma, M, M_beta, nthreads, repeat_num);
+      printf("DEBUG: N=%zu, gamma=%d, M=%d, M_beta=%d, threads=%d, repeat=%d, run_acorn1=%d\n", N, gamma, M, M_beta, nthreads, repeat_num, run_acorn1);
 
       char *token = strtok(efs_list_str, ",");
       while (token != NULL)
@@ -208,7 +211,9 @@ int main(int argc, char *argv[])
       }
 
       faiss::IndexACORNFlat hybrid_index(d, M, gamma, metadata, M_beta);
-      faiss::IndexACORNFlat hybrid_index_gamma1(d, M, 1, metadata, M * 2);
+      faiss::IndexACORNFlat *hybrid_index_gamma1 = nullptr;
+      if (run_acorn1)
+         hybrid_index_gamma1 = new faiss::IndexACORNFlat(d, M, 1, metadata, M * 2);
 
       std::cout << "Index parameters: "
                 << "d=" << d << ", M=" << M
@@ -222,14 +227,16 @@ int main(int argc, char *argv[])
       double acorn_build_time_s = elapsed() - t_start_acorn;
       printf("[%.3f s] ACORN build time: %.3f s\n", elapsed() - t0, acorn_build_time_s);
 
-      std::cout << "ACORN index built. Now building ACORN-1 index with gamma=1 and M_beta=" << M * 2 << std::endl;
-
-      // 构建 ACORN-1
-      printf("[%.3f s] Adding %zu vectors to ACORN-1 index...\n", elapsed() - t0, N);
-      double t_start_acorn1 = elapsed();
-      hybrid_index_gamma1.add(N, xb);
-      double acorn_1_build_time_s = elapsed() - t_start_acorn1;
-      printf("[%.3f s] ACORN-1 build time: %.3f s\n", elapsed() - t0, acorn_1_build_time_s);
+      double acorn_1_build_time_s = 0.0;
+      if (run_acorn1)
+      {
+         std::cout << "ACORN index built. Now building ACORN-1 index with gamma=1 and M_beta=" << M * 2 << std::endl;
+         printf("[%.3f s] Adding %zu vectors to ACORN-1 index...\n", elapsed() - t0, N);
+         double t_start_acorn1 = elapsed();
+         hybrid_index_gamma1->add(N, xb);
+         acorn_1_build_time_s = elapsed() - t_start_acorn1;
+         printf("[%.3f s] ACORN-1 build time: %.3f s\n", elapsed() - t0, acorn_1_build_time_s);
+      }
 
       delete[] xb;
 
@@ -237,8 +244,11 @@ int main(int argc, char *argv[])
       printf("[%.3f s] Saving ACORN index to %s\n", elapsed() - t0, index_path_acorn.c_str());
       faiss::write_index(&hybrid_index, index_path_acorn.c_str());
 
-      printf("[%.3f s] Saving ACORN-1 index to %s\n", elapsed() - t0, index_path_acorn1.c_str());
-      faiss::write_index(&hybrid_index_gamma1, index_path_acorn1.c_str());
+      if (run_acorn1)
+      {
+         printf("[%.3f s] Saving ACORN-1 index to %s\n", elapsed() - t0, index_path_acorn1.c_str());
+         faiss::write_index(hybrid_index_gamma1, index_path_acorn1.c_str());
+      }
 
       // --- ACORN 索引大小计算 ---
       long acorn_total_size_bytes = get_file_size(index_path_acorn);
@@ -260,24 +270,28 @@ int main(int argc, char *argv[])
              (double)acorn_vectors_size_bytes / (1024.0 * 1024.0),
              (double)acorn_index_only_size_bytes / (1024.0 * 1024.0));
 
-      // --- ACORN-1 索引大小计算 ---
-      long acorn_1_total_size_bytes = get_file_size(index_path_acorn1);
-      long acorn_1_vectors_size_bytes = (long)N * d * sizeof(float);
-      long acorn_1_index_only_size_bytes = acorn_1_total_size_bytes - acorn_1_vectors_size_bytes;
+      if (run_acorn1)
+      {
+         // --- ACORN-1 索引大小计算 ---
+         long acorn_1_total_size_bytes = get_file_size(index_path_acorn1);
+         long acorn_1_vectors_size_bytes = (long)N * d * sizeof(float);
+         long acorn_1_index_only_size_bytes = acorn_1_total_size_bytes - acorn_1_vectors_size_bytes;
 
-      // 保存元数据文件
-      std::ofstream meta_file1(index_path_acorn1 + ".meta");
-      meta_file1 << "build_time_s:" << acorn_1_build_time_s << std::endl;
-      meta_file1 << "total_size_bytes:" << acorn_1_total_size_bytes << std::endl;
-      meta_file1 << "index_only_size_bytes:" << acorn_1_index_only_size_bytes << std::endl;
-      meta_file1.close();
+         // 保存元数据文件
+         std::ofstream meta_file1(index_path_acorn1 + ".meta");
+         meta_file1 << "build_time_s:" << acorn_1_build_time_s << std::endl;
+         meta_file1 << "total_size_bytes:" << acorn_1_total_size_bytes << std::endl;
+         meta_file1 << "index_only_size_bytes:" << acorn_1_index_only_size_bytes << std::endl;
+         meta_file1.close();
 
-      printf("[%.3f s] ACORN-1 index saved. Total size: %.2f MB. Vectors part: %.2f MB. Index-only part: %.2f MB.\n",
-             elapsed() - t0,
-             (double)acorn_1_total_size_bytes / (1024.0 * 1024.0),
-             (double)acorn_1_vectors_size_bytes / (1024.0 * 1024.0),
-             (double)acorn_1_index_only_size_bytes / (1024.0 * 1024.0));
+         printf("[%.3f s] ACORN-1 index saved. Total size: %.2f MB. Vectors part: %.2f MB. Index-only part: %.2f MB.\n",
+                elapsed() - t0,
+                (double)acorn_1_total_size_bytes / (1024.0 * 1024.0),
+                (double)acorn_1_vectors_size_bytes / (1024.0 * 1024.0),
+                (double)acorn_1_index_only_size_bytes / (1024.0 * 1024.0));
+      }
 
+      delete hybrid_index_gamma1;
       // 保存倒排索引
       std::string inverted_index_path = index_path_acorn + ".inverted_index";
       build_and_save_inverted_index(metadata, N, inverted_index_path);
@@ -321,24 +335,27 @@ int main(int argc, char *argv[])
          printf("Warning: Could not open meta file for ACORN index: %s.meta\n", index_path_acorn.c_str());
       }
 
-      std::ifstream meta_file1(index_path_acorn1 + ".meta");
-      if (meta_file1.is_open())
+      if (run_acorn1)
       {
-         while (std::getline(meta_file1, line))
+         std::ifstream meta_file1(index_path_acorn1 + ".meta");
+         if (meta_file1.is_open())
          {
-            std::stringstream ss(line);
-            std::string key;
-            std::getline(ss, key, ':');
-            if (key == "build_time_s")
-               ss >> acorn_1_build_time_s;
-            if (key == "total_size_bytes")
-               ss >> acorn_1_index_size_bytes; // 修正：读取total size
+            while (std::getline(meta_file1, line))
+            {
+               std::stringstream ss(line);
+               std::string key;
+               std::getline(ss, key, ':');
+               if (key == "build_time_s")
+                  ss >> acorn_1_build_time_s;
+               if (key == "total_size_bytes")
+                  ss >> acorn_1_index_size_bytes; // 修正：读取total size
+            }
+            meta_file1.close();
          }
-         meta_file1.close();
-      }
-      else
-      {
-         printf("Warning: Could not open meta file for ACORN-1 index: %s.meta\n", index_path_acorn1.c_str());
+         else
+         {
+            printf("Warning: Could not open meta file for ACORN-1 index: %s.meta\n", index_path_acorn1.c_str());
+         }
       }
 
       // --- 加载索引 ---
@@ -354,18 +371,22 @@ int main(int argc, char *argv[])
       }
       d = hybrid_index->d;
 
-      printf("[%.3f s] Loading ACORN-1 index from: %s\n", elapsed() - t0, index_path_acorn1.c_str());
-      hybrid_index_gamma1 = dynamic_cast<faiss::IndexACORNFlat *>(faiss::read_index(index_path_acorn1.c_str()));
-      if (!hybrid_index_gamma1)
+      if (run_acorn1)
       {
-         fprintf(stderr, "Error: Failed to load index from %s.\n", index_path_acorn1.c_str());
-         exit(1);
+         printf("[%.3f s] Loading ACORN-1 index from: %s\n", elapsed() - t0, index_path_acorn1.c_str());
+         hybrid_index_gamma1 = dynamic_cast<faiss::IndexACORNFlat *>(faiss::read_index(index_path_acorn1.c_str()));
+         if (!hybrid_index_gamma1)
+         {
+            fprintf(stderr, "Error: Failed to load index from %s.\n", index_path_acorn1.c_str());
+            exit(1);
+         }
       }
 
       // 重新关联元数据
       printf("[%.3f s] Re-associating metadata with loaded indexes...\n", elapsed() - t0);
       hybrid_index->set_metadata(metadata);
-      hybrid_index_gamma1->set_metadata(metadata);
+      if (run_acorn1)
+         hybrid_index_gamma1->set_metadata(metadata);
       printf("[%.3f s] Indexes loaded and ready for search.\n", elapsed() - t0);
 
       // --- 加载查询数据 ---
@@ -412,7 +433,8 @@ int main(int argc, char *argv[])
       std::string inverted_index_path = index_path_acorn + ".inverted_index";
       std::unordered_map<int, std::vector<int>> inverted_index = load_inverted_index(inverted_index_path);
       hybrid_index->set_inverted_index(inverted_index);
-      hybrid_index_gamma1->set_inverted_index(inverted_index);
+      if (run_acorn1)
+         hybrid_index_gamma1->set_inverted_index(inverted_index);
       printf("[%.3f s] Inverted index set into ACORN instances.\n", elapsed() - t0);
       printf("[%.3f s] Generating filter map using loaded index...\n", elapsed() - t0);
       double t_filter_para_0 = elapsed();
@@ -452,56 +474,58 @@ int main(int argc, char *argv[])
                recalls_acorn[i] = calculate_single_query_recall(gt_data + i * k, nns2.data() + i * k, k);
             }
 
-            // --- 搜索 ACORN-1 ---
-            std::vector<faiss::idx_t> nns3(k * nq);
-            std::vector<float> dis3(k * nq);
-            std::vector<double> query_times3(nq);
-            std::vector<double> query_qps3(nq);
-            std::vector<size_t> query_n33(nq);
-
-            printf("--- ACORN-1 | efs = %d ---\n", current_efs);
-            hybrid_index_gamma1->acorn.efSearch = current_efs;
-            faiss::acorn_stats.reset();
-            double t1_acorn1 = elapsed();
-            hybrid_index_gamma1->search_old_bitmap(nq, xq, k, dis3.data(), nns3.data(), aq, &query_times3, &query_qps3, &query_n33, if_bfs_filter);
-            double search_time_acorn1_s = elapsed() - t1_acorn1;
-            const faiss::ACORNStats &acorn1_search_stats = faiss::acorn_stats;
-
-            // --- [核心修改] 使用新的方法计算 Recall ---
+            // --- 计算并记录 ACORN 结果 ---
             float recall_mean_acorn = std::accumulate(recalls_acorn.begin(), recalls_acorn.end(), 0.0f) / nq;
-
-            std::vector<float> recalls_acorn1(nq);
-#pragma omp parallel for
-            for (size_t i = 0; i < nq; ++i)
-            {
-               recalls_acorn1[i] = calculate_single_query_recall(gt_data + i * k, nns3.data() + i * k, k);
-            }
-            float recall_mean_acorn1 = std::accumulate(recalls_acorn1.begin(), recalls_acorn1.end(), 0.0f) / nq;
-
             std::cout << "  ACORN   | Time: " << search_time_acorn_s << " s, QPS: " << nq / search_time_acorn_s << ", Recall: " << recall_mean_acorn << std::endl;
-            std::cout << "  ACORN-1 | Time: " << search_time_acorn1_s << " s, QPS: " << nq / search_time_acorn1_s << ", Recall: " << recall_mean_acorn1 << std::endl;
 
-            // --- 存储单次结果 ---
             for (int i = 0; i < nq; i++)
             {
                all_query_results[repeat][efs_id][i].acorn_time_ms = query_times[i] * 1000.0;
                all_query_results[repeat][efs_id][i].acorn_qps = query_qps[i];
                all_query_results[repeat][efs_id][i].acorn_recall = recalls_acorn[i];
                all_query_results[repeat][efs_id][i].acorn_n3 = query_n3[i];
-               all_query_results[repeat][efs_id][i].acorn_1_time_ms = query_times3[i] * 1000.0;
-               all_query_results[repeat][efs_id][i].acorn_1_qps = query_qps3[i];
-               all_query_results[repeat][efs_id][i].acorn_1_recall = recalls_acorn1[i];
-               all_query_results[repeat][efs_id][i].acorn_1_n3 = query_n33[i];
             }
-
-            // --- 累加结果用于最终平均 ---
             final_avg_results[efs_id].total_acorn_time_s += search_time_acorn_s;
             final_avg_results[efs_id].total_acorn_recall += recall_mean_acorn;
             final_avg_results[efs_id].total_acorn_n3 += (acorn_search_stats.n1 > 0) ? ((size_t)acorn_search_stats.n3) : 0;
 
-            final_avg_results[efs_id].total_acorn_1_time_s += search_time_acorn1_s;
-            final_avg_results[efs_id].total_acorn_1_recall += recall_mean_acorn1;
-            final_avg_results[efs_id].total_acorn_1_n3 += (acorn1_search_stats.n1 > 0) ? ((size_t)acorn1_search_stats.n3) : 0;
+            if (run_acorn1)
+            {
+               // --- 搜索 ACORN-1 ---
+               std::vector<faiss::idx_t> nns3(k * nq);
+               std::vector<float> dis3(k * nq);
+               std::vector<double> query_times3(nq);
+               std::vector<double> query_qps3(nq);
+               std::vector<size_t> query_n33(nq);
+
+               printf("--- ACORN-1 | efs = %d ---\n", current_efs);
+               hybrid_index_gamma1->acorn.efSearch = current_efs;
+               faiss::acorn_stats.reset();
+               double t1_acorn1 = elapsed();
+               hybrid_index_gamma1->search_old_bitmap(nq, xq, k, dis3.data(), nns3.data(), aq, &query_times3, &query_qps3, &query_n33, if_bfs_filter);
+               double search_time_acorn1_s = elapsed() - t1_acorn1;
+               const faiss::ACORNStats &acorn1_search_stats = faiss::acorn_stats;
+
+               std::vector<float> recalls_acorn1(nq);
+#pragma omp parallel for
+               for (size_t i = 0; i < nq; ++i)
+               {
+                  recalls_acorn1[i] = calculate_single_query_recall(gt_data + i * k, nns3.data() + i * k, k);
+               }
+               float recall_mean_acorn1 = std::accumulate(recalls_acorn1.begin(), recalls_acorn1.end(), 0.0f) / nq;
+               std::cout << "  ACORN-1 | Time: " << search_time_acorn1_s << " s, QPS: " << nq / search_time_acorn1_s << ", Recall: " << recall_mean_acorn1 << std::endl;
+
+               for (int i = 0; i < nq; i++)
+               {
+                  all_query_results[repeat][efs_id][i].acorn_1_time_ms = query_times3[i] * 1000.0;
+                  all_query_results[repeat][efs_id][i].acorn_1_qps = query_qps3[i];
+                  all_query_results[repeat][efs_id][i].acorn_1_recall = recalls_acorn1[i];
+                  all_query_results[repeat][efs_id][i].acorn_1_n3 = query_n33[i];
+               }
+               final_avg_results[efs_id].total_acorn_1_time_s += search_time_acorn1_s;
+               final_avg_results[efs_id].total_acorn_1_recall += recall_mean_acorn1;
+               final_avg_results[efs_id].total_acorn_1_n3 += (acorn1_search_stats.n1 > 0) ? ((size_t)acorn1_search_stats.n3) : 0;
+            }
          }
       }
 
@@ -531,9 +555,11 @@ int main(int argc, char *argv[])
       // --- 写详细CSV文件 (per query) ---
       std::ofstream csv_file(full_csv_path);
       csv_file << "repeat,efs,QueryID,acorn_Time_ms,acorn_QPS,acorn_Recall,acorn_n3_visited,"
-               << "acorn_build_time_ms,acorn_index_size_MB,"
-               << "acorn_1_Time_ms,acorn_1_QPS,acorn_1_Recall,acorn_1_n3_visited,"
-               << "acorn_1_build_time_ms,acorn_1_index_size_MB\n";
+               << "acorn_build_time_ms,acorn_index_size_MB";
+      if (run_acorn1)
+         csv_file << ",acorn_1_Time_ms,acorn_1_QPS,acorn_1_Recall,acorn_1_n3_visited,"
+                  << "acorn_1_build_time_ms,acorn_1_index_size_MB";
+      csv_file << "\n";
       for (int repeat = 0; repeat < repeat_num; repeat++)
       {
          for (int efs_id = 0; efs_id < efs_list.size(); efs_id++)
@@ -546,11 +572,13 @@ int main(int argc, char *argv[])
                         << result.acorn_time_ms << "," << result.acorn_qps << ","
                         << result.acorn_recall << "," << result.acorn_n3 << ","
                         << acorn_build_time_s * 1000.0 << ","
-                        << (double)acorn_index_size_bytes / (1024.0 * 1024.0) << ","
-                        << result.acorn_1_time_ms << "," << result.acorn_1_qps << ","
-                        << result.acorn_1_recall << "," << result.acorn_1_n3 << ","
-                        << acorn_1_build_time_s * 1000.0 << ","
-                        << (double)acorn_1_index_size_bytes / (1024.0 * 1024.0) << "\n";
+                        << (double)acorn_index_size_bytes / (1024.0 * 1024.0);
+               if (run_acorn1)
+                  csv_file << "," << result.acorn_1_time_ms << "," << result.acorn_1_qps << ","
+                           << result.acorn_1_recall << "," << result.acorn_1_n3 << ","
+                           << acorn_1_build_time_s * 1000.0 << ","
+                           << (double)acorn_1_index_size_bytes / (1024.0 * 1024.0);
+               csv_file << "\n";
             }
          }
       }
@@ -559,9 +587,11 @@ int main(int argc, char *argv[])
       // --- 写平均CSV文件 (per efs) ---
       std::ofstream avg_csv_file(full_avg_csv_path);
       avg_csv_file << "efs,acorn_Time_ms,acorn_QPS,acorn_Recall,acorn_n3_visited_avg,"
-                   << "acorn_build_time_ms,acorn_index_size_MB,"
-                   << "acorn_1_Time_ms,acorn_1_QPS,acorn_1_Recall,acorn_1_n3_visited_avg,"
-                   << "acorn_1_build_time_ms,acorn_1_index_size_MB\n"; // 移除了 FilterMapTime
+                   << "acorn_build_time_ms,acorn_index_size_MB";
+      if (run_acorn1)
+         avg_csv_file << ",acorn_1_Time_ms,acorn_1_QPS,acorn_1_Recall,acorn_1_n3_visited_avg,"
+                      << "acorn_1_build_time_ms,acorn_1_index_size_MB";
+      avg_csv_file << "\n";
       for (int efs_id = 0; efs_id < efs_list.size(); efs_id++)
       {
          const auto &aggregated = final_avg_results[efs_id];
@@ -571,13 +601,15 @@ int main(int argc, char *argv[])
                       << aggregated.total_acorn_recall / repeat_num << ","
                       << (double)aggregated.total_acorn_n3 / (nq * repeat_num) << ","
                       << acorn_build_time_s * 1000.0 << ","
-                      << (double)acorn_index_size_bytes / (1024.0 * 1024.0) << ","
-                      << (aggregated.total_acorn_1_time_s * 1000.0) / repeat_num << ","
-                      << (nq * repeat_num) / aggregated.total_acorn_1_time_s << ","
-                      << aggregated.total_acorn_1_recall / repeat_num << ","
-                      << (double)aggregated.total_acorn_1_n3 / (nq * repeat_num) << ","
-                      << acorn_1_build_time_s * 1000.0 << ","
-                      << (double)acorn_1_index_size_bytes / (1024.0 * 1024.0) << "\n";
+                      << (double)acorn_index_size_bytes / (1024.0 * 1024.0);
+         if (run_acorn1)
+            avg_csv_file << "," << (aggregated.total_acorn_1_time_s * 1000.0) / repeat_num << ","
+                         << (nq * repeat_num) / aggregated.total_acorn_1_time_s << ","
+                         << aggregated.total_acorn_1_recall / repeat_num << ","
+                         << (double)aggregated.total_acorn_1_n3 / (nq * repeat_num) << ","
+                         << acorn_1_build_time_s * 1000.0 << ","
+                         << (double)acorn_1_index_size_bytes / (1024.0 * 1024.0);
+         avg_csv_file << "\n";
       }
       avg_csv_file.close();
 

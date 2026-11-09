@@ -203,6 +203,11 @@ struct SpecialBlockBuildSummary
    IdxType cross_trivial_skipped_query_vectors = 0;
    IdxType additional_trivial_skipped_groups = 0;
    IdxType additional_trivial_skipped_points = 0;
+   IdxType gpu_intra_blocks = 0;
+   IdxType gpu_intra_points = 0;
+   IdxType gpu_intra_fallback_blocks = 0;
+   IdxType cpu_intra_vamana_blocks = 0;
+   IdxType cpu_intra_vamana_points = 0;
    uint64_t index_bytes = 0;
    uint64_t disk_bytes = 0;
    uint64_t memory_logical_bytes = 0;

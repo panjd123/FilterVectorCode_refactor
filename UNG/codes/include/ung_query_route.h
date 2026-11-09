@@ -13,52 +13,12 @@
 namespace ANNS
 {
 
+// Fixed graph route and entry-provider state. No learned or bitmap route.
 struct QueryRouteDecision
 {
    bool use_new_trie = false;
-   int algorithm = 0; // 0: UNG, 1: ACORN(BFS), 2: ACORN(NoBFS)
+   int algorithm = 0; // Graph expansion; retained for entry-provider state.
    bool entry_groups_calculated = false;
-   std::optional<bool> pre_trie_heuristic;
-
-   bool uses_acorn() const
-   {
-      return algorithm == 1 || algorithm == 2;
-   }
-
-   bool use_old_bitmap_search(int force_use_alg) const
-   {
-      return pre_trie_heuristic.has_value() || force_use_alg == 3 || force_use_alg == 4;
-   }
-
-   bool apply_pre_trie_heuristic()
-   {
-      if (!pre_trie_heuristic.has_value())
-         return false;
-      algorithm = pre_trie_heuristic.value() ? 1 : 0;
-      use_new_trie = true;
-      return true;
-   }
-
-   void apply_force_route(int force_use_alg, bool bfs_filter)
-   {
-      switch (force_use_alg)
-      {
-      case 1:
-         use_new_trie = false;
-         algorithm = 0;
-         break;
-      case 2:
-         use_new_trie = true;
-         algorithm = 0;
-         break;
-      case 3:
-      case 4:
-         algorithm = bfs_filter ? 1 : 2;
-         break;
-      default:
-         break;
-      }
-   }
 };
 
 enum class SearchGraphBackendImpl : int
@@ -74,6 +34,8 @@ enum class SpecialSearchMode : int
 {
    FreeState = 0,
    FavorBlocks = 1,
+   HnswBlocks = 2,
+   Auto = 3,
 };
 
 bool ung_env_flag_enabled(const char *name);
@@ -94,11 +56,8 @@ struct SearchRuntimeConfig
    std::string scenario;
    IdxType K = 0;
 
-   bool idea2_available = false;
-   bool use_new_trie_method = false;
    bool recursive_more_start = false;
    bool ung_more_entry = false;
-   bool bfs_filter = false;
    EntryGroupStrategy entry_group_strategy = EntryGroupStrategy::OptimizedLng;
    SearchGraphBackendImpl graph_backend = SearchGraphBackendImpl::NeighborList;
    bool special_block_search = false;
@@ -114,16 +73,9 @@ struct SearchRuntimeConfig
    size_t special_upper_min_covered_points = 0;
    bool special_heavy_edge_search = false;
    size_t special_heavy_edge_min_query_size = 0;
-   size_t special_heavy_edge_min_matched_points = 0;
    size_t special_heavy_edge_min_entries = 0;
 
-   int lsearch_start = 0;
-   int lsearch_step = 0;
-   int efs_start = 0;
-   int efs_step_slow = 0;
-   int efs_step_fast = 0;
-   int lsearch_threshold = 0;
-   int force_use_alg = 0;
+   int force_use_alg = 1;
 };
 
 SearchRuntimeConfig make_search_runtime_config(uint32_t num_threads,

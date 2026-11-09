@@ -1,4 +1,5 @@
 #include "include/uni_nav_graph.h"
+#include "include/ung_filter_validation.h"
 #include "include/ung_special_block_activation.h"
 
 #include <chrono>
@@ -15,6 +16,25 @@
 
 namespace ANNS
 {
+
+   size_t UniNavGraph::count_containment_result_violations(
+       const std::shared_ptr<IStorage> &query_storage,
+       const std::pair<IdxType, float> *results,
+       IdxType K,
+       size_t *checked_results) const
+   {
+      const auto summary = validate_containment_results(
+          query_storage->get_num_points(), results, K, _old_to_new_vec_ids, _num_points,
+          [&](IdxType query_id) -> const std::vector<LabelType> & {
+             return query_storage->get_label_set(query_id);
+          },
+          [&](IdxType reordered_id) -> const std::vector<LabelType> & {
+             return _base_storage->get_label_set(reordered_id);
+          });
+      if (checked_results != nullptr)
+         *checked_results = summary.checked_results;
+      return summary.violations;
+   }
 
    void UniNavGraph::thread_function(IdxType query_id,
                                      const SearchRuntimeConfig &runtime,
@@ -60,10 +80,7 @@ namespace ANNS
           (!require_upper_authorization || upper_authorized);
 
       std::vector<IdxType> entry_group_ids;
-      QueryRouteDecision decision = decide_query_route(query_labels, runtime.idea2_available,
-                                                       runtime.use_new_trie_method, runtime.recursive_more_start,
-                                                       runtime.force_use_alg, runtime.bfs_filter,
-                                                       entry_group_ids, stats);
+      QueryRouteDecision decision = decide_query_route(query_labels, runtime.force_use_alg, stats);
 
       const EntryGroupProviderRequest entry_request{
           runtime.entry_group_strategy,
@@ -76,50 +93,59 @@ namespace ANNS
           &entry_group_ids,
           false};
       prepare_entry_groups_for_execution(entry_request, entry_group_ids, stats);
-      populate_special_query_stats(query_labels, stats);
 
-      if (decision.uses_acorn())
+
+      auto search_cache = search_cache_list.get_free_cache(runtime.Lsearch);
+      bool search_ok = false;
+      const bool upper_hnsw_enabled =
+          ung_env_flag_enabled("UNG_UPPER_HNSW_ENABLE");
+      bool use_hnsw_blocks =
+          upper_hnsw_enabled &&
+          use_special_block_search && !_special_blocks.empty() && has_upper_hnsw() &&
+          runtime.special_search_mode == SpecialSearchMode::HnswBlocks;
+      if (upper_hnsw_enabled && use_special_block_search &&
+          !_special_blocks.empty() && has_upper_hnsw() &&
+          runtime.special_search_mode == SpecialSearchMode::Auto)
       {
-         const bool use_old_bitmap_search = decision.use_old_bitmap_search(runtime.force_use_alg);
-         if (!execute_acorn_query(query, query_labels, entry_group_ids, id, runtime.K, runtime.Lsearch,
-                                  runtime.lsearch_start, runtime.lsearch_step, runtime.efs_start,
-                                  runtime.efs_step_slow, runtime.efs_step_fast, runtime.lsearch_threshold,
-                                  runtime.force_use_alg, decision.algorithm, runtime.bfs_filter,
-                                  use_old_bitmap_search, results, num_cmps, cur_result, stats))
-         {
-            return;
-         }
+         float threshold = 0.40f;
+         if (const char *value = std::getenv("UNG_HNSW_BLOCK_SELECTIVITY_THRESHOLD"))
+            threshold = std::strtof(value, nullptr);
+         const float route_selectivity = _num_points == 0 ? 0.0f :
+             static_cast<float>(stats.candidate_set_size) / static_cast<float>(_num_points);
+         use_hnsw_blocks = route_selectivity >= threshold;
+      }
+      if (use_hnsw_blocks)
+      {
+         search_ok = execute_hnsw_block_ung_query(query, search_cache, runtime, graph_backend,
+                                                  entry_group_ids, id,
+                                                  num_cmps, cur_result, stats);
+      }
+      else if (use_special_block_search && !_special_blocks.empty() &&
+          runtime.special_search_mode == SpecialSearchMode::FavorBlocks)
+      {
+         search_ok = execute_favor_block_ung_query(query, search_cache, runtime, graph_backend,
+                                                   entry_group_ids, id,
+                                                   num_cmps, cur_result, stats);
+      }
+      else if (use_special_block_search && !_special_blocks.empty())
+      {
+         search_ok = execute_special_block_ung_query(query, search_cache, runtime, graph_backend,
+                                                     entry_group_ids, query_labels, id,
+                                                     num_cmps, cur_result, stats);
       }
       else
       {
-         auto search_cache = search_cache_list.get_free_cache(runtime.Lsearch);
-         bool search_ok = false;
-         if (use_special_block_search && !_special_blocks.empty() &&
-             runtime.special_search_mode == SpecialSearchMode::FavorBlocks)
-         {
-            search_ok = execute_favor_block_ung_query(query, search_cache, runtime, graph_backend,
-                                                      entry_group_ids, id,
-                                                      num_cmps, cur_result, stats);
-         }
-         else if (use_special_block_search && !_special_blocks.empty())
-         {
-            search_ok = execute_special_block_ung_query(query, search_cache, runtime, graph_backend,
-                                                        entry_group_ids, query_labels, id,
-                                                        num_cmps, cur_result, stats);
-         }
-         else
-         {
-            search_ok = execute_ung_query(query, search_cache, graph_backend,
-                                          entry_group_ids, id,
-                                          runtime.num_entry_points, num_cmps,
-                                          cur_result, stats);
-         }
-         search_cache_list.release_cache(search_cache);
-         if (!search_ok)
-         {
-            return;
-         }
+         search_ok = execute_ung_query(query, search_cache, graph_backend,
+                                       entry_group_ids, id,
+                                       runtime.num_entry_points, num_cmps,
+                                       cur_result, stats);
       }
+      search_cache_list.release_cache(search_cache);
+      if (!search_ok)
+      {
+         return;
+      }
+   
 
       for (auto k = 0; k < runtime.K; ++k)
       {
@@ -168,6 +194,8 @@ namespace ANNS
                                    std::vector<QueryStats> &query_stats,
                                    const std::vector<IdxType> &true_query_group_ids)
    {
+      if (runtime.force_use_alg != 1 && runtime.force_use_alg != 2)
+         throw std::invalid_argument("Adaptive and bitmap routes were removed; use force_use_alg=1 or 2");
       if (execution_context.num_threads != runtime.num_threads)
          throw std::invalid_argument("SearchExecutionContext thread count does not match runtime");
       if (runtime.entry_group_strategy == EntryGroupStrategy::Trie &&

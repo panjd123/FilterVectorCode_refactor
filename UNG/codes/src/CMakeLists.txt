@@ -14,7 +14,7 @@ set(CPP_SOURCES
     uni_nav_graph_label_graph.cpp
     uni_nav_graph_group_graph.cpp
     uni_nav_graph_cross_edges.cpp
-    uni_nav_graph_vector_attr.cpp
+    uni_nav_graph_hnsw_block_search.cpp
     uni_nav_graph_acorn_augment.cpp
 
     # UNG query/search and persistence
@@ -22,7 +22,6 @@ set(CPP_SOURCES
     uni_nav_graph_search_backend.cpp
     uni_nav_graph_batch_gpu_search.cpp
     uni_nav_graph_query_route.cpp
-    uni_nav_graph_query_features.cpp
     uni_nav_graph_entry_provider.cpp
     uni_nav_graph_special_blocks.cpp
     special_block_index_builder.cpp
@@ -30,8 +29,7 @@ set(CPP_SOURCES
     ung_lng_block_partition.cpp
     uni_nav_graph_io.cpp
 
-    # Runtime method selection/configuration
-    MethodSelector.cpp
+    # Runtime configuration
     ung_build_config.cpp
     ung_hierarchy_config.cpp
     ung_group_topology.cpp
@@ -47,6 +45,7 @@ set(CPP_SOURCES
     ung_special_candidate_queue.cpp
     ung_special_edge_io.cpp
     ung_prof_log.cpp
+    ung_upper_hnsw.cpp
     navix_hnsw.cpp
     ung_navix_search.cpp
     navix_index.cpp
@@ -58,8 +57,15 @@ if(UNG_ENABLE_CUDA)
         gpu_gemm_topk.cu
         ung_gpu_cover_frontier_provider.cu
         tagore_graph_builder.cu
+        tagore_topk_ablation.cu
+        tagore_naive_distance.cu
         ung_gpu_l2_batch.cu
         ${TAGORE_ROOT}/src/Tagore_src.cu)
+else()
+    # CPU-only builds still compile the runtime dispatch code.  Supply the
+    # CUDA entry points it references so applications can link; each stub
+    # fails explicitly if a GPU route is selected at runtime.
+    list(APPEND CPP_SOURCES gpu_unavailable_stubs.cpp)
 endif()
 
 

@@ -14,24 +14,11 @@
 namespace ANNS
 {
 
-struct QueryStats;
-
-struct EntryGroupRouteStats
-{
-   bool valid = false;
-   size_t num_entry_points = 0;
-   size_t num_lng_descendants = 0;
-   size_t entry_group_matched_points = 0;
-   float entry_group_total_coverage = 0.0f;
-};
-
 struct CachedEntryGroupResult
 {
    std::vector<IdxType> group_ids;
-   EntryGroupRouteStats route_stats;
 };
 
-void apply_entry_group_route_stats(const EntryGroupRouteStats &route_stats, QueryStats &stats);
 
 class EntryGroupResultCache
 {

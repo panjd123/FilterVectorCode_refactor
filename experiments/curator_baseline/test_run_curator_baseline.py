@@ -123,6 +123,31 @@ class CuratorBaselineRunnerTest(unittest.TestCase):
         )
         return cfg_path
 
+    def test_auto_compile_enables_ung_tools(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            calls = []
+
+            def fake_run(cmd, output_path=None, env=None):
+                calls.append([str(value) for value in cmd])
+
+            with mock.patch.object(
+                run_curator_baseline, "run_command", side_effect=fake_run
+            ):
+                run_curator_baseline.ensure_binaries(
+                    {
+                        "source_dir": str(root / "UNG" / "codes"),
+                        "build_dir": str(root / "build_ung_rel"),
+                        "auto_compile": True,
+                        "build_jobs": 3,
+                    }
+                )
+
+            self.assertIn("-DUNG_BUILD_TOOLS=ON", calls[0])
+            self.assertIn("-DUNG_BUILD_TESTS=OFF", calls[0])
+            self.assertIn("compute_groundtruth", calls[1])
+            self.assertIn("fvecs_to_bin", calls[1])
+
     def test_main_runs_tiny_dataset_and_writes_project_summaries(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

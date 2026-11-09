@@ -1,0 +1,29 @@
+{
+  "datasets": [
+    "Amazon",
+    "Genome",
+    "Reviews",
+    "VImg",
+    "Music",
+    "BReviews",
+    "Tiktok",
+    "Laion"
+  ],
+  "source_config_dir": "../cpu_special_blocks",
+  "config_dir": "configs",
+  "result_root": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation",
+  "gpu": 0,
+  "repeat": 1,
+  "warmup": 0,
+  "streams": 4,
+  "batch_points": 65536,
+  "inter_reserve": true,
+  "variants": [
+    {
+      "name": "gpu_balance_topk",
+      "gpu_intra": true,
+      "load_balance": true,
+      "optimized_topk": true
+    }
+  ]
+}

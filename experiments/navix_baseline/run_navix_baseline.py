@@ -9,6 +9,9 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from result_completion import describe_search_values, should_skip_completed_search
+
 
 def log(message: str) -> None:
     print(f"[{time.strftime('%F %T')}] {message}", flush=True)
@@ -149,7 +152,19 @@ def ensure_binaries(cfg: dict) -> tuple[Path, Path, Path, Path]:
 
     if auto_compile:
         build_dir.mkdir(parents=True, exist_ok=True)
-        run_command(["cmake", "-S", source_dir, "-B", build_dir, "-DCMAKE_BUILD_TYPE=Release"])
+        run_command(
+            [
+                "cmake",
+                "-S",
+                source_dir,
+                "-B",
+                build_dir,
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DUNG_BUILD_APPS=ON",
+                "-DUNG_BUILD_TOOLS=ON",
+                "-DUNG_BUILD_TESTS=OFF",
+            ]
+        )
         run_command(
             [
                 "cmake",
@@ -325,6 +340,13 @@ def run_search(search_bin: Path, cfg: dict, paths: dict[str, Path | str], query_
     result_dir.mkdir(parents=True, exist_ok=True)
     other_dir.mkdir(parents=True, exist_ok=True)
     values = lsearch_values(search_cfg)
+    summary_csv = result_dir / "search_time_summary.csv"
+    if should_skip_completed_search(summary_csv, values, cfg):
+        log(
+            f"[{paths['dataset']}] existing NaviX results cover "
+            f"{describe_search_values(values)}; skipping search: {summary_csv}"
+        )
+        return
     cmd = [
         search_bin,
         "--dataset",

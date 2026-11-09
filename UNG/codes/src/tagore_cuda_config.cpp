@@ -83,6 +83,17 @@ TagoreCudaRuntimeConfig make_tagore_cuda_runtime_config(uint32_t k,
    config.fast_exact_batch_threshold = env_uint("UNG_FAST_GRNND_BATCH_EXACT_NX", 0, 0, 1u << 20);
    config.requested_streams = allow_parallel ? env_uint("UNG_TAGORE_BATCH_STREAMS", 1, 1, 16) : 1;
    config.compact_d2h_requested = env_uint("UNG_TAGORE_COMPACT_D2H", 1, 0, 1) != 0;
+   config.optimized_topk = env_uint("UNG_TAGORE_OPTIMIZED_TOPK", 1, 0, 1) != 0;
+   config.naive_distance = env_uint("UNG_TAGORE_NAIVE", 0, 0, 1) != 0;
+   if (config.naive_distance)
+   {
+      // A single switch identifies the complete baseline contract. The distance
+      // kernel changes; sampling, iteration counts and pruning budgets do not.
+      config.requested_streams = 1;
+      config.optimized_topk = false;
+      config.compact_d2h_requested = false;
+      config.fast_exact_batch_threshold = 0;
+   }
    return config;
 }
 

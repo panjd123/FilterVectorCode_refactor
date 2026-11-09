@@ -36,16 +36,6 @@ namespace ANNS
       double time_in_collection_bfs = 0.0;
    };
 
-   // Static trie structure summary used by query-route selectors.
-   struct TrieStaticMetrics
-   {
-      size_t label_cardinality = 0;
-      size_t total_nodes = 0;
-      float avg_path_length = 0.0;
-      float avg_branching_factor = 0.0;
-      std::map<ANNS::LabelType, size_t> label_frequency;
-   };
-
    // trie tree node
    struct TrieNode
    {
@@ -103,7 +93,6 @@ namespace ANNS
          }
          return _label_to_nodes[label].size();
       }
-      TrieStaticMetrics calculate_static_metrics() const;
 
       // I/O
       void save(std::string filename) const;
@@ -115,7 +104,7 @@ namespace ANNS
       std::shared_ptr<TrieNode> _root;
       std::vector<std::vector<std::shared_ptr<TrieNode>>> _label_to_nodes;
 
-      // Helpers for super-set lookup and selector-feature instrumentation.
+      // Helpers for super-set lookup and traversal diagnostics.
       bool examine_smallest(const std::vector<LabelType> &label_set, const std::shared_ptr<TrieNode> &node) const;
       bool examine_containment(const std::vector<LabelType> &label_set, const std::shared_ptr<TrieNode> &node) const;
       bool examine_containment_debug(const std::vector<LabelType> &label_set,

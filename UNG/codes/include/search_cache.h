@@ -20,6 +20,11 @@ namespace ANNS
       SpecialCandidateQueue special_candidate_queue;
       std::vector<Candidate> expanded_list;
       std::vector<float> occlude_factor;
+      // Shared query-local filter cache. HNSW-block treats the byte as a
+      // tri-state value (0=unknown, 1=rejected, 2=target) and records every
+      // tested point in favor_target_touched, so only visited points need to
+      // be cleared before the cache is reused. The legacy FAVOR path resets
+      // the touched entries first and then keeps using its existing 0/1 map.
       std::vector<uint8_t> favor_target_map;
       std::vector<IdxType> favor_target_touched;
       std::vector<uint8_t> special_free_state_cache;
@@ -29,6 +34,12 @@ namespace ANNS
       std::vector<uint8_t> favor_candidate_active;
       std::vector<IdxType> gpu_distance_ids;
       std::vector<float> gpu_distance_values;
+      // Query-local global vector-distance cache. Graph visitation remains
+      // keyed by (point, activation level), so one point can drive several
+      // layer paths without recomputing its distance.
+      std::vector<float> special_distance_cache;
+      std::vector<uint8_t> special_distance_valid;
+      std::vector<IdxType> special_distance_touched;
 
       SearchCache(IdxType visited_set_size, int32_t search_queue_capacity)
       {

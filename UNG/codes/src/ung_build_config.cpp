@@ -179,8 +179,6 @@ void apply_profile_defaults(UngBuildConfig &cfg)
       cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
       cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OriginalSort;
       cfg.lng_impl = UngLngImpl::OriginalCpu;
-      cfg.descendants_impl = UngDescendantsImpl::LegacyHashBfs;
-      cfg.coverage_impl = UngCoverageImpl::LegacyTopologicalMerge;
       cfg.cross_edge_impl = UngCrossEdgeImpl::OriginalCpu;
       cfg.additional_edges_impl = UngAdditionalEdgesImpl::CpuVamana;
       cfg.gpu_topk_impl = UngGpuTopkImpl::Auto;
@@ -189,16 +187,12 @@ void apply_profile_defaults(UngBuildConfig &cfg)
       cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
       cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OptimizedBucket;
       cfg.lng_impl = UngLngImpl::OptimizedPhase1;
-      cfg.descendants_impl = UngDescendantsImpl::OptimizedEpochBfs;
-      cfg.coverage_impl = UngCoverageImpl::DescendantsDirect;
       cfg.cross_edge_impl = UngCrossEdgeImpl::CpuVamana;
       break;
    case UngBuildProfile::NaiveGpu:
       cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
       cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OptimizedBucket;
       cfg.lng_impl = UngLngImpl::OptimizedPhase1;
-      cfg.descendants_impl = UngDescendantsImpl::OptimizedEpochBfs;
-      cfg.coverage_impl = UngCoverageImpl::DescendantsDirect;
       cfg.cross_edge_impl = UngCrossEdgeImpl::GpuBatched;
       cfg.gpu_topk_impl = UngGpuTopkImpl::SgemmTopk;
       break;
@@ -206,8 +200,6 @@ void apply_profile_defaults(UngBuildConfig &cfg)
       cfg.group_graph_impl = UngGroupGraphImpl::VamanaCpu;
       cfg.get_min_super_sets_impl = UngGetMinSuperSetsImpl::OptimizedBucket;
       cfg.lng_impl = UngLngImpl::OptimizedPhase1;
-      cfg.descendants_impl = UngDescendantsImpl::OptimizedEpochBfs;
-      cfg.coverage_impl = UngCoverageImpl::DescendantsDirect;
       cfg.cross_edge_impl = UngCrossEdgeImpl::GpuBatched;
       cfg.gpu_topk_impl = UngGpuTopkImpl::FusedGroupTopk;
       break;
@@ -280,29 +272,9 @@ const char *to_string(UngLngImpl v)
    return "unknown";
 }
 
-const char *to_string(UngDescendantsImpl v)
-{
-   switch (v)
-   {
-   case UngDescendantsImpl::OptimizedEpochBfs:
-      return "optimized_epoch_bfs";
-   case UngDescendantsImpl::LegacyHashBfs:
-      return "legacy_hash_bfs";
-   }
-   return "unknown";
-}
 
-const char *to_string(UngCoverageImpl v)
-{
-   switch (v)
-   {
-   case UngCoverageImpl::LegacyTopologicalMerge:
-      return "legacy_topological_merge";
-   case UngCoverageImpl::DescendantsDirect:
-      return "descendants_direct";
-   }
-   return "unknown";
-}
+
+
 
 const char *to_string(UngCrossEdgeImpl v)
 {
@@ -398,10 +370,6 @@ UngBuildConfig UngBuildConfig::from_env(
                                         ? UngGetMinSuperSetsImpl::OriginalSort
                                         : UngGetMinSuperSetsImpl::OptimizedBucket;
       cfg.lng_impl = lng_impl_from_int(env_int("UNG_LNG_IMPL", 0, 0, 2));
-      cfg.descendants_impl = env_int("UNG_DESCENDANTS_IMPL", 0, 0, 1) == 1 ? UngDescendantsImpl::LegacyHashBfs
-                                                                           : UngDescendantsImpl::OptimizedEpochBfs;
-      cfg.coverage_impl = env_int("UNG_COVERAGE_IMPL", 0, 0, 1) == 1 ? UngCoverageImpl::DescendantsDirect
-                                                                     : UngCoverageImpl::LegacyTopologicalMerge;
       cfg.cross_edge_impl =
           cross_edge_impl_from_int(env_int("UNG_CROSS_EDGE_IMPL", env_int("UNG_CROSS_EDGE_BACKEND", 1, 0, 1), 0, 5));
       cfg.additional_edges_impl = additional_edges_impl_from_int(env_int("UNG_ADDITIONAL_EDGES_IMPL", 0, 0, 2));
@@ -409,8 +377,8 @@ UngBuildConfig UngBuildConfig::from_env(
    }
 
    cfg.gpu_strict = env_bool("UNG_CROSS_EDGE_GPU_STRICT", false);
-   cfg.coverage_threads = static_cast<uint32_t>(env_int("UNG_COVERAGE_THREADS", static_cast<int>(build_threads), 1,
-                                                        std::max<int>(1, static_cast<int>(build_threads))));
+   cfg.trie_cross_source_exact =
+       env_bool("UNG_TRIE_CROSS_SOURCE_EXACT", true);
    const bool adaptive_group_graph = cfg.group_graph_impl == UngGroupGraphImpl::AdaptiveCuda;
    cfg.tagore_min_group_size = static_cast<uint32_t>(
        env_int("UNG_TAGORE_MIN_GROUP_SIZE", adaptive_group_graph ? 128 : 0, 0, 1 << 30));
@@ -452,15 +420,13 @@ void UngBuildConfig::print(std::ostream &os) const
       << "[UNG config] group_graph_impl=" << to_string(group_graph_impl) << '\n'
       << "[UNG config] get_min_super_sets_impl=" << to_string(get_min_super_sets_impl) << '\n'
       << "[UNG config] lng_impl=" << to_string(lng_impl) << '\n'
-      << "[UNG config] descendants_impl=" << to_string(descendants_impl) << '\n'
-      << "[UNG config] coverage_impl=" << to_string(coverage_impl) << '\n'
       << "[UNG config] cross_edge_impl=" << to_string(cross_edge_impl) << '\n'
       << "[UNG config] additional_edges_impl=" << to_string(additional_edges_impl) << '\n'
+      << "[UNG config] trie_cross_source_exact=" << (trie_cross_source_exact ? 1 : 0) << '\n'
       << "[UNG config] gpu_topk_impl=" << to_string(gpu_topk_impl) << '\n'
       << "[UNG config] base_group_topology=" << to_string(hierarchy.base_topology) << '\n'
       << "[UNG config] hierarchy_layers=" << hierarchy.encode() << '\n'
       << "[UNG config] gpu_strict=" << (gpu_strict ? 1 : 0) << '\n'
-      << "[UNG config] coverage_threads=" << coverage_threads << '\n'
       << "[UNG config] tagore_min_group_size=" << tagore_min_group_size << '\n'
       << "[UNG config] tagore_k=" << tagore_k << '\n'
       << "[UNG config] tagore_iter=" << tagore_iter << '\n'

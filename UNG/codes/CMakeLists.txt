@@ -26,8 +26,7 @@ list(PREPEND CMAKE_PREFIX_PATH "${OPENBLAS_ROOT}" "${ZLIB_ROOT}")
 list(APPEND CMAKE_BUILD_RPATH
     "${BOOST_ROOT}/lib"
     "${OPENBLAS_ROOT}/lib"
-    "${ZLIB_ROOT}/lib"
-    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/onnxruntime-linux-x64-1.16.3/lib")
+    "${ZLIB_ROOT}/lib")
 
 option(UNG_ENABLE_CUDA "Build CUDA kernels and GPU search paths" ON)
 if(UNG_ENABLE_CUDA)
@@ -99,19 +98,6 @@ if(NOT ROARING_LIB)
     set(ROARING_LIB roaring)
 else()
     message(STATUS "CRoaring library found at: ${ROARING_LIB}")
-endif()
-
-# ONNX
-set(ONNXRUNTIME_DIR "${PROJECT_SOURCE_DIR}/third_party/onnxruntime-linux-x64-1.16.3" CACHE PATH "Path to ONNX Runtime directory")
-if(EXISTS ${ONNXRUNTIME_DIR})
-    include_directories(${ONNXRUNTIME_DIR}/include)
-    add_library(onnxruntime SHARED IMPORTED)
-    set_target_properties(onnxruntime PROPERTIES
-        IMPORTED_LOCATION "${ONNXRUNTIME_DIR}/lib/libonnxruntime.so"
-    )
-    message(STATUS "Found ONNX Runtime at: ${ONNXRUNTIME_DIR}")
-else()
-    message(FATAL_ERROR "ONNX Runtime not found at specified path: ${ONNXRUNTIME_DIR}. Please check the path in CMakeLists.txt")
 endif()
 
 # add subdirectories

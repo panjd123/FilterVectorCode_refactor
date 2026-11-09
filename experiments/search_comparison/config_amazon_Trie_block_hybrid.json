@@ -11,7 +11,9 @@
     "lsearch_start": 1000,
     "lsearch_end": 20000,
     "lsearch_step": 1000,
-    
+    "lsearch_prefix_start": 100,
+    "lsearch_prefix_end": 1000,
+    "lsearch_prefix_step": 100,
     "efs_start": 10,
     "efs_step_slow": 10,
     "efs_step_fast": 10,
@@ -52,7 +54,6 @@
       "reuse_els": false,
       "special_block_search": true,
       "env": {
-        "UNG_DISABLE_ENTRY_ROUTE_STATS": "1",
         "UNG_SPECIAL_FREE_INTER_EDGE_SCAN_CAP": null,
         "UNG_SPECIAL_FREE_INTER_EDGE_PER_BLOCK_CAP": null,
         "UNG_SPECIAL_FREE_INTER_EDGE_CAP_MIN_CHILD_BLOCKS": null,
@@ -82,9 +83,7 @@
       "reuse_els": false,
       "is_new_trie_method": false,
       "is_rec_more_start": false,
-      "env": {
-        "UNG_DISABLE_ENTRY_ROUTE_STATS": "1"
-      }
+      "env": {}
     }
   ]
 }

@@ -25,6 +25,7 @@ int main()
    expect(high_selectivity > 0.0f, "exclusion distance must be positive for valid selectivity");
    expect(low_selectivity > high_selectivity, "lower selectivity must produce a larger NTD penalty");
 
+
    const float base = 12.5f;
    const float penalty = 3.25f;
    expect(std::fabs(ANNS::favor_adjusted_distance(base, true, penalty) - base) < 1e-6f,
@@ -43,6 +44,7 @@ int main()
    expect(selected.size() == 2, "max block cap must limit selected block count");
    expect(selected[0] == 3 && selected[1] == 2,
           "blocks must be ordered by score descending and point count ascending");
+
 
    std::cout << "favor block distance and selection checks passed\n";
    return 0;

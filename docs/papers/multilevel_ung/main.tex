@@ -89,8 +89,8 @@ This paper makes the following contributions.
   confuse kernel time with index construction time.
   \item We evaluate all methods at the smallest measured search budget whose
   every warm repeat reaches the target Recall, and compare the automatic plan
-  with both a fixed zero-layer baseline and a frozen candidate oracle composed
-  of DRH plus manually enumerated alternatives.
+  with both a fixed zero-layer baseline and a frozen candidate set composed of
+  DRH plus five manually enumerated alternatives.
 \end{itemize}
 
 \section{Problem Definition}
@@ -695,21 +695,22 @@ for dispersion estimates.  Recall is not averaged to relax the quality target:
 every warm repeat at the selected operating point must meet the threshold.
 We select the smallest \emph{measured} $L_{search}$ for which every warm repeat
 reaches Recall@10 $\ge0.90$; there is no interpolation or extrapolation.  The
-screen pass locates crossings, a bounded crossing pass refines them, a formal
-pass uses one discarded cold repeat and 15 warm repeats, and a separate profile
-pass collects expensive counters.  If a method has no screen crossing, its
+screen pass locates crossings and a separate profile pass collects expensive
+counters. The current deadline artifact uses one discarded cold repeat and two
+warm repeats; a later formal pass is reserved for confidence intervals. If a method has no screen crossing, its
 crossing pass extends to the largest $L_{search}$ measured for any method on
 that workload (or an explicitly declared common cap); only failure at that
 shared budget is reported as no crossing.
 \authoritativeSharedSearchBudgetTable
 
 \subsection{Metrics}
-Primary query metrics are warm-median batch latency and QPS with bootstrap 95\%
-confidence intervals.  We additionally report entry-group search, entry-point
+Primary query metrics are warm-median batch latency and QPS. Bootstrap 95\%
+confidence intervals are reserved for the later formal pass and are not claimed
+by the current deadline artifact. We additionally report entry-group search, entry-point
 setup, block authorization, graph search, residual time, visited nodes, scanned
 base/special edges, and distance computations.  Build results use process wall
-time through validated files on disk, one cold build followed by at least five
-measured builds, interleaved CPU/GPU order, peak host/device memory in a separate
+time through validated files on disk. The full protocol requires one cold build followed by at least five
+measured builds, interleaved CPU/GPU order, and peak host/device memory in a separate
 pass, and index bytes.  Full-index cost is the sum of independently measured
 base and hierarchy stage medians; confidence intervals independently resample
 all three stages rather than pairing repeat identifiers across phases.  GPU
@@ -718,7 +719,9 @@ exclusive lock when the host provides one.  On the current host, where that
 tool is unavailable, each GPU case instead requires three consecutive idle
 device snapshots before timing; we retain those snapshots and label the
 result as an idle-preflight measurement rather than claiming lock-level
-exclusivity.
+exclusivity. The current deadline artifact reports completed base-stage timing
+and CPU sidecars separately; it makes no end-to-end GPU hierarchy claim before
+the remaining hierarchy repeats finish.
 
 \section{Results}
 \authoritativeResults

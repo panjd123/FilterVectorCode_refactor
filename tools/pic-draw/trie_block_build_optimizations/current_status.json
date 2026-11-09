@@ -1,0 +1,17 @@
+{
+  "run_root": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three",
+  "runtime": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three_runtime",
+  "reference_run": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only",
+  "binary_sha256": {
+    "build_UNG_index": "02fb191880dbd2837c46b34a5cae72ab97ea57292590710353c079d08bfa7a77",
+    "build_special_block_index": "b0bf56d8afa87bf5faa563e7545da7def42950847a4d6642767bbe03a09d97ca"
+  },
+  "timing_worker_sha256": "f4750b9fd7330a623d9a8240950b7d7af5c7c51c7416c6930c550c0d6da8334f",
+  "expected_new_samples": 24,
+  "reused_fourth_method_samples": 8,
+  "status": "complete",
+  "completed_cells": 32,
+  "new_complete": 24,
+  "failures": [],
+  "plots_status": "complete"
+}

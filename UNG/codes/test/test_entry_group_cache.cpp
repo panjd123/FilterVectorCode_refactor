@@ -32,7 +32,7 @@ int main()
          observed[i] = cache.get_or_compute("cpu:1,2", [&] {
             computes.fetch_add(1);
             return ANNS::CachedEntryGroupResult{
-                {3, 7}, ANNS::EntryGroupRouteStats{true, 2, 11, 29, 0.125f}};
+                {3, 7}};
          });
       });
    }
@@ -44,7 +44,6 @@ int main()
    for (const auto &value : observed)
    {
       expect(value.group_ids == std::vector<ANNS::IdxType>({3, 7}), "cached IDs must be exact");
-      expect(value.route_stats.entry_group_matched_points == 29, "cached stats must be exact");
    }
 
    ANNS::EntryGroupResultCache retry_cache;
@@ -67,20 +66,10 @@ int main()
 
    const auto retried = retry_cache.get_or_compute("retry", [&] {
       attempts.fetch_add(1);
-      return ANNS::CachedEntryGroupResult{{5}, {true, 1, 4, 9, 0.25f}};
+      return ANNS::CachedEntryGroupResult{{5}};
    });
    expect(attempts.load() == 2, "a later call must retry after failure");
    expect(retried.group_ids == std::vector<ANNS::IdxType>({5}), "retry result must be returned");
-   ANNS::QueryStats stats;
-   const ANNS::EntryGroupRouteStats snapshot{true, 2, 11, 29, 0.125f};
-   ANNS::apply_entry_group_route_stats(snapshot, stats);
-   expect(stats.num_entry_points == 2, "cached entry count must be restored");
-   expect(stats.num_lng_descendants == 11, "cached descendant count must be restored");
-   expect(stats.entry_group_matched_points == 29, "cached matched points must be restored");
-   expect(stats.entry_group_total_coverage == 0.125f, "cached coverage must be restored");
-
-
-
    std::cout << "entry group cache checks passed\n";
    return 0;
 }

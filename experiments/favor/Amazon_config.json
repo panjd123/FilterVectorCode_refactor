@@ -1,8 +1,8 @@
 {
   "result_root": "/home/dev/graphdb/FilterVectorResult",
   "data_root": "/home/dev/graphdb/FilterVectorData",
-  "favor_source_dir": "/home/dev/graphdb/FilterVectorCode_refactor/FAVOR",
-  "favor_build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/FAVOR/build",
+  "favor_source_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/FAVOR",
+  "favor_build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/FAVOR/build",
   "build_jobs": 16,
   "build": {
     "data_type": "float",
@@ -27,11 +27,15 @@
   "datasets": [
     {
       "dataset": "Amazon",
-      "query_task": "query_minlen5_avgsel1pct"
+      "query_task": "query_minlen1_sel0to10pct"
     },
     {
       "dataset": "Amazon",
-      "query_task": "query_minlen5_avgsel05pct"
+      "query_task": "query_minlen1_sel10to40pct"
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_sel40to100pct"
     }
   ],
   "methods": [

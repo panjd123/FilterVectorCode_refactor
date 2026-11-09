@@ -6,7 +6,9 @@
   "result_root": "/home/dev/graphdb/FilterVectorResult",
   "build_dir": "/home/dev/graphdb/FilterVectorCode_refactor/build_ung_rel",
   "build_ung": false,
-  "datasets": ["Amazon"],
+  "datasets": [
+    "Amazon"
+  ],
   "build": {
     "data_type": "float",
     "dist_fn": "L2",
@@ -22,8 +24,6 @@
     "UNG_GROUP_GRAPH_IMPL": "0",
     "UNG_GET_MIN_SUPER_SETS_IMPL": "0",
     "UNG_LNG_IMPL": "1",
-    "UNG_DESCENDANTS_IMPL": "1",
-    "UNG_COVERAGE_IMPL": "0",
     "UNG_CROSS_EDGE_IMPL": "0",
     "UNG_ADDITIONAL_EDGES_IMPL": "0",
     "UNG_GROUP_GRAPH_COMPLETE_NX": "64",

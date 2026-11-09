@@ -25,12 +25,7 @@ namespace fs = boost::filesystem;
 namespace
 {
 
-struct BitmapComparisonTiming
-{
-   double ung_ms = 0.0;
-   double attr_ms = 0.0;
-   bool skipped = false;
-};
+
 
 float calculate_single_query_recall(const std::pair<ANNS::IdxType, float> *gt,
                                     const std::pair<ANNS::IdxType, float> *results,
@@ -98,99 +93,66 @@ size_t query_entry_point_distance_calcs(const ANNS::QueryStats &stats)
    return stats.num_distance_calcs - query_graph_search_distance_calcs(stats);
 }
 
-std::vector<std::vector<ANNS::IdxType>> precompute_entry_group_ids(
-    const ANNS::UniNavGraph &index,
-    const std::shared_ptr<ANNS::IStorage> &query_storage)
-{
-   const auto num_queries = query_storage->get_num_points();
-   std::vector<std::vector<ANNS::IdxType>> all_entry_group_ids(num_queries);
 
-   std::cout << "\n--- Step 1: Pre-computing Entry Group IDs (Measuring Entry Cost) ---" << std::endl;
-   auto entry_cost_start_time = std::chrono::high_resolution_clock::now();
-   static std::atomic<int> trie_debug_print_counter{0};
-#pragma omp parallel for
-   for (long long id = 0; id < static_cast<long long>(num_queries); ++id)
-   {
-      const auto query_id = static_cast<ANNS::IdxType>(id);
-      const auto &query_labels = query_storage->get_label_set(query_id);
-      ANNS::QueryStats dummy_stats;
-      index.get_min_super_sets_debug(
-          query_labels,
-          all_entry_group_ids[query_id],
-          false,
-          true,
-          trie_debug_print_counter,
-          false,
-          false,
-          dummy_stats,
-          false);
-   }
-   const double entry_cost_total_time =
-       std::chrono::duration<double, std::milli>(
-           std::chrono::high_resolution_clock::now() - entry_cost_start_time)
-           .count();
-   std::cout << "Total time for finding all entry groups (Entry Cost): "
-             << entry_cost_total_time << " ms\n"
-             << std::endl;
-   return all_entry_group_ids;
-}
 
-BitmapComparisonTiming run_bitmap_comparison(
-    const ANNS::UniNavGraph &index,
-    const std::shared_ptr<ANNS::IStorage> &query_storage,
-    const std::vector<std::vector<ANNS::IdxType>> &all_entry_group_ids)
-{
-   BitmapComparisonTiming timing;
-   const bool skip_bitmap_compare = std::getenv("UNG_SEARCH_SKIP_BITMAP_COMPARE") != nullptr;
-   if (skip_bitmap_compare)
-   {
-      timing.skipped = true;
-      std::cout << "--- Step 2: Skipping Fair Bitmap Computation Comparison "
-                   "(UNG_SEARCH_SKIP_BITMAP_COMPARE=1) ---\n"
-                << std::endl;
-      return timing;
-   }
 
-   const auto num_queries = query_storage->get_num_points();
-   std::cout << "--- Step 2: Starting Fair Bitmap Computation Comparison ---" << std::endl;
-   {
-      std::cout << "  -> Testing UNG method (compute_bitmap_from_groups)..." << std::endl;
-      std::vector<roaring::Roaring> ung_bitmaps(num_queries);
-      auto start_time = std::chrono::high_resolution_clock::now();
-#pragma omp parallel for
-      for (long long id = 0; id < static_cast<long long>(num_queries); ++id)
-      {
-         const auto query_id = static_cast<ANNS::IdxType>(id);
-         ung_bitmaps[query_id] = index.compute_bitmap_from_groups(all_entry_group_ids[query_id]);
-      }
-      timing.ung_ms =
-          std::chrono::duration<double, std::milli>(
-              std::chrono::high_resolution_clock::now() - start_time)
-              .count();
-      std::cout << "  -> UNG bitmap generation time: " << timing.ung_ms << " ms" << std::endl;
-   }
-   {
-      std::cout << "  -> Testing Attribute method (compute_attribute_bitmap)..." << std::endl;
-      std::vector<std::bitset<10000001>> attr_bitmaps(num_queries);
-      auto start_time = std::chrono::high_resolution_clock::now();
-#pragma omp parallel for
-      for (long long id = 0; id < static_cast<long long>(num_queries); ++id)
-      {
-         const auto query_id = static_cast<ANNS::IdxType>(id);
-         attr_bitmaps[query_id] = index.compute_attribute_bitmap(query_storage->get_label_set(query_id)).first;
-      }
-      timing.attr_ms =
-          std::chrono::duration<double, std::milli>(
-              std::chrono::high_resolution_clock::now() - start_time)
-              .count();
-      std::cout << "  -> Attribute bitmap generation time: " << timing.attr_ms << " ms" << std::endl;
-   }
-   std::cout << "--- Fair Comparison Finished ---\n"
-             << std::endl;
-   return timing;
-}
 
 } // namespace
+
+void report_upper_hnsw_gt_block_coverage(
+    const ANNS::UniNavGraph &index,
+    const std::shared_ptr<ANNS::IStorage> &query_storage,
+    const std::pair<ANNS::IdxType, float> *gt,
+    ANNS::IdxType k)
+{
+   if (!index.has_upper_hnsw())
+      return;
+   const std::vector<size_t> top_ns{32, 64, 128, 256, 512, 1024};
+   std::vector<uint64_t> covered(top_ns.size(), 0);
+   std::vector<uint64_t> total(top_ns.size(), 0);
+   std::vector<uint64_t> unique_blocks(top_ns.size(), 0);
+   const ANNS::IdxType num_queries = query_storage->get_num_points();
+   for (ANNS::IdxType query_id = 0; query_id < num_queries; ++query_id)
+   {
+      const auto candidates = index.search_upper_hnsw(
+          reinterpret_cast<const float *>(query_storage->get_vector(query_id)),
+          top_ns.back(), 2048);
+      for (size_t ni = 0; ni < top_ns.size(); ++ni)
+      {
+         std::unordered_set<ANNS::IdxType> blocks;
+         const size_t limit = std::min(top_ns[ni], candidates.size());
+         for (size_t rank = 0; rank < limit; ++rank)
+            if (candidates[rank].block_id != 0)
+               blocks.insert(candidates[rank].block_id);
+         unique_blocks[ni] += blocks.size();
+         for (ANNS::IdxType rank = 0; rank < k; ++rank)
+         {
+            const ANNS::IdxType original_id = gt[query_id * k + rank].first;
+            if (original_id == static_cast<ANNS::IdxType>(-1))
+               continue;
+            const ANNS::IdxType block_id =
+                index.bottom_block_for_original_point(original_id);
+            if (block_id == 0)
+               continue;
+            total[ni]++;
+            if (blocks.count(block_id) != 0)
+               covered[ni]++;
+         }
+      }
+   }
+   for (size_t ni = 0; ni < top_ns.size(); ++ni)
+   {
+      const double coverage = total[ni] == 0 ? 0.0 :
+          static_cast<double>(covered[ni]) / static_cast<double>(total[ni]);
+      const double mean_blocks = num_queries == 0 ? 0.0 :
+          static_cast<double>(unique_blocks[ni]) / static_cast<double>(num_queries);
+      std::cout << "[upper_hnsw][gt_block_coverage] top_n=" << top_ns[ni]
+                << " coverage=" << coverage
+                << " mean_unique_blocks=" << mean_blocks
+                << " covered=" << covered[ni]
+                << " total=" << total[ni] << std::endl;
+   }
+}
 
 int main(int argc, char **argv)
 {
@@ -212,10 +174,10 @@ int main(int argc, char **argv)
    bool skip_query_features = false;
    bool skip_bitmap_comparison = false;
    int num_repeats = 1;                                        // 默认重复1次
-   int force_use_alg = 0;                                      // 0: auto, 1: UNG (nT=false), 2: UNG-nTtrue, 3/4: ACORN, 5: NaviX
+   int force_use_alg = 1;                                      // Fixed graph routes: 1/2 UNG, 5 standalone NaviX
    int lsearch_start, lsearch_step;
    int efs_start, efs_step_slow, efs_step_fast, lsearch_threshold;
-   std::string dataset; 
+   std::string dataset;
 
    try
    {
@@ -244,7 +206,7 @@ int main(int argc, char **argv)
       desc.add_options()("result_path_prefix", po::value<std::string>(&result_path_prefix)->required(),
                          "Path to save the querying result file");
       desc.add_options()("selector_model_prefix", po::value<std::string>(&selector_model_prefix),
-                         "Path to selector model directory");
+                         "Deprecated, ignored (adaptive routing removed)");
       desc.add_options()("selector_modle_prefix", po::value<std::string>(&selector_model_prefix_legacy),
                          "Deprecated alias for selector_model_prefix");
       desc.add_options()("query_group_id_file", po::value<std::string>(&query_group_id_file)->default_value(""),
@@ -265,31 +227,31 @@ int main(int argc, char **argv)
                          "Number of entry points in each entry group");
       desc.add_options()("Lsearch", po::value<std::vector<ANNS::IdxType>>(&Lsearch_list)->multitoken()->required(),
                          "Number of candidates to search in the graph");
-      desc.add_options()("is_new_method", po::value<bool>(&is_new_method)->required(),
+      desc.add_options()("is_new_method", po::value<bool>(&is_new_method)->default_value(true),
                          "is_new_method");
-      desc.add_options()("is_idea2_available", po::value<bool>(&is_idea2_available)->required(),
+      desc.add_options()("is_idea2_available", po::value<bool>(&is_idea2_available)->default_value(false),
                          "is_idea2_available");
-      desc.add_options()("is_new_trie_method", po::value<bool>(&is_new_trie_method)->required(),
+      desc.add_options()("is_new_trie_method", po::value<bool>(&is_new_trie_method)->default_value(false),
                          "is_new_trie_method");
-      desc.add_options()("is_rec_more_start", po::value<bool>(&is_rec_more_start)->required(),
+      desc.add_options()("is_rec_more_start", po::value<bool>(&is_rec_more_start)->default_value(false),
                          "is_rec_more_start");
       desc.add_options()("is_ung_more_entry", po::value<bool>(&is_ung_more_entry)->default_value(false),
                          "Enable expanded/oracle-assisted UNG entry group selection. "
                          "When true, query_group_id_file can affect entry groups.");
       desc.add_options()("skip_query_features", po::value<bool>(&skip_query_features)->default_value(false),
-                         "Skip query feature CSV generation before search.");
+                         "Deprecated, ignored (query feature export removed)");
       desc.add_options()("skip_bitmap_comparison", po::value<bool>(&skip_bitmap_comparison)->default_value(false),
-                         "Skip pre-search bitmap comparison diagnostics.");
+                         "Deprecated, ignored (bitmap diagnostics removed)");
       desc.add_options()("num_repeats", po::value<int>(&num_repeats)->default_value(1),
                          "Number of repeats for each Lsearch value");
-      desc.add_options()("force_use_alg", po::value<int>(&force_use_alg)->required(),
-                         "force_use_alg: 0 auto, 1 UNG, 2 UNG new trie, 3/4 ACORN, 5 NaviX adaptive-local");
-      desc.add_options()("lsearch_start", po::value<int>(&lsearch_start)->required(), "Lsearch start value");
-      desc.add_options()("lsearch_step", po::value<int>(&lsearch_step)->required(), "Lsearch step value");
-      desc.add_options()("efs_start", po::value<int>(&efs_start)->required(), "ACORN efs start value");
-      desc.add_options()("efs_step_slow", po::value<int>(&efs_step_slow)->required(), "ACORN efs step value");
-      desc.add_options()("efs_step_fast", po::value<int>(&efs_step_fast)->required(), "ACORN efs step value");
-      desc.add_options()("lsearch_threshold", po::value<int>(&lsearch_threshold)->required(), "lsearch_threshold");
+      desc.add_options()("force_use_alg", po::value<int>(&force_use_alg)->default_value(1),
+                         "Fixed graph routes: 1 UNG, 2 UNG Trie, 5 standalone NaviX");
+      desc.add_options()("lsearch_start", po::value<int>(&lsearch_start)->default_value(0), "Lsearch start value");
+      desc.add_options()("lsearch_step", po::value<int>(&lsearch_step)->default_value(0), "Lsearch step value");
+      desc.add_options()("efs_start", po::value<int>(&efs_start)->default_value(0), "ACORN efs start value");
+      desc.add_options()("efs_step_slow", po::value<int>(&efs_step_slow)->default_value(0), "ACORN efs step value");
+      desc.add_options()("efs_step_fast", po::value<int>(&efs_step_fast)->default_value(0), "ACORN efs step value");
+      desc.add_options()("lsearch_threshold", po::value<int>(&lsearch_threshold)->default_value(0), "lsearch_threshold");
       desc.add_options()("entry_group_strategy", po::value<std::string>(&entry_group_strategy_arg)->default_value("optimized_lng"),
                          "Entry-group strategy: original, optimized_lng, or trie.");
       desc.add_options()("entry_group_provider", po::value<std::string>(&legacy_entry_group_provider_arg),
@@ -314,13 +276,10 @@ int main(int argc, char **argv)
                 "entry_group_strategy and deprecated entry_group_provider disagree");
          entry_group_strategy_arg = legacy_entry_group_provider_arg;
       }
-      if (selector_model_prefix.empty())
-         selector_model_prefix = selector_model_prefix_legacy;
-      if (force_use_alg != 5 && selector_model_prefix.empty())
-      {
-         std::cerr << "Missing required option: selector_model_prefix (or deprecated selector_modle_prefix)" << std::endl;
-         return -1;
-      }
+      if (force_use_alg != 1 && force_use_alg != 2 && force_use_alg != 5)
+         throw std::invalid_argument("Adaptive and bitmap routes were removed; use force_use_alg=1/2, or standalone NaviX=5");
+      if (is_idea2_available)
+         throw std::invalid_argument("Adaptive routing was removed; set is_idea2_available=false");
       if (force_use_alg != 5 && query_group_id_file.empty())
       {
          std::cerr << "Missing required option: query_group_id_file" << std::endl;
@@ -520,46 +479,11 @@ int main(int argc, char **argv)
 
    // load UNG index
    ANNS::UniNavGraph index(query_storage->get_num_points());
-   index.load(index_path_prefix, selector_model_prefix, data_type, acorn_index_path, acorn_1_index_path,dataset);
+   index.load(index_path_prefix, data_type, dataset);
    if (!block_index_path_prefix.empty())
       index.load_special_block_index(block_index_path_prefix);
-   index.load_bipartite_graph(index_path_prefix + "vector_attr_graph");
-
-   if (!skip_bitmap_comparison)
-   {
-      std::vector<std::vector<ANNS::IdxType>> all_entry_group_ids =
-          precompute_entry_group_ids(index, query_storage);
-      const BitmapComparisonTiming bitmap_timing =
-          run_bitmap_comparison(index, query_storage, all_entry_group_ids);
-      (void)bitmap_timing;
-   }
-   else
-   {
-      std::cout << "Skipping pre-search bitmap comparison diagnostics." << std::endl;
-   }
-
-   // calculate query features and save to CSV
-   if (!skip_query_features)
-   {
-      std::string features_csv_path = result_path_prefix + "query_features.csv";
-      index.calculate_query_features_only(
-          query_storage,
-          num_threads,
-          features_csv_path,
-          true, // is_new_trie_method
-          true  // is_rec_more_start
-      );
-   }
-   else
-   {
-      std::cout << "Skipping query feature CSV generation." << std::endl;
-   }
-
-   // Warm up only the route selectors. Entry-group strategies are measured as
-   // part of the end-to-end query path.
-   std::cout << "\n--- Starting Warm-up Phase ---" << std::endl;
-   index.warmup_selectors(num_threads);
-   std::cout << "--- Warm-up Finished ---"<< std::endl;
+   if (ANNS::ung_env_flag_enabled("UNG_VALIDATE_UPPER_HNSW"))
+      report_upper_hnsw_gt_block_coverage(index, query_storage, gt, K);
 
    if (Lsearch_list.empty())
    {
@@ -604,7 +528,6 @@ int main(int argc, char **argv)
 
       // search
       std::vector<float> all_cmps, all_qpss, all_recalls;
-      std::vector<float> all_time_ms, all_flag_time, all_bitmap_time, all_entry_points, all_lng_descendants, all_entry_group_coverage;
       std::vector<float> all_is_global_search; // 如果需要统计全局搜索比例
 
       std::cout << "Start querying ..." << std::endl;
@@ -615,31 +538,26 @@ int main(int argc, char **argv)
 
          // 1. 计时并执行搜索
          auto start_time = std::chrono::high_resolution_clock::now();
-         if (!is_new_method)
+
+         ANNS::SearchRuntimeConfig runtime = ANNS::make_search_runtime_config(
+             num_threads, current_Lsearch, num_entry_points, scenario, K,
+             is_idea2_available, is_new_trie_method, is_rec_more_start,
+             is_ung_more_entry, false, lsearch_start, lsearch_step,
+             efs_start, efs_step_slow, efs_step_fast, lsearch_threshold,
+             force_use_alg, entry_group_strategy, graph_search_backend);
+
+         if (search_execution_context)
          {
-            // index.search(...);
+            index.search_hybrid(query_storage, distance_handler, runtime, *search_execution_context,
+                                results, num_cmps, query_stats[repeat][LsearchId],
+                                true_query_group_ids);
          }
          else
          {
-            ANNS::SearchRuntimeConfig runtime = ANNS::make_search_runtime_config(
-                num_threads, current_Lsearch, num_entry_points, scenario, K,
-                is_idea2_available, is_new_trie_method, is_rec_more_start,
-                is_ung_more_entry, false, lsearch_start, lsearch_step,
-                efs_start, efs_step_slow, efs_step_fast, lsearch_threshold,
-                force_use_alg, entry_group_strategy, graph_search_backend);
-
-            if (search_execution_context)
-            {
-               index.search_hybrid(query_storage, distance_handler, runtime, *search_execution_context,
-                                   results, num_cmps, query_stats[repeat][LsearchId],
-                                   true_query_group_ids);
-            }
-            else
-            {
-               index.search_hybrid(query_storage, distance_handler, runtime, results, num_cmps,
-                                   query_stats[repeat][LsearchId], true_query_group_ids);
-            }
+            index.search_hybrid(query_storage, distance_handler, runtime, results, num_cmps,
+                                query_stats[repeat][LsearchId], true_query_group_ids);
          }
+
          auto time_cost = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time).count();
 
          // 2. 计算每个独立查询的Recall
@@ -662,7 +580,6 @@ int main(int argc, char **argv)
          int total_efs_for_batch = 0;
          for (int i = 0; i < num_queries; ++i){
             total_recall_for_batch += query_stats[repeat][LsearchId][i].recall;
-            total_efs_for_batch += query_stats[repeat][LsearchId][i].acorn_efs_used;
          }
          float avg_recall_for_batch = (num_queries > 0) ? (static_cast<float>(total_recall_for_batch) / num_queries) : 0.0f;
          int efs_for_batch = (num_queries > 0) ? (total_efs_for_batch / num_queries) : 0;
@@ -861,7 +778,7 @@ int main(int argc, char **argv)
                << "AverageSpecialIntraEdgesScanned,AverageSpecialInterEdgesScanned,"
                << "AverageTotalEdgesScanned,AverageTotalDistanceCalcs,"
                << "AverageEntryPointDistanceCalcs,AverageGraphSearchDistanceCalcs,"
-               << "AverageNumEntries,AverageEntryGroupMatchedPoints\n";
+               << "AverageNumEntries\n";
       for (int repeat = 0; repeat < num_repeats; ++repeat)
       {
          for (size_t LsearchId = 0; LsearchId < Lsearch_list.size(); ++LsearchId)
@@ -877,7 +794,6 @@ int main(int argc, char **argv)
             double entry_distance_calcs = 0.0;
             double graph_distance_calcs = 0.0;
             double entries = 0.0;
-            double matched_points = 0.0;
             for (ANNS::IdxType query_id = 0; query_id < num_queries; ++query_id)
             {
                const auto &stats = query_stats[repeat][LsearchId][query_id];
@@ -892,7 +808,6 @@ int main(int argc, char **argv)
                entry_distance_calcs += query_entry_point_distance_calcs(stats);
                graph_distance_calcs += query_graph_search_distance_calcs(stats);
                entries += stats.num_entry_points;
-               matched_points += stats.entry_group_matched_points;
             }
             const double divisor = num_queries > 0 ? static_cast<double>(num_queries) : 1.0;
             work_out << repeat << "," << Lsearch_list[LsearchId] << ","
@@ -907,8 +822,7 @@ int main(int argc, char **argv)
                      << distance_calcs / divisor << ","
                      << entry_distance_calcs / divisor << ","
                      << graph_distance_calcs / divisor << ","
-                     << entries / divisor << ","
-                     << matched_points / divisor << "\n";
+                     << entries / divisor << "\n";
          }
       }
       work_out.close();
@@ -925,7 +839,7 @@ int main(int argc, char **argv)
               << "RegularEdgesScanned,FreeEdgesScanned,"
               << "TotalEdgesScanned,TotalDistanceCalcs,EntryPointDistanceCalcs,"
               << "GraphSearchDistanceCalcs,core_search_time_ms,ELS_time_ms,OtherT_ms,Recall,"
-              << "DistCalcs,NumNodeVisited,QuerySize,CandSize,NumEntries,EntryGroupMatchedPoints,"
+              << "DistCalcs,NumNodeVisited,QuerySize,CandSize,NumEntries,"
               << "SpecialEntryFreePoints,SpecialEntryRegularPoints,"
               << "SpecialGroupEntryFreePoints,SpecialGroupEntryRegularPoints,"
               << "SpecialTriePivotPostings,"
@@ -934,11 +848,21 @@ int main(int argc, char **argv)
               << "SpecialTrieTerminalDescendantsPruned,"
               << "SpecialTrieFinalEntries,SpecialTrieFinalBlockEntries,"
               << "SpecialTrieTime_ms,"
-              << "EntryGroupCount,SpecialCoveredBlockCount,"
+              << "EntryGroupCount,"
               << "SpecialFreeBlockCount,SpecialFreeBlockFrontierCount,"
               << "SpecialQueryMiddleBlockCount,SpecialQueryUpperBlockCount,"
               << "SpecialQueryUpperCoveredPoints,SpecialQueryUpperEnabled,"
               << "SpecialBlockSeedPoints,SpecialBlockSeedPointsRetained,"
+              << "SpecialBlockSeedPointsPreexpanded,SpecialPreexpandEdgesScanned,"
+              << "SpecialBlockRouterEnabled,SpecialBlockRouterLowerBoundEnabled,"
+              << "SpecialBlockRouterBlocksRouted,SpecialBlockRouterChildrenScored,"
+              << "SpecialBlockRouterLowerBoundCalcs,SpecialBlockRouterChildrenShortlisted,"
+              << "SpecialBlockRouterPortalChildrenScored,SpecialBlockRouterChildrenSelected,"
+              << "SpecialBlockRouterPortalsScored,SpecialBlockRouterPortalActivations,"
+              << "SpecialBlockRouterDeferredPortalsStored,SpecialBlockRouterDeferredPortalsReplayed,"
+              << "SpecialBlockRouterInterEdgesSkipped,SpecialBlockRouterLowerBoundTime_ms,"
+              << "SpecialBlockRouterPortalScoreTime_ms,"
+              << "SpecialPreexpandEdgesAccepted,SpecialPreexpandTime_ms,"
               << "SpecialEntryBlocks,SpecialRetainedEntryBlocks,"
               << "SpecialBlocksSearched,SpecialMiddleBlocksSearched,SpecialUpperBlocksSearched,"
               << "SpecialBlockSearchUsed,SpecialRegularNodesExpanded,"
@@ -956,7 +880,8 @@ int main(int argc, char **argv)
               << "SpecialQueueInsertAttempts,"
               << "SpecialQueueBoundRejections,SpecialQueueInsertions,"
               << "SpecialQueueShiftedCandidates,SpecialFreeNodeCapSkipped,"
-              << "SpecialFreeEdgesCapSkipped,SpecialFreeInterEdgesCapSkipped\n";
+              << "SpecialFreeEdgesCapSkipped,SpecialFreeInterEdgesCapSkipped,"
+              << "SpecialCrossLayerStatesInserted,SpecialDistanceCacheHits\n";
    for (int repeat = 0; repeat < num_repeats; repeat++)
    {
       for (int LsearchId = 0; LsearchId < Lsearch_list.size(); LsearchId++)
@@ -1001,7 +926,6 @@ int main(int argc, char **argv)
                        << stats.query_length << ","
                        << stats.candidate_set_size << ","
                        << stats.num_entry_points << ","
-                       << stats.entry_group_matched_points << ","
                        << stats.special_entry_free_points << ","
                        << stats.special_entry_regular_points << ","
                        << stats.special_group_entry_free_points << ","
@@ -1017,7 +941,6 @@ int main(int argc, char **argv)
                        << stats.special_trie_final_block_entries << ","
                        << stats.special_trie_time_ms << ","
                        << stats.num_entry_points << ","
-                       << stats.special_query_block_count << ","
                        << stats.special_free_block_count << ","
                        << stats.special_free_block_frontier_count << ","
                        << stats.special_query_middle_block_count << ","
@@ -1026,6 +949,25 @@ int main(int argc, char **argv)
                        << (stats.special_query_upper_enabled ? 1 : 0) << ","
                        << stats.special_block_seed_points << ","
                        << stats.special_block_seed_points_retained << ","
+                       << stats.special_block_seed_points_preexpanded << ","
+                       << stats.special_preexpand_edges_scanned << ","
+                       << (stats.special_block_router_enabled ? 1 : 0) << ","
+                       << (stats.special_block_router_lower_bound_enabled ? 1 : 0) << ","
+                       << stats.special_block_router_blocks_routed << ","
+                       << stats.special_block_router_children_scored << ","
+                       << stats.special_block_router_lower_bound_calcs << ","
+                       << stats.special_block_router_children_shortlisted << ","
+                       << stats.special_block_router_portal_children_scored << ","
+                       << stats.special_block_router_children_selected << ","
+                       << stats.special_block_router_portals_scored << ","
+                       << stats.special_block_router_portal_activations << ","
+                       << stats.special_block_router_deferred_portals_stored << ","
+                       << stats.special_block_router_deferred_portals_replayed << ","
+                       << stats.special_block_router_inter_edges_skipped << ","
+                       << stats.special_block_router_lower_bound_time_ms << ","
+                       << stats.special_block_router_portal_score_time_ms << ","
+                       << stats.special_preexpand_edges_accepted << ","
+                       << stats.special_preexpand_time_ms << ","
                        << stats.special_entry_blocks << ","
                        << stats.special_retained_entry_blocks << ","
                        << stats.special_blocks_searched << ","
@@ -1062,7 +1004,9 @@ int main(int argc, char **argv)
                        << stats.special_queue_shifted_candidates << ","
                        << stats.special_free_node_cap_skipped << ","
                        << stats.special_free_edges_cap_skipped << ","
-                       << stats.special_free_inter_edges_cap_skipped << "\n";
+                       << stats.special_free_inter_edges_cap_skipped << ","
+                       << stats.special_cross_layer_states_inserted << ","
+                       << stats.special_distance_cache_hits << "\n";
          }
       }
    }

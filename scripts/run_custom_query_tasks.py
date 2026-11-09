@@ -120,15 +120,57 @@ def main():
                 cache_file = params.get("cache-file")
                 if cache_file:
                     cmd += ["--cache-file", cache_file]
-                if "target_average_selectivity" in params:
+                deprecated_selectivity_keys = {
+                    "target_average_selectivity",
+                    "average_selectivity_tolerance",
+                    "average_candidate_pool_size",
+                    "target_per_query_selectivity",
+                    "per_query_selectivity_tolerance",
+                    "per_query_selectivity_lower_tolerance",
+                    "per_query_selectivity_upper_tolerance",
+                    "per_query_candidate_pool_size",
+                }
+                configured_deprecated_keys = sorted(
+                    deprecated_selectivity_keys.intersection(params)
+                )
+                if configured_deprecated_keys:
+                    raise SystemExit(
+                        f"task {task_name} uses removed selectivity parameters: "
+                        + ", ".join(configured_deprecated_keys)
+                    )
+
+                has_min_selectivity = "min_selectivity" in params
+                has_max_selectivity = "max_selectivity" in params
+                if has_min_selectivity != has_max_selectivity:
+                    raise SystemExit(
+                        f"task {task_name} must set both min_selectivity and max_selectivity"
+                    )
+                if has_min_selectivity:
                     cmd += [
-                        "--target-average-selectivity",
-                        params["target_average_selectivity"],
-                        "--average-selectivity-tolerance",
-                        params.get("average_selectivity_tolerance", 0.001),
-                        "--average-candidate-pool-size",
-                        params.get("average_candidate_pool_size", 20_000),
+                        "--min-selectivity",
+                        params["min_selectivity"],
+                        "--max-selectivity",
+                        params["max_selectivity"],
+                        "--selectivity-candidate-pool-size",
+                        params.get("selectivity_candidate_pool_size", 20_000),
+                        "--random-seed",
+                        params.get("random_seed", 0),
                     ]
+                    optional_selectivity_args = {
+                        "selection_target_selectivity": "--selection-target-selectivity",
+                        "preferred_selectivity_min": "--preferred-selectivity-min",
+                        "preferred_selectivity_max": "--preferred-selectivity-max",
+                        "duplicate_selectivity_min": "--duplicate-selectivity-min",
+                        "duplicate_selectivity_max": "--duplicate-selectivity-max",
+                    }
+                    for config_key, command_arg in optional_selectivity_args.items():
+                        if config_key in params:
+                            cmd += [command_arg, params[config_key]]
+                    if "include_selectivity_extremes" in params:
+                        cmd += [
+                            "--include-selectivity-extremes",
+                            bool_arg(params["include_selectivity_extremes"]),
+                        ]
             elif mode == "generate":
                 params = task.get("generation_params", {})
                 cmd += [

@@ -61,21 +61,23 @@ QPS
 
 For FAVOR, `Lsearch` and `Average_Efs` both record the FAVOR `ef` value used for that row.
 
-`index_build_time.csv` records one row for each completed FAVOR index build with build time and the resident index-memory accounting: `index_memory_bytes`, `index_memory_mib`, `index_level0_bytes`, `index_upper_level_bytes`, and `index_runtime_metadata_bytes`. These are C++ `sizeof`-based structural allocations after index load, not on-disk file size.
+`index_build_time.csv` records one row for each completed FAVOR index build with build time and the resident index-memory accounting: `index_memory_bytes`, `index_memory_mib`, `index_level0_bytes`, `index_upper_level_bytes`, `index_runtime_metadata_bytes`, and `index_attribute_roaring_bytes`. The Roaring value includes bitmap-object storage plus each bitmap's portable serialized size as a stable compressed-size estimate; these fields are not the on-disk file size.
 
 FAVOR search is executed as a single sweep process: vectors, attributes, conditions, ground truth, and index are loaded once, then all configured `ef` values are queried in-process.
-The per-query details CSV contains `QueryID,Lsearch,SearchTime_ms,Recall,Route,Selectivity,VisitedPoints,VisitedEdges,DistanceComputations`. `Route` is `prefilter` when FAVOR uses the brute-force filtered path at or below the configured selectivity threshold and `graph` otherwise. `VisitedPoints` counts data-vector visits, `VisitedEdges` counts scanned adjacency entries (zero for prefilter brute force), and `DistanceComputations` counts vector-distance evaluations. The `Average_*` summary fields are per-query averages for a batch at the same `Lsearch`, averaged again across repeats when configured.
+The per-query details CSV contains `QueryID,Lsearch,SearchTime_ms,Recall,Route,Selectivity,VisitedPoints,VisitedEdges,DistanceComputations`. `Route` is `prefilter` when FAVOR uses the brute-force filtered path at or below the configured selectivity threshold and `graph` otherwise. `VisitedPoints` counts data-vector visits, `VisitedEdges` counts scanned adjacency entries (zero for prefilter brute force), and `DistanceComputations` counts vector-distance evaluations. `Average_Time_ms` is the end-to-end wall time of the complete query batch, averaged across repeats when configured, and `QPS` is computed from that batch time. Recall and visited/distance fields are per-query averages. `query_details_repeat*.csv` `SearchTime_ms` is the measured time of the individual query; those times overlap in a multithreaded run and must not be summed to obtain the batch wall time.
 
 
 The shared UNG ground-truth files store `(id, distance)` pairs. Before invoking FAVOR search, the runner materializes `<Dataset>_favor_gt_ids.bin` with only the vector IDs because FAVOR's native evaluator reads ground truth as contiguous integer IDs.
 
-## Label Conversion And Bitset Index
+## Label Conversion And Roaring Index
 
-The runner builds one shared bitset schema from every label appearing in the dataset's base-label file. Every FAVOR node stores this schema as packed `uint64_t` words rather than a dense `float[num_labels]` row. The sidecar `index.bin.labels` persists the sorted label IDs and is loaded by every query task, so a `FAVOR` index is reusable across query tasks for the same dataset.
+The runner builds one shared schema from every label appearing in the dataset's base-label file. FAVOR stores attributes as an inverted CRoaring index: each schema label owns a compressed bitmap of matching HNSW internal IDs. Labels are no longer materialized as an `num_vectors × num_labels` dense table and are not embedded in each level-0 HNSW record.
 
-The runner writes one filter expression per query from this project's containment labels:
+During parallel graph construction, internal IDs can differ from base-row IDs. The builder records the returned internal ID for every row and remaps each label bitmap after graph construction, one bitmap at a time. This keeps peak attribute memory close to one compressed index instead of retaining dense build and node copies. Low-selectivity prefilter searches use Roaring intersection/difference to produce candidate IDs directly; graph search uses bitmap membership checks for visited nodes.
 
-- base label `1,3` sets the `label_1` and `label_3` bits for that vector.
+The sidecar `index.bin.labels` persists the sorted label IDs and is loaded by every query task, so a `FAVOR` index is reusable across query tasks for the same dataset. The runner writes one filter expression per query from this project's containment labels:
+
+- base label `1,3` inserts the vector ID into the Roaring bitmaps for labels `1` and `3`.
 - query label `1,3` becomes `label_1 == 1 AND label_3 == 1`.
 
-This keeps containment semantics without materializing a query-task-specific dense attribute file. The bitset format is intentionally incompatible with legacy dense FAVOR indexes; rebuilding `FAVOR` creates the new format and its `.labels` sidecar.
+The `FAVROA01` format is intentionally incompatible with legacy dense/bitset FAVOR indexes. The runner checks the file magic and rebuilds an obsolete index instead of attempting to load it.

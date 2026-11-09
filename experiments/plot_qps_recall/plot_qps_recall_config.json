@@ -24,10 +24,17 @@
       "skip_first_lsearch": true
     },
     {
-      "method_dir": "Trie_block",
-      "label": "trie + special_blocks",
+      "method_dir": "Trie_multilevel_gpu_block_sourceexact_complete32_layers1000-trie-16000-trie_bdeg64_bcross4-1",
+      "label": "trie + special_blocks + single",
       "color": "#72b7b2",
       "marker": "cross",
+      "skip_first_lsearch": true
+    },
+    {
+      "method_dir": "Trie_multilevel_gpu_block_sourceexact_complete32_layers1000-trie-16000-trie_bdeg64_bcross4",
+      "label": "trie + special_blocks + double",
+      "color": "#bab0ac",
+      "marker": "diamond",
       "skip_first_lsearch": true
     },
     {

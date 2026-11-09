@@ -42,18 +42,6 @@ enum class UngLngImpl : int
    OriginalCpu = 2,
 };
 
-enum class UngDescendantsImpl : int
-{
-   OptimizedEpochBfs = 0,
-   LegacyHashBfs = 1,
-};
-
-enum class UngCoverageImpl : int
-{
-   LegacyTopologicalMerge = 0,
-   DescendantsDirect = 1,
-};
-
 enum class UngCrossEdgeImpl : int
 {
    CpuVamana = 0,
@@ -91,10 +79,12 @@ struct UngBuildConfig
    UngGroupGraphImpl group_graph_impl = UngGroupGraphImpl::VamanaCpu;
    UngGetMinSuperSetsImpl get_min_super_sets_impl = UngGetMinSuperSetsImpl::OptimizedBucket;
    UngLngImpl lng_impl = UngLngImpl::OptimizedPhase1;
-   UngDescendantsImpl descendants_impl = UngDescendantsImpl::OptimizedEpochBfs;
-   UngCoverageImpl coverage_impl = UngCoverageImpl::LegacyTopologicalMerge;
    UngCrossEdgeImpl cross_edge_impl = UngCrossEdgeImpl::GpuBatched;
    UngAdditionalEdgesImpl additional_edges_impl = UngAdditionalEdgesImpl::CpuVamana;
+   // For a Trie base topology, compute exact cross-group top-k source by
+   // source in one parallel region. This avoids one OpenMP region and one
+   // temporary queue per Trie relation while preserving exact-scan results.
+   bool trie_cross_source_exact = true;
    UngGpuTopkImpl gpu_topk_impl = UngGpuTopkImpl::Auto;
    // Orthogonal hierarchy configuration. base_topology selects the ordinary
    // (layer-0) group graph; layers describes any number of additional graph
@@ -102,7 +92,6 @@ struct UngBuildConfig
    HierarchyPlan hierarchy;
 
    bool gpu_strict = false;
-   uint32_t coverage_threads = 0; // 0 means use build num_threads.
    uint32_t tagore_min_group_size = 0;
    uint32_t tagore_k = 64;
    uint32_t tagore_iter = 10; // GRNND-style paths default to 4 in from_env unless UNG_TAGORE_ITER is set.
@@ -136,8 +125,6 @@ const char *to_string(UngBuildProfile v);
 const char *to_string(UngGroupGraphImpl v);
 const char *to_string(UngGetMinSuperSetsImpl v);
 const char *to_string(UngLngImpl v);
-const char *to_string(UngDescendantsImpl v);
-const char *to_string(UngCoverageImpl v);
 const char *to_string(UngCrossEdgeImpl v);
 const char *to_string(UngAdditionalEdgesImpl v);
 const char *to_string(UngGpuTopkImpl v);

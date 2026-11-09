@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "purpose": "Held-out detailed counters at measured performance crossings.",
+  "run_root": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_profile_20260927",
+  "performance_campaign": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_evidence_manifest.json",
+  "search_binary": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/build_ung_profile_instrumented_deadline/apps/search_UNG_index",
+  "search_binary_sha256": "c82d627bc33e85583ef7ef0eea054719605fd6db3b47c7471d6623b6ead1084f",
+  "source_commit": "aac9e189939c9967e21e3dfea1d71ec0a559c87b",
+  "protocol": {
+    "measurement_pass": "profile",
+    "cold_repeats": 1,
+    "measured_repeats": 2,
+    "case_timeout_seconds": 3300,
+    "primary_qps_source": "separate performance pass"
+  },
+  "configs": [
+    {
+      "dataset": "Genome",
+      "config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_profile_genome.json",
+      "baseline_method": "l0_lng_entry_optimized_lng",
+      "cases": [
+        {
+          "dataset": "Genome",
+          "method": "l0_lng_entry_optimized_lng",
+          "workload": "query_minlen5_cov0.1k",
+          "lsearch": 40,
+          "target_recall": 0.9,
+          "performance_status": "crossing",
+          "source_details": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/search/performance/l0_lng_entry_optimized_lng/query_minlen5_cov0.1k/search_time_details.csv",
+          "source_details_sha256": "00bdc38216c126495b27b5edb9d565765f3af128e4109809b755d661e8495cae"
+        },
+        {
+          "dataset": "Genome",
+          "method": "l0_lng_entry_optimized_lng",
+          "workload": "query_minlen2_cov1k",
+          "lsearch": 500,
+          "target_recall": 0.9,
+          "performance_status": "crossing",
+          "source_details": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/search/performance/l0_lng_entry_optimized_lng/query_minlen2_cov1k/search_time_details.csv",
+          "source_details_sha256": "410cc5abd14c945af39d145d2615b8c666374bb34f5c67869539a5bed9293b43"
+        },
+        {
+          "dataset": "Genome",
+          "method": "l2_t256_4096_lt_entry_optimized_lng_upper_routed",
+          "workload": "query_minlen5_cov0.1k",
+          "lsearch": 40,
+          "target_recall": 0.9,
+          "performance_status": "crossing",
+          "source_details": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/search/performance/l2_t256_4096_lt_entry_optimized_lng_upper_routed/query_minlen5_cov0.1k/search_time_details.csv",
+          "source_details_sha256": "49674d239499c37faae6e80eb7ab3c02e782ebd85bdfa01c1447a5d45a808740"
+        },
+        {
+          "dataset": "Genome",
+          "method": "l2_t256_4096_lt_entry_optimized_lng_upper_routed",
+          "workload": "query_minlen2_cov1k",
+          "lsearch": 500,
+          "target_recall": 0.9,
+          "performance_status": "crossing",
+          "source_details": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/genome/search/performance/l2_t256_4096_lt_entry_optimized_lng_upper_routed/query_minlen2_cov1k/search_time_details.csv",
+          "source_details_sha256": "30ddd73746228e92bf69831fff0bfcf5a8f6baccd34cf06e00bf06ba96baf89d"
+        }
+      ]
+    },
+    {
+      "dataset": "Reviews",
+      "config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_profile_reviews.json",
+      "baseline_method": "l0_lng_entry_optimized_lng",
+      "cases": [
+        {
+          "dataset": "Reviews",
+          "method": "l0_lng_entry_optimized_lng",
+          "workload": "query_minlen5_cov0.1k",
+          "lsearch": 500,
+          "target_recall": 0.9,
+          "performance_status": "crossing",
+          "source_details": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/reviews/search/performance/l0_lng_entry_optimized_lng/query_minlen5_cov0.1k/search_time_details.csv",
+          "source_details_sha256": "fccde1af1c4115e66cc9a3d51a809cff23e5b5ac53078c258dd7df0c47446e1e"
+        },
+        {
+          "dataset": "Reviews",
+          "method": "l0_lng_entry_optimized_lng",
+          "workload": "query_minlen2_cov1k",
+          "lsearch": 10000,
+          "target_recall": 0.9,
+          "performance_status": "crossing",
+          "source_details": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/reviews/search/performance/l0_lng_entry_optimized_lng/query_minlen2_cov1k/search_time_details.csv",
+          "source_details_sha256": "9ee39455bec4397a260959d3f6db4c9a43900f0c07721bd526f6757632cb82d3"
+        },
+        {
+          "dataset": "Reviews",
+          "method": "l2_t512_8192_lt_entry_optimized_lng_upper_routed",
+          "workload": "query_minlen5_cov0.1k",
+          "lsearch": 500,
+          "target_recall": 0.9,
+          "performance_status": "crossing",
+          "source_details": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/reviews/search/performance/l2_t512_8192_lt_entry_optimized_lng_upper_routed/query_minlen5_cov0.1k/search_time_details.csv",
+          "source_details_sha256": "dcd2a23b1ae46d886f94e191b43ee0ca627a639d7e9998d213c027c7d176419a"
+        },
+        {
+          "dataset": "Reviews",
+          "method": "l2_t512_8192_lt_entry_optimized_lng_upper_routed",
+          "workload": "query_minlen2_cov1k",
+          "lsearch": 2500,
+          "target_recall": 0.9,
+          "performance_status": "crossing",
+          "source_details": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/reviews/search/performance/l2_t512_8192_lt_entry_optimized_lng_upper_routed/query_minlen2_cov1k/search_time_details.csv",
+          "source_details_sha256": "1ad72ba5976fba1a4e72e339328bb50630e47888074bc6d1b632815a056f424e"
+        }
+      ]
+    },
+    {
+      "dataset": "VariousImg",
+      "config": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/experiments/multilevel_special/config.deadline_profile_variousimg.json",
+      "baseline_method": "l0_lng_entry_optimized_lng",
+      "cases": [
+        {
+          "dataset": "VariousImg",
+          "method": "l0_lng_entry_optimized_lng",
+          "workload": "query_minlen2_cov5k",
+          "lsearch": 10000,
+          "target_recall": 0.9,
+          "performance_status": "crossing",
+          "source_details": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/variousimg/search/performance/l0_lng_entry_optimized_lng/query_minlen2_cov5k/search_time_details.csv",
+          "source_details_sha256": "c82833e35903906e47a59e538969a19a187c9c8bd5e62179655bb1a42b41f7da"
+        },
+        {
+          "dataset": "VariousImg",
+          "method": "l2_t1024_16384_lt_entry_optimized_lng_upper_routed",
+          "workload": "query_minlen2_cov5k",
+          "lsearch": 10000,
+          "target_recall": 0.9,
+          "performance_status": "crossing",
+          "source_details": "/home/sunyahui/worktrees/FilterVectorCode_multilevel_special/runs/deadline_evidence_20260927_cpufix/heldout/variousimg/search/performance/l2_t1024_16384_lt_entry_optimized_lng_upper_routed/query_minlen2_cov5k/search_time_details.csv",
+          "source_details_sha256": "5c13cf70f47463eee027d3f3a1aab47a8f145e271e00def953371593b833b524"
+        }
+      ]
+    }
+  ],
+  "case_count": 10
+}

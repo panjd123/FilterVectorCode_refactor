@@ -72,6 +72,8 @@ struct TagoreCudaRuntimeConfig
    uint32_t fast_exact_batch_threshold = 0;
    uint32_t requested_streams = 1;
    bool compact_d2h_requested = true;
+   bool optimized_topk = true;
+   bool naive_distance = false; // Explicit GPU-Naive opt-in; existing paths retain their defaults.
 };
 
 struct TagoreBatchBuildResult

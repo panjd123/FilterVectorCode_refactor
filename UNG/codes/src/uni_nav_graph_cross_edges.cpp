@@ -10,7 +10,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -70,8 +69,11 @@ namespace ANNS
                                                            SearchCacheList *search_cache_list,
                                                            bool use_exact_scan,
                                                            SearchQueue &out_neighbors,
-                                                           IdxType max_neighbors) const
+                                                           IdxType max_neighbors,
+                                                           uint64_t *distance_computations) const
    {
+      if (distance_computations)
+         *distance_computations = 0;
       if (target_point_ids.empty())
          return;
 
@@ -88,11 +90,15 @@ namespace ANNS
          }
          for (int k = 0; k < local_topk.size(); ++k)
             out_neighbors.insert(local_topk[k].id, local_topk[k].distance);
+         if (distance_computations)
+            *distance_computations = target_point_ids.size();
          return;
       }
 
       auto search_cache = search_cache_list->get_free_cache();
-      target_index->iterate_to_fixed_point(query, search_cache);
+      const IdxType comparisons = target_index->iterate_to_fixed_point(query, search_cache);
+      if (distance_computations)
+         *distance_computations = comparisons;
       for (int k = 0; k < search_cache->search_queue.size(); ++k)
       {
          const IdxType local_id = search_cache->search_queue[k].id;
@@ -325,6 +331,104 @@ namespace ANNS
                 scan_queries, vamana_queries, scan_dim_ops);
    }
 
+   void UniNavGraph::build_cross_edges_generate_trie_source_exact(
+       std::vector<SearchQueue> &cross_group_neighbors)
+   {
+      if (!_group_topology_graph)
+         throw std::runtime_error("Trie source-exact cross-edge build requires a group topology");
+      if (_new_vec_id_to_group_id.size() != static_cast<size_t>(_num_points))
+         throw std::runtime_error("Trie source-exact cross-edge build requires point-to-group ownership");
+
+      std::vector<IdxType> source_points;
+      source_points.reserve(_num_points);
+      uint64_t source_groups = 0;
+      uint64_t topology_relations = 0;
+      uint64_t candidate_comparisons = 0;
+      uint64_t skipped_relations = 0;
+      uint64_t skipped_query_visits = 0;
+
+      for (IdxType source_group_id = 1; source_group_id <= _num_groups; ++source_group_id)
+      {
+         const auto &targets = _group_topology_graph->out_neighbors[source_group_id];
+         if (targets.empty())
+            continue;
+         const auto &source_range = _group_id_to_range[source_group_id];
+         if (source_range.first > source_range.second || source_range.second > _num_points)
+            throw std::runtime_error("Trie source-exact cross-edge build found an invalid source range");
+         const uint64_t source_count =
+             static_cast<uint64_t>(source_range.second - source_range.first);
+         if (_build_config.special_blocks_enabled && _build_config.special_block_skip_trivial &&
+             is_trivial_special_block_root_group(source_group_id))
+         {
+            skipped_relations += targets.size();
+            skipped_query_visits += source_count * targets.size();
+            continue;
+         }
+
+         ++source_groups;
+         for (IdxType source_point_id = source_range.first;
+              source_point_id < source_range.second; ++source_point_id)
+            source_points.push_back(source_point_id);
+         for (IdxType target_group_id : targets)
+         {
+            if (target_group_id == 0 || target_group_id > _num_groups)
+               throw std::runtime_error("Trie source-exact cross-edge build found an invalid target group");
+            const auto &target_range = _group_id_to_range[target_group_id];
+            if (target_range.first > target_range.second || target_range.second > _num_points)
+               throw std::runtime_error("Trie source-exact cross-edge build found an invalid target range");
+            ++topology_relations;
+            candidate_comparisons +=
+                source_count * static_cast<uint64_t>(target_range.second - target_range.first);
+         }
+      }
+
+      const uint64_t dim_ops = candidate_comparisons *
+                               static_cast<uint64_t>(_base_storage->get_dim());
+      std::cout << "[cross_edges][trie_source_exact] source_groups=" << source_groups
+                << " source_points=" << source_points.size()
+                << " topology_relations=" << topology_relations
+                << " candidate_comparisons=" << candidate_comparisons
+                << " dim_ops=" << dim_ops
+                << " skipped_relations=" << skipped_relations
+                << " skipped_query_visits=" << skipped_query_visits
+                << " schedule=dynamic1_single_region"
+                << std::endl;
+
+      const IdxType dim = _base_storage->get_dim();
+      omp_set_num_threads(_num_threads);
+#pragma omp parallel for schedule(dynamic, 1)
+      for (size_t work_index = 0; work_index < source_points.size(); ++work_index)
+      {
+         const IdxType source_point_id = source_points[work_index];
+         const IdxType source_group_id = _new_vec_id_to_group_id[source_point_id];
+         const char *query = _base_storage->get_vector(source_point_id);
+         SearchQueue &out_neighbors = cross_group_neighbors[source_point_id];
+         for (IdxType target_group_id : _group_topology_graph->out_neighbors[source_group_id])
+         {
+            const auto &target_range = _group_id_to_range[target_group_id];
+            for (IdxType target_point_id = target_range.first;
+                 target_point_id < target_range.second; ++target_point_id)
+            {
+               const float distance = _distance_handler->compute(
+                   query, _base_storage->get_vector(target_point_id), dim);
+               out_neighbors.insert(target_point_id, distance);
+            }
+         }
+      }
+
+      _special_block_summary.cross_trivial_skipped_pairs +=
+          static_cast<IdxType>(skipped_relations);
+      _special_block_summary.cross_trivial_skipped_query_vectors +=
+          static_cast<IdxType>(skipped_query_visits);
+      prof_logf("[PROF] cross_edges.trie_source_exact source_groups=%llu source_points=%zu topology_relations=%llu candidate_comparisons=%llu dim_ops=%llu skipped_relations=%llu skipped_query_visits=%llu",
+                static_cast<unsigned long long>(source_groups), source_points.size(),
+                static_cast<unsigned long long>(topology_relations),
+                static_cast<unsigned long long>(candidate_comparisons),
+                static_cast<unsigned long long>(dim_ops),
+                static_cast<unsigned long long>(skipped_relations),
+                static_cast<unsigned long long>(skipped_query_visits));
+   }
+
    // GPU cross-edge routing adapter and legacy env bridge.
    //
    // This function intentionally stays above individual CUDA backends: it maps
@@ -543,23 +647,38 @@ namespace ANNS
                      additional_query_vectors += 1;
                      if (_build_config.additional_edges_impl == UngAdditionalEdgesImpl::CpuExactScan)
                      {
-                        SearchQueue local_topk;
-                        local_topk.reserve(_num_cross_edges);
                         const auto &out_range = _group_id_to_range[out_group_id];
                         const char *query = _base_storage->get_vector(vec_id);
                         const IdxType dim = _base_storage->get_dim();
-                        additional_exact_dim_ops += static_cast<unsigned long long>(out_range.second - out_range.first) *
-                                                    static_cast<unsigned long long>(dim);
-                        for (IdxType target_id = out_range.first; target_id < out_range.second; ++target_id)
+                        const IdxType per_query_cap = _num_cross_edges / 2;
+                        if (per_query_cap == 0)
+                           break;
+                        if (out_range.second - out_range.first == 1)
                         {
-                           const float dist = _distance_handler->compute(query, _base_storage->get_vector(target_id), dim);
-                           local_topk.insert(target_id, dist);
-                        }
-                        for (auto k = 0; k < local_topk.size() && k < _num_cross_edges / 2; ++k)
-                        {
-                           append_additional_edge(group_id, vec_id, local_topk[k].id);
+                           const IdxType target_id = out_range.first;
+                           append_additional_edge(group_id, vec_id, target_id);
                            cnt += 1;
                            additional_appended_edges += 1;
+                        }
+                        else
+                        {
+                           additional_exact_dim_ops +=
+                               static_cast<unsigned long long>(out_range.second - out_range.first) *
+                               static_cast<unsigned long long>(dim);
+                           SearchQueue local_topk;
+                           local_topk.reserve(per_query_cap);
+                           for (IdxType target_id = out_range.first; target_id < out_range.second; ++target_id)
+                           {
+                              const float dist = _distance_handler->compute(
+                                  query, _base_storage->get_vector(target_id), dim);
+                              local_topk.insert(target_id, dist);
+                           }
+                           for (auto k = 0; k < local_topk.size(); ++k)
+                           {
+                              append_additional_edge(group_id, vec_id, local_topk[k].id);
+                              cnt += 1;
+                              additional_appended_edges += 1;
+                           }
                         }
                      }
                      else
@@ -798,14 +917,25 @@ namespace ANNS
       }
       else
       {
-         std::cout << "[cross_edges] backend=CPU impl=" << to_string(_build_config.cross_edge_impl) << std::endl;
          ensure_cross_queue_storage(true);
-         if (_build_config.cross_edge_impl == UngCrossEdgeImpl::CpuExactScan)
-            build_cross_edges_generate_cpu_exact_scan(cross_group_neighbors);
-         else if (_build_config.cross_edge_impl == UngCrossEdgeImpl::CpuHybridScanVamana)
-            build_cross_edges_generate_cpu_hybrid_scan_vamana(cross_group_neighbors, ensure_search_cache_list());
+         if (_build_config.hierarchy.base_topology == GroupTopologyKind::Trie &&
+             _build_config.trie_cross_source_exact)
+         {
+            std::cout << "[cross_edges] backend=CPU impl=trie_source_exact"
+                      << " configured_fallback=" << to_string(_build_config.cross_edge_impl)
+                      << std::endl;
+            build_cross_edges_generate_trie_source_exact(cross_group_neighbors);
+         }
          else
-            build_cross_edges_generate_cpu_baseline(cross_group_neighbors, ensure_search_cache_list());
+         {
+            std::cout << "[cross_edges] backend=CPU impl=" << to_string(_build_config.cross_edge_impl) << std::endl;
+            if (_build_config.cross_edge_impl == UngCrossEdgeImpl::CpuExactScan)
+               build_cross_edges_generate_cpu_exact_scan(cross_group_neighbors);
+            else if (_build_config.cross_edge_impl == UngCrossEdgeImpl::CpuHybridScanVamana)
+               build_cross_edges_generate_cpu_hybrid_scan_vamana(cross_group_neighbors, ensure_search_cache_list());
+            else
+               build_cross_edges_generate_cpu_baseline(cross_group_neighbors, ensure_search_cache_list());
+         }
       }
 
    }

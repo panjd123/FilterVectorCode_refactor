@@ -1,0 +1,62 @@
+{
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/build_ung_multilevel_trie_gpu",
+  "selector_model_prefix": "/home/dev/graphdb/FilterVectorResult/SelectModels",
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "num_entry_points": 16,
+    "lsearch_start": 1000,
+    "lsearch_end": 20000,
+    "lsearch_step": 1000,
+    "lsearch_prefix_start": 100,
+    "lsearch_prefix_end": 1000,
+    "lsearch_prefix_step": 100,
+    "efs_start": 10,
+    "efs_step_slow": 10,
+    "efs_step_fast": 10,
+    "lsearch_threshold": 2500
+  },
+  "datasets": [
+    {
+      "dataset": "Genome",
+      "query_task": "query_minlen1_sel0to10pct"
+    },
+    {
+      "dataset": "Genome",
+      "query_task": "query_minlen1_sel10to40pct"
+    },
+    {
+      "dataset": "Genome",
+      "query_task": "query_minlen1_sel40to100pct"
+    }
+  ],
+  "methods": [
+    {
+      "name": "Trie_block_500_M_32_cross_block_4",
+      "index_name": "Trie_block_500_M_32_cross_block_4",
+      "entry_group_provider": "special_block_trie",
+      "warmup_special_block_trie": false,
+      "reuse_els": false,
+      "special_block_search": true,
+      "env": {
+        "UNG_SPECIAL_LIGHT_STATS": "0",
+        "UNG_SPECIAL_SEARCH_MODE": "free_state",
+        "UNG_SPECIAL_MAX_ACTIVE_LEVEL": "1",
+        "UNG_SPECIAL_UPPER_MIN_COVERED_POINTS": null,
+        "UNG_SPECIAL_REQUIRE_UPPER_AUTHORIZATION": null,
+        "UNG_SPECIAL_CANDIDATE_HEAP": "1",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PER_BLOCK": "16",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_RETAIN_PER_BLOCK": "1",
+        "UNG_SPECIAL_TRIE_FRONTIER_BLOCK_SEEDS_RETAIN_PER_BLOCK": "8",
+        "UNG_SPECIAL_TRIE_BLOCK_SEEDS_PREEXPAND_PER_BLOCK": "2",
+        "UNG_SPECIAL_FREE_INTRA_EDGE_SCAN_CAP": "16",
+        "UNG_SPECIAL_FREE_INTER_EDGE_SCAN_CAP": null,
+        "UNG_SPECIAL_FREE_INTER_EDGE_PER_BLOCK_CAP": null,
+        "UNG_SPECIAL_FREE_INTER_EDGE_CAP_MIN_CHILD_BLOCKS": null
+      }
+    }
+  ]
+}

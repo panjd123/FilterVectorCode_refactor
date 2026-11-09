@@ -13,16 +13,8 @@ namespace ANNS
       double core_search_time_ms = 0.0;
       // Backend-independent breakdown used by query/summary CSV output.
       double entry_point_setup_time_ms = 0.0;
-      double descendants_merge_time_ms = 0.0;
-      double coverage_merge_time_ms = 0.0;
       double get_min_super_sets_time_ms = 0.0;
-      double idea1_flag_time_ms = 0.0;
-      double idea2_flag_time_ms = 0.0;
-      double idea1_selector_pred_time_ms = 0.0;
-      double idea2_selector_pred_time_ms = 0.0;
-      double bitmap_time_ms = 0.0;
       size_t num_distance_calcs = 0;
-      int acorn_efs_used = 0;
 
       size_t num_nodes_visited = 0;
       size_t regular_edges_scanned = 0;
@@ -30,13 +22,7 @@ namespace ANNS
       size_t query_length = 0;
       long long trie_nodes_traversed = 0;
 
-      bool is_idea1_used = false;
-      int is_idea2_used = 0; // 0: UNG, 1: ACORN-gamma, 2: ACORN-gamma-improved
 
-      size_t trie_total_nodes = 0;
-      size_t trie_label_cardinality = 0;
-      float trie_avg_path_length = 0.0f;
-      float trie_avg_branching_factor = 0.0f;
 
       size_t candidate_set_size = 0;
       size_t successful_checks = 0;
@@ -47,9 +33,6 @@ namespace ANNS
       float pruning_efficiency = 0.0f;
 
       size_t num_entry_points = 0;
-      size_t num_lng_descendants = 0;
-      size_t entry_group_matched_points = 0;
-      float entry_group_total_coverage = 0.0f;
 
       size_t special_trie_pivot_postings = 0;
       size_t special_trie_matching_pivots = 0;
@@ -69,15 +52,6 @@ namespace ANNS
       double special_special_edges_time_ms = 0.0;
       double special_regular_edges_time_ms = 0.0;
       double special_result_time_ms = 0.0;
-      size_t special_query_matched_points = 0;
-      size_t special_query_points = 0;
-      size_t special_query_trivial_points = 0;
-      size_t special_query_nontrivial_points = 0;
-      size_t special_query_block_count = 0;
-      size_t special_query_trivial_block_count = 0;
-      size_t special_query_nontrivial_block_count = 0;
-      float special_query_ratio = 0.0f;
-      float special_query_nontrivial_ratio = 0.0f;
 
       size_t special_entry_free_points = 0;
       size_t special_entry_regular_points = 0;
@@ -93,6 +67,25 @@ namespace ANNS
       bool special_query_upper_enabled = true;
       size_t special_block_seed_points = 0;
       size_t special_block_seed_points_retained = 0;
+      size_t special_block_seed_points_preexpanded = 0;
+      bool special_block_router_enabled = false;
+      bool special_block_router_lower_bound_enabled = false;
+      size_t special_block_router_blocks_routed = 0;
+      size_t special_block_router_children_scored = 0;
+      size_t special_block_router_lower_bound_calcs = 0;
+      size_t special_block_router_children_shortlisted = 0;
+      size_t special_block_router_portal_children_scored = 0;
+      size_t special_block_router_children_selected = 0;
+      size_t special_block_router_portals_scored = 0;
+      size_t special_block_router_portal_activations = 0;
+      size_t special_block_router_deferred_portals_stored = 0;
+      size_t special_block_router_deferred_portals_replayed = 0;
+      size_t special_block_router_inter_edges_skipped = 0;
+      double special_block_router_lower_bound_time_ms = 0.0;
+      double special_block_router_portal_score_time_ms = 0.0;
+      size_t special_preexpand_edges_scanned = 0;
+      size_t special_preexpand_edges_accepted = 0;
+      double special_preexpand_time_ms = 0.0;
       size_t special_entry_blocks = 0;
       size_t special_retained_entry_blocks = 0;
       size_t special_middle_blocks_searched = 0;
@@ -127,6 +120,8 @@ namespace ANNS
       size_t special_queue_bound_rejections = 0;
       size_t special_queue_insertions = 0;
       size_t special_queue_shifted_candidates = 0;
+      size_t special_cross_layer_states_inserted = 0;
+      size_t special_distance_cache_hits = 0;
       bool favor_block_search_enabled = false;
       size_t favor_block_count = 0;
       size_t favor_block_points = 0;

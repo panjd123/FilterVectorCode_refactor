@@ -1,5 +1,4 @@
 #include "include/ung_entry_group_cache.h"
-#include "include/ung_query_stats.h"
 
 #include <memory>
 #include <utility>
@@ -7,13 +6,7 @@
 namespace ANNS
 {
 
-void apply_entry_group_route_stats(const EntryGroupRouteStats &route_stats, QueryStats &stats)
-{
-   stats.num_entry_points = route_stats.num_entry_points;
-   stats.num_lng_descendants = route_stats.num_lng_descendants;
-   stats.entry_group_matched_points = route_stats.entry_group_matched_points;
-   stats.entry_group_total_coverage = route_stats.entry_group_total_coverage;
-}
+
 
 CachedEntryGroupResult EntryGroupResultCache::get_or_compute(const std::string &key,
                                                              const ComputeFn &compute)

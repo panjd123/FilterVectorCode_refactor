@@ -1,0 +1,352 @@
+{
+  "cohort": "graph_only",
+  "config_sha256": "21377b13411f59f7582d904547cd6efd1724ed809e4374aba85c9674347f1c76",
+  "time_unit": "seconds",
+  "rows": 32,
+  "graph_only": [
+    {
+      "run_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only",
+      "manifest_sha256": "3464da2c1fbce33b74c333dce6fff617b21680d9fc6d1c15dfac1f33453d9115",
+      "all_runs_sha256": "bbc9f765ff065a86df0717bbf1ee3ddad9989c44033bbaf8182003489dab2e79",
+      "binary_sha256": {
+        "build_UNG_index": "02fb191880dbd2837c46b34a5cae72ab97ea57292590710353c079d08bfa7a77",
+        "build_special_block_index": "b0bf56d8afa87bf5faa563e7545da7def42950847a4d6642767bbe03a09d97ca"
+      },
+      "included_cases": [
+        {
+          "dataset": "Amazon",
+          "method": "gpu_balance_topk",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only/Amazon/measured_r01/gpu_balance_topk",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "7641c52f21c943f499bf711c6c26b7bf3e251b8433d02680d6de86117e34b95b",
+          "recorded_config_sha256": "7641c52f21c943f499bf711c6c26b7bf3e251b8433d02680d6de86117e34b95b",
+          "base_meta_sha256": "906c3c111b04e8ea20906cdc70b0d091330f9d3fe5c359d4189fbeacd59b76d9",
+          "block_meta_sha256": "e996987d0a3a054e7c6d21219186e96bc1e3011e13e56df4ff5123e8a6139b7a"
+        },
+        {
+          "dataset": "Genome",
+          "method": "gpu_balance_topk",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only/Genome/measured_r01/gpu_balance_topk",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "d9c58526858f4690bf6e70997863b8c2c97955ed95f91717ea22a6784c90e224",
+          "recorded_config_sha256": "d9c58526858f4690bf6e70997863b8c2c97955ed95f91717ea22a6784c90e224",
+          "base_meta_sha256": "c770e1222881f3990a6ed9b26362d4d99dea71b4031008c104c283dd2d57ff05",
+          "block_meta_sha256": "655f533567c62286c9ac7352f1197c8fc580802156ccf478148fd5156d136551"
+        },
+        {
+          "dataset": "Reviews",
+          "method": "gpu_balance_topk",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only/Reviews/measured_r01/gpu_balance_topk",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "895a8625e21bdc6f6a6c8a7effb8d6b6b1ea15260676195a215a4a8c3982e9a6",
+          "recorded_config_sha256": "895a8625e21bdc6f6a6c8a7effb8d6b6b1ea15260676195a215a4a8c3982e9a6",
+          "base_meta_sha256": "b17b187ea464ee1ad00028bb8e2fd4bed0f518b0bfce111bd625e5a0a2b06b74",
+          "block_meta_sha256": "2a4e70f1157e4e6e536134e2e58493cfb6f0208d7a7b13d06a8dd1c3924bb65f"
+        },
+        {
+          "dataset": "VImg",
+          "method": "gpu_balance_topk",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only/VImg/measured_r01/gpu_balance_topk",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "689e6f45e3feb83b6c9634b207bcef0a10b823d62d43d90d53913d8ef38fce21",
+          "recorded_config_sha256": "689e6f45e3feb83b6c9634b207bcef0a10b823d62d43d90d53913d8ef38fce21",
+          "base_meta_sha256": "cef4ab36b7fb06ebcfd68853b08beab63e0a12c44fe1c26b5fe468bbf2612bbc",
+          "block_meta_sha256": "05df128463d9b5f199eab9560ed7a723299a14bc8216f9d8b1db3f39a3eb6ca8"
+        },
+        {
+          "dataset": "Music",
+          "method": "gpu_balance_topk",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only/Music/measured_r01/gpu_balance_topk",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "3dbbc6303ec3bae276dacc74e6316ada8a2267835f95b72ea9d1c17004736c41",
+          "recorded_config_sha256": "3dbbc6303ec3bae276dacc74e6316ada8a2267835f95b72ea9d1c17004736c41",
+          "base_meta_sha256": "f0c11408558840d4c6e1e2d479133e8823c5c80b57fc9e559ca101cb8972ac13",
+          "block_meta_sha256": "5c5ceb76e6b74c0ee1d0eda8ea93dabb484fcdceb52b01ee2344181d910a9c82"
+        },
+        {
+          "dataset": "BReviews",
+          "method": "gpu_balance_topk",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only/BReviews/measured_r01/gpu_balance_topk",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "928beb4a2bac4bdd069d33b14ff15b38c59a6f59a5b2e375dea55560f12b541b",
+          "recorded_config_sha256": "928beb4a2bac4bdd069d33b14ff15b38c59a6f59a5b2e375dea55560f12b541b",
+          "base_meta_sha256": "bd8c6f9127a4c32947aad57bfac72daa02662daccccec0d3d2dc24253923f112",
+          "block_meta_sha256": "0582d4b00439aafb4187686115b2e8a9682af81c10ccf8842205a9bbf3b18563"
+        },
+        {
+          "dataset": "Tiktok",
+          "method": "gpu_balance_topk",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only/Tiktok/measured_r01/gpu_balance_topk",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "4c1043d77e3a1aadfd125c6dacb2b0f5b2872575e11452f39680d97000f6093c",
+          "recorded_config_sha256": "4c1043d77e3a1aadfd125c6dacb2b0f5b2872575e11452f39680d97000f6093c",
+          "base_meta_sha256": "e5ef6970bdcecac63738b2507572745bb2fc6ce8e46a8e5510f319ac79b6b661",
+          "block_meta_sha256": "c596d1bc14ba991df8683045be17cd03d9e3666aa86ba8bea17d6371254cc986"
+        },
+        {
+          "dataset": "Laion",
+          "method": "gpu_balance_topk",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_113719_771827_gpu_balance_topk_graph_only/Laion/measured_r01/gpu_balance_topk",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "5ba0289092d665e20697126943c618a700059e3106563a2af1f33748a4a68d7a",
+          "recorded_config_sha256": "5ba0289092d665e20697126943c618a700059e3106563a2af1f33748a4a68d7a",
+          "base_meta_sha256": "62fe1a03a9779654e4b01715549057ce5bb900069412ba64e748da86f8c109e9",
+          "block_meta_sha256": "8e5e4d08046e86266da85e4df755aedbfb4fd952ef9c8f018eff1fc7bbdaaf38"
+        }
+      ],
+      "comparison_sha256": "2152b38c137470cd2f85248633e739beff9fe16154061d9d2b000e12e2edb52d"
+    },
+    {
+      "run_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three",
+      "manifest_sha256": "0b8fe9133fab9f186659c744b73e66be0dd01d7373cd62240b3255fd442ed271",
+      "all_runs_sha256": "89fa5bb7e55a4cda43d552258fe9f1e6dfe71dd1e067a4f2ee8231d39064db94",
+      "binary_sha256": {
+        "build_UNG_index": "02fb191880dbd2837c46b34a5cae72ab97ea57292590710353c079d08bfa7a77",
+        "build_special_block_index": "b0bf56d8afa87bf5faa563e7545da7def42950847a4d6642767bbe03a09d97ca"
+      },
+      "included_cases": [
+        {
+          "dataset": "Amazon",
+          "method": "cpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Amazon/measured_r01/cpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "16fc18bed0cc2fef945cc69a60c299974f39ade34cfcfe2838aae9a20a058c8d",
+          "recorded_config_sha256": "16fc18bed0cc2fef945cc69a60c299974f39ade34cfcfe2838aae9a20a058c8d",
+          "base_meta_sha256": "5f70dce0be2e0b9747683842a85f584bf3376896551eea38e80a61850b153d1e",
+          "block_meta_sha256": "3fa7092e1366d34b10fa8bc5c3160a85e80265aa623944391d96612a132fb71a"
+        },
+        {
+          "dataset": "Amazon",
+          "method": "gpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Amazon/measured_r01/gpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "20e2600c1afbe798164019dcb344c983187612ee00ee635632e5f6e5c5294b35",
+          "recorded_config_sha256": "20e2600c1afbe798164019dcb344c983187612ee00ee635632e5f6e5c5294b35",
+          "base_meta_sha256": "7f2551d14ea5adfdb2374e86a885e13b0f5bc6b58ca9a74e0eef33a9a93449be",
+          "block_meta_sha256": "c77f49d7a7f33bdb961c5aa600824bee82a2e08d7b76d55dad8eadaf22d742a1"
+        },
+        {
+          "dataset": "Amazon",
+          "method": "gpu_balance",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Amazon/measured_r01/gpu_balance",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "3d1adadfc28f5f4070680808d1fc3a2a24172ae57f048f3b45cc50256e25402e",
+          "recorded_config_sha256": "3d1adadfc28f5f4070680808d1fc3a2a24172ae57f048f3b45cc50256e25402e",
+          "base_meta_sha256": "7bb397b44fd3f687f2755cdda00699ea29bbdc59767f5186a944d7335dbdd798",
+          "block_meta_sha256": "d5736cfdf54f84a865a30429ce2e57955787b29741ad4013b05dbe020b02cb9c"
+        },
+        {
+          "dataset": "Genome",
+          "method": "cpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Genome/measured_r01/cpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "172a923d25c00981523815006610e464b53a5710af57f9ec98108dc8f1642bc0",
+          "recorded_config_sha256": "172a923d25c00981523815006610e464b53a5710af57f9ec98108dc8f1642bc0",
+          "base_meta_sha256": "25610fc415602c5afab9ad7774a7d5f2c8774b88d18aa765b7159dde97409568",
+          "block_meta_sha256": "6c270a8c875eb371e19bc9dda2c29e18bc7256fabdae30bc51862b624e96d494"
+        },
+        {
+          "dataset": "Genome",
+          "method": "gpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Genome/measured_r01/gpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "301ac707d1696185cf23c1f42837e64e7291dc612e082666f7dfa8877fba13c2",
+          "recorded_config_sha256": "301ac707d1696185cf23c1f42837e64e7291dc612e082666f7dfa8877fba13c2",
+          "base_meta_sha256": "b3b6d34c9d08741566a619ab6159db7a54fad86ca9181be22b6e314de82724b0",
+          "block_meta_sha256": "769279b1c8ffc27170938482aaf851ce7cafe2778dadd74d9f15de534584abe9"
+        },
+        {
+          "dataset": "Genome",
+          "method": "gpu_balance",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Genome/measured_r01/gpu_balance",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "928ab904294d4accc7f98ce074e3d948a20f2265b9a4fa3ab1559fdc2649b2fb",
+          "recorded_config_sha256": "928ab904294d4accc7f98ce074e3d948a20f2265b9a4fa3ab1559fdc2649b2fb",
+          "base_meta_sha256": "de72da8fdb06e9cdc3fb8ce34b226505327d1c20aa30bd31a3660492aef1e045",
+          "block_meta_sha256": "55ba9dfd76a6f99a08660018f2ff63d5dab5970a7c0da9273cd4dc34ff8c4a93"
+        },
+        {
+          "dataset": "Reviews",
+          "method": "cpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Reviews/measured_r01/cpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "eaf60518e74b3a7451f4d19e921eb2763be840ec29f5e36852c6020ef7177ca8",
+          "recorded_config_sha256": "eaf60518e74b3a7451f4d19e921eb2763be840ec29f5e36852c6020ef7177ca8",
+          "base_meta_sha256": "3e18c2c83c9a04c2c1f4463547284d73a18df951257be2e0e06bcfe999c75ff2",
+          "block_meta_sha256": "2e0d10d858489b3dd1c698c9333c3bd5be39b65f8526e8c5b505bbaf0a7b8f9e"
+        },
+        {
+          "dataset": "Reviews",
+          "method": "gpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Reviews/measured_r01/gpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "dc88922343f46bfff53d27579ee29a6275651af5d9262176cd95c0e2415936fb",
+          "recorded_config_sha256": "dc88922343f46bfff53d27579ee29a6275651af5d9262176cd95c0e2415936fb",
+          "base_meta_sha256": "b0a3b71a7daeed9eef3974cd8a616b57c41d90e9b2189e27e6880842e7023853",
+          "block_meta_sha256": "2190b0dae10f06004fd37cd85592df5a66ce21304e70bbca37d2c10ca9a0ba9b"
+        },
+        {
+          "dataset": "Reviews",
+          "method": "gpu_balance",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Reviews/measured_r01/gpu_balance",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "909288798c7c728573f5eb4f52f523610c196950d3d29452ba95b095caf9bbfc",
+          "recorded_config_sha256": "909288798c7c728573f5eb4f52f523610c196950d3d29452ba95b095caf9bbfc",
+          "base_meta_sha256": "c0cd47a7c7fa16e83198f1a98824bf344906e25e155cde73da7990e4d7e0a60e",
+          "block_meta_sha256": "608bda5d94d357eb654897f838891bef65f5427400ce725257da16b7343e6ad3"
+        },
+        {
+          "dataset": "VImg",
+          "method": "cpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/VImg/measured_r01/cpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "a50cef5a93737c0b23a577575cde3179f8ec8c616b4e69276bd04f7025212cee",
+          "recorded_config_sha256": "a50cef5a93737c0b23a577575cde3179f8ec8c616b4e69276bd04f7025212cee",
+          "base_meta_sha256": "e943ace6a63678227a66a5531c787facd5eefb0ed646a010bf613242a8bd6249",
+          "block_meta_sha256": "3548d21ef958867c5092876850c08ef06bcb67444897a593a5f389fe07b989d6"
+        },
+        {
+          "dataset": "VImg",
+          "method": "gpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/VImg/measured_r01/gpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "24992f886445b92e4d2187aa8a5a96cd84eb1b77b01f5a3cfe1dca99691b0c10",
+          "recorded_config_sha256": "24992f886445b92e4d2187aa8a5a96cd84eb1b77b01f5a3cfe1dca99691b0c10",
+          "base_meta_sha256": "963f8cede2948168f03a75eca4e5a1150bf68a5ad0a8fd24fd5cf29665502ba5",
+          "block_meta_sha256": "f66d3e2ce739aa248aa773efa9bb01f96d45a76ce85f9ea465d278573db6eced"
+        },
+        {
+          "dataset": "VImg",
+          "method": "gpu_balance",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/VImg/measured_r01/gpu_balance",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "83ea6cf57f0114e91d0d617f33d5fbf57cc83a58d247fbd65a191f07ad2c8c61",
+          "recorded_config_sha256": "83ea6cf57f0114e91d0d617f33d5fbf57cc83a58d247fbd65a191f07ad2c8c61",
+          "base_meta_sha256": "5d2570db1fa3ad06b0d4486883adb19829d1c9db341b9be44b88b3cc247fc257",
+          "block_meta_sha256": "b55be1bf1ed29e6e9f4f5b1ec3bdacf6aa7b32cb101fe5a82812620eb7b3a591"
+        },
+        {
+          "dataset": "Music",
+          "method": "cpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Music/measured_r01/cpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "6ad3cb74e20c0bb1de9d1a560dbae81583c0939e422e4873ff1cf33da988fcf9",
+          "recorded_config_sha256": "6ad3cb74e20c0bb1de9d1a560dbae81583c0939e422e4873ff1cf33da988fcf9",
+          "base_meta_sha256": "9bd5583035775861eac89b63664fcfed4de0d9cc45118e68c31752b5f922fb63",
+          "block_meta_sha256": "062078429e2eadc8803b62445b82259e61d150925dedf2789f400ceb4e580adf"
+        },
+        {
+          "dataset": "Music",
+          "method": "gpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Music/measured_r01/gpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "460920e8a5bb2e506066d05e635d9211fde06f5356bfc87fb5fbc78021b7348a",
+          "recorded_config_sha256": "460920e8a5bb2e506066d05e635d9211fde06f5356bfc87fb5fbc78021b7348a",
+          "base_meta_sha256": "d5c00931ac3f440b70859745e75873af1a3032059593d70f49b1a6f11d76609f",
+          "block_meta_sha256": "d0bcff467dc58aa07c65f54131047a899c888efbb3e3c8ce6e3d1001cc93d59d"
+        },
+        {
+          "dataset": "Music",
+          "method": "gpu_balance",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Music/measured_r01/gpu_balance",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "424ad5987249344a9f7edcf504a0be2f5bba6478ddfec11bb27858333de241d3",
+          "recorded_config_sha256": "424ad5987249344a9f7edcf504a0be2f5bba6478ddfec11bb27858333de241d3",
+          "base_meta_sha256": "1e914d5c8a85fd41265aedba8b464d043fc082c8d82d4434f823d9e989905a44",
+          "block_meta_sha256": "935bc4c9b548f7171d9a0efcc5be413c06cf16e60bef5b7df302b993b4351068"
+        },
+        {
+          "dataset": "BReviews",
+          "method": "cpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/BReviews/measured_r01/cpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "dd15059dcc2bebe00d5f43f84211abaa186adfca39033310107fcdd5ae2884f8",
+          "recorded_config_sha256": "dd15059dcc2bebe00d5f43f84211abaa186adfca39033310107fcdd5ae2884f8",
+          "base_meta_sha256": "559ba3ee089af2b44f89968316db7ebc935b3e636c64b2bf534a7300df050de6",
+          "block_meta_sha256": "8eb4d4d6e1e48488e8b5391969e4a5ee1c923f22e4f71d75087d176a0272200c"
+        },
+        {
+          "dataset": "BReviews",
+          "method": "gpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/BReviews/measured_r01/gpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "1c718dbf9ad77dd5eb66b019a669a6b638acc67a6d61af574d2c6b01e88bd08b",
+          "recorded_config_sha256": "1c718dbf9ad77dd5eb66b019a669a6b638acc67a6d61af574d2c6b01e88bd08b",
+          "base_meta_sha256": "3fc40a66fd4ce641d639300bcc148fcb20ff72b387fc6a39df860e6649703e14",
+          "block_meta_sha256": "71941e1a0b1627e37c142cef28e9d54fa723d6ae5649ee8bc8560e03557988bd"
+        },
+        {
+          "dataset": "BReviews",
+          "method": "gpu_balance",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/BReviews/measured_r01/gpu_balance",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "9ed4506fde55e40a07ab071c4a9f0a329f133409d1a71566529957cca434ab77",
+          "recorded_config_sha256": "9ed4506fde55e40a07ab071c4a9f0a329f133409d1a71566529957cca434ab77",
+          "base_meta_sha256": "d56b0c0a2df998e5a9ecfa4490214706a57021cf3a13f27c4d8b05a752f4f8b3",
+          "block_meta_sha256": "7b216f9412a5548e6183f49c7596a5905d4b1f6f02024e184bd120180edac648"
+        },
+        {
+          "dataset": "Tiktok",
+          "method": "cpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Tiktok/measured_r01/cpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "f4f8029a635f22a9532a80deadfc8da672185a69f4c824f968074fad2678e5e5",
+          "recorded_config_sha256": "f4f8029a635f22a9532a80deadfc8da672185a69f4c824f968074fad2678e5e5",
+          "base_meta_sha256": "fbdd15f82dba31b2a25339f649bd7350279ed5a28f37d88a27274078e427e12f",
+          "block_meta_sha256": "3a451a8485dccbd2854bb443d8843122fe9bc83961b80fa794b358b7c3705245"
+        },
+        {
+          "dataset": "Tiktok",
+          "method": "gpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Tiktok/measured_r01/gpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "b8ba87c143a16780da9f7f86e655aff313458711b66917f5c0406dedc465b8a5",
+          "recorded_config_sha256": "b8ba87c143a16780da9f7f86e655aff313458711b66917f5c0406dedc465b8a5",
+          "base_meta_sha256": "b6893022476e79accd447020a2ec2eb5681832cea0a3ec5a6ac17c6f3ec289fe",
+          "block_meta_sha256": "84a9d8bc63edcb2ce3c7b2f63bd8c77818c7f923862a57f7939d2ad03a09f530"
+        },
+        {
+          "dataset": "Tiktok",
+          "method": "gpu_balance",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Tiktok/measured_r01/gpu_balance",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "d7d1a96545810972f1720d22cfa8a532673245df592204034d8bba6a0f209d9d",
+          "recorded_config_sha256": "d7d1a96545810972f1720d22cfa8a532673245df592204034d8bba6a0f209d9d",
+          "base_meta_sha256": "edc621aa48175613a2bc89305c83bfcf83282ddf1083be9333e2afa89d58eedf",
+          "block_meta_sha256": "d66e618541346a9475c5fb8a34ea431ea7d3e4b853f724f1791e39020b512ec4"
+        },
+        {
+          "dataset": "Laion",
+          "method": "cpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Laion/measured_r01/cpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "254501da14af7c185393126a5fac8c3924fb45c476b741911a8a29dbb179dfef",
+          "recorded_config_sha256": "254501da14af7c185393126a5fac8c3924fb45c476b741911a8a29dbb179dfef",
+          "base_meta_sha256": "ee6a11c89fcb7dfd699a1532a07f40bb1a37cc1e01dd23fbe7f5d1908a38cc5f",
+          "block_meta_sha256": "f1be152dad2798041d0a983382e9dadc8bc0b8962801d95966f92042d83acdbc"
+        },
+        {
+          "dataset": "Laion",
+          "method": "gpu",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Laion/measured_r01/gpu",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "18258f35af887d20af8a43e53817993aa6236e4a8d51461d3ed90fa8509f28df",
+          "recorded_config_sha256": "18258f35af887d20af8a43e53817993aa6236e4a8d51461d3ed90fa8509f28df",
+          "base_meta_sha256": "6803e6d56636965a619850fa04a2db318bc89a4372f687bae8a28ae3bb68b50e",
+          "block_meta_sha256": "f4b19e95ea8a27a5c0fa6d25349f89f065e1183008c89654bffce29516d43a32"
+        },
+        {
+          "dataset": "Laion",
+          "method": "gpu_balance",
+          "case_dir": "/home/dev/graphdb/FilterVectorResult/trie_block_build_ablation/20261019_152233_476130_graph_only_first_three/Laion/measured_r01/gpu_balance",
+          "audit_status": "case_config_and_meta_verified",
+          "config_sha256": "9c1b814dd22937c846dc52c7a10bd0a8a2d4cf3766ec4e62ffb68b2a0d3d1be9",
+          "recorded_config_sha256": "9c1b814dd22937c846dc52c7a10bd0a8a2d4cf3766ec4e62ffb68b2a0d3d1be9",
+          "base_meta_sha256": "9e68143173dc4badea342d28752168c23091cc7f892ea4be3d73a62c01a9b8a2",
+          "block_meta_sha256": "e0dce25cc2f24bbb5b57019065fbced497edb5693783510b054335ed4f0197a2"
+        }
+      ],
+      "comparison_sha256": "2de5eed29a95e5d07c94d333b6fcd1d38732533cc472e93bbf56ac1d9326153e"
+    }
+  ]
+}

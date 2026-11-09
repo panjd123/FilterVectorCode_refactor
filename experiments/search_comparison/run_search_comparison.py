@@ -9,6 +9,37 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from result_completion import describe_search_values, should_skip_completed_search
+
+
+NATIVE_UNG_INDEX_FILES = (
+    "meta",
+    "vecs.bin",
+    "labels.txt",
+    "group_id_to_label_set",
+    "group_id_to_range",
+    "group_entry_points",
+    "group_id_to_vec_ids.dat",
+    "new_to_old_vec_ids",
+    "trie",
+    "graph",
+    "global_graph",
+    "global_vamana_entry_point",
+    "lng_out_neighbors.dat",
+)
+
+
+NATIVE_UNG_ENV_DEFAULTS = {
+    "UNG_BUILD_PROFILE": "custom",
+    "UNG_GROUP_GRAPH_IMPL": "0",
+    "UNG_GET_MIN_SUPER_SETS_IMPL": "0",
+    "UNG_LNG_IMPL": "1",
+    "UNG_CROSS_EDGE_IMPL": "0",
+    "UNG_ADDITIONAL_EDGES_IMPL": "0",
+    "UNG_BASE_GROUP_TOPOLOGY": "lng",
+}
+
 
 def log(message: str) -> None:
     print(f"[{time.strftime('%F %T')}] {message}", flush=True)
@@ -93,12 +124,15 @@ def ensure_gt(cfg, dataset_cfg, query_bin: Path, gt_dir: Path) -> Path:
     build_dir = Path(cfg["build_dir"])
     search_cfg = effective_search_cfg(cfg, dataset_cfg)
     data_dir = data_root / dataset
-    gt_file = gt_dir / f"{dataset}_gt_labels_containment.bin"
+    gt_file = Path(dataset_cfg.get("groundtruth_file", gt_dir / f"{dataset}_gt_labels_containment.bin"))
     if gt_file.exists():
+        expected_bytes = read_num_vectors(query_bin) * int(search_cfg["K"]) * 8
+        if gt_file.stat().st_size != expected_bytes:
+            raise ValueError(f"GroundTruth size does not match K={search_cfg['K']}: {gt_file}")
         log(f"[{dataset}] GT exists: {gt_file}")
         return gt_file
 
-    gt_dir.mkdir(parents=True, exist_ok=True)
+    gt_file.parent.mkdir(parents=True, exist_ok=True)
     compute_gt = build_dir / "tools" / "compute_groundtruth"
     if not compute_gt.exists():
         raise FileNotFoundError(f"missing compute_groundtruth: {compute_gt}")
@@ -132,6 +166,166 @@ def ensure_gt(cfg, dataset_cfg, query_bin: Path, gt_dir: Path) -> Path:
     return gt_file
 
 
+def read_kv_file(path: Path) -> dict[str, str]:
+    values = {}
+    for raw_line in path.read_text().splitlines():
+        key, separator, value = raw_line.partition("=")
+        if separator:
+            values[key.strip()] = value.strip()
+    return values
+
+
+def validate_native_ung_meta(meta_path: Path) -> None:
+    meta = read_kv_file(meta_path)
+    base_topology = meta.get("base_group_topology", "lng")
+    if base_topology != "lng":
+        raise RuntimeError(
+            f"native UNG index must use LNG base topology, got "
+            f"base_group_topology={base_topology}: {meta_path}"
+        )
+    if meta.get("hierarchy_layers", ""):
+        raise RuntimeError(
+            f"native UNG index must not contain hierarchy layers: {meta_path}"
+        )
+    if meta.get("lng_constructed", "1") != "1":
+        raise RuntimeError(f"native UNG index did not construct LNG: {meta_path}")
+
+
+def ensure_native_ung_index(cfg: dict, dataset_cfg: dict, method: dict) -> None:
+    auto_build = method.get("auto_build_ung", cfg.get("auto_build_ung", False))
+    if not auto_build:
+        return
+    if (
+        method.get("special_block_search", False)
+        or method.get("entry_group_provider") == "special_block_trie"
+    ):
+        raise ValueError(
+            f"{method['name']}: auto_build_ung only supports native UNG methods"
+        )
+
+    dataset = dataset_cfg["dataset"]
+    data_dir = Path(cfg["data_root"]) / dataset
+    index_root = Path(cfg["result_root"]) / dataset / "index" / method["index_name"]
+    index_dir = index_root / "index_files"
+    missing = [
+        name for name in NATIVE_UNG_INDEX_FILES if not (index_dir / name).exists()
+    ]
+    if not missing:
+        validate_native_ung_meta(index_dir / "meta")
+        log(f"[{dataset}] native UNG index exists: {index_dir}")
+        return
+
+    build_dir = Path(cfg["build_dir"])
+    build_bin = build_dir / "apps" / "build_UNG_index"
+    if not build_bin.exists():
+        raise FileNotFoundError(f"missing build_UNG_index: {build_bin}")
+
+    base_bin = data_dir / f"{dataset}_base.bin"
+    base_labels = data_dir / f"{dataset}_base_labels.txt"
+    for input_path in (base_bin, base_labels):
+        if not input_path.exists():
+            raise FileNotFoundError(f"missing native UNG build input: {input_path}")
+
+    results_dir = index_root / "results"
+    others_dir = index_root / "others"
+    index_dir.mkdir(parents=True, exist_ok=True)
+    results_dir.mkdir(parents=True, exist_ok=True)
+    others_dir.mkdir(parents=True, exist_ok=True)
+    placeholder = others_dir / "placeholder.txt"
+    if not placeholder.exists():
+        placeholder.write_text("")
+    label_info = data_dir / f"{dataset}_base_labels_info.log"
+    if not label_info.exists():
+        label_info = data_dir / "log"
+    if not label_info.exists():
+        label_info = placeholder
+    tree_roots = data_dir / "tree_roots.txt"
+    if not tree_roots.exists():
+        tree_roots = placeholder
+
+    build_cfg = dict(cfg.get("build", {}))
+    build_env_cfg = dict(NATIVE_UNG_ENV_DEFAULTS)
+    build_env_cfg.update(cfg.get("ung_env", {}))
+    if build_env_cfg.get("UNG_BASE_GROUP_TOPOLOGY") != "lng":
+        raise ValueError("auto-built native UNG requires UNG_BASE_GROUP_TOPOLOGY=lng")
+    if build_env_cfg.get("UNG_HIERARCHY_LAYERS"):
+        raise ValueError("auto-built native UNG must not configure UNG_HIERARCHY_LAYERS")
+    special_keys = sorted(
+        key
+        for key, value in build_env_cfg.items()
+        if key.startswith("UNG_SPECIAL_")
+        and value not in (None, "", "0", 0, False)
+    )
+    if special_keys:
+        raise ValueError(
+            "auto-built native UNG must not configure special-block options: "
+            + ", ".join(special_keys)
+        )
+
+    env = os.environ.copy()
+    for key in list(env):
+        if key.startswith("UNG_SPECIAL_") or key == "UNG_HIERARCHY_LAYERS":
+            env.pop(key, None)
+    for key, value in build_env_cfg.items():
+        if value is None:
+            env.pop(key, None)
+        else:
+            env[key] = str(value)
+
+    log(
+        f"[{dataset}] native UNG index incomplete ({', '.join(missing)}); "
+        f"building LNG-based index: {index_dir}"
+    )
+    run_command(
+        [
+            str(build_bin),
+            "--data_type",
+            str(build_cfg.get("data_type", "float")),
+            "--dist_fn",
+            str(build_cfg.get("dist_fn", "L2")),
+            "--num_threads",
+            str(build_cfg.get("num_threads", 32)),
+            "--max_degree",
+            str(build_cfg.get("max_degree", 32)),
+            "--Lbuild",
+            str(build_cfg.get("Lbuild", 100)),
+            "--alpha",
+            str(build_cfg.get("alpha", 1.2)),
+            "--num_cross_edges",
+            str(build_cfg.get("num_cross_edges", 4)),
+            "--base_bin_file",
+            str(base_bin),
+            "--base_label_file",
+            str(base_labels),
+            "--base_label_info_file",
+            str(label_info),
+            "--base_label_tree_roots",
+            str(tree_roots),
+            "--index_path_prefix",
+            str(index_dir) + "/",
+            "--result_path_prefix",
+            str(results_dir) + "/",
+            "--scenario",
+            str(build_cfg.get("scenario", "general")),
+            "--dataset",
+            dataset,
+        ],
+        others_dir / "ung_build.log",
+        env=env,
+    )
+
+    missing_after_build = [
+        name for name in NATIVE_UNG_INDEX_FILES if not (index_dir / name).exists()
+    ]
+    if missing_after_build:
+        raise RuntimeError(
+            f"native UNG build completed but index is incomplete: "
+            f"{', '.join(missing_after_build)}"
+        )
+    validate_native_ung_meta(index_dir / "meta")
+    log(f"[{dataset}] native UNG build done: {index_dir}")
+
+
 def bool_arg(value: bool) -> str:
     return "true" if value else "false"
 
@@ -146,6 +340,20 @@ def effective_search_cfg(cfg: dict, dataset_cfg: dict, method: dict | None = Non
 
 
 def result_query_dir_name(query_task: str, search_cfg: dict) -> str:
+    if all(
+        key in search_cfg
+        for key in (
+            "lsearch_prefix_start",
+            "lsearch_prefix_end",
+            "lsearch_prefix_step",
+        )
+    ):
+        values = lsearch_values(search_cfg)
+        if values and values[0] < int(search_cfg["lsearch_start"]):
+            return (
+                f"{query_task}_{values[0]}_"
+                f"{search_cfg['lsearch_prefix_step']}_{values[-1]}"
+            )
     return (
         f"{query_task}_{search_cfg['lsearch_start']}_"
         f"{search_cfg['lsearch_step']}_{search_cfg['lsearch_end']}"
@@ -154,14 +362,48 @@ def result_query_dir_name(query_task: str, search_cfg: dict) -> str:
 
 def lsearch_values(search_cfg: dict) -> list[int]:
     if search_cfg.get("lsearch_values"):
-        return [int(value) for value in search_cfg["lsearch_values"]]
-    return list(
-        range(
-            int(search_cfg["lsearch_start"]),
-            int(search_cfg["lsearch_end"]) + 1,
-            int(search_cfg["lsearch_step"]),
+        values = [int(value) for value in search_cfg["lsearch_values"]]
+    else:
+        values = list(
+            range(
+                int(search_cfg["lsearch_start"]),
+                int(search_cfg["lsearch_end"]) + 1,
+                int(search_cfg["lsearch_step"]),
+            )
         )
+
+    prefix_keys = (
+        "lsearch_prefix_start",
+        "lsearch_prefix_end",
+        "lsearch_prefix_step",
     )
+    configured_prefix_keys = [key for key in prefix_keys if key in search_cfg]
+    if not configured_prefix_keys:
+        return values
+    if len(configured_prefix_keys) != len(prefix_keys):
+        missing = ", ".join(key for key in prefix_keys if key not in search_cfg)
+        raise ValueError(f"incomplete Lsearch prefix configuration; missing: {missing}")
+
+    prefix_start = int(search_cfg["lsearch_prefix_start"])
+    prefix_end = int(search_cfg["lsearch_prefix_end"])
+    prefix_step = int(search_cfg["lsearch_prefix_step"])
+    if prefix_step <= 0:
+        raise ValueError("lsearch_prefix_step must be positive")
+    if prefix_start > prefix_end:
+        raise ValueError("lsearch_prefix_start must not exceed lsearch_prefix_end")
+    if not values:
+        raise ValueError("at least one Lsearch value is required")
+
+    # A prefix is only the part strictly before the method's main sweep. This
+    # lets a method-level 10..100 override opt out naturally even when the
+    # dataset's default search configuration has a 100..1000 prefix.
+    first_main_value = min(values)
+    prefix_values = [
+        value
+        for value in range(prefix_start, prefix_end + 1, prefix_step)
+        if value < first_main_value
+    ]
+    return prefix_values + values
 
 
 
@@ -208,10 +450,17 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
     raw_results_dir.mkdir(parents=True, exist_ok=True)
     other_dir.mkdir(parents=True, exist_ok=True)
 
+    values = lsearch_values(search_cfg)
+    summary_csv = raw_results_dir / "search_time_summary.csv"
+    if should_skip_completed_search(summary_csv, values, cfg, dataset_cfg, method):
+        log(
+            f"[{dataset}][{method['name']}] existing results cover "
+            f"{describe_search_values(values)}; skipping search: {summary_csv}"
+        )
+        return
+
     if not (index_dir / "meta").exists():
         raise FileNotFoundError(f"missing index meta: {index_dir / 'meta'}")
-
-    values = lsearch_values(search_cfg)
 
     query_group_file = query_dir / f"{dataset}_query_source_groups.txt"
     if not query_group_file.exists():
@@ -221,8 +470,9 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
     if method.get("special_block_search", False):
         env["UNG_SPECIAL_BLOCK_SEARCH"] = "1"
     else:
-        env.pop("UNG_SPECIAL_BLOCK_SEARCH", None)
-        env.pop("UNG_SPECIAL_SEARCH_MODE", None)
+        for key in list(env):
+            if key.startswith("UNG_SPECIAL_"):
+                env.pop(key, None)
 
     for key, value in method.get("env", {}).items():
         if value is None:
@@ -313,7 +563,11 @@ def run_search(cfg, dataset_cfg, method, query_bin: Path, gt_file: Path, num_que
         "--skip_bitmap_comparison",
         "true",
     ]
-    if (block_index_dir / "meta").exists():
+    uses_block_index = (
+        method.get("special_block_search", False)
+        or method.get("entry_group_provider") == "special_block_trie"
+    )
+    if uses_block_index and (block_index_dir / "meta").exists():
         cmd.extend(["--block_index_path_prefix", str(block_index_dir) + "/"])
     elif method.get("entry_group_provider") == "special_block_trie" and not (
         index_dir / "special_block_trie.bin"
@@ -355,6 +609,8 @@ def main() -> int:
         data_dir = Path(cfg["data_root"]) / dataset
         result_root = Path(cfg["result_root"]) / dataset
         gt_dir = result_root / "GroundTruth" / query_task
+        for method in cfg["methods"]:
+            ensure_native_ung_index(cfg, dataset_cfg, method)
         query_bin = ensure_query_bin(build_dir, data_dir, dataset, query_task)
         num_queries = read_num_vectors(query_bin)
         log(f"[{dataset}] query_task={query_task} num_queries={num_queries}")

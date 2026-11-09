@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -8,40 +10,12 @@
 #include <omp.h>
 
 #include "include/uni_nav_graph.h"
-#include "include/MethodSelector.h"
 #include "include/ung_build_settings.h"
 #include "include/ung_group_topology.h"
 #include "include/ung_prof_log.h"
 
-
 namespace ANNS
 {
-namespace
-{
-
-void print_label_nav_graph_summary(const std::shared_ptr<LabelNavGraph> &label_nav_graph,
-                                   IdxType num_groups)
-{
-   if (!label_nav_graph)
-      return;
-
-   uint64_t total_lng_edges = 0;
-   for (IdxType group_id = 1; group_id <= num_groups; ++group_id)
-      total_lng_edges += label_nav_graph->out_neighbors[group_id].size();
-
-   std::cout << "[label_nav_graph] groups=" << num_groups
-             << " edges=" << total_lng_edges;
-   if (num_groups > 0)
-      std::cout << " avg_out_degree=" << static_cast<double>(total_lng_edges) / num_groups;
-   std::cout << std::endl;
-
-   prof_logf("[PROF] label_nav_graph.summary groups=%u edges=%llu avg_out_degree=%.6f",
-             static_cast<unsigned>(num_groups),
-             static_cast<unsigned long long>(total_lng_edges),
-             num_groups > 0 ? static_cast<double>(total_lng_edges) / num_groups : 0.0);
-}
-
-} // namespace
 
    UniNavGraph::UniNavGraph(IdxType num_nodes)
        : _label_nav_graph(std::make_shared<LabelNavGraph>(num_nodes))
@@ -96,8 +70,6 @@ void print_label_nav_graph_summary(const std::shared_ptr<LabelNavGraph> &label_n
 
       // build graph index for each group
       build_graph_for_all_groups();
-      if (!_build_config.is_original_cpu_pipeline())
-         build_vector_and_attr_graph();
 
       // for label equality scenario, there is no need for label navigating graph and cross-group edges
       if (_scenario == "equality")
@@ -107,35 +79,32 @@ void print_label_nav_graph_summary(const std::shared_ptr<LabelNavGraph> &label_n
       else
       {
 
-         // build the label navigating graph
-         if (!_label_nav_graph)
-            build_label_nav_graph();
          GroupTopologyStats topology_stats;
-         _group_topology_graph = build_group_topology(
-             _build_config.hierarchy.base_topology, _group_id_to_label_set,
-             _num_groups, _label_nav_graph, &topology_stats);
-         std::cout << "[group_topology] kind=" << to_string(topology_stats.kind)
-                   << " groups=" << topology_stats.group_count
-                   << " edges=" << topology_stats.edge_count << std::endl;
-         if (!_build_config.is_original_cpu_pipeline())
+         if (_build_config.hierarchy.base_topology == GroupTopologyKind::Trie)
          {
-            get_descendants_info();
-            print_label_nav_graph_summary(_label_nav_graph, _num_groups);
-
-            // calculate the coverage ratio
-            cal_f_coverage_ratio();
-
-            // initialize_lng_descendants_coverage_bitsets();
-            auto roaring_start_time = std::chrono::high_resolution_clock::now();
-            initialize_roaring_bitsets();
-            _build_roaring_bitsets_time = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - roaring_start_time).count();
-
+            // A Trie base does not need the minimal-superset LNG. Use the
+            // terminal-group Trie topology for persistence and cross-edge
+            // construction as well.
+            _group_topology_graph = build_group_topology(
+                GroupTopologyKind::Trie, _group_id_to_label_set,
+                _num_groups, nullptr, &topology_stats);
+            // Several legacy persistence/query components still use this
+            // member name for the active group topology.
+            _label_nav_graph = _group_topology_graph;
+            _build_LNG_time = 0.0f;
+            std::cout << "[group_topology] LNG construction skipped for Trie base" << std::endl;
          }
          else
          {
-            _build_roaring_bitsets_time = 0.0;
+            if (!_label_nav_graph)
+               build_label_nav_graph();
+            _group_topology_graph = build_group_topology(
+                GroupTopologyKind::Lng, _group_id_to_label_set,
+                _num_groups, _label_nav_graph, &topology_stats);
          }
-
+         std::cout << "[group_topology] kind=" << to_string(topology_stats.kind)
+                   << " groups=" << topology_stats.group_count
+                   << " edges=" << topology_stats.edge_count << std::endl;
          std::cout << "new_cross_edge.ung_and_acorn: " << new_cross_edge.ung_and_acorn << std::endl;
          if (_build_config.is_original_cpu_pipeline() || !new_cross_edge.ung_and_acorn)
             build_cross_group_edges();
@@ -291,8 +260,6 @@ void print_label_nav_graph_summary(const std::shared_ptr<LabelNavGraph> &label_n
       auto duration = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time).count();
       std::cout << "- Finished in " << duration << " ms" << std::endl;
    }
-
-
 
    void UniNavGraph::add_offset_for_uni_nav_graph()
    {

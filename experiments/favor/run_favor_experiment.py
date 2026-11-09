@@ -11,6 +11,19 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from result_completion import describe_search_values, should_skip_completed_search
+
+
+FAVOR_INDEX_MAGIC = b"FAVROA01"
+
+
+def is_current_favor_index(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    with path.open("rb") as fp:
+        return fp.read(len(FAVOR_INDEX_MAGIC)) == FAVOR_INDEX_MAGIC
+
 
 def log(message: str) -> None:
     print(f"[{time.strftime('%F %T')}] {message}", flush=True)
@@ -272,6 +285,7 @@ def append_index_build_time(
         "index_level0_bytes",
         "index_upper_level_bytes",
         "index_runtime_metadata_bytes",
+        "index_attribute_roaring_bytes",
     ]
     existing_rows = []
     if output_path.exists() and output_path.stat().st_size > 0:
@@ -304,6 +318,9 @@ def append_index_build_time(
                 "index_runtime_metadata_bytes": index_memory[
                     "index_runtime_metadata_bytes"
                 ],
+                "index_attribute_roaring_bytes": index_memory[
+                    "index_attribute_roaring_bytes"
+                ],
             }
         )
 
@@ -316,6 +333,7 @@ def parse_index_memory_stats(build_log: Path) -> dict[str, int | float]:
         "index_level0_bytes": r"index_level0_bytes=(\d+)",
         "index_upper_level_bytes": r"index_upper_level_bytes=(\d+)",
         "index_runtime_metadata_bytes": r"index_runtime_metadata_bytes=(\d+)",
+        "index_attribute_roaring_bytes": r"index_attribute_roaring_bytes=(\d+)",
     }
     stats: dict[str, int | float] = {}
     for key, pattern in patterns.items():
@@ -331,10 +349,12 @@ def build_index(build_bin: Path, cfg: dict, paths: dict[str, Path | str]) -> Non
     label_schema_file = paths["label_schema_file"]
     assert isinstance(index_file, Path)
     assert isinstance(label_schema_file, Path)
-    if index_file.exists() and label_schema_file.exists():
-        log(f"[{paths['dataset']}] FAVOR index exists: {index_file}")
+    if is_current_favor_index(index_file) and label_schema_file.exists():
+        log(f"[{paths['dataset']}] FAVOR Roaring index exists: {index_file}")
         return
-    if index_file.exists():
+    if index_file.exists() and not is_current_favor_index(index_file):
+        log(f"[{paths['dataset']}] FAVOR index format is obsolete; rebuilding: {index_file}")
+    elif index_file.exists():
         log(f"[{paths['dataset']}] FAVOR label schema missing; rebuilding: {index_file}")
     build_cfg = dict(cfg.get("build", {}))
     num_threads = int(build_cfg.get("num_threads", 32))
@@ -452,6 +472,14 @@ def run_searches(search_sweep_bin: Path, cfg: dict, dataset_cfg: dict, method: d
     result_dir = Path(cfg["result_root"]) / str(paths["dataset"]) / "results" / method.get("name", "favor") / result_query_task
     raw_results_dir = result_dir / "results"
     other_dir = result_dir / "others"
+    summary_csv = raw_results_dir / "search_time_summary.csv"
+    if should_skip_completed_search(summary_csv, ef_values, cfg, dataset_cfg, method):
+        log(
+            f"[{paths['dataset']}][{method.get('name', 'favor')}] existing results cover "
+            f"{describe_search_values(ef_values)}; skipping search: {summary_csv}"
+        )
+        return
+
     log(f"[{paths['dataset']}][{method.get('name', 'favor')}] FAVOR search sweep start")
     log_path = other_dir / f"{paths['dataset']}_search_output.txt"
     command = [

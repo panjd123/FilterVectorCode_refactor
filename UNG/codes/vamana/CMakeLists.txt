@@ -8,4 +8,4 @@ target_include_directories(Vamana PRIVATE
     ${PROJECT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/third_party/CRoaring/include)
 
-target_link_libraries(Vamana ${PROJECT_NAME} Boost::filesystem ${ROARING_LIB} onnxruntime faiss)
+target_link_libraries(Vamana ${PROJECT_NAME} Boost::filesystem ${ROARING_LIB} faiss)

@@ -1,0 +1,236 @@
+// Copyright (C) 2019-2023 Zilliz. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under the License.
+
+#ifndef SPARSE_INVERTED_INDEX_CONFIG_H
+#define SPARSE_INVERTED_INDEX_CONFIG_H
+
+#include <algorithm>
+#include <cctype>
+#include <limits>
+#include <string>
+
+// Compile-time option: index versions below this threshold use raw data format; others use codec.
+// Default is 8. Override at compile time, e.g. -DSPARSE_INDEX_VERSION_USE_RAW_DATA_THRESHOLD=10
+#ifndef SPARSE_INDEX_VERSION_USE_RAW_DATA_THRESHOLD
+#define SPARSE_INDEX_VERSION_USE_RAW_DATA_THRESHOLD 8
+#endif
+
+// Index versions >= this threshold use fp16 quantization for IP metric posting list values.
+// Versions below this threshold use float32 for backward compatibility.
+#ifndef SPARSE_INDEX_VERSION_SUPPORT_FP16_QUANT_FOR_IP
+#define SPARSE_INDEX_VERSION_SUPPORT_FP16_QUANT_FOR_IP 10
+#endif
+
+#include "knowhere/comp/index_param.h"
+#include "knowhere/config.h"
+
+namespace knowhere {
+
+inline std::string
+NormalizeSparseInvertedIndexAlgo(std::string algo) {
+    std::transform(algo.begin(), algo.end(), algo.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    return algo;
+}
+
+inline bool
+IsSupportedSparseInvertedIndexAlgo(const std::string& algo) {
+    const auto normalized_algo = NormalizeSparseInvertedIndexAlgo(algo);
+    return normalized_algo.empty() || normalized_algo == "TAAT_NAIVE" || normalized_algo == "DAAT_WAND" ||
+           normalized_algo == "DAAT_MAXSCORE" || normalized_algo == "BLOCK_MAX_MAXSCORE" ||
+           normalized_algo == "BLOCK_MAX_WAND" || normalized_algo == "SINDI";
+}
+
+inline bool
+IsSupportedSparseInvertedIndexCodec(const std::string& codec) {
+    return codec.empty() || codec == "block_streamvbyte" || codec == "block_maskedvbyte" || codec == "block_adaptive";
+}
+
+class SparseInvertedIndexConfig : public BaseConfig {
+ public:
+    CFG_FLOAT drop_ratio_build;
+    CFG_FLOAT drop_ratio_search;
+    CFG_INT refine_factor;
+    CFG_FLOAT dim_max_score_ratio;
+    CFG_INT bulk_query_nnz_threshold;
+    CFG_INT block_max_block_size;
+    CFG_STRING inverted_index_algo;
+    CFG_STRING inverted_index_codec;
+    CFG_STRING search_algo;
+    CFG_STRING quant_type;
+    CFG_FLOAT bm25_u8_max_overflow_ratio;
+    CFG_INT sindi_window_size;
+
+    KNOWHERE_DECLARE_CONFIG(SparseInvertedIndexConfig) {
+        // NOTE: drop_ratio_build has been deprecated, it won't change anything
+        KNOWHERE_CONFIG_DECLARE_FIELD(drop_ratio_build)
+            .description("drop ratio for build")
+            .set_default(0.0f)
+            .set_range(0.0f, 1.0f, true, false)
+            .for_train();
+        KNOWHERE_CONFIG_DECLARE_FIELD(drop_ratio_search)
+            .description("drop ratio for search")
+            .set_default(0.0f)
+            .set_range(0.0f, 1.0f, true, false)
+            .for_search()
+            .for_range_search()
+            .for_iterator();
+        /**
+         * refine_factor is used for approximate search.
+         * refine_factor == 1 means no refinement, and is the default value.
+         * refine_factor > 1 means refinement. The larger the value, the more
+         * accurate the approximate result will be, but the slower the
+         * performance.
+         * Be aware that if you opt to use a large drop_ratio_search, it is
+         * necessary for you to manually modify this value.
+         */
+        KNOWHERE_CONFIG_DECLARE_FIELD(refine_factor)
+            .description("refine factor for approximate search")
+            .set_default(1)
+            .for_search();
+        /**
+         * The term frequency part of score of BM25 is:
+         * tf * (k1 + 1) / (tf + k1 * (1 - b + b * (doc_len / avgdl)))
+         * WAND algorithm uses the max score of each dim for pruning, which is
+         * precomputed and cached in our implementation. The cached max score
+         * is actually not equal to the actual max score. Instead, it is a
+         * scaled one based on the dim_max_score_ratio.
+         * We should use different scale strategy for different reasons.
+         * 1. As more documents being added to the collection, avgdl could
+         *    be changed. Re-computing such score for each segment is
+         *    expensive. To avoid this, we should upscale the actual max score
+         *    by a ratio greater than 1.0 to compensate for avgdl changes.
+         *    This will make the cached max score larger than the actual max
+         *    score, so that it makes the filtering less aggressive, but
+         *    guarantees the correctness.
+         * 2. For dimension maxscore based algorithms like WAND and MaxScore,
+         *    they use the sum of the max scores to filter the candidate
+         *    vectors. If the sum is smaller than the threshold, skip current
+         *    vector. If approximate searching is accepted, we can make the
+         *    skipping more aggressive by downscaling the max score with a
+         *    ratio less than 1.0. Since the possibility that the max score
+         *    of all dims in the query appears on the same vector is
+         *    relatively small, it won't lead to a sharp decline in the
+         *    recall rate within a certain range.
+         */
+        KNOWHERE_CONFIG_DECLARE_FIELD(dim_max_score_ratio)
+            .set_range(0.5, 1.3)
+            .set_default(1.05)
+            .description("ratio to upscale/downscale the max score of each dimension")
+            .for_search();
+        KNOWHERE_CONFIG_DECLARE_FIELD(bulk_query_nnz_threshold)
+            .description("minimum effective query nnz to use bulk-window MaxScore scoring")
+            .set_default(20)
+            .set_range(0, std::numeric_limits<CFG_INT::value_type>::max())
+            .for_search();
+        KNOWHERE_CONFIG_DECLARE_FIELD(search_algo)
+            .set_default("INHERIT")
+            .description("search algorithm")
+            .for_search()
+            .for_range_search()
+            .for_iterator();
+        KNOWHERE_CONFIG_DECLARE_FIELD(inverted_index_algo)
+            .description("inverted index algorithm")
+            .allow_empty_without_default()
+            .for_train()
+            .for_deserialize()
+            .for_deserialize_from_file();
+        KNOWHERE_CONFIG_DECLARE_FIELD(inverted_index_codec)
+            .description("inverted index codec")
+            .allow_empty_without_default()
+            .for_train()
+            .for_deserialize()
+            .for_deserialize_from_file();
+        KNOWHERE_CONFIG_DECLARE_FIELD(block_max_block_size)
+            .description("block max block size")
+            .set_default(128)
+            .set_range(1, std::numeric_limits<CFG_INT::value_type>::max())
+            .for_train()
+            .for_deserialize()
+            .for_deserialize_from_file();
+        KNOWHERE_CONFIG_DECLARE_FIELD(quant_type)
+            .description(
+                "quantization type for posting list values: fp16/fp32 for IP, u8/u16/u32/auto for BM25; u8 is "
+                "supported only by sealed SINDI with index version >= 11; BM25 auto requires index version >= 11 "
+                "and resolves to u8/u16 for sealed SINDI or u16 for other indexes; the concrete type is persisted "
+                "in the index and restored automatically on load; the load parameter is used only for legacy "
+                "files without posting-type metadata")
+            .allow_empty_without_default()
+            .for_train()
+            .for_deserialize()
+            .for_deserialize_from_file();
+        KNOWHERE_CONFIG_DECLARE_FIELD(bm25_u8_max_overflow_ratio)
+            .description(
+                "maximum overflow-posting ratio at which SINDI BM25 quant_type=auto selects restore-u8; 0.0001 "
+                "means 0.01%")
+            .set_default(0.0001f)
+            .set_range(0.0f, 1.0f)
+            .for_train();
+        KNOWHERE_CONFIG_DECLARE_FIELD(sindi_window_size)
+            .description("window size for sindi inverted index")
+            .set_range(1024, 65535)
+            .set_default(4096)
+            .for_train();
+    }
+
+    Status
+    CheckAndAdjust(PARAM_TYPE param_type, std::string* err_msg) override {
+        if (inverted_index_algo.has_value() && !IsSupportedSparseInvertedIndexAlgo(inverted_index_algo.value())) {
+            return HandleError(
+                err_msg,
+                "inverted_index_algo " + inverted_index_algo.value() +
+                    " not found or not supported, supported: [TAAT_NAIVE DAAT_WAND DAAT_MAXSCORE BLOCK_MAX_MAXSCORE "
+                    "BLOCK_MAX_WAND SINDI]",
+                Status::invalid_args);
+        }
+        if (inverted_index_codec.has_value() && !IsSupportedSparseInvertedIndexCodec(inverted_index_codec.value())) {
+            return HandleError(err_msg,
+                               "inverted_index_codec " + inverted_index_codec.value() +
+                                   " not found or not supported, supported: [block_streamvbyte block_maskedvbyte "
+                                   "block_adaptive]",
+                               Status::invalid_args);
+        }
+        // On load, the serialized type takes precedence. Validate the caller's
+        // quant_type later, only if a legacy file actually needs that parameter.
+        if (param_type & (DESERIALIZE | DESERIALIZE_FROM_FILE)) {
+            return Status::success;
+        }
+        return ValidateQuantType(err_msg);
+    }
+
+    Status
+    ValidateQuantType(std::string* err_msg) const {
+        if (quant_type.has_value() && !quant_type.value().empty()) {
+            auto qt = quant_type.value();
+            auto mt = metric_type.value();
+            if (mt == metric::IP) {
+                if (qt != "fp16" && qt != "fp32") {
+                    if (err_msg) {
+                        *err_msg = "quant_type for IP metric must be 'fp16' or 'fp32', got '" + qt + "'";
+                    }
+                    return Status::invalid_args;
+                }
+            } else if (mt == metric::BM25) {
+                if (qt != "u8" && qt != "u16" && qt != "u32" && qt != "auto") {
+                    if (err_msg) {
+                        *err_msg = "quant_type for BM25 metric must be 'u8', 'u16', 'u32', or 'auto', got '" + qt + "'";
+                    }
+                    return Status::invalid_args;
+                }
+            }
+        }
+        return Status::success;
+    }
+};  // class SparseInvertedIndexConfig
+
+}  // namespace knowhere
+
+#endif  // SPARSE_INVERTED_INDEX_CONFIG_H

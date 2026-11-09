@@ -1,0 +1,35 @@
+{
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/build_ung_multilevel_trie_gpu",
+  "selector_model_prefix": "/home/dev/graphdb/FilterVectorResult/SelectModels",
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "num_entry_points": 16,
+    "lsearch_start": 10000,
+    "lsearch_end": 100000,
+    "lsearch_step": 10000,
+    "efs_start": 10,
+    "efs_step_slow": 10,
+    "efs_step_fast": 10,
+    "lsearch_threshold": 2500
+  },
+  "datasets": [
+    {
+      "dataset": "Music",
+      "query_task": "query_minlen1_sel10to40pct"
+    }
+  ],
+  "methods": [
+    {
+      "name": "Trie_no_block",
+      "index_name": "Trie_block_500_M_32_cross_block_4",
+      "entry_group_provider": "trie",
+      "reuse_els": false,
+      "special_block_search": false,
+      "env": {}
+    }
+  ]
+}

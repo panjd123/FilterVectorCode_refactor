@@ -112,6 +112,9 @@ class NaviXBaselineRunnerTest(unittest.TestCase):
                     self.assertEqual(run_navix_baseline.main(), 0)
 
             self.assertEqual(calls[0][:2], ["cmake", "-S"])
+            self.assertIn("-DUNG_BUILD_APPS=ON", calls[0])
+            self.assertIn("-DUNG_BUILD_TOOLS=ON", calls[0])
+            self.assertIn("-DUNG_BUILD_TESTS=OFF", calls[0])
             self.assertEqual(calls[1][:2], ["cmake", "--build"])
             self.assertIn("build_UNG_index", calls[1])
             self.assertIn("search_UNG_index", calls[1])
@@ -122,6 +125,35 @@ class NaviXBaselineRunnerTest(unittest.TestCase):
             self.assertEqual(build_calls[0][build_calls[0].index("--max_degree") + 1], "32")
             self.assertEqual(search_calls[0][search_calls[0].index("--force_use_alg") + 1], "5")
             self.assertEqual(search_calls[0][search_calls[0].index("--Lsearch") + 1: search_calls[0].index("--is_new_method")], ["10", "20", "30"])
+
+    def test_complete_search_range_skips_search_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result_dir = root / "results"
+            result_dir.mkdir(parents=True)
+            (result_dir / "search_time_summary.csv").write_text(
+                "Lsearch,Average_Efs,Average_Time_ms,Average_Recall\n"
+                "10,10,2,0.8\n20,20,3,0.9\n30,30,4,1.0\n",
+                encoding="utf-8",
+            )
+            paths = {
+                "dataset": "Tiny",
+                "result_dir": result_dir,
+                "other_dir": root / "others",
+            }
+            search_cfg = {
+                "lsearch_start": 10,
+                "lsearch_end": 30,
+                "lsearch_step": 10,
+            }
+
+            with mock.patch.object(run_navix_baseline, "run_command") as run:
+                run_navix_baseline.run_search(
+                    Path("/bin/search_UNG_index"), {}, paths,
+                    Path("/query.bin"), Path("/gt.bin"), search_cfg, 1,
+                )
+
+            run.assert_not_called()
 
     def test_existing_index_skips_build_but_still_searches(self):
         with tempfile.TemporaryDirectory() as tmp:

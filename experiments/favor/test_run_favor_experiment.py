@@ -39,6 +39,20 @@ class FavorLabelConversionTest(unittest.TestCase):
             )
 
 
+class FavorIndexFormatTest(unittest.TestCase):
+    def test_recognizes_only_roaring_index_magic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            current = root / "current.bin"
+            legacy = root / "legacy.bin"
+            current.write_bytes(run_favor_experiment.FAVOR_INDEX_MAGIC + b"payload")
+            legacy.write_bytes(b"FAVBIT01payload")
+
+            self.assertTrue(run_favor_experiment.is_current_favor_index(current))
+            self.assertFalse(run_favor_experiment.is_current_favor_index(legacy))
+            self.assertFalse(run_favor_experiment.is_current_favor_index(root / "missing.bin"))
+
+
 class FavorMetricParsingTest(unittest.TestCase):
     def test_parses_ung_style_search_output(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -163,12 +177,13 @@ class FavorRunnerTest(unittest.TestCase):
                     return
                 if str(cmd[0]).endswith("build_index"):
                     Path(cmd[3]).parent.mkdir(parents=True, exist_ok=True)
-                    Path(cmd[3]).write_bytes(b"index")
+                    Path(cmd[3]).write_bytes(run_favor_experiment.FAVOR_INDEX_MAGIC)
                     output_path.parent.mkdir(parents=True, exist_ok=True)
                     output_path.write_text(
                         "index_memory_bytes=1024 index_memory_mib=0.001 "
                         "index_level0_bytes=768 index_upper_level_bytes=128 "
-                        "index_runtime_metadata_bytes=128\n",
+                        "index_runtime_metadata_bytes=128 "
+                        "index_attribute_roaring_bytes=64\n",
                         encoding="utf-8",
                     )
                 else:
@@ -207,6 +222,7 @@ class FavorRunnerTest(unittest.TestCase):
             self.assertGreaterEqual(float(build_time_rows[0]["build_time_ms"]), 0.0)
             self.assertEqual(build_time_rows[0]["index_memory_bytes"], "1024")
             self.assertEqual(build_time_rows[0]["index_level0_bytes"], "768")
+            self.assertEqual(build_time_rows[0]["index_attribute_roaring_bytes"], "64")
             search_calls = [call for call in calls if str(call[0][0]).endswith("search_sweep")]
             self.assertEqual(len(search_calls), 1)
             self.assertIn("--num_threads", search_calls[0][0])
@@ -270,12 +286,13 @@ class FavorRunnerTest(unittest.TestCase):
                 calls.append((cmd, output_path))
                 if str(cmd[0]).endswith("build_index"):
                     Path(cmd[3]).parent.mkdir(parents=True, exist_ok=True)
-                    Path(cmd[3]).write_bytes(b"index")
+                    Path(cmd[3]).write_bytes(run_favor_experiment.FAVOR_INDEX_MAGIC)
                     output_path.parent.mkdir(parents=True, exist_ok=True)
                     output_path.write_text(
                         "index_memory_bytes=1024 index_memory_mib=0.001 "
                         "index_level0_bytes=768 index_upper_level_bytes=128 "
-                        "index_runtime_metadata_bytes=128\n",
+                        "index_runtime_metadata_bytes=128 "
+                        "index_attribute_roaring_bytes=64\n",
                         encoding="utf-8",
                     )
                 else:

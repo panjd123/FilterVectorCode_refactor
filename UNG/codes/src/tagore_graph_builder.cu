@@ -1,4 +1,6 @@
 #include "include/tagore_graph_builder.h"
+#include "tagore_topk_ablation.cuh"
+#include "tagore_naive_distance.cuh"
 
 #include <Tagore_src.cuh>
 
@@ -1851,6 +1853,12 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
          worker_points[target] += groups[pos].num_points;
       }
 
+      std::cout << "[TagoreCuda][batch_balance] workers=" << workers
+                << " groups=" << groups.size() << " worker_points=";
+      for (size_t wi = 0; wi < workers; ++wi)
+         std::cout << (wi == 0 ? "" : ",") << worker_points[wi];
+      std::cout << std::endl;
+
       TagoreBatchBuildResult merged;
       merged.groups.resize(groups.size());
       std::vector<TagoreBatchBuildResult> partials(workers);
@@ -1983,6 +1991,10 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
          auto &result = batch.groups[gi];
          const uint32_t result_stride = compact_d2h ? compact_stride : k;
          result.graph_stride = result_stride;
+         if (runtime_config.naive_distance)
+            std::cout << "[TagoreCuda][naive] distance_kernel=cuda_core points=" << num_points
+                      << " k=" << k << " graph_stride=" << result_stride
+                      << " streams=1 optimized_topk=0 compact_d2h=0" << std::endl;
          result.graph.resize(static_cast<size_t>(num_points) * result_stride);
          result.alloc_ms = 0.0;
          result.free_ms = 0.0;
@@ -2029,11 +2041,19 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
             nn_descent_opt_reverse_sample<<<num_points, 32, 0, stream>>>(graph_dev, reverse_graph_dev, reverse_num, reverse_num_old,
                                                                          new_num_global, old_num_global, hybrid_list, k);
             reset_reverse_new_old_num<<<1000, 1024, 0, stream>>>(reverse_num, reverse_num_old, num_points);
-            nn_descent_opt_cal<<<grid, block2, 0, stream>>>(graph_dev, reverse_graph_dev, data_dev, data_power_dev, it,
-                                                            reverse_distance, reverse_num, new_num_global, old_num_global,
-                                                            hybrid_list, dim, k);
-            nn_descent_opt_merge<<<grid, block3, 0, stream>>>(graph_dev, reverse_graph_dev, it, all_it, nei_distance,
-                                                              reverse_distance, nei_visit, reverse_num, k);
+            if (runtime_config.naive_distance)
+               tagore_naive_local_join<<<grid, block2, 0, stream>>>(data_dev, data_power_dev, reverse_graph_dev,
+                   reverse_distance, reverse_num, new_num_global, old_num_global, hybrid_list, dim);
+            else
+               nn_descent_opt_cal<<<grid, block2, 0, stream>>>(graph_dev, reverse_graph_dev, data_dev, data_power_dev, it,
+                                                               reverse_distance, reverse_num, new_num_global, old_num_global,
+                                                               hybrid_list, dim, k);
+            if (runtime_config.optimized_topk)
+               nn_descent_opt_merge<<<grid, block3, 0, stream>>>(graph_dev, reverse_graph_dev, it, all_it, nei_distance,
+                                                                 reverse_distance, nei_visit, reverse_num, k);
+            else
+               tagore_nn_descent_full_sort<<<grid, block3, 0, stream>>>(graph_dev, reverse_graph_dev, it, all_it,
+                                                                         nei_distance, reverse_distance, nei_visit, reverse_num, k);
             reset_reverse_num<<<1000, 1024, 0, stream>>>(reverse_num, num_points);
          }
          do_reverse_graph<<<num_points, 32, 0, stream>>>(graph_dev, reverse_graph_dev, nei_distance, reverse_distance, reverse_num, k);
@@ -2041,12 +2061,21 @@ static TagoreBatchBuildResult build_tagore_vamana_cuda_batch_impl(const std::vec
 
          for (unsigned it = 0; it < all_it2; ++it)
          {
-            sample_kernel6<<<grid, block, 0, stream>>>(graph_dev, reverse_graph_dev, it, data_dev, num_points, all_it2,
-                                                       nei_distance, reverse_distance, nei_visit, reverse_num, dim, k);
+            if (runtime_config.optimized_topk)
+               sample_kernel6<<<grid, block, 0, stream>>>(graph_dev, reverse_graph_dev, it, data_dev, num_points, all_it2,
+                                                          nei_distance, reverse_distance, nei_visit, reverse_num, dim, k);
+            else
+               tagore_sample_full_sort<<<grid, block, 0, stream>>>(graph_dev, reverse_graph_dev, it, data_dev,
+                                                                     num_points, all_it2, nei_distance, reverse_distance,
+                                                                     nei_visit, reverse_num, dim, k);
             if (it + 1 < all_it2)
                reset_reverse_num<<<1000, 1024, 0, stream>>>(reverse_num, num_points);
          }
-         merge_reverse_plus<<<grid, block3, 0, stream>>>(graph_dev, reverse_graph_dev, nei_distance, reverse_distance, reverse_num, k);
+         if (runtime_config.optimized_topk)
+            merge_reverse_plus<<<grid, block3, 0, stream>>>(graph_dev, reverse_graph_dev, nei_distance, reverse_distance, reverse_num, k);
+         else
+            tagore_reverse_full_sort<<<grid, block3, 0, stream>>>(graph_dev, reverse_graph_dev, nei_distance,
+                                                                  reverse_distance, reverse_num, k);
          reset_reverse_num<<<1000, 1024, 0, stream>>>(reverse_num, num_points);
          ck(cudaGetLastError(), "GNN-Descent launch");
          ck(cudaEventRecord(stage_gnn_end, stream), "cudaEventRecord gnn_end");

@@ -1,0 +1,281 @@
+{
+  "group": "k20",
+  "K": 20,
+  "num_threads": 100,
+  "axis_limits": "auto",
+  "legend_layout": "expanded",
+  "panels": [
+    {
+      "dataset": "Amazon",
+      "qps_min": 87.33275776887261,
+      "qps_max": 2338.721420064162,
+      "y_limits": [
+        50,
+        5000
+      ]
+    },
+    {
+      "dataset": "VImg",
+      "qps_min": 81.85369685193989,
+      "qps_max": 5967.438281217036,
+      "y_limits": [
+        50,
+        10000
+      ]
+    },
+    {
+      "dataset": "Music",
+      "qps_min": 40.10665232685802,
+      "qps_max": 1786.088466258893,
+      "y_limits": [
+        20,
+        2000
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 700,
+      "algorithm": "Milvus",
+      "source": "/home/dev/graphdb/FilterVectorResult/Amazon/results/milvus_hnsw_threads100_k20/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Amazon/results/milvus_hnsw_threads100_k20/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "point_count": 12
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 700,
+      "algorithm": "ACORN",
+      "source": "/home/dev/graphdb/FilterVectorResult/Amazon/results/ACORN_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Amazon/results/ACORN_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 700,
+      "algorithm": "NaviX",
+      "source": "/home/dev/graphdb/FilterVectorResult/Amazon/results/NaviX_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Amazon/results/NaviX_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 700,
+      "algorithm": "RWalks",
+      "source": "/home/dev/graphdb/FilterVectorResult/Amazon/results/rwalks_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Amazon/results/rwalks_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 700,
+      "algorithm": "PathSeer",
+      "source": "/home/dev/graphdb/FilterVectorResult/Amazon/results/pathseer_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Amazon/results/pathseer_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 700,
+      "algorithm": "Curator",
+      "source": "/home/dev/graphdb/FilterVectorResult/Amazon/results/Curator_threads100_k20/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Amazon/results/Curator_threads100_k20/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "point_count": 10
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 700,
+      "algorithm": "UNG",
+      "source": "/home/dev/graphdb/FilterVectorResult/Amazon/results/UNG_threads100_k20/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Amazon/results/UNG_threads100_k20/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "point_count": 7
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 700,
+      "algorithm": "FAVOR",
+      "source": "/home/dev/graphdb/FilterVectorResult/Amazon/results/favor_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Amazon/results/favor_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "Amazon",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 700,
+      "algorithm": "PTNC",
+      "source": "/home/dev/graphdb/FilterVectorResult/Amazon/results/Trie_block_500_M_32_cross_block_4_threads100_k20/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Amazon/results/Trie_block_500_M_32_cross_block_4_threads100_k20/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "point_count": 16
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 594,
+      "algorithm": "Milvus",
+      "source": "/home/dev/graphdb/FilterVectorResult/VImg/results/milvus_hnsw_threads100_k20/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/VImg/results/milvus_hnsw_threads100_k20/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "point_count": 14
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 594,
+      "algorithm": "ACORN",
+      "source": "/home/dev/graphdb/FilterVectorResult/VImg/results/ACORN_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/VImg/results/ACORN_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 594,
+      "algorithm": "NaviX",
+      "source": "/home/dev/graphdb/FilterVectorResult/VImg/results/NaviX_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/VImg/results/NaviX_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 594,
+      "algorithm": "RWalks",
+      "source": "/home/dev/graphdb/FilterVectorResult/VImg/results/rwalks_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/VImg/results/rwalks_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 594,
+      "algorithm": "PathSeer",
+      "source": "/home/dev/graphdb/FilterVectorResult/VImg/results/pathseer_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/VImg/results/pathseer_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 594,
+      "algorithm": "Curator",
+      "source": "/home/dev/graphdb/FilterVectorResult/VImg/results/Curator_threads100_k20/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/VImg/results/Curator_threads100_k20/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "point_count": 9
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 594,
+      "algorithm": "UNG",
+      "source": "/home/dev/graphdb/FilterVectorResult/VImg/results/UNG_threads100_k20/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/VImg/results/UNG_threads100_k20/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "point_count": 9
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 594,
+      "algorithm": "FAVOR",
+      "source": "/home/dev/graphdb/FilterVectorResult/VImg/results/favor_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/VImg/results/favor_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 594,
+      "algorithm": "PTNC",
+      "source": "/home/dev/graphdb/FilterVectorResult/VImg/results/Trie_block_500_M_32_cross_block_4_threads100_k20/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/VImg/results/Trie_block_500_M_32_cross_block_4_threads100_k20/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "point_count": 13
+    },
+    {
+      "dataset": "Music",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 537,
+      "algorithm": "Milvus",
+      "source": "/home/dev/graphdb/FilterVectorResult/Music/results/milvus_hnsw_threads100_k20/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Music/results/milvus_hnsw_threads100_k20/query_minlen1_sel10to40pct_1000_1000_5000/results/search_time_summary_draw.csv",
+      "point_count": 12
+    },
+    {
+      "dataset": "Music",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 537,
+      "algorithm": "ACORN",
+      "source": "/home/dev/graphdb/FilterVectorResult/Music/results/ACORN_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Music/results/ACORN_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "Music",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 537,
+      "algorithm": "NaviX",
+      "source": "/home/dev/graphdb/FilterVectorResult/Music/results/NaviX_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Music/results/NaviX_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "Music",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 537,
+      "algorithm": "RWalks",
+      "source": "/home/dev/graphdb/FilterVectorResult/Music/results/rwalks_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Music/results/rwalks_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "Music",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 537,
+      "algorithm": "PathSeer",
+      "source": "/home/dev/graphdb/FilterVectorResult/Music/results/pathseer_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Music/results/pathseer_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "Music",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 537,
+      "algorithm": "Curator",
+      "source": "/home/dev/graphdb/FilterVectorResult/Music/results/Curator_threads100_k20/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Music/results/Curator_threads100_k20/query_minlen1_sel10to40pct_search_ef64_search_ef10240/results/search_time_summary_draw.csv",
+      "point_count": 9
+    },
+    {
+      "dataset": "Music",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 537,
+      "algorithm": "UNG",
+      "source": "/home/dev/graphdb/FilterVectorResult/Music/results/UNG_threads100_k20/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Music/results/UNG_threads100_k20/query_minlen1_sel10to40pct_10000_10000_100000/results/search_time_summary_draw.csv",
+      "point_count": 11
+    },
+    {
+      "dataset": "Music",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 537,
+      "algorithm": "FAVOR",
+      "source": "/home/dev/graphdb/FilterVectorResult/Music/results/favor_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Music/results/favor_threads100_k20/query_minlen1_sel10to40pct_1000_1000_20000/results/search_time_summary_draw.csv",
+      "point_count": 19
+    },
+    {
+      "dataset": "Music",
+      "query_task": "query_minlen1_sel10to40pct",
+      "num_queries": 537,
+      "algorithm": "PTNC",
+      "source": "/home/dev/graphdb/FilterVectorResult/Music/results/Trie_block_500_M_32_cross_block_4_threads100_k20/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary.csv",
+      "processed": "/home/dev/graphdb/FilterVectorResult/Music/results/Trie_block_500_M_32_cross_block_4_threads100_k20/query_minlen1_sel10to40pct_100_100_20000/results/search_time_summary_draw.csv",
+      "point_count": 12
+    }
+  ]
+}

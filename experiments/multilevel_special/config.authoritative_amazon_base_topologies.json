@@ -34,9 +34,6 @@
     "UNG_FAST_EXACT_REVERSE_FORWARD_CAP": "16",
     "UNG_GET_MIN_SUPER_SETS_IMPL": "0",
     "UNG_LNG_IMPL": "0",
-    "UNG_DESCENDANTS_IMPL": "0",
-    "UNG_COVERAGE_IMPL": "1",
-    "UNG_COVERAGE_THREADS": "128",
     "UNG_CROSS_EDGE_IMPL": "1",
     "UNG_ADDITIONAL_EDGES_IMPL": "2",
     "UNG_ADDITIONAL_DIRECT_APPEND": "0",
@@ -46,7 +43,13 @@
     "UNG_TAGORE_FILL_THREADS": "16"
   },
   "cases": [
-    {"name": "base_lng", "base_topology": "lng"},
-    {"name": "base_trie", "base_topology": "trie"}
+    {
+      "name": "base_lng",
+      "base_topology": "lng"
+    },
+    {
+      "name": "base_trie",
+      "base_topology": "trie"
+    }
   ]
 }

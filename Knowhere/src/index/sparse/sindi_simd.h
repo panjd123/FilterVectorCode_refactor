@@ -1,0 +1,102 @@
+#pragma once
+
+#include <cstdint>
+
+#include "knowhere/bitsetview.h"
+#include "knowhere/heap.h"
+#include "knowhere/operands.h"
+
+namespace knowhere::sparse::inverted::sindi {
+
+using ip_accumulate_fn_t = float (*)(float qval, const knowhere::fp16* vals, const uint16_t* ids, int32_t num,
+                                     float* out);
+
+using bm25_accumulate_fn_t = float (*)(float qval, const uint16_t* tf_vals, const uint16_t* ids, int32_t num,
+                                       float* out, float k1, float b, float avgdl, const float* row_sums);
+
+using bm25_u8_accumulate_fn_t = float (*)(float qval, const uint8_t* tf_vals, const uint16_t* ids, int32_t num,
+                                          float* out, float k1, float b, float avgdl, const float* row_sums);
+
+using batch_insert_fn_t = void (*)(const float* scores, size_t docid_start, size_t count,
+                                   knowhere::ResultMinHeap<float, uint32_t>& topk_q, float& threshold,
+                                   const BitsetView& bitset);
+
+struct IPKernels {
+    ip_accumulate_fn_t accumulate;
+    batch_insert_fn_t batch_insert;
+};
+
+struct BM25Kernels {
+    bm25_accumulate_fn_t accumulate;
+    batch_insert_fn_t batch_insert;
+};
+
+struct BM25U8Kernels {
+    bm25_u8_accumulate_fn_t accumulate;
+    batch_insert_fn_t batch_insert;
+};
+
+const IPKernels&
+get_ip_kernels();
+const BM25Kernels&
+get_bm25_kernels();
+const BM25U8Kernels&
+get_bm25_u8_kernels();
+
+// Scalar implementations (always available)
+float
+ip_accumulate_scalar_fp16(float qval, const knowhere::fp16* vals, const uint16_t* ids, int32_t num, float* out);
+float
+bm25_accumulate_scalar_u16(float qval, const uint16_t* vals, const uint16_t* ids, int32_t num, float* out, float k1,
+                           float b, float avgdl, const float* row_sums);
+float
+bm25_accumulate_scalar_u8(float qval, const uint8_t* vals, const uint16_t* ids, int32_t num, float* out, float k1,
+                          float b, float avgdl, const float* row_sums);
+void
+batch_insert_scalar(const float* scores, size_t docid_start, size_t count,
+                    knowhere::ResultMinHeap<float, uint32_t>& topk_q, float& threshold, const BitsetView& bitset);
+
+#if defined(__x86_64__)
+// AVX2 implementations (compiled separately with -mavx2)
+float
+ip_accumulate_avx2_fp16(float qval, const knowhere::fp16* vals, const uint16_t* ids, int32_t num, float* out);
+float
+bm25_accumulate_avx2_u16(float qval, const uint16_t* vals, const uint16_t* ids, int32_t num, float* out, float k1,
+                         float b, float avgdl, const float* row_sums);
+float
+bm25_accumulate_avx2_u8(float qval, const uint8_t* vals, const uint16_t* ids, int32_t num, float* out, float k1,
+                        float b, float avgdl, const float* row_sums);
+void
+batch_insert_avx2(const float* scores, size_t docid_start, size_t count,
+                  knowhere::ResultMinHeap<float, uint32_t>& topk_q, float& threshold, const BitsetView& bitset);
+
+// AVX512 implementations (compiled separately with -mavx512f)
+float
+ip_accumulate_avx512_fp16(float qval, const knowhere::fp16* vals, const uint16_t* ids, int32_t num, float* out);
+float
+bm25_accumulate_avx512_u16(float qval, const uint16_t* vals, const uint16_t* ids, int32_t num, float* out, float k1,
+                           float b, float avgdl, const float* row_sums);
+float
+bm25_accumulate_avx512_u8(float qval, const uint8_t* vals, const uint16_t* ids, int32_t num, float* out, float k1,
+                          float b, float avgdl, const float* row_sums);
+void
+batch_insert_avx512(const float* scores, size_t docid_start, size_t count,
+                    knowhere::ResultMinHeap<float, uint32_t>& topk_q, float& threshold, const BitsetView& bitset);
+#endif
+
+#if defined(__aarch64__) && defined(KNOWHERE_USE_SVE)
+// SVE implementations (compiled with SVE support)
+float
+ip_accumulate_sve_fp16(float qval, const knowhere::fp16* vals, const uint16_t* ids, int32_t num, float* out);
+float
+bm25_accumulate_sve_u16(float qval, const uint16_t* vals, const uint16_t* ids, int32_t num, float* out, float k1,
+                        float b, float avgdl, const float* row_sums);
+float
+bm25_accumulate_sve_u8(float qval, const uint8_t* vals, const uint16_t* ids, int32_t num, float* out, float k1, float b,
+                       float avgdl, const float* row_sums);
+void
+batch_insert_sve(const float* scores, size_t docid_start, size_t count,
+                 knowhere::ResultMinHeap<float, uint32_t>& topk_q, float& threshold, const BitsetView& bitset);
+#endif
+
+}  // namespace knowhere::sparse::inverted::sindi

@@ -1,0 +1,5 @@
+cd /home/dev/graphdb/FilterVectorCode_multilevel_special
+
+./run_search_comparison_experiment.sh experiments/search_comparison/config_amazon_block_cross_block.json
+./run_search_comparison_experiment.sh experiments/search_comparison/config_VImg_block_cross_block.json
+./run_search_comparison_experiment.sh experiments/search_comparison/config_music_block_cross_block.json

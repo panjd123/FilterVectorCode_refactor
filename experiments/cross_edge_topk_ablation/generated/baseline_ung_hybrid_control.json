@@ -19,7 +19,6 @@
     "num_cross_edges": 4
   },
   "ung_env": {
-    "UNG_LNG_IMPL": "1",
-    "UNG_DESCENDANTS_IMPL": "1"
+    "UNG_LNG_IMPL": "1"
   }
 }

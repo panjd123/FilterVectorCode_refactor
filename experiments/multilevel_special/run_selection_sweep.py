@@ -197,7 +197,6 @@ def clean_method_env(base: dict[str, str], config: dict[str, Any],
         if key.startswith("UNG_"):
             env.pop(key, None)
     measurement_pass = str(config.get("measurement_pass", "performance"))
-    env["UNG_DISABLE_ENTRY_ROUTE_STATS"] = "1" if measurement_pass == "performance" else "0"
     env["UNG_SPECIAL_LIGHT_STATS"] = "1" if measurement_pass == "performance" else "0"
     if measurement_pass == "profile":
         env["UNG_SPECIAL_PROFILE_TIMING"] = "1"
@@ -361,7 +360,6 @@ def result_is_complete(path: Path, expected_lsearch: list[int],
             "AverageSpecialInterEdgesScanned", "AverageTotalEdgesScanned",
             "AverageTotalDistanceCalcs", "AverageEntryPointDistanceCalcs",
             "AverageGraphSearchDistanceCalcs", "AverageNumEntries",
-            "AverageEntryGroupMatchedPoints",
         }
         if (work_lsearch != set(expected_lsearch) or not work_rows or
                 not has_expected_grid(work_rows) or
@@ -406,7 +404,7 @@ def result_is_complete(path: Path, expected_lsearch: list[int],
             "NumNodeVisited", "RegularEdgesScanned", "SpecialIntraEdgesScanned",
             "SpecialInterEdgesScanned", "TotalEdgesScanned", "TotalDistanceCalcs",
             "EntryPointDistanceCalcs", "GraphSearchDistanceCalcs", "NumEntries",
-            "EntryGroupMatchedPoints", "SpecialBlockSearchUsed",
+            "SpecialBlockSearchUsed",
         }
         expected_query_rows = (
             expected_repeats * len(expected_lsearch) * expected_num_queries)

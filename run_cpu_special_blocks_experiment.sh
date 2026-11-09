@@ -138,9 +138,18 @@ BUILD_BIN="${BUILD_DIR}/apps/build_UNG_index"
 BLOCK_BUILD_BIN="${BUILD_DIR}/apps/build_special_block_index"
 OUTPUT_LAYOUT="$(json_get_default '.output_layout' 'run_root')"
 INDEX_NAME_BASE="$(json_get_default '.index_name' 'UNG_special_blocks')"
-INDEX_NAME="${INDEX_NAME_BASE}$(json_index_name_suffix)"
+INDEX_NAME_BASE_EFFECTIVE="${INDEX_NAME_BASE}$(json_index_name_suffix)"
+INDEX_NAME="${INDEX_NAME_BASE_EFFECTIVE}"
 RUN_ROOT="${RESULT_ROOT}/${RUN_NAME}"
 BUILD_UNG_INDEX="$(json_get_default '.build_ung' 'true')"
+UNG_INDEX_PATH_PREFIX="$(json_get_default '.ung_index_path_prefix' '')"
+REQUIRE_UNG_INDEX="$(json_get_default '.require_ung_index' 'false')"
+REQUIRED_BASE_TOPOLOGY="$(json_get_default '.required_base_topology' '')"
+REUSE_EXISTING_INDEX="$(json_get_default '.reuse_existing_index' 'true')"
+CUDA_ENABLED="$(json_get_default '.cuda.enabled' 'false')"
+CUDA_REQUIRED="$(json_get_default '.cuda.required' 'false')"
+CUDA_COMPILER="$(json_get_default '.cuda.compiler' '/usr/local/cuda/bin/nvcc')"
+CUDA_ARCHITECTURES="$(json_get_default '.cuda.architectures' '')"
 
 DATA_TYPE="$(json_get_default '.build.data_type' 'float')"
 DIST_FN="$(json_get_default '.build.dist_fn' 'L2')"
@@ -152,24 +161,149 @@ ALPHA="$(json_get_default '.build.alpha' '1.2')"
 NUM_CROSS_EDGES="$(json_get_default '.build.num_cross_edges' '4')"
 BUILD_SPECIAL_BLOCKS="$(json_get_default '.ung_env.UNG_SPECIAL_BLOCKS' '0')"
 SPECIAL_MIN_POINTS="$(json_get_default '.ung_env.UNG_SPECIAL_BLOCK_MIN_POINTS' '100')"
+SPECIAL_MIN_POINTS_VALUES_RAW="$(json_get_default '.special_block_min_points_values' '')"
+SPECIAL_MIN_POINTS_SWEEP=false
+SPECIAL_MIN_POINTS_VALUES=("${SPECIAL_MIN_POINTS}")
+if [ -n "${SPECIAL_MIN_POINTS_VALUES_RAW}" ]; then
+  SPECIAL_MIN_POINTS_SWEEP=true
+  mapfile -t SPECIAL_MIN_POINTS_VALUES < <(json_array_items '.special_block_min_points_values')
+  if [ "${#SPECIAL_MIN_POINTS_VALUES[@]}" -eq 0 ]; then
+    echo "special_block_min_points_values must contain at least one value" >&2
+    exit 2
+  fi
+fi
+for special_min_points_value in "${SPECIAL_MIN_POINTS_VALUES[@]}"; do
+  if ! [[ "${special_min_points_value}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "invalid special block minimum point count: ${special_min_points_value}" >&2
+    exit 2
+  fi
+done
 SPECIAL_MAX_DEGREE="$(json_get_default '.ung_env.UNG_SPECIAL_BLOCK_MAX_DEGREE' "${MAX_DEGREE}")"
-SPECIAL_NUM_CROSS_EDGES="$(json_get_default '.ung_env.UNG_SPECIAL_BLOCK_NUM_CROSS_EDGES' "${NUM_CROSS_EDGES}")"
 if [ "${SPECIAL_MAX_DEGREE}" = "0" ]; then
   SPECIAL_MAX_DEGREE="${MAX_DEGREE}"
 fi
+SPECIAL_MAX_DEGREE_VALUES_RAW="$(json_get_default '.special_block_max_degree_values' '')"
+SPECIAL_MAX_DEGREE_SWEEP=false
+SPECIAL_MAX_DEGREE_VALUES=("${SPECIAL_MAX_DEGREE}")
+if [ -n "${SPECIAL_MAX_DEGREE_VALUES_RAW}" ]; then
+  SPECIAL_MAX_DEGREE_SWEEP=true
+  mapfile -t SPECIAL_MAX_DEGREE_VALUES < <(json_array_items '.special_block_max_degree_values')
+  if [ "${#SPECIAL_MAX_DEGREE_VALUES[@]}" -eq 0 ]; then
+    echo "special_block_max_degree_values must contain at least one value" >&2
+    exit 2
+  fi
+fi
+for special_max_degree_value in "${SPECIAL_MAX_DEGREE_VALUES[@]}"; do
+  if ! [[ "${special_max_degree_value}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "invalid special block maximum degree: ${special_max_degree_value}" >&2
+    exit 2
+  fi
+done
+SPECIAL_NUM_CROSS_EDGES="$(json_get_default '.ung_env.UNG_SPECIAL_BLOCK_NUM_CROSS_EDGES' "${NUM_CROSS_EDGES}")"
 if [ "${SPECIAL_NUM_CROSS_EDGES}" = "0" ]; then
   SPECIAL_NUM_CROSS_EDGES="${NUM_CROSS_EDGES}"
 fi
+SPECIAL_NUM_CROSS_EDGES_VALUES_RAW="$(json_get_default '.special_block_num_cross_edges_values' '')"
+SPECIAL_NUM_CROSS_EDGES_SWEEP=false
+SPECIAL_NUM_CROSS_EDGES_VALUES=("${SPECIAL_NUM_CROSS_EDGES}")
+if [ -n "${SPECIAL_NUM_CROSS_EDGES_VALUES_RAW}" ]; then
+  SPECIAL_NUM_CROSS_EDGES_SWEEP=true
+  mapfile -t SPECIAL_NUM_CROSS_EDGES_VALUES < <(json_array_items '.special_block_num_cross_edges_values')
+  if [ "${#SPECIAL_NUM_CROSS_EDGES_VALUES[@]}" -eq 0 ]; then
+    echo "special_block_num_cross_edges_values must contain at least one value" >&2
+    exit 2
+  fi
+fi
+for special_num_cross_edges_value in "${SPECIAL_NUM_CROSS_EDGES_VALUES[@]}"; do
+  if ! [[ "${special_num_cross_edges_value}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "invalid special block cross-edge count: ${special_num_cross_edges_value}" >&2
+    exit 2
+  fi
+done
 
 
 compile_build_ung_index() {
   log "compiling required index builders before dataset builds"
-  cmake -S "${SCRIPT_DIR}/UNG/codes" -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE=Release || exit $?
+  local cmake_args=(
+    -S "${SCRIPT_DIR}/UNG/codes"
+    -B "${BUILD_DIR}"
+    -DCMAKE_BUILD_TYPE=Release
+    -DUNG_BUILD_APPS=ON
+    -DUNG_BUILD_TOOLS=OFF
+    -DUNG_BUILD_TESTS=OFF
+  )
+  if [ "${CUDA_ENABLED}" = "true" ] || [ "${CUDA_ENABLED}" = "1" ]; then
+    if [ ! -x "${CUDA_COMPILER}" ]; then
+      log "CUDA compiler is not executable: ${CUDA_COMPILER}"
+      exit 2
+    fi
+    cmake_args+=(
+      -DUNG_ENABLE_CUDA=ON
+      "-DCMAKE_CUDA_COMPILER=${CUDA_COMPILER}"
+    )
+    if [ -n "${CUDA_ARCHITECTURES}" ]; then
+      cmake_args+=("-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}")
+    fi
+  else
+    cmake_args+=(-DUNG_ENABLE_CUDA=OFF)
+  fi
+  cmake "${cmake_args[@]}" || exit $?
+  if [ "${CUDA_REQUIRED}" = "true" ] || [ "${CUDA_REQUIRED}" = "1" ]; then
+    if ! grep -q '^UNG_ENABLE_CUDA:BOOL=ON$' "${BUILD_DIR}/CMakeCache.txt"; then
+      log "CUDA was required, but CMake did not keep UNG_ENABLE_CUDA=ON"
+      exit 2
+    fi
+  fi
   if [ "${BUILD_UNG_INDEX}" = "true" ] || [ "${BUILD_UNG_INDEX}" = "1" ]; then
     cmake --build "${BUILD_DIR}" -j"${BUILD_JOBS:-16}" --target build_UNG_index build_special_block_index search_UNG_index || exit $?
   else
     cmake --build "${BUILD_DIR}" -j"${BUILD_JOBS:-16}" --target build_special_block_index || exit $?
   fi
+}
+
+BUILDERS_COMPILED=false
+
+ensure_index_builders_compiled() {
+  if [ "${BUILDERS_COMPILED}" != "true" ]; then
+    compile_build_ung_index
+    BUILDERS_COMPILED=true
+  fi
+}
+
+meta_value() {
+  local meta_file="$1"
+  local key="$2"
+  awk -F= -v wanted="${key}" '$1 == wanted { print $2; exit }' "${meta_file}"
+}
+
+existing_index_complete() {
+  local index_dir="$1"
+  local block_index_dir="$2"
+  local checked=false
+  local name
+
+  if [ "${BUILD_UNG_INDEX}" = "true" ] || [ "${BUILD_UNG_INDEX}" = "1" ]; then
+    checked=true
+    for name in meta vecs.bin labels.txt group_id_to_label_set group_id_to_range; do
+      [ -s "${index_dir}/${name}" ] || return 1
+    done
+    if [ -n "${REQUIRED_BASE_TOPOLOGY}" ] && \
+       [ "$(meta_value "${index_dir}/meta" base_group_topology)" != "${REQUIRED_BASE_TOPOLOGY}" ]; then
+      return 1
+    fi
+  fi
+
+  if [ "${BUILD_SPECIAL_BLOCKS}" = "1" ]; then
+    checked=true
+    for name in meta special_edges.bin special_blocks.bin special_block_trie.bin; do
+      [ -s "${block_index_dir}/${name}" ] || return 1
+    done
+    [ "$(meta_value "${block_index_dir}/meta" special_block_min_points)" = "${SPECIAL_MIN_POINTS}" ] || return 1
+    [ "$(meta_value "${block_index_dir}/meta" special_block_max_degree)" = "${SPECIAL_MAX_DEGREE}" ] || return 1
+    [ "$(meta_value "${block_index_dir}/meta" special_block_num_cross_edges)" = "${SPECIAL_NUM_CROSS_EDGES}" ] || return 1
+  fi
+
+  [ "${checked}" = "true" ]
 }
 
 export_env_from_config() {
@@ -200,6 +334,17 @@ build_dataset() {
   local base_labels="${data_dir}/${dataset}_base_labels.txt"
   local label_info="${data_dir}/${dataset}_base_labels_info.log"
   local tree_roots="${data_dir}/tree_roots.txt"
+  local block_source_index_dir="${index_dir}"
+  if [ -n "${UNG_INDEX_PATH_PREFIX}" ]; then
+    block_source_index_dir="${UNG_INDEX_PATH_PREFIX//\{dataset\}/${dataset}}"
+    block_source_index_dir="${block_source_index_dir%/}"
+  fi
+
+  if { [ "${REUSE_EXISTING_INDEX}" = "true" ] || [ "${REUSE_EXISTING_INDEX}" = "1" ]; } && \
+     existing_index_complete "${index_dir}" "${block_index_dir}"; then
+    log "[${dataset}] complete index exists; skipping build: ${out_dir}"
+    return 0
+  fi
 
   mkdir -p "${index_dir}" "${block_index_dir}" "${results_dir}" "${block_results_dir}" "${others_dir}"
   : > "${placeholder}"
@@ -212,7 +357,11 @@ build_dataset() {
   [ -f "${label_info}" ] || label_info="${placeholder}"
   [ -f "${tree_roots}" ] || tree_roots="${placeholder}"
 
+  ensure_index_builders_compiled
   export_env_from_config
+  # A configured sweep overrides the scalar env value for this build only.
+  export UNG_SPECIAL_BLOCK_MIN_POINTS="${SPECIAL_MIN_POINTS}"
+  export UNG_SPECIAL_BLOCK_MAX_DEGREE="${SPECIAL_MAX_DEGREE}"
   unset UNG_SPECIAL_BLOCKS
 
   log "[${dataset}] build start"
@@ -277,16 +426,50 @@ build_dataset() {
       exit_code=${cmd_exit_code}
     fi
   else
-    log "[${dataset}] skipping UNG index build; block builder will reuse index data or fall back to dataset files"
+    if [ -n "${UNG_INDEX_PATH_PREFIX}" ]; then
+      log "[${dataset}] skipping UNG index build; block source index: ${block_source_index_dir}"
+    else
+      log "[${dataset}] skipping UNG index build; block builder will reuse index data or fall back to dataset files"
+    fi
     printf 'wall_seconds=0\nmax_rss_kb=\nexit_code=0\n' > "${others_dir}/time.txt"
-    printf 'UNG index build skipped (build_ung=false); block builder will reuse index input when complete, otherwise use dataset fallback.\n' > "${others_dir}/build.log"
+    printf 'UNG index build skipped (build_ung=false); block source index: %s\n' "${block_source_index_dir}" > "${others_dir}/build.log"
   fi
 
   if [ "${exit_code}" -eq 0 ] && [ "${BUILD_SPECIAL_BLOCKS}" = "1" ]; then
+    if [ "${REQUIRE_UNG_INDEX}" = "true" ] || [ "${REQUIRE_UNG_INDEX}" = "1" ]; then
+      local required_source_files=(
+        meta vecs.bin labels.txt group_id_to_label_set group_id_to_range
+      )
+      local missing_source_files=()
+      local source_name
+      for source_name in "${required_source_files[@]}"; do
+        if [ ! -s "${block_source_index_dir}/${source_name}" ]; then
+          missing_source_files+=("${block_source_index_dir}/${source_name}")
+        fi
+      done
+      if [ "${#missing_source_files[@]}" -ne 0 ]; then
+        log "[${dataset}] required UNG source index is incomplete: ${missing_source_files[*]}"
+        return 2
+      fi
+    fi
+    if [ -n "${REQUIRED_BASE_TOPOLOGY}" ]; then
+      local source_meta="${block_source_index_dir}/meta"
+      if [ ! -s "${source_meta}" ]; then
+        log "[${dataset}] cannot verify required base topology without ${source_meta}"
+        return 2
+      fi
+      local actual_base_topology
+      actual_base_topology="$(awk -F= '$1 == "base_group_topology" { print $2; exit }' "${source_meta}")"
+      if [ "${actual_base_topology}" != "${REQUIRED_BASE_TOPOLOGY}" ]; then
+        log "[${dataset}] source base topology mismatch: expected=${REQUIRED_BASE_TOPOLOGY} actual=${actual_base_topology:-missing}"
+        return 2
+      fi
+    fi
     log "[${dataset}] independent Trie block build start"
+    log "[${dataset}] using UNG source index ${block_source_index_dir}"
     printf '\n--- Independent Trie block index build ---\n' >> "${others_dir}/build.log"
     "${BLOCK_BUILD_BIN}" \
-      --ung_index_path_prefix "${index_dir}/" \
+      --ung_index_path_prefix "${block_source_index_dir}/" \
       --base_bin_file "${base_bin}" \
       --base_label_file "${base_labels}" \
       --block_index_path_prefix "${block_index_dir}/" \
@@ -318,15 +501,35 @@ build_dataset() {
 log "config: ${CONFIG_PATH}"
 log "run root: ${RUN_ROOT}"
 log "output layout: ${OUTPUT_LAYOUT}"
-if [ "${OUTPUT_LAYOUT}" = "index_by_dataset" ]; then
-  log "index name: ${INDEX_NAME}"
-fi
-
-compile_build_ung_index
 
 overall=0
-while IFS= read -r dataset; do
-  build_dataset "${dataset}" || overall=$?
-done < <(json_array_items '.datasets')
+for special_min_points_value in "${SPECIAL_MIN_POINTS_VALUES[@]}"; do
+  SPECIAL_MIN_POINTS="${special_min_points_value}"
+  for special_max_degree_value in "${SPECIAL_MAX_DEGREE_VALUES[@]}"; do
+    SPECIAL_MAX_DEGREE="${special_max_degree_value}"
+    for special_num_cross_edges_value in "${SPECIAL_NUM_CROSS_EDGES_VALUES[@]}"; do
+      SPECIAL_NUM_CROSS_EDGES="${special_num_cross_edges_value}"
+      INDEX_NAME="${INDEX_NAME_BASE_EFFECTIVE}"
+      if [ "${SPECIAL_MIN_POINTS_SWEEP}" = "true" ] || [ "${SPECIAL_MAX_DEGREE_SWEEP}" = "true" ] || [ "${SPECIAL_NUM_CROSS_EDGES_SWEEP}" = "true" ]; then
+        INDEX_NAME="${INDEX_NAME}_${SPECIAL_MIN_POINTS}"
+      fi
+      if [ "${SPECIAL_MAX_DEGREE_SWEEP}" = "true" ] || [ "${SPECIAL_NUM_CROSS_EDGES_SWEEP}" = "true" ]; then
+        INDEX_NAME="${INDEX_NAME}_M_${SPECIAL_MAX_DEGREE}"
+      fi
+      if [ "${SPECIAL_NUM_CROSS_EDGES_SWEEP}" = "true" ]; then
+        INDEX_NAME="${INDEX_NAME}_cross_block_${SPECIAL_NUM_CROSS_EDGES}"
+      fi
+      if [ "${OUTPUT_LAYOUT}" = "index_by_dataset" ]; then
+        log "index name: ${INDEX_NAME}"
+      fi
+      log "special block minimum points: ${SPECIAL_MIN_POINTS}"
+      log "special block maximum degree: ${SPECIAL_MAX_DEGREE}"
+      log "special block cross edges: ${SPECIAL_NUM_CROSS_EDGES}"
+      while IFS= read -r dataset; do
+        build_dataset "${dataset}" || overall=$?
+      done < <(json_array_items '.datasets')
+    done
+  done
+done
 
 exit "${overall}"

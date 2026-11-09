@@ -13,158 +13,15 @@
 
 #include <boost/filesystem.hpp>
 
-#include "../../../ACORN/faiss/IndexACORN.h"
-#include "../../../ACORN/faiss/index_io.h"
 #include "utils.h"
 #include "include/uni_nav_graph.h"
-#include "include/MethodSelector.h"
 #include "include/ung_group_topology.h"
 
 namespace fs = boost::filesystem;
 
 namespace ANNS
 {
-   size_t UniNavGraph::count_graph_edges() const
-   {
-      size_t total_edges = 0;
-      for (const auto &neighbors : _vector_attr_graph)
-      {
-         total_edges += neighbors.size();
-      }
-      return total_edges / 2;
-   }
 
-   uint32_t UniNavGraph::compute_checksum() const
-   {
-      uint32_t sum = 0;
-      for (const auto &neighbors : _vector_attr_graph)
-      {
-         for (IdxType node : neighbors)
-         {
-            sum ^= (node << (sum % 32));
-         }
-      }
-      return sum;
-   }
-
-   void UniNavGraph::save_bipartite_graph(const std::string &filename)
-   {
-      std::ofstream out(filename, std::ios::binary);
-      if (!out)
-      {
-         throw std::runtime_error("Cannot open file for writing: " + filename);
-      }
-
-      const char header[8] = {'B', 'I', 'P', 'G', 'R', 'P', 'H', '1'};
-      out.write(header, 8);
-
-      out.write(reinterpret_cast<const char *>(&_num_points), sizeof(IdxType));
-      out.write(reinterpret_cast<const char *>(&_num_attributes), sizeof(AtrType));
-
-      uint64_t map_size = _attr_to_id.size();
-      out.write(reinterpret_cast<const char *>(&map_size), sizeof(uint64_t));
-
-      for (const auto &[label, id] : _attr_to_id)
-      {
-         out.write(reinterpret_cast<const char *>(&label), sizeof(LabelType));
-         out.write(reinterpret_cast<const char *>(&id), sizeof(AtrType));
-      }
-
-      uint64_t total_nodes = _vector_attr_graph.size();
-      out.write(reinterpret_cast<const char *>(&total_nodes), sizeof(uint64_t));
-
-      for (const auto &neighbors : _vector_attr_graph)
-      {
-         uint32_t neighbor_count = neighbors.size();
-         out.write(reinterpret_cast<const char *>(&neighbor_count), sizeof(uint32_t));
-
-         if (!neighbors.empty())
-         {
-            out.write(reinterpret_cast<const char *>(neighbors.data()),
-                      neighbors.size() * sizeof(IdxType));
-         }
-      }
-
-      uint32_t checksum = compute_checksum();
-      out.write(reinterpret_cast<const char *>(&checksum), sizeof(uint32_t));
-
-      std::cout << "Successfully saved bipartite graph to " << filename
-                << " (" << out.tellp() << " bytes)" << std::endl;
-   }
-
-   void UniNavGraph::load_bipartite_graph(const std::string &filename)
-   {
-      std::cout << "Loading bipartite graph from " << filename << std::endl;
-      auto start_time = std::chrono::high_resolution_clock::now();
-      std::ifstream in(filename, std::ios::binary);
-      if (!in)
-      {
-         throw std::runtime_error("Cannot open file for reading: " + filename);
-      }
-
-      char header[8];
-      in.read(header, 8);
-      if (std::string(header, 8) != "BIPGRPH1")
-      {
-         throw std::runtime_error("Invalid file format");
-      }
-
-      in.read(reinterpret_cast<char *>(&_num_points), sizeof(IdxType));
-      in.read(reinterpret_cast<char *>(&_num_attributes), sizeof(AtrType));
-
-      _attr_to_id.clear();
-      _id_to_attr.clear();
-
-      uint64_t map_size;
-      in.read(reinterpret_cast<char *>(&map_size), sizeof(uint64_t));
-
-      for (uint64_t i = 0; i < map_size; ++i)
-      {
-         LabelType label;
-         AtrType id;
-
-         in.read(reinterpret_cast<char *>(&label), sizeof(LabelType));
-         in.read(reinterpret_cast<char *>(&id), sizeof(AtrType));
-
-         _attr_to_id[label] = id;
-         _id_to_attr[id] = label;
-      }
-
-      _vector_attr_graph.clear();
-
-      uint64_t total_nodes;
-      in.read(reinterpret_cast<char *>(&total_nodes), sizeof(uint64_t));
-      _vector_attr_graph.resize(total_nodes);
-
-      for (uint64_t i = 0; i < total_nodes; ++i)
-      {
-         uint32_t neighbor_count;
-         in.read(reinterpret_cast<char *>(&neighbor_count), sizeof(uint32_t));
-
-         _vector_attr_graph[i].resize(neighbor_count);
-         if (neighbor_count > 0)
-         {
-            in.read(reinterpret_cast<char *>(_vector_attr_graph[i].data()),
-                    neighbor_count * sizeof(IdxType));
-         }
-      }
-
-      uint32_t stored_checksum;
-      in.read(reinterpret_cast<char *>(&stored_checksum), sizeof(uint32_t));
-
-      uint32_t computed_checksum = compute_checksum();
-      if (stored_checksum != computed_checksum)
-      {
-         throw std::runtime_error("Checksum verification failed");
-      }
-
-      std::cout << "- Loaded bipartite graph with " << _num_points << " vectors and "
-                << _num_attributes << " attributes in "
-                << std::chrono::duration<double, std::milli>(
-                       std::chrono::high_resolution_clock::now() - start_time)
-                       .count()
-                << " ms" << std::endl;
-   }
    void UniNavGraph::save(std::string index_path_prefix, std::string results_path_prefix)
    {
       fs::create_directories(index_path_prefix);
@@ -199,18 +56,19 @@ namespace ANNS
       meta_data["get_min_super_sets_impl"] = to_string(_build_config.get_min_super_sets_impl);
       meta_data["lng_impl"] = to_string(_build_config.lng_impl);
       meta_data["base_group_topology"] = to_string(_build_config.hierarchy.base_topology);
+      meta_data["lng_constructed"] =
+          _build_config.hierarchy.base_topology == GroupTopologyKind::Lng ? "1" : "0";
       meta_data["hierarchy_layers"] = _build_config.hierarchy.encode();
-      meta_data["descendants_impl"] = to_string(_build_config.descendants_impl);
-      meta_data["coverage_impl"] = to_string(_build_config.coverage_impl);
+      meta_data["search_auxiliary_built"] = "0";
       meta_data["cross_edge_impl"] = to_string(_build_config.cross_edge_impl);
+      meta_data["additional_edges_impl"] = to_string(_build_config.additional_edges_impl);
+      meta_data["trie_cross_source_exact"] =
+          _build_config.trie_cross_source_exact ? "1" : "0";
       meta_data["gpu_topk_impl"] = to_string(_build_config.gpu_topk_impl);
-      meta_data["index_time(ms)"] = std::to_string(_index_time - _build_roaring_bitsets_time);
+      meta_data["index_time(ms)"] = std::to_string(_index_time);
       meta_data["index_time_add_rb(ms)"] = std::to_string(_index_time);
       meta_data["label_processing_time(ms)"] = std::to_string(_label_processing_time);
       meta_data["build_graph_time(ms)"] = std::to_string(_build_graph_time);
-      meta_data["build_vector_attr_graph_time(ms)"] = std::to_string(_build_vector_attr_graph_time);
-      meta_data["cal_descendants_time(ms)"] = std::to_string(_cal_descendants_time);
-      meta_data["cal_coverage_ratio_time(ms)"] = std::to_string(_cal_coverage_ratio_time);
       meta_data["build_LNG_time(ms)"] = std::to_string(_build_LNG_time);
       meta_data["build_cross_edges_time(ms)"] = std::to_string(_build_cross_edges_time);
       meta_data["tagore_groups"] = std::to_string(_tagore_groups);
@@ -237,20 +95,7 @@ namespace ANNS
       meta_data["cross_edge_step2_acorn_time(ms)"] = std::to_string(_cross_edge_step2_acorn_time_ms);
       meta_data["cross_edge_step3_add_dist_edges_time(ms)"] = std::to_string(_cross_edge_step3_add_dist_edges_time_ms);
       meta_data["cross_edge_step4_add_hierarchy_edges_time(ms)"] = std::to_string(_cross_edge_step4_add_hierarchy_edges_time_ms);
-      std::cout << "Calculating and saving Trie static metrics..." << std::endl;
-      TrieStaticMetrics trie_metrics = _trie_index.calculate_static_metrics();
-      meta_data["trie_label_cardinality"] = std::to_string(trie_metrics.label_cardinality);
-      meta_data["trie_total_nodes"] = std::to_string(trie_metrics.total_nodes);
-      meta_data["trie_avg_path_length"] = std::to_string(trie_metrics.avg_path_length);
-      meta_data["trie_avg_branching_factor"] = std::to_string(trie_metrics.avg_branching_factor);
-      // Save the detailed label frequency distribution to its own file for easier analysis
-      std::string trie_freq_filename = results_path_prefix + "trie_label_frequency.csv";
-      std::ofstream freq_file(trie_freq_filename);
-      freq_file << "LabelID,Frequency\n";
-      for (const auto &pair : trie_metrics.label_frequency)
-         freq_file << pair.first << "," << pair.second << "\n";
-      freq_file.close();
-      std::cout << "- Trie label frequency distribution saved to " << trie_freq_filename << std::endl;
+      fs::remove(results_path_prefix + "trie_label_frequency.csv");
 
       std::string meta_filename = index_path_prefix + "meta";
       write_kv_file(meta_filename, meta_data);
@@ -262,9 +107,6 @@ namespace ANNS
       build_time_file << "index_time" << "," << _index_time << "\n";
       build_time_file << "label_processing_time" << "," << _label_processing_time << "\n";
       build_time_file << "build_graph_time" << "," << _build_graph_time << "\n";
-      build_time_file << "build_vector_attr_graph_time" << "," << _build_vector_attr_graph_time << "\n";
-      build_time_file << "cal_descendants_time" << "," << _cal_descendants_time << "\n";
-      build_time_file << "cal_coverage_ratio_time" << "," << _cal_coverage_ratio_time << "\n";
       build_time_file << "build_LNG_time" << "," << _build_LNG_time << "\n";
       build_time_file << "build_cross_edges_time" << "," << _build_cross_edges_time << "\n";
       build_time_file << "tagore_groups" << "," << _tagore_groups << "\n";
@@ -351,34 +193,12 @@ namespace ANNS
       log_graph_substage("global_entry_point");
       log_save_stage("graph_and_trie");
 
-      if (!_build_config.is_original_cpu_pipeline())
-      {
-         // save LNG coverage ratio
-         std::string coverage_ratio_filename = index_path_prefix + "lng_coverage_ratio";
-         write_1d_vector(coverage_ratio_filename, _label_nav_graph->coverage_ratio);
-
-         const bool skip_lng_text_sets = std::getenv("UNG_SKIP_LNG_TEXT_SETS") != nullptr;
-         if (skip_lng_text_sets)
-         {
-            std::cout << "Skipping LNG text covered_sets/lng_descendants (UNG_SKIP_LNG_TEXT_SETS=1)." << std::endl;
-         }
-         else
-         {
-            // save covered_sets in LNG
-            std::string covered_sets_filename = index_path_prefix + "covered_sets";
-            write_2d_vectors(covered_sets_filename, _label_nav_graph->covered_sets);
-            std::cout << "LNG covered_sets saved." << std::endl;
-
-            // save LNG descendant num
-            std::string lng_descendants_num_filename = index_path_prefix + "lng_descendants_num";
-            write_1d_pair_vector(lng_descendants_num_filename, _label_nav_graph->_lng_descendants_num);
-
-            // save LNG descendants
-            std::string lng_descendants_filename = index_path_prefix + "lng_descendants";
-            write_2d_vectors(lng_descendants_filename, _label_nav_graph->_lng_descendants);
-         }
-      }
-      log_save_stage("lng_sets");
+      // Remove obsolete caches when rebuilding an existing index prefix.
+      for (const char *name : {"lng_coverage_ratio", "covered_sets", "lng_descendants_num",
+                               "lng_descendants", "lng_descendants_rb.bin", "covered_sets_rb.bin",
+                               "lng_descendants_bits", "covered_sets_bits", "vector_attr_graph",
+                               "reordered_vecs.fvecs", "reordered_labels.txt"})
+         fs::remove(index_path_prefix + name);
 
       // 保存 LNG 的核心图结构 (邻接表)
       std::string lng_out_neighbors_filename = index_path_prefix + "lng_out_neighbors.dat";
@@ -386,138 +206,11 @@ namespace ANNS
       std::cout << "LNG out_neighbors saved." << std::endl; // 增加一个打印，确认保存成功
       log_save_stage("lng_out_neighbors");
 
-      if (!_build_config.is_original_cpu_pipeline())
-      {
-         // save vector attr graph data
-         std::string vector_attr_graph_filename = index_path_prefix + "vector_attr_graph";
-         save_bipartite_graph(vector_attr_graph_filename);
-      }
-      log_save_stage("vector_attr_graph");
-
-      // // save _lng_descendants_bits and _covered_sets_bits
-      // std::string lng_descendants_bits_filename = index_path_prefix + "lng_descendants_bits";
-      // write_bitset_vector(lng_descendants_bits_filename, _lng_descendants_bits);
-      // std::string covered_sets_bits_filename = index_path_prefix + "covered_sets_bits";
-      // write_bitset_vector(covered_sets_bits_filename, _covered_sets_bits);
-
-      if (!_build_config.is_original_cpu_pipeline())
-      {
-         // save lng_descendants_rb and _covered_sets_rb
-         std::string lng_descendants_rb_filename = index_path_prefix + "lng_descendants_rb.bin";
-         save_roaring_vector(lng_descendants_rb_filename, _lng_descendants_rb);
-         std::string covered_sets_rb_filename = index_path_prefix + "covered_sets_rb.bin";
-         save_roaring_vector(covered_sets_rb_filename, _covered_sets_rb);
-      }
-      log_save_stage("roaring_bitmaps");
-
-      if (!_build_config.is_original_cpu_pipeline())
-      {
-      const bool skip_reordered_export = std::getenv("UNG_SKIP_REORDERED_EXPORT") != nullptr;
-      if (skip_reordered_export)
-      {
-         std::cout << "\n--- Skipping reordered data export for ACORN index building (UNG_SKIP_REORDERED_EXPORT=1) ---"
-                   << std::endl;
-      }
-      else
-      {
-      // save acorn index
-      std::cout << "\n--- Exporting reordered data for ACORN index building ---" << std::endl;
-
-      // 1. 导出重排后的向量
-      std::string reordered_vec_path = index_path_prefix + "reordered_vecs.fvecs";
-      std::cout << "- Saving reordered vectors to: " << reordered_vec_path << std::endl;
-      try
-      {
-         uint32_t dim = static_cast<uint32_t>(_base_storage->get_dim());
-         std::ofstream out(reordered_vec_path, std::ios::binary);
-         if (!out)
-         {
-            throw std::runtime_error("Cannot open file for writing: " + reordered_vec_path);
-         }
-
-         // 遍历所有已重排的向量并按 .fvecs 格式写入
-         for (ANNS::IdxType new_id = 0; new_id < _num_points; ++new_id)
-         {
-            const float *vec_data = reinterpret_cast<const float *>(_base_storage->get_vector(new_id));
-            // 先写入维度
-            out.write(reinterpret_cast<const char *>(&dim), sizeof(uint32_t));
-            // 再写入向量数据
-            out.write(reinterpret_cast<const char *>(vec_data), dim * sizeof(float));
-         }
-         out.close();
-         std::cout << "- Reordered vectors saved successfully." << std::endl;
-      }
-      catch (const std::exception &e)
-      {
-         std::cerr << "Error while saving reordered vectors: " << e.what() << std::endl;
-      }
-
-      // 2. 导出与重排后向量顺序完全一致的标签
-      std::string reordered_label_path = index_path_prefix + "reordered_labels.txt";
-      std::ofstream reordered_label_file(reordered_label_path);
-      if (!reordered_label_file.is_open())
-      {
-         std::cerr << "Error: Could not open file to save reordered labels: " << reordered_label_path << std::endl;
-      }
-      else
-      {
-         for (ANNS::IdxType new_id = 0; new_id < _num_points; ++new_id)
-         {
-            const auto &label_set = _base_storage->get_label_set(new_id);
-            for (size_t i = 0; i < label_set.size(); ++i)
-            {
-               reordered_label_file << label_set[i] << (i == label_set.size() - 1 ? "" : ",");
-            }
-            reordered_label_file << "\n";
-         }
-         reordered_label_file.close();
-         std::cout << "- Reordered labels saved to: " << reordered_label_path << std::endl;
-      }
-	      std::cout << "--- Finished exporting reordered data ---\n"
-	                << std::endl;
-	      }
-      }
-      log_save_stage("reordered_export");
-
       // print
       std::cout << "- Index saved in " << std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time).count() << " ms" << std::endl;
    }
 
-   std::unordered_map<int, std::vector<int>> load_inverted_index(const std::string &input_path)
-   {
-      std::ifstream in(input_path, std::ios::binary);
-      if (!in)
-      {
-         fprintf(stderr, "Error: Cannot open file for reading inverted index: %s\n", input_path.c_str());
-         exit(1);
-      }
-
-      std::unordered_map<int, std::vector<int>> inverted_index;
-
-      uint64_t map_size;
-      in.read(reinterpret_cast<char *>(&map_size), sizeof(map_size));
-      inverted_index.reserve(map_size);
-
-      for (uint64_t i = 0; i < map_size; ++i)
-      {
-         int attr_id;
-         uint64_t list_size;
-
-         in.read(reinterpret_cast<char *>(&attr_id), sizeof(attr_id));
-         in.read(reinterpret_cast<char *>(&list_size), sizeof(list_size));
-
-         std::vector<int> vec_list(list_size);
-         in.read(reinterpret_cast<char *>(vec_list.data()), list_size * sizeof(int));
-
-         inverted_index[attr_id] = std::move(vec_list);
-      }
-
-      in.close();
-      printf("Inverted index loaded successfully.\n");
-      return inverted_index;
-   }
-
-   void UniNavGraph::load(std::string index_path_prefix, std::string selector_model_prefix, const std::string &data_type, const std::string &acorn_index_path, const std::string &acorn_1_index_path, const std::string &dataset)
+   void UniNavGraph::load(std::string index_path_prefix, const std::string &data_type, const std::string &dataset)
    {
       std::cout << "Loading index from " << index_path_prefix << " ..." << std::endl;
       auto start_time = std::chrono::high_resolution_clock::now();
@@ -589,11 +282,6 @@ namespace ANNS
       // load trie index
       std::string trie_filename = index_path_prefix + "trie";
       _trie_index.load(trie_filename);
-      // --- 预计算并缓存 Trie 静态指标 ---
-      std::cout << "Pre-calculating and caching Trie static metrics..." << std::endl;
-      _trie_static_metrics = _trie_index.calculate_static_metrics();
-      std::cout << "- Caching complete." << std::endl;
-
       // load graph data
       std::string graph_filename = index_path_prefix + "graph";
       _graph = std::make_shared<Graph>(_base_storage->get_num_points());
@@ -605,33 +293,6 @@ namespace ANNS
 
       std::string global_vamana_entry_point_filename = index_path_prefix + "global_vamana_entry_point";
       load_one_T(global_vamana_entry_point_filename, _global_vamana_entry_point);
-
-      std::string coverage_ratio_filename = index_path_prefix + "lng_coverage_ratio";
-      std::cout << "_label_nav_graph->coverage_ratio size: " << _label_nav_graph->coverage_ratio.size() << std::endl;
-      load_1d_vector(coverage_ratio_filename, _label_nav_graph->coverage_ratio);
-      std::cout << "LNG coverage ratio loaded." << std::endl;
-
-      std::string lng_descendants_num_filename = index_path_prefix + "lng_descendants_num";
-      std::string lng_descendants_filename = index_path_prefix + "lng_descendants";
-      std::string covered_sets_filename = index_path_prefix + "covered_sets";
-      const bool has_lng_text_sets = fs::exists(lng_descendants_num_filename) &&
-                                     fs::exists(lng_descendants_filename) &&
-                                     fs::exists(covered_sets_filename);
-      if (has_lng_text_sets)
-      {
-         load_1d_pair_vector(lng_descendants_num_filename, _label_nav_graph->_lng_descendants_num);
-         std::cout << "LNG descendants num loaded." << std::endl;
-
-         load_2d_vectors(lng_descendants_filename, _label_nav_graph->_lng_descendants);
-
-         load_2d_vectors(covered_sets_filename, _label_nav_graph->covered_sets);
-         std::cout << "LNG covered_sets loaded." << std::endl;
-      }
-      else
-      {
-         std::cout << "LNG text covered_sets/lng_descendants are absent; relying on roaring caches and out_neighbors."
-                   << std::endl;
-      }
 
       std::string lng_out_neighbors_filename = index_path_prefix + "lng_out_neighbors.dat";
       load_2d_vectors(lng_out_neighbors_filename, _label_nav_graph->out_neighbors);
@@ -649,176 +310,6 @@ namespace ANNS
           _build_config.hierarchy.base_topology, _group_id_to_label_set,
           _num_groups, _label_nav_graph);
       std::cout << "LNG out_neighbors loaded." << std::endl;
-
-      // Optional legacy bitset caches; roaring caches are loaded below.
-      // std::string lng_descendants_bits_filename = index_path_prefix + "lng_descendants_bits";
-      // load_bitset_vector(lng_descendants_bits_filename, _lng_descendants_bits);
-      // std::cout << "_lng_descendants_bits loaded." << std::endl;
-      // std::string covered_sets_bits_filename = index_path_prefix + "covered_sets_bits";
-      // load_bitset_vector(covered_sets_bits_filename, _covered_sets_bits);
-      // std::cout << "_covered_sets_bits loaded." << std::endl;
-
-      std::string lng_descendants_rb_filename = index_path_prefix + "lng_descendants_rb.bin";
-      load_roaring_vector(lng_descendants_rb_filename, _lng_descendants_rb);
-      std::cout << "_lng_descendants_rb loaded." << std::endl;
-      std::string covered_sets_rb_filename = index_path_prefix + "covered_sets_rb.bin";
-      load_roaring_vector(covered_sets_rb_filename, _covered_sets_rb);
-      std::cout << "_covered_sets_rb loaded." << std::endl;
-      std::cout << " _label_nav_graph->out_neighbors.size() = " << _label_nav_graph->out_neighbors.size() << std::endl;
-      std::cout << " _num_groups = " << _num_groups << std::endl;
-
-      // load idea1 selector
-      std::string model_path = selector_model_prefix + "/idea1/idea1_selector_model_final.onnx";
-      std::cout << "Loading Trie method selector model from " << model_path << " ..." << std::endl;
-      try
-      {
-         if (fs::exists(model_path))
-         {
-            _trie_method_selector = std::make_unique<MethodSelector>(model_path);
-            std::cout << "- Model loaded successfully." << std::endl;
-         }
-         else
-         {
-            std::cerr << "- WARNING: Model file not found. Will use default method passed by command line." << std::endl;
-            _trie_method_selector = nullptr;
-         }
-      }
-      catch (const std::exception &e)
-      {
-         std::cerr << "- ERROR: Failed to load model: " << e.what() << ". Will use default method." << std::endl;
-         _trie_method_selector = nullptr;
-      }
-
-      // load idea2 selector
-      std::string idea2_model_path = selector_model_prefix + "/idea2/idea2_selector_model_final.onnx";
-      std::cout << "Loading Idea2 Selector model from " << idea2_model_path << " ..." << std::endl;
-      if (fs::exists(idea2_model_path))
-      {
-         std::cout << "- Loading Idea2 Selector model from: " << idea2_model_path << std::endl;
-         try
-         {
-            _ung_acorn_selector = std::make_unique<MethodSelector>(idea2_model_path);
-         }
-         catch (const std::runtime_error &e)
-         {
-            std::cerr << "  - [ERROR] Failed to initialize Idea2 Selector: " << e.what() << std::endl;
-            _ung_acorn_selector = nullptr;
-         }
-      }
-      else
-      {
-         std::cout << "- [INFO] Idea2 Selector model not found at: " << idea2_model_path << ". Selector will be disabled." << std::endl;
-         _ung_acorn_selector = nullptr;
-      }
-
-      // === load ACORN index ===
-      // Declare a shared inverted index and a flag to track if it's loaded.
-      std::unordered_map<int, std::vector<int>> shared_inverted_index;
-      bool inverted_index_loaded = false;
-
-      if (!acorn_index_path.empty() && fs::exists(acorn_index_path))
-      {
-         std::cout << "Loading REORDERED ACORN index from " << acorn_index_path << " ..." << std::endl;
-         try
-         {
-            faiss::Index *raw_index = faiss::read_index(acorn_index_path.c_str());
-            _acorn_index = std::shared_ptr<faiss::IndexACORNFlat>(dynamic_cast<faiss::IndexACORNFlat *>(raw_index));
-
-            if (_acorn_index)
-            {
-               std::cout << "- Associating metadata directly (reordered)..." << std::endl;
-               std::vector<std::vector<int>> metadata(_num_points);
-               for (size_t new_id = 0; new_id < _num_points; ++new_id)
-               {
-                  const auto &label_set = _base_storage->get_label_set(new_id);
-                  metadata[new_id].assign(label_set.begin(), label_set.end());
-                  std::sort(metadata[new_id].begin(), metadata[new_id].end());
-               }
-               _acorn_index->set_metadata(metadata);
-               std::cout << "- ACORN index loaded and metadata associated successfully." << std::endl;
-
-               std::string inverted_index_path = acorn_index_path + ".inverted_index";
-               if (fs::exists(inverted_index_path))
-               {
-                  std::cout << "- Loading inverted index from: " << inverted_index_path << std::endl;
-                  shared_inverted_index = load_inverted_index(inverted_index_path);
-                  _acorn_index->set_inverted_index(shared_inverted_index);
-                  inverted_index_loaded = true;
-                  std::cout << "- Inverted index loaded and set successfully for ACORN." << std::endl;
-               }
-               else
-               {
-                  std::cerr << "  - [WARNING] Inverted index file not found at: " << inverted_index_path
-                            << ". ACORN's original filtering (force_use_alg=3) will not work." << std::endl;
-               }
-            }
-            else
-            {
-               std::cerr << "ERROR: Failed to cast loaded index to faiss::IndexACORNFlat." << std::endl;
-               delete raw_index;
-            }
-         }
-         catch (const std::exception &e)
-         {
-            std::cerr << "ERROR: Exception caught while loading ACORN index: " << e.what() << std::endl;
-            _acorn_index = nullptr;
-         }
-      }
-      else if (!acorn_index_path.empty())
-      {
-         std::cerr << "Warning: ACORN index path provided, but file not found at: " << acorn_index_path << std::endl;
-      }
-
-      // --- load ACORN-1 index ---
-      if (!acorn_1_index_path.empty() && fs::exists(acorn_1_index_path))
-      {
-         std::cout << "Loading REORDERED ACORN-1 index from " << acorn_1_index_path << " ..." << std::endl;
-         try
-         {
-            faiss::Index *raw_index_1 = faiss::read_index(acorn_1_index_path.c_str());
-            _acorn_1_index = std::shared_ptr<faiss::IndexACORNFlat>(dynamic_cast<faiss::IndexACORNFlat *>(raw_index_1));
-
-            if (_acorn_1_index)
-            {
-               std::cout << "- Associating metadata directly with ACORN-1 index (reordered)..." << std::endl;
-               std::vector<std::vector<int>> metadata(_num_points);
-               for (size_t new_id = 0; new_id < _num_points; ++new_id)
-               {
-                  const auto &label_set = _base_storage->get_label_set(new_id);
-                  metadata[new_id].assign(label_set.begin(), label_set.end());
-                  std::sort(metadata[new_id].begin(), metadata[new_id].end());
-               }
-               _acorn_1_index->set_metadata(metadata);
-               std::cout << "- ACORN-1 index loaded and metadata associated successfully." << std::endl;
-
-               // Replace the old loading logic to reuse the inverted index.
-               if (inverted_index_loaded)
-               {
-                  std::cout << "- Reusing the loaded inverted index for ACORN-1." << std::endl;
-                  _acorn_1_index->set_inverted_index(shared_inverted_index);
-                  std::cout << "- Inverted index set successfully for ACORN-1." << std::endl;
-               }
-               else
-               {
-                  std::cerr << "  - [WARNING] Inverted index could not be set for ACORN-1 because the primary inverted index file was not found." << std::endl;
-               }
-            }
-            else
-            {
-               std::cerr << "ERROR: Failed to cast loaded index to faiss::IndexACORNFlat from " << acorn_1_index_path << std::endl;
-               delete raw_index_1;
-            }
-         }
-         catch (const std::exception &e)
-         {
-            std::cerr << "ERROR: Exception caught while loading ACORN-1 index: " << e.what() << std::endl;
-            _acorn_1_index = nullptr;
-         }
-      }
-      else if (!acorn_1_index_path.empty())
-      {
-         std::cerr << "Warning: ACORN-1 index file not found at: " << acorn_1_index_path << std::endl;
-      }
 
       // print
       std::cout << "- Index loaded in " << std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - start_time).count() << " ms" << std::endl;
@@ -902,21 +393,6 @@ namespace ANNS
       _index_size += special_block_size;
 
       _index_size_add_rb = _index_size;
-
-      if (!_lng_descendants_rb.empty())
-      {
-         for (const auto &rb : _lng_descendants_rb)
-         {
-               _index_size_add_rb += rb.getSizeInBytes();
-         }
-      }
-      if (!_covered_sets_rb.empty())
-      {
-         for (const auto &rb : _covered_sets_rb)
-         {
-               _index_size_add_rb += rb.getSizeInBytes();
-         }
-      }
 
       // return as MB
       _index_size /= 1024 * 1024;

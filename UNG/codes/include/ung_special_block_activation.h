@@ -91,6 +91,56 @@ inline uint8_t special_block_activation_level(const SpecialBlock &block)
    return static_cast<uint8_t>(block.level + 1);
 }
 
+// Return every query-authorized materialized state for a point, ordered from
+// the coarsest (highest activation level) to the finest. Callers select the
+// levels at or above the point's current state, making cross-layer movement
+// monotone while sharing one cached vector distance across graph states.
+inline std::vector<uint8_t> special_block_authorized_levels_for_point(
+    IdxType point_id,
+    const std::vector<std::vector<IdxType>> &point_to_block_by_level,
+    const std::vector<uint8_t> &query_free_block)
+{
+   std::vector<uint8_t> levels;
+   levels.reserve(point_to_block_by_level.size());
+   for (size_t level_index = point_to_block_by_level.size(); level_index > 0;
+        --level_index)
+   {
+      const std::vector<IdxType> &owners =
+          point_to_block_by_level[level_index - 1];
+      if (point_id >= owners.size())
+         continue;
+      const IdxType block_id = owners[point_id];
+      if (block_id == 0 || block_id >= query_free_block.size() ||
+          query_free_block[block_id] == 0)
+         continue;
+      levels.push_back(static_cast<uint8_t>(level_index));
+   }
+   return levels;
+}
+
+// A point discovered while expanding current_level may remain in that layer
+// and may be promoted to any query-authorized coarser layer. It must never
+// create a finer-layer state: once traversal has moved upward, search is
+// monotone and cannot fall back to a lower overlay or to the base graph.
+inline std::vector<uint8_t> special_block_monotone_levels_for_point(
+    IdxType point_id, uint8_t current_level,
+    const std::vector<std::vector<IdxType>> &point_to_block_by_level,
+    const std::vector<uint8_t> &query_free_block)
+{
+   std::vector<uint8_t> levels = special_block_authorized_levels_for_point(
+       point_id, point_to_block_by_level, query_free_block);
+   levels.erase(
+       std::remove_if(levels.begin(), levels.end(),
+                      [current_level](uint8_t level) {
+                         return level < current_level;
+                      }),
+       levels.end());
+   if (std::find(levels.begin(), levels.end(), current_level) == levels.end())
+      levels.push_back(current_level);
+   std::sort(levels.begin(), levels.end(), std::greater<uint8_t>());
+   return levels;
+}
+
 struct SpecialBlockEdgeTransition
 {
    bool allowed = false;
@@ -98,7 +148,8 @@ struct SpecialBlockEdgeTransition
 };
 
 // Authorize only the overlay owned by the candidate's current activation
-// level. Search states never promote or fall through between levels.
+// level. Cross-layer movement is represented by inserting another state for
+// the same point; an edge itself never silently changes layer.
 inline SpecialBlockEdgeTransition special_block_edge_transition(
     uint8_t current_level, const SpecialBlock &owner, bool query_covers_owner)
 {

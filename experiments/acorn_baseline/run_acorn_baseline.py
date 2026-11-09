@@ -9,6 +9,9 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from result_completion import describe_search_values, should_skip_completed_search
+
 
 def log(message: str) -> None:
     print(f"[{time.strftime('%F %T')}] {message}", flush=True)
@@ -264,7 +267,18 @@ def ensure_ung_tools(cfg: dict) -> tuple[Path, Path]:
     jobs = str(cfg.get("build_jobs", os.environ.get("BUILD_JOBS", 16)))
     if auto_compile:
         build_dir.mkdir(parents=True, exist_ok=True)
-        run_command(["cmake", "-S", source_dir, "-B", build_dir, "-DCMAKE_BUILD_TYPE=Release"])
+        run_command(
+            [
+                "cmake",
+                "-S",
+                source_dir,
+                "-B",
+                build_dir,
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DUNG_BUILD_TOOLS=ON",
+                "-DUNG_BUILD_TESTS=OFF",
+            ]
+        )
         run_command(["cmake", "--build", build_dir, f"-j{jobs}", "--target", "compute_groundtruth", "fvecs_to_bin"])
     compute_gt_bin = build_dir / "tools" / "compute_groundtruth"
     fvecs_to_bin = build_dir / "tools" / "fvecs_to_bin"
@@ -329,8 +343,10 @@ def ensure_gt(compute_gt_bin: Path, cfg: dict, paths: dict[str, Path | str], que
     return gt_file
 
 
-def acorn_index_exists(index_dir: Path) -> bool:
-    required = ["acorn.index", "acorn1.index", "acorn.index.meta", "acorn.index.inverted_index"]
+def acorn_index_exists(index_dir: Path, require_acorn1: bool = True) -> bool:
+    required = ["acorn.index", "acorn.index.meta", "acorn.index.inverted_index"]
+    if require_acorn1:
+        required.append("acorn1.index")
     if not all((index_dir / name).exists() for name in required):
         return False
     return (index_dir / "acorn.index.inverted_index").stat().st_size > 8
@@ -373,6 +389,7 @@ def acorn_cmd(
         index_dir / "acorn.index",
         index_dir / "acorn1.index",
         str(search_cfg["K"]),
+        bool_int(cfg.get("run_acorn1", True)),
     ]
 
 
@@ -381,7 +398,8 @@ def ensure_index(test_acorn: Path, cfg: dict, paths: dict[str, Path | str], buil
     other_dir = paths["other_dir"]
     assert isinstance(index_dir, Path)
     assert isinstance(other_dir, Path)
-    if acorn_index_exists(index_dir):
+    require_acorn1 = bool(cfg.get("run_acorn1", True))
+    if acorn_index_exists(index_dir, require_acorn1):
         log(f"[{paths['dataset']}] ACORN index exists: {index_dir}")
         return index_dir
     for key in ["base_fvecs", "base_labels"]:
@@ -394,8 +412,11 @@ def ensure_index(test_acorn: Path, cfg: dict, paths: dict[str, Path | str], buil
         acorn_cmd(test_acorn, "build", cfg, paths, build_cfg, search_cfg, n, Path("dummy_gt_path_for_build")),
         other_dir / f"{paths['dataset']}_acorn_build.log",
     )
-    if not acorn_index_exists(index_dir):
-        missing = [name for name in ["acorn.index", "acorn1.index", "acorn.index.meta", "acorn.index.inverted_index"] if not (index_dir / name).exists()]
+    if not acorn_index_exists(index_dir, require_acorn1):
+        required = ["acorn.index", "acorn.index.meta", "acorn.index.inverted_index"]
+        if require_acorn1:
+            required.append("acorn1.index")
+        missing = [name for name in required if not (index_dir / name).exists()]
         raise FileNotFoundError(f"ACORN build finished but required files are missing in {index_dir}: {missing}")
     return index_dir
 
@@ -435,7 +456,7 @@ def acorn1_result_dir(result_dir: Path) -> Path:
     return result_dir.parent.parent.parent / "ACORN-1" / result_dir.parent.name / result_dir.name
 
 
-def normalize_acorn_summary(result_dir: Path) -> None:
+def normalize_acorn_summary(result_dir: Path, include_acorn1: bool = True) -> None:
     avg_files = sorted(result_dir.glob("avg_*.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
     if not avg_files:
         raise FileNotFoundError(f"missing ACORN avg csv in {result_dir}")
@@ -443,7 +464,8 @@ def normalize_acorn_summary(result_dir: Path) -> None:
     with avg_csv.open(newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     write_normalized_summary(rows, result_dir, time_col="acorn_Time_ms", recall_col="acorn_Recall", qps_col="acorn_QPS")
-    write_normalized_summary(rows, acorn1_result_dir(result_dir), time_col="acorn_1_Time_ms", recall_col="acorn_1_Recall", qps_col="acorn_1_QPS")
+    if include_acorn1:
+        write_normalized_summary(rows, acorn1_result_dir(result_dir), time_col="acorn_1_Time_ms", recall_col="acorn_1_Recall", qps_col="acorn_1_QPS")
 
 
 def run_search(
@@ -459,13 +481,21 @@ def run_search(
     other_dir = paths["other_dir"]
     assert isinstance(result_dir, Path)
     assert isinstance(other_dir, Path)
+    values = efs_values(search_cfg)
+    summary_csv = result_dir / "search_time_summary.csv"
+    if should_skip_completed_search(summary_csv, values, cfg):
+        log(
+            f"[{paths['dataset']}] existing ACORN results cover "
+            f"{describe_search_values(values)}; skipping search: {summary_csv}"
+        )
+        return
     result_dir.mkdir(parents=True, exist_ok=True)
     other_dir.mkdir(parents=True, exist_ok=True)
     run_command(
         acorn_cmd(test_acorn, "search", cfg, paths, build_cfg, search_cfg, n, gt_file),
         other_dir / f"{paths['dataset']}_acorn_search.log",
     )
-    normalize_acorn_summary(result_dir)
+    normalize_acorn_summary(result_dir, include_acorn1=bool(cfg.get("run_acorn1", True)))
 
 
 def dataset_n(paths: dict[str, Path | str], dataset_cfg: dict) -> int:

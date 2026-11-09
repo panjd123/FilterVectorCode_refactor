@@ -1,0 +1,51 @@
+{
+  "result_root": "/home/dev/graphdb/FilterVectorResult",
+  "data_root": "/home/dev/graphdb/FilterVectorData",
+  "pathseer_source_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/PathSeer",
+  "pathseer_faiss_build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/PathSeer/faiss/build",
+  "pathseer_adapter_build_dir": "/home/dev/graphdb/FilterVectorCode_multilevel_special/PathSeer/project_adapter/build",
+  "nlohmann_json_archive": "/home/dev/graphdb/FilterVectorCode_multilevel_special/thirdparty/json-3.10.4.tar.gz",
+  "openblas_library": "/home/dev/graphdb/openblas/lib/libopenblas.so",
+  "build_jobs": 16,
+  "build": {
+    "data_type": "float",
+    "dist_fn": "L2",
+    "scenario": "containment",
+    "num_threads": 60,
+    "M": 64,
+    "M_exp": 128,
+    "ef_construction": 128,
+    "ef_construction_exp": 256,
+    "optimized_building": true
+  },
+  "search": {
+    "K": 10,
+    "num_repeats": 1,
+    "num_threads": 100,
+    "M_exp_search": 32,
+    "lsearch_start": 1000,
+    "lsearch_end": 20000,
+    "lsearch_step": 1000
+  },
+  "datasets": [
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel0to10pct"
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel10to40pct"
+    },
+    {
+      "dataset": "VImg",
+      "query_task": "query_minlen1_sel40to100pct"
+    }
+  ],
+  "methods": [
+    {
+      "name": "pathseer",
+      "index_name": "PathSeer_M64_Mexp128"
+    }
+  ],
+  "auto_build_pathseer": true
+}

@@ -299,6 +299,36 @@ validator, fewer than the declared formal/build repeats, mismatched profile
 operating points, missing activation/work counters, or an incomplete held-out
 matrix leave the existing LaTeX file unchanged.
 
+### Deadline-bounded paper artifact
+
+The smaller deadline artifact does not relax or replace the full generator
+above. `generate_deadline_paper_results.py` has a separate evidence contract:
+the three complete registered Amazon figure families, the complete bounded
+held-out summary, the separate detailed-profile campaign, and the build
+supervisor manifest. It reports `1 cold + 2 warm` screen-level results, keeps
+the five pre-registered manual alternatives distinct from a full oracle, and
+states that hierarchy GPU repeats are incomplete.
+
+```bash
+python3 generate_deadline_paper_results.py \
+  --amazon-equal-recall ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/equal_recall_conservative.csv \
+  --amazon-points ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/all_points.csv \
+  --figures ../../runs/authoritative_multilevel_20260926_emptyfix/search/amazon_screen/summary/performance/figures \
+  --deadline-summary ../../runs/deadline_evidence_20260927_cpufix/deadline_summary \
+  --policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/genome/policy.json \
+  --policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/reviews/policy.json \
+  --policy ../../runs/authoritative_multilevel_20260926_emptyfix/heldout/variousimg/policy.json \
+  --profile ../../runs/deadline_profile_20260927/heldout/genome/search/summary/profile/equal_recall_conservative.csv \
+  --profile ../../runs/deadline_profile_20260927/heldout/reviews/search/summary/profile/equal_recall_conservative.csv \
+  --profile ../../runs/deadline_profile_20260927/heldout/variousimg/search/summary/profile/equal_recall_conservative.csv \
+  --drh-v2-root ../../runs/drh_v2_20260927 \
+  --build-manifest ../../runs/deadline_build_20260927/deadline_build_supervisor_manifest.json \
+  --figure-output-dir ../../docs/papers/multilevel_ung/generated_figures \
+  --manifest-output ../../runs/deadline_paper_20260928/manifest.json \
+  --tex-output ../../docs/papers/multilevel_ung/generated_results.tex \
+  --report-output ../../docs/reports/MULTILEVEL_SPECIAL_BLOCK_AUTHORITATIVE_RESULTS_CN.md
+```
+
 The immutable performance binary predates the correction that charges exact
 upper authorization to `BlockAuthorizationTime_ms`. After every performance,
 held-out, and build process has exited, rerun only the profile pass with a

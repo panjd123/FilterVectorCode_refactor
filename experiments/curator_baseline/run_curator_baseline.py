@@ -8,6 +8,9 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from result_completion import describe_search_values, should_skip_completed_search
 from typing import Any
 
 import numpy as np
@@ -204,7 +207,18 @@ def ensure_binaries(cfg: dict) -> tuple[Path, Path]:
     jobs = str(cfg.get("build_jobs", os.environ.get("BUILD_JOBS", 16)))
     if auto_compile:
         build_dir.mkdir(parents=True, exist_ok=True)
-        run_command(["cmake", "-S", source_dir, "-B", build_dir, "-DCMAKE_BUILD_TYPE=Release"])
+        run_command(
+            [
+                "cmake",
+                "-S",
+                source_dir,
+                "-B",
+                build_dir,
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DUNG_BUILD_TOOLS=ON",
+                "-DUNG_BUILD_TESTS=OFF",
+            ]
+        )
         run_command(
             [
                 "cmake",
@@ -471,6 +485,16 @@ def run_dataset(cfg: dict, dataset_cfg: dict) -> None:
     search_cfg = merged_search_cfg(cfg, dataset_cfg)
     build_cfg = merged_build_cfg(cfg, dataset_cfg)
     paths = dataset_paths(cfg, dataset_cfg, search_cfg)
+    result_dir = paths["result_dir"]
+    assert isinstance(result_dir, Path)
+    values = search_budget_values(search_cfg)
+    summary_csv = result_dir / "search_time_summary.csv"
+    if should_skip_completed_search(summary_csv, values, cfg, dataset_cfg):
+        log(
+            f"[{paths['dataset']}] existing Curator results cover "
+            f"{describe_search_values(values)}; skipping search: {summary_csv}"
+        )
+        return
     compute_gt_bin, fvecs_to_bin = ensure_binaries(cfg)
     query_bin = ensure_query_bin(fvecs_to_bin, cfg, paths)
     gt_file = ensure_gt(compute_gt_bin, cfg, paths, query_bin, search_cfg)

@@ -113,12 +113,7 @@ bool UniNavGraph::execute_special_batch_gpu_candidate_search(std::shared_ptr<ISt
 
          const auto &query_labels = query_storage->get_label_set(qid);
          std::vector<IdxType> entry_group_ids;
-         QueryRouteDecision decision = decide_query_route(query_labels, runtime.idea2_available,
-                                                          runtime.use_new_trie_method, runtime.recursive_more_start,
-                                                          runtime.force_use_alg, runtime.bfs_filter,
-                                                          entry_group_ids, stats);
-         if (decision.uses_acorn())
-            return false;
+         QueryRouteDecision decision = decide_query_route(query_labels, runtime.force_use_alg, stats);
 
          const EntryGroupProviderRequest entry_request{
              runtime.entry_group_strategy,
@@ -131,7 +126,6 @@ bool UniNavGraph::execute_special_batch_gpu_candidate_search(std::shared_ptr<ISt
              &entry_group_ids,
              false};
          prepare_entry_groups_for_execution(entry_request, entry_group_ids, stats);
-         populate_special_query_stats(query_labels, stats);
 
          state.core_start = std::chrono::high_resolution_clock::now();
          state.candidate_begin = flat_candidate_ids.size();

@@ -1,0 +1,194 @@
+{
+  "Curator": {
+    "yfcc100m": {
+      "OR": {
+        "construction_params": {
+          "nlist": 32,
+          "max_sl_size": 256,
+          "beam_size": 4,
+          "variance_boost": 0.4
+        },
+        "search_param_combinations": {
+          "search_ef": [
+            32,
+            64,
+            128,
+            256,
+            512,
+            1024
+          ]
+        }
+      }
+    }
+  },
+  "Curator (Indexed)": {
+    "yfcc100m": {
+      "OR": {
+        "construction_params": {
+          "nlist": 32,
+          "max_sl_size": 256,
+          "beam_size": 4,
+          "variance_boost": 0.4
+        },
+        "search_param_combinations": {
+          "search_ef": [
+            32,
+            64,
+            128,
+            256,
+            512,
+            1024
+          ]
+        }
+      }
+    }
+  },
+  "Shared HNSW": {
+    "yfcc100m": {
+      "OR": {
+        "construction_params": {
+          "construction_ef": 64,
+          "m": 32
+        },
+        "search_param_combinations": {
+          "search_ef": [
+            16,
+            32,
+            64,
+            128,
+            256
+          ]
+        }
+      }
+    }
+  },
+  "Per-Predicate HNSW": {
+    "yfcc100m": {
+      "OR": {
+        "construction_params": {
+          "construction_ef": 32,
+          "m": 16
+        },
+        "search_param_combinations": {
+          "search_ef": [
+            16,
+            32,
+            64,
+            128,
+            256
+          ]
+        }
+      }
+    }
+  },
+  "Shared IVF": {
+    "yfcc100m": {
+      "OR": {
+        "construction_params": {
+          "nlist": 1024
+        },
+        "search_param_combinations": {
+          "nprobe": [
+            8,
+            16,
+            32,
+            64,
+            128,
+            256,
+            512,
+            1024
+          ]
+        }
+      }
+    }
+  },
+  "Per-Predicate IVF": {
+    "yfcc100m": {
+      "OR": {
+        "construction_params": {
+          "nlist": 30
+        },
+        "search_param_combinations": {
+          "nprobe": [
+            1,
+            2,
+            4,
+            8,
+            16
+          ]
+        }
+      }
+    }
+  },
+  "Parlay IVF": {
+    "yfcc100m": {
+      "AND": {
+        "construction_params": {
+          "ivf_cluster_size": 500,
+          "graph_degree": 16,
+          "ivf_max_iter": 10
+        },
+        "search_param_combinations": {
+          "ivf_search_radius": [
+            1000
+          ],
+          "graph_search_L": [
+            16,
+            32,
+            64,
+            128
+          ]
+        }
+      }
+    }
+  },
+  "ACORN": {
+    "yfcc100m": {
+      "OR": {
+        "construction_params": {
+          "m": 64,
+          "gamma": 20,
+          "m_beta": 128
+        },
+        "search_param_combinations": {
+          "search_ef": [
+            16,
+            32,
+            64,
+            128,
+            256
+          ]
+        }
+      }
+    }
+  },
+  "pgvector HNSW": {
+    "yfcc100m": {
+      "OR": {
+        "construction_params": {
+          "construction_ef": 64,
+          "m": 32
+        },
+        "search_param_combinations": {
+          "ef_search": [128],
+          "max_scan_tuples": [2500, 5000, 10000, 20000, 40000]
+        }
+      }
+    }
+  },
+  "pgvector IVF": {
+    "yfcc100m": {
+      "OR": {
+        "construction_params": {
+          "lists": 1024
+        },
+        "search_param_combinations": {
+          "nprobe_iter": 8,
+          "nprobe_classic": [16, 32, 64, 128, 256],
+          "max_probes": [256],
+          "overscan": [1, 2, 4, 8, 16]
+        }
+      }
+    }
+  }
+}

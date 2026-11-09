@@ -11,7 +11,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
+#include <exception>
 #include <cerrno>
 #include <fstream>
 #include <filesystem>
@@ -81,6 +83,9 @@ uint64_t special_block_disk_bytes(const std::string &prefix)
        "special_edges.csv",
        "special_heavy_edges.bin",
        "special_heavy_edges.csv",
+       "upper_hnsw.faiss",
+       "upper_hnsw_mapping.bin",
+       "special_block_router_bounds.bin",
    };
    uint64_t total = 0;
    for (const char *name : files)
@@ -97,6 +102,46 @@ constexpr char kSpecialBlockMetadataMagicV2[8] = {'S', 'B', 'L', 'K', '0', '0', 
 constexpr char kSpecialBlockMetadataMagicV3[8] = {'S', 'B', 'L', 'K', '0', '0', '3', '\0'};
 constexpr uint32_t kSpecialBlockMetadataVersion = 3;
 
+constexpr char kSpecialBlockRouterBoundsMagic[8] =
+    {'S', 'B', 'R', 'B', '0', '0', '1', '\0'};
+constexpr uint32_t kSpecialBlockRouterBoundsVersion = 1;
+
+struct SpecialBlockRouterBoundsHeader
+{
+   char magic[8];
+   uint32_t version;
+   uint32_t dim;
+   uint64_t num_points;
+   uint64_t num_blocks;
+   uint64_t topology_hash;
+};
+static_assert(sizeof(SpecialBlockRouterBoundsHeader) == 40,
+              "unexpected router bounds header layout");
+
+uint64_t special_block_router_topology_hash(
+    const std::vector<SpecialBlock> &blocks)
+{
+   uint64_t hash = 1469598103934665603ULL;
+   auto append = [&](uint64_t value) {
+      for (unsigned shift = 0; shift < 64; shift += 8)
+      {
+         hash ^= (value >> shift) & 0xffU;
+         hash *= 1099511628211ULL;
+      }
+   };
+   for (const SpecialBlock &block : blocks)
+   {
+      append(block.block_id);
+      append(block.level);
+      append(block.point_count);
+      append(block.subtree_point_count);
+      for (IdxType group_id : block.member_group_ids)
+         append(group_id);
+      for (IdxType child_id : block.child_block_ids)
+         append(child_id);
+   }
+   return hash;
+}
 bool validate_special_block_metadata_impl(
     const std::vector<SpecialBlock> &blocks,
     std::string &error)
@@ -1726,6 +1771,7 @@ struct SpecialInterPairProfile
    size_t target_points = 0;
    unsigned long long pair_work = 0;
    unsigned long long edges = 0;
+   unsigned long long distance_computations = 0;
    bool exact_scan = false;
    bool sampled = false;
    bool forced_graph = false;
@@ -1945,6 +1991,364 @@ bool validate_special_block_partition_semantics(
        point_to_group, false, error);
 }
 
+bool UniNavGraph::load_special_block_router_bounds(const std::string &path)
+{
+   _special_block_router_centroids.clear();
+   _special_block_router_radii.clear();
+   std::ifstream in(path, std::ios::binary);
+   if (!in)
+      return false;
+
+   SpecialBlockRouterBoundsHeader header{};
+   in.read(reinterpret_cast<char *>(&header), sizeof(header));
+   const IdxType dim = _base_storage ? _base_storage->get_dim() : 0;
+   if (!in ||
+       std::memcmp(header.magic, kSpecialBlockRouterBoundsMagic,
+                   sizeof(header.magic)) != 0 ||
+       header.version != kSpecialBlockRouterBoundsVersion ||
+       header.dim != dim ||
+       header.num_points != _num_points ||
+       header.num_blocks != _special_blocks.size() ||
+       header.topology_hash !=
+           special_block_router_topology_hash(_special_blocks))
+      return false;
+
+   const size_t centroid_values =
+       static_cast<size_t>(header.num_blocks) * header.dim;
+   _special_block_router_centroids.resize(centroid_values);
+   _special_block_router_radii.resize(
+       static_cast<size_t>(header.num_blocks));
+   in.read(reinterpret_cast<char *>(_special_block_router_centroids.data()),
+           static_cast<std::streamsize>(centroid_values * sizeof(float)));
+   in.read(reinterpret_cast<char *>(_special_block_router_radii.data()),
+           static_cast<std::streamsize>(
+               _special_block_router_radii.size() * sizeof(float)));
+   if (!in || in.peek() != std::ifstream::traits_type::eof())
+   {
+      _special_block_router_centroids.clear();
+      _special_block_router_radii.clear();
+      return false;
+   }
+   for (float value : _special_block_router_centroids)
+      if (!std::isfinite(value))
+      {
+         _special_block_router_centroids.clear();
+         _special_block_router_radii.clear();
+         return false;
+      }
+   for (float radius : _special_block_router_radii)
+      if (!std::isfinite(radius) || radius < 0.0f)
+      {
+         _special_block_router_centroids.clear();
+         _special_block_router_radii.clear();
+         return false;
+      }
+   return true;
+}
+
+void UniNavGraph::save_special_block_router_bounds(
+    const std::string &path) const
+{
+   const IdxType dim = _base_storage ? _base_storage->get_dim() : 0;
+   const size_t expected_centroids = _special_blocks.size() * dim;
+   if (_special_block_router_centroids.size() != expected_centroids ||
+       _special_block_router_radii.size() != _special_blocks.size())
+      throw std::runtime_error(
+          "cannot save incomplete special block router bounds");
+
+   SpecialBlockRouterBoundsHeader header{};
+   std::memcpy(header.magic, kSpecialBlockRouterBoundsMagic,
+               sizeof(header.magic));
+   header.version = kSpecialBlockRouterBoundsVersion;
+   header.dim = dim;
+   header.num_points = _num_points;
+   header.num_blocks = _special_blocks.size();
+   header.topology_hash =
+       special_block_router_topology_hash(_special_blocks);
+
+   const std::string temporary_path = path + ".tmp";
+   std::ofstream out(temporary_path,
+                     std::ios::binary | std::ios::trunc);
+   if (!out)
+      throw std::runtime_error(
+          "cannot create special block router bounds: " + temporary_path);
+   out.write(reinterpret_cast<const char *>(&header), sizeof(header));
+   out.write(
+       reinterpret_cast<const char *>(
+           _special_block_router_centroids.data()),
+       static_cast<std::streamsize>(
+           _special_block_router_centroids.size() * sizeof(float)));
+   out.write(
+       reinterpret_cast<const char *>(
+           _special_block_router_radii.data()),
+       static_cast<std::streamsize>(
+           _special_block_router_radii.size() * sizeof(float)));
+   out.close();
+   if (!out)
+   {
+      std::filesystem::remove(temporary_path);
+      throw std::runtime_error(
+          "failed writing special block router bounds: " +
+          temporary_path);
+   }
+   std::error_code rename_error;
+   std::filesystem::rename(temporary_path, path, rename_error);
+   if (rename_error)
+   {
+      std::filesystem::remove(temporary_path);
+      throw std::runtime_error(
+          "cannot publish special block router bounds: " +
+          rename_error.message());
+   }
+}
+
+void UniNavGraph::build_special_block_router_bounds()
+{
+   if (!_base_storage ||
+       _base_storage->get_data_type() != DataType::FLOAT)
+      throw std::runtime_error(
+          "special block router bounds require FLOAT storage");
+   const size_t num_blocks = _special_blocks.size();
+   const IdxType dim = _base_storage->get_dim();
+   if (num_blocks == 0 || dim == 0)
+   {
+      _special_block_router_centroids.clear();
+      _special_block_router_radii.clear();
+      return;
+   }
+
+   const auto build_start = std::chrono::high_resolution_clock::now();
+   std::vector<double> subtree_sums(num_blocks * dim, 0.0);
+   std::vector<uint64_t> subtree_counts(num_blocks, 0);
+
+#pragma omp parallel for schedule(dynamic, 1)
+   for (long long raw_block_index = 0;
+        raw_block_index < static_cast<long long>(num_blocks);
+        ++raw_block_index)
+   {
+      const size_t block_index =
+          static_cast<size_t>(raw_block_index);
+      const SpecialBlock &block = _special_blocks[block_index];
+      double *sum = subtree_sums.data() + block_index * dim;
+      uint64_t count = 0;
+      for (IdxType group_id : block.member_group_ids)
+      {
+         if (group_id >= _group_id_to_range.size())
+            continue;
+         const auto &range = _group_id_to_range[group_id];
+         for (IdxType point_id = range.first;
+              point_id < range.second; ++point_id)
+         {
+            const float *point = reinterpret_cast<const float *>(
+                _base_storage->get_vector(point_id));
+            for (IdxType coordinate = 0; coordinate < dim;
+                 ++coordinate)
+               sum[coordinate] += point[coordinate];
+            ++count;
+         }
+      }
+      subtree_counts[block_index] = count;
+   }
+
+   for (size_t block_index = 0; block_index < num_blocks;
+        ++block_index)
+      if (subtree_counts[block_index] !=
+          _special_blocks[block_index].point_count)
+         throw std::runtime_error(
+             "special block direct point count changed while building router bounds");
+
+   std::vector<uint8_t> visit_state(num_blocks, 0);
+   std::vector<size_t> postorder;
+   postorder.reserve(num_blocks);
+   auto aggregate_subtree = [&](auto &&self,
+                                size_t block_index) -> void {
+      if (visit_state[block_index] == 2)
+         return;
+      if (visit_state[block_index] == 1)
+         throw std::runtime_error(
+             "cycle in special block tree while building router bounds");
+      visit_state[block_index] = 1;
+      const SpecialBlock &block = _special_blocks[block_index];
+      double *parent_sum =
+          subtree_sums.data() + block_index * dim;
+      for (IdxType child_block_id : block.child_block_ids)
+      {
+         if (child_block_id == 0 ||
+             child_block_id > num_blocks)
+            throw std::runtime_error(
+                "invalid child block while building router bounds");
+         const size_t child_index = child_block_id - 1;
+         self(self, child_index);
+         const double *child_sum =
+             subtree_sums.data() + child_index * dim;
+         for (IdxType coordinate = 0; coordinate < dim;
+              ++coordinate)
+            parent_sum[coordinate] += child_sum[coordinate];
+         subtree_counts[block_index] +=
+             subtree_counts[child_index];
+      }
+      visit_state[block_index] = 2;
+      postorder.push_back(block_index);
+   };
+   for (size_t block_index = 0; block_index < num_blocks;
+        ++block_index)
+      aggregate_subtree(aggregate_subtree, block_index);
+
+   _special_block_router_centroids.assign(num_blocks * dim, 0.0f);
+   for (size_t block_index = 0; block_index < num_blocks;
+        ++block_index)
+   {
+      if (subtree_counts[block_index] == 0 ||
+          subtree_counts[block_index] !=
+              _special_blocks[block_index].subtree_point_count)
+         throw std::runtime_error(
+             "special block subtree point count changed while building router bounds");
+      const double inverse_count =
+          1.0 / static_cast<double>(subtree_counts[block_index]);
+      const double *sum =
+          subtree_sums.data() + block_index * dim;
+      float *centroid =
+          _special_block_router_centroids.data() +
+          block_index * dim;
+      for (IdxType coordinate = 0; coordinate < dim;
+           ++coordinate)
+         centroid[coordinate] =
+             static_cast<float>(sum[coordinate] * inverse_count);
+   }
+   std::vector<double>().swap(subtree_sums);
+
+   _special_block_router_radii.assign(num_blocks, 0.0f);
+#pragma omp parallel for schedule(dynamic, 1)
+   for (long long raw_block_index = 0;
+        raw_block_index < static_cast<long long>(num_blocks);
+        ++raw_block_index)
+   {
+      const size_t block_index =
+          static_cast<size_t>(raw_block_index);
+      const SpecialBlock &block = _special_blocks[block_index];
+      const float *centroid =
+          _special_block_router_centroids.data() +
+          block_index * dim;
+      float max_distance_sq = 0.0f;
+      for (IdxType group_id : block.member_group_ids)
+      {
+         if (group_id >= _group_id_to_range.size())
+            continue;
+         const auto &range = _group_id_to_range[group_id];
+         for (IdxType point_id = range.first;
+              point_id < range.second; ++point_id)
+         {
+            const float *point = reinterpret_cast<const float *>(
+                _base_storage->get_vector(point_id));
+            float distance_sq = 0.0f;
+            for (IdxType coordinate = 0; coordinate < dim;
+                 ++coordinate)
+            {
+               const float delta =
+                   point[coordinate] - centroid[coordinate];
+               distance_sq += delta * delta;
+            }
+            max_distance_sq =
+                std::max(max_distance_sq, distance_sq);
+         }
+      }
+      _special_block_router_radii[block_index] =
+          std::sqrt(max_distance_sq);
+   }
+
+   // Child balls already cover their complete subtrees. Expand every parent
+   // ball bottom-up so its radius around the parent centroid covers each
+   // child ball as well as its own direct points.
+   for (size_t block_index : postorder)
+   {
+      const float *parent_centroid =
+          _special_block_router_centroids.data() +
+          block_index * dim;
+      float &parent_radius =
+          _special_block_router_radii[block_index];
+      for (IdxType child_block_id :
+           _special_blocks[block_index].child_block_ids)
+      {
+         const size_t child_index = child_block_id - 1;
+         const float *child_centroid =
+             _special_block_router_centroids.data() +
+             child_index * dim;
+         float center_distance_sq = 0.0f;
+         for (IdxType coordinate = 0; coordinate < dim;
+              ++coordinate)
+         {
+            const float delta =
+                child_centroid[coordinate] -
+                parent_centroid[coordinate];
+            center_distance_sq += delta * delta;
+         }
+         parent_radius = std::max(
+             parent_radius,
+             std::sqrt(center_distance_sq) +
+                 _special_block_router_radii[child_index]);
+      }
+   }
+
+   const double build_ms =
+       std::chrono::duration<double, std::milli>(
+           std::chrono::high_resolution_clock::now() -
+           build_start)
+           .count();
+   std::cout << "[special_block_router][bounds] built blocks="
+             << num_blocks << " dim=" << dim
+             << " ms=" << build_ms << std::endl;
+}
+
+void UniNavGraph::load_or_build_special_block_router_bounds(
+    const std::string &block_index_prefix)
+{
+   _special_block_router_centroids.clear();
+   _special_block_router_radii.clear();
+   const char *top_r_text =
+       std::getenv("UNG_SPECIAL_BLOCK_ROUTER_TOP_R");
+   if (top_r_text == nullptr || top_r_text[0] == '\0' ||
+       top_r_text[0] == '-' ||
+       std::strtoull(top_r_text, nullptr, 10) == 0)
+      return;
+   if (env_flag("UNG_SPECIAL_BLOCK_ROUTER_DISABLE_LOWER_BOUND"))
+      return;
+   if (!_base_storage ||
+       _base_storage->get_data_type() != DataType::FLOAT)
+   {
+      std::cerr
+          << "[special_block_router] lower bound disabled: "
+          << "FLOAT/L2 storage is required" << std::endl;
+      return;
+   }
+
+   const std::string path =
+       block_index_prefix + "special_block_router_bounds.bin";
+   const auto load_start =
+       std::chrono::high_resolution_clock::now();
+   if (load_special_block_router_bounds(path))
+   {
+      const double load_ms =
+          std::chrono::duration<double, std::milli>(
+              std::chrono::high_resolution_clock::now() -
+              load_start)
+              .count();
+      std::cout
+          << "[special_block_router][bounds] loaded blocks="
+          << _special_blocks.size()
+          << " bytes="
+          << (_special_block_router_centroids.size() +
+              _special_block_router_radii.size()) *
+                 sizeof(float)
+          << " ms=" << load_ms << std::endl;
+      return;
+   }
+
+   build_special_block_router_bounds();
+   save_special_block_router_bounds(path);
+   std::cout << "[special_block_router][bounds] saved path="
+             << path << std::endl;
+}
+
 void UniNavGraph::refresh_special_block_memory_stats()
 {
    uint64_t logical = 0;
@@ -1993,6 +2397,8 @@ void UniNavGraph::refresh_special_block_memory_stats()
    add_flat_vector(_special_edges_csr.edges);
    add_flat_vector(_special_heavy_edges_csr.offsets);
    add_flat_vector(_special_heavy_edges_csr.edges);
+   add_flat_vector(_special_block_router_centroids);
+   add_flat_vector(_special_block_router_radii);
 
    logical += _special_block_trie_index.logical_memory_size_bytes();
    allocated += _special_block_trie_index.memory_size_bytes();
@@ -2056,65 +2462,9 @@ bool UniNavGraph::is_special_block_root_point(IdxType point_id) const
           _point_is_special_block_root[point_id] != 0;
 }
 
-bool UniNavGraph::query_covers_special_block(const std::vector<LabelType> &query_labels,
-                                             const SpecialBlock &block) const
-{
-   std::vector<LabelType> sorted_query = query_labels;
-   std::vector<LabelType> sorted_coverage =
-       (_special_block_summary.upper_blocks > 0 ||
-        env_flag("UNG_SPECIAL_BLOCK_ROOT_LABEL_COVERAGE"))
-           ? block.root_labels
-           : block.common_labels;
-   std::sort(sorted_query.begin(), sorted_query.end());
-   std::sort(sorted_coverage.begin(), sorted_coverage.end());
-   return std::includes(sorted_coverage.begin(), sorted_coverage.end(),
-                        sorted_query.begin(), sorted_query.end());
-}
 
-void UniNavGraph::populate_special_query_stats(const std::vector<LabelType> &query_labels,
-                                               QueryStats &stats) const
-{
-   stats.special_query_matched_points = 0;
-   stats.special_query_points = 0;
-   stats.special_query_trivial_points = 0;
-   stats.special_query_nontrivial_points = 0;
-   stats.special_query_block_count = 0;
-   stats.special_query_trivial_block_count = 0;
-   stats.special_query_nontrivial_block_count = 0;
-   stats.special_query_ratio = 0.0f;
-   stats.special_query_nontrivial_ratio = 0.0f;
 
-   stats.special_query_matched_points = stats.entry_group_matched_points;
 
-   if (_special_blocks.empty() || stats.special_query_matched_points == 0)
-      return;
-
-   for (const SpecialBlock &block : _special_blocks)
-   {
-      if (!query_covers_special_block(query_labels, block))
-         continue;
-      const size_t points = static_cast<size_t>(block.point_count);
-      stats.special_query_points += points;
-      stats.special_query_block_count += 1;
-      if (block.is_trivial())
-      {
-         stats.special_query_trivial_points += points;
-         stats.special_query_trivial_block_count += 1;
-      }
-      else
-      {
-         stats.special_query_nontrivial_points += points;
-         stats.special_query_nontrivial_block_count += 1;
-      }
-   }
-
-   stats.special_query_ratio =
-       static_cast<float>(stats.special_query_points) /
-       static_cast<float>(stats.special_query_matched_points);
-   stats.special_query_nontrivial_ratio =
-       static_cast<float>(stats.special_query_nontrivial_points) /
-       static_cast<float>(stats.special_query_matched_points);
-}
 
 void UniNavGraph::rebuild_special_block_indexes()
 {
@@ -2185,6 +2535,7 @@ void UniNavGraph::build_special_blocks()
    _special_edges_by_point.clear();
    _special_heavy_edges_by_point.clear();
    _special_block_summary = {};
+   _upper_hnsw.reset();
    _special_block_summary.layer_thresholds.clear();
    for (const HierarchyLayerSpec &layer : _build_config.hierarchy.layers)
       _special_block_summary.layer_thresholds.push_back(layer.min_points);
@@ -2475,6 +2826,27 @@ void UniNavGraph::build_special_block_index(
           "constructed special block partition is invalid: " +
           graph_semantics_error);
    build_special_edge_overlay();
+   _upper_hnsw.reset();
+   if (ung_env_flag_enabled("UNG_UPPER_HNSW_ENABLE") &&
+       ung_env_flag_enabled("UNG_UPPER_HNSW_BUILD"))
+   {
+      if (_point_to_special_block_by_level.empty())
+         throw std::runtime_error("upper HNSW requires point-to-block ownership");
+      std::vector<IdxType> block_entry_points(_special_blocks.size() + 1,
+                                                SpecialBlock::kInvalidEntryPoint);
+      for (const SpecialBlock &block : _special_blocks)
+         if (block.block_id > 0 && block.block_id < block_entry_points.size() &&
+             block.level == 0)
+            block_entry_points[block.block_id] = block.entry_point_id;
+      _upper_hnsw = std::make_unique<UpperHnswIndex>();
+      _upper_hnsw->build(
+          _base_storage, _point_to_special_block_by_level.front(),
+          block_entry_points, static_cast<IdxType>(_special_blocks.size()),
+          static_cast<uint32_t>(read_env_ull("UNG_UPPER_HNSW_SAMPLE_DENOM", 32)),
+          static_cast<uint32_t>(read_env_ull("UNG_UPPER_HNSW_M", 32)),
+          static_cast<uint32_t>(read_env_ull("UNG_UPPER_HNSW_EFC", 200)),
+          read_env_ull("UNG_UPPER_HNSW_SEED", 20261009), _num_threads);
+   }
    refresh_special_block_memory_stats();
    _special_block_summary.build_memory_logical_bytes =
        _special_block_summary.memory_logical_bytes;
@@ -2484,6 +2856,9 @@ void UniNavGraph::build_special_block_index(
    fs::create_directories(block_prefix);
    fs::create_directories(result_prefix);
    save_special_blocks(block_prefix);
+   if (_upper_hnsw && !_upper_hnsw->empty())
+      _upper_hnsw->save(block_prefix, _num_points,
+                        static_cast<IdxType>(_special_blocks.size()));
 
    const auto compact_reload_start = std::chrono::high_resolution_clock::now();
    std::vector<std::vector<SpecialEdge>>().swap(_special_edges_by_point);
@@ -2506,6 +2881,23 @@ void UniNavGraph::build_special_block_index(
                                 ? "special_block_trie_multilevel_v1"
                                 : "special_block_trie_v2";
    meta["edge_storage_format"] = "csr_v2";
+   meta["upper_hnsw_enabled"] =
+       (_upper_hnsw && !_upper_hnsw->empty()) ? "1" : "0";
+   if (_upper_hnsw && !_upper_hnsw->empty())
+   {
+      const UpperHnswStats upper_stats = _upper_hnsw->statistics();
+      meta["upper_hnsw_nodes"] = std::to_string(upper_stats.num_nodes);
+      meta["upper_hnsw_max_level"] = std::to_string(upper_stats.max_level);
+      meta["upper_hnsw_covered_blocks"] = std::to_string(upper_stats.covered_blocks);
+      meta["upper_hnsw_reachable_level0_nodes"] =
+          std::to_string(upper_stats.reachable_level0_nodes);
+      meta["upper_hnsw_sample_denominator"] =
+          std::to_string(read_env_ull("UNG_UPPER_HNSW_SAMPLE_DENOM", 32));
+      meta["upper_hnsw_m"] =
+          std::to_string(read_env_ull("UNG_UPPER_HNSW_M", 32));
+      meta["upper_hnsw_ef_construction"] =
+          std::to_string(read_env_ull("UNG_UPPER_HNSW_EFC", 200));
+   }
    meta["source_ung_index"] = reused_ung_source ? ung_prefix : "dataset_fallback";
    meta["source_input"] = reused_ung_source ? "ung_index" : "dataset_fallback";
    meta["source_ung_fingerprint"] = block_source_fingerprint(
@@ -2531,6 +2923,26 @@ void UniNavGraph::build_special_block_index(
    meta["special_edge_count"] = std::to_string(_special_block_summary.special_edges);
    meta["special_edge_intra_count"] = std::to_string(_special_block_summary.intra_special_edges);
    meta["special_edge_inter_count"] = std::to_string(_special_block_summary.inter_special_edges);
+   meta["gpu_intra_blocks"] = std::to_string(_special_block_summary.gpu_intra_blocks);
+   meta["gpu_intra_points"] = std::to_string(_special_block_summary.gpu_intra_points);
+   meta["gpu_intra_optimized_topk"] =
+       read_env_bool_default("UNG_TAGORE_OPTIMIZED_TOPK", true) ? "1" : "0";
+   meta["gpu_intra_requested_streams"] =
+       std::to_string(read_env_idxtype("UNG_TAGORE_BATCH_STREAMS", 1, 1, 16));
+   if (read_env_bool_default("UNG_TAGORE_NAIVE", false))
+   {
+      meta["gpu_intra_naive"] = "1";
+      meta["gpu_intra_requested_streams"] = "1";
+      meta["gpu_intra_optimized_topk"] = "0";
+      meta["gpu_intra_distance_kernel"] = "cuda_core";
+      meta["gpu_intra_compact_d2h"] = "0";
+   }
+   meta["gpu_intra_fallback_blocks"] =
+       std::to_string(_special_block_summary.gpu_intra_fallback_blocks);
+   meta["cpu_intra_vamana_blocks"] =
+       std::to_string(_special_block_summary.cpu_intra_vamana_blocks);
+   meta["cpu_intra_vamana_points"] =
+       std::to_string(_special_block_summary.cpu_intra_vamana_points);
    meta["special_block_trie_format_version"] =
        std::to_string(SpecialBlockTrieIndex::kFormatVersion);
    meta["special_block_trie_nodes"] = std::to_string(_special_block_summary.trie_node_count);
@@ -2631,6 +3043,29 @@ void UniNavGraph::load_special_block_index(const std::string &block_index_path_p
                                    : base_topology_it->second));
    }
    load_special_blocks(prefix, block_meta, true);
+   _upper_hnsw.reset();
+   const auto upper_enabled_it = block_meta.find("upper_hnsw_enabled");
+   if (ung_env_flag_enabled("UNG_UPPER_HNSW_ENABLE") &&
+       upper_enabled_it != block_meta.end() && upper_enabled_it->second == "1")
+   {
+      _upper_hnsw = std::make_unique<UpperHnswIndex>();
+      _upper_hnsw->load(prefix, _num_points,
+                        static_cast<IdxType>(_special_blocks.size()));
+      const UpperHnswStats stats = _upper_hnsw->statistics();
+      std::cout << "[upper_hnsw][load] nodes=" << stats.num_nodes
+                << " covered_blocks=" << stats.covered_blocks
+                << " max_level=" << stats.max_level
+                << " reachable_level0=" << stats.reachable_level0_nodes
+                << std::endl;
+      for (size_t level = 0; level < stats.nodes_per_level.size(); ++level)
+      {
+         std::cout << "[upper_hnsw][level] level=" << level
+                   << " nodes=" << stats.nodes_per_level[level]
+                   << " average_degree=" << stats.average_degree_per_level[level]
+                   << " max_degree=" << stats.max_degree_per_level[level]
+                   << std::endl;
+      }
+   }
    refresh_special_block_memory_stats();
    _special_block_summary.disk_bytes = special_block_disk_bytes(prefix);
    _special_block_summary.load_total_ms = std::chrono::duration<double, std::milli>(
@@ -2668,6 +3103,11 @@ void UniNavGraph::build_special_edge_overlay()
    double intra_ms = 0.0;
    double inter_ms = 0.0;
    const bool gpu_intra_enabled = env_flag("UNG_SPECIAL_BLOCK_GPU_INTRA");
+   const bool gpu_intra_strict = env_flag("UNG_SPECIAL_BLOCK_GPU_INTRA_STRICT");
+   const bool gpu_intra_require_used = env_flag("UNG_SPECIAL_BLOCK_GPU_INTRA_REQUIRE_USED");
+   if ((gpu_intra_strict || gpu_intra_require_used) && !gpu_intra_enabled)
+      throw std::runtime_error(
+          "strict/required special-block GPU intra mode requires UNG_SPECIAL_BLOCK_GPU_INTRA=1");
    if (gpu_intra_enabled && _build_config.tagore_k <= _max_degree)
    {
       const std::string msg = "special block GPU intra requires UNG_TAGORE_K > max_degree; lower values currently trigger GPU fallback and are unsupported.";
@@ -2779,6 +3219,95 @@ void UniNavGraph::build_special_edge_overlay()
    size_t gpu_intra_fallback_blocks = 0;
    bool route_large_gpu_disabled = false;
    const auto intra_start = std::chrono::high_resolution_clock::now();
+   const TagoreCudaRuntimeConfig gpu_intra_runtime_cfg =
+       make_tagore_cuda_runtime_config(_build_config.tagore_k,
+                                       static_cast<uint32_t>(special_block_max_degree),
+                                       true);
+   const uint64_t gpu_intra_batch_points = std::max<unsigned long long>(
+       1, read_env_ull("UNG_SPECIAL_BLOCK_GPU_INTRA_BATCH_POINTS", 65536));
+   if (gpu_intra_enabled || special_intra_route)
+      std::cout << "[special_edges][GPU_INTRA_CONFIG] optimized_topk="
+                << (gpu_intra_runtime_cfg.optimized_topk ? 1 : 0)
+                << " requested_streams=" << gpu_intra_runtime_cfg.requested_streams << std::endl;
+   const bool route_large_uses_gpu = special_intra_large_backend == "jasper_style" ||
+                                     special_intra_large_backend == "tagore" ||
+                                     special_intra_large_backend == "gpu";
+   std::vector<IdxType> gpu_intra_block_ids;
+   for (const SpecialBlock &block : _special_blocks)
+   {
+      if (block.block_id >= block_points.size())
+         continue;
+      const size_t n = block_points[block.block_id].size();
+      if (n > 1 && (special_intra_route
+                        ? route_large_uses_gpu && n >= special_intra_large_nx
+                        : gpu_intra_enabled && n > special_intra_complete_threshold))
+         gpu_intra_block_ids.push_back(block.block_id);
+   }
+   size_t gpu_intra_batch_cursor = 0;
+   std::vector<TagoreBuildResult> gpu_intra_results(block_points.size());
+   std::vector<bool> gpu_intra_scheduled(block_points.size(), false);
+   std::vector<std::exception_ptr> gpu_intra_errors(block_points.size());
+   // Pack only a bounded window. Multiple requests let the CUDA builder balance
+   // groups across streams and reuse each worker's workspace between groups.
+   // Results remain in block order; edge assembly below is still single-threaded.
+   auto take_gpu_intra_result = [&](IdxType block_id) -> TagoreBuildResult {
+      if (!gpu_intra_scheduled[block_id])
+      {
+         std::vector<IdxType> ids;
+         uint64_t points_in_batch = 0;
+         while (gpu_intra_batch_cursor < gpu_intra_block_ids.size())
+         {
+            const IdxType next_id = gpu_intra_block_ids[gpu_intra_batch_cursor];
+            const size_t n = block_points[next_id].size();
+            if (!ids.empty() && (gpu_intra_runtime_cfg.requested_streams == 1 ||
+                                 points_in_batch + n > gpu_intra_batch_points))
+               break;
+            ids.push_back(next_id);
+            points_in_batch += n;
+            gpu_intra_scheduled[next_id] = true;
+            ++gpu_intra_batch_cursor;
+         }
+         if (ids.empty() || !gpu_intra_scheduled[block_id])
+            throw std::runtime_error("special block is missing from the GPU intra batch plan");
+         if (gpu_intra_runtime_cfg.requested_streams > 1)
+            std::cout << "[special_edges][GPU_INTRA_BATCH] blocks=" << ids.size()
+                      << " points=" << points_in_batch
+                      << " streams=" << std::min<size_t>(gpu_intra_runtime_cfg.requested_streams, ids.size())
+                      << " point_limit=" << gpu_intra_batch_points << std::endl;
+         try
+         {
+            std::vector<std::vector<float>> packed;
+            packed.reserve(ids.size());
+            std::vector<TagoreGroupRequest> requests;
+            requests.reserve(ids.size());
+            for (IdxType id : ids)
+            {
+               packed.push_back(pack_special_block_vectors(_base_storage, block_points[id]));
+               requests.push_back({packed.back().data(), static_cast<uint32_t>(block_points[id].size())});
+            }
+            TagoreBatchBuildResult batch = build_tagore_vamana_cuda_batch(
+                requests, static_cast<uint32_t>(_base_storage->get_dim()),
+                _build_config.tagore_k, static_cast<uint32_t>(special_block_max_degree),
+                _build_config.tagore_m, _build_config.tagore_iter, _alpha,
+                TagorePruneMode::FastGrnnd, gpu_intra_runtime_cfg);
+            if (batch.groups.size() != ids.size())
+               throw std::runtime_error("special block GPU intra batch returned the wrong number of graphs");
+            for (size_t i = 0; i < ids.size(); ++i)
+               gpu_intra_results[ids[i]] = std::move(batch.groups[i]);
+         }
+         catch (...)
+         {
+            // Preserve per-block strict/fallback accounting when a whole batch
+            // fails. Strict callers rethrow at the existing catch boundary.
+            const auto error = std::current_exception();
+            for (IdxType id : ids)
+               gpu_intra_errors[id] = error;
+         }
+      }
+      if (gpu_intra_errors[block_id])
+         std::rethrow_exception(gpu_intra_errors[block_id]);
+      return std::move(gpu_intra_results[block_id]);
+   };
    for (SpecialBlock &block : _special_blocks)
    {
       if (block.block_id >= block_points.size())
@@ -2844,26 +3373,9 @@ void UniNavGraph::build_special_edge_overlay()
                {
                   if (_build_config.tagore_k <= special_block_max_degree)
                      throw std::runtime_error("large-block CUDA route requires UNG_TAGORE_K > UNG_SPECIAL_BLOCK_MAX_DEGREE");
-                  std::vector<float> packed = pack_special_block_vectors(_base_storage, points);
-                  TagoreGroupRequest request{packed.data(), static_cast<uint32_t>(n)};
-                  const TagoreCudaRuntimeConfig runtime_cfg =
-                      make_tagore_cuda_runtime_config(_build_config.tagore_k,
-                                                      static_cast<uint32_t>(special_block_max_degree),
-                                                      false);
-                  TagoreBatchBuildResult batch = build_tagore_vamana_cuda_batch(
-                      std::vector<TagoreGroupRequest>{request},
-                      static_cast<uint32_t>(_base_storage->get_dim()),
-                      _build_config.tagore_k,
-                      static_cast<uint32_t>(special_block_max_degree),
-                      _build_config.tagore_m,
-                      _build_config.tagore_iter,
-                      _alpha,
-                      TagorePruneMode::FastGrnnd,
-                      runtime_cfg);
-                  if (batch.groups.empty())
-                     throw std::runtime_error("empty CUDA batch result for special block");
+                  TagoreBuildResult result = take_gpu_intra_result(block.block_id);
                   fill_special_graph_from_tagore_result(local_graph,
-                                                        batch.groups.front(),
+                                                        result,
                                                         n,
                                                         special_block_max_degree,
                                                         _build_config.tagore_k);
@@ -2871,7 +3383,7 @@ void UniNavGraph::build_special_edge_overlay()
                       local_storage,
                       _distance_handler,
                       local_graph,
-                      batch.groups.front().entry_point < n ? batch.groups.front().entry_point : 0);
+                      result.entry_point < n ? result.entry_point : 0);
                   gpu_intra_blocks += 1;
                   gpu_intra_points += static_cast<size_t>(n);
                   built_by_gpu = true;
@@ -2879,6 +3391,8 @@ void UniNavGraph::build_special_edge_overlay()
                catch (const std::exception &ex)
                {
                   gpu_intra_fallback_blocks += 1;
+                  if (gpu_intra_strict)
+                     throw;
                   route_large_gpu_disabled = true;
                   std::cerr << "[special_edges][INTRA_ROUTE][large_fallback] block=" << block.block_id
                             << " n=" << n << " backend=" << special_intra_large_backend
@@ -2967,26 +3481,9 @@ void UniNavGraph::build_special_edge_overlay()
          {
             try
             {
-               std::vector<float> packed = pack_special_block_vectors(_base_storage, points);
-               TagoreGroupRequest request{packed.data(), static_cast<uint32_t>(n)};
-               const TagoreCudaRuntimeConfig runtime_cfg =
-                   make_tagore_cuda_runtime_config(_build_config.tagore_k,
-                                                   static_cast<uint32_t>(special_block_max_degree),
-                                                   false);
-               TagoreBatchBuildResult batch = build_tagore_vamana_cuda_batch(
-                   std::vector<TagoreGroupRequest>{request},
-                   static_cast<uint32_t>(_base_storage->get_dim()),
-                   _build_config.tagore_k,
-                   static_cast<uint32_t>(special_block_max_degree),
-                   _build_config.tagore_m,
-                   _build_config.tagore_iter,
-                   _alpha,
-                   TagorePruneMode::FastGrnnd,
-                   runtime_cfg);
-               if (batch.groups.empty())
-                  throw std::runtime_error("empty Tagore batch result for special block");
+               TagoreBuildResult result = take_gpu_intra_result(block.block_id);
                fill_special_graph_from_tagore_result(local_graph,
-                                                     batch.groups.front(),
+                                                     result,
                                                      n,
                                                      special_block_max_degree,
                                                      _build_config.tagore_k <= special_block_max_degree
@@ -2996,7 +3493,7 @@ void UniNavGraph::build_special_edge_overlay()
                    std::make_shared<SpecialBlockStorageView>(_base_storage, points),
                    _distance_handler,
                    local_graph,
-                   batch.groups.front().entry_point < n ? batch.groups.front().entry_point : 0);
+                   result.entry_point < n ? result.entry_point : 0);
                gpu_intra_blocks += 1;
                gpu_intra_points += static_cast<size_t>(n);
                built_by_gpu = true;
@@ -3004,6 +3501,8 @@ void UniNavGraph::build_special_edge_overlay()
             catch (const std::exception &ex)
             {
                gpu_intra_fallback_blocks += 1;
+               if (gpu_intra_strict)
+                  throw;
                std::cerr << "[special_edges][GPU_INTRA] fallback block=" << block.block_id
                          << " n=" << n << " reason=" << ex.what() << std::endl;
             }
@@ -3044,7 +3543,20 @@ void UniNavGraph::build_special_edge_overlay()
    intra_ms = std::chrono::duration<double, std::milli>(
                   std::chrono::high_resolution_clock::now() - intra_start)
                   .count();
+   _special_block_summary.gpu_intra_blocks = static_cast<IdxType>(gpu_intra_blocks);
+   _special_block_summary.gpu_intra_points = static_cast<IdxType>(gpu_intra_points);
+   _special_block_summary.gpu_intra_fallback_blocks =
+       static_cast<IdxType>(gpu_intra_fallback_blocks);
+   _special_block_summary.cpu_intra_vamana_blocks =
+       static_cast<IdxType>(cpu_intra_vamana_blocks);
+   _special_block_summary.cpu_intra_vamana_points =
+       static_cast<IdxType>(cpu_intra_vamana_points);
+   if (gpu_intra_require_used && gpu_intra_blocks == 0)
+      throw std::runtime_error(
+          "special-block GPU intra was required but no block Vamana graph used CUDA");
    std::cout << "[special_edges] gpu_intra_enabled=" << (gpu_intra_enabled ? 1 : 0)
+             << " gpu_intra_strict=" << (gpu_intra_strict ? 1 : 0)
+             << " gpu_intra_require_used=" << (gpu_intra_require_used ? 1 : 0)
              << " gpu_intra_blocks=" << gpu_intra_blocks
              << " gpu_intra_points=" << gpu_intra_points
              << " gpu_intra_fallback_blocks=" << gpu_intra_fallback_blocks
@@ -3224,6 +3736,7 @@ void UniNavGraph::build_special_edge_overlay()
    size_t inter_exact_queries = 0, inter_graph_queries = 0;
    unsigned long long inter_exact_pair_work = 0, inter_graph_pair_work = 0;
    unsigned long long inter_exact_edges = 0, inter_graph_edges = 0;
+   unsigned long long inter_graph_distance_computations = 0;
    double inter_exact_ms = 0.0, inter_graph_ms = 0.0;
    double inter_exact_setup_ms = 0.0, inter_graph_setup_ms = 0.0;
    double inter_exact_loop_ms = 0.0, inter_graph_loop_ms = 0.0;
@@ -3342,12 +3855,14 @@ void UniNavGraph::build_special_edge_overlay()
             const auto pair_loop_start = std::chrono::high_resolution_clock::now();
 
             unsigned long long inter_edges_added = 0;
-#pragma omp parallel for schedule(dynamic, 64) num_threads(_num_threads) reduction(+ : inter_edges_added)
+            unsigned long long pair_distance_computations = 0;
+#pragma omp parallel for schedule(dynamic, 64) num_threads(_num_threads) reduction(+ : inter_edges_added, pair_distance_computations)
             for (IdxType src_idx = 0; src_idx < static_cast<IdxType>(src_points.size()); ++src_idx)
             {
                const IdxType source = src_points[src_idx];
                SearchQueue local_topk;
                local_topk.reserve(special_block_num_cross_edges);
+               uint64_t query_distance_computations = 0;
                if (use_sampling)
                {
                   append_cross_edges_from_target_points(source,
@@ -3356,7 +3871,8 @@ void UniNavGraph::build_special_edge_overlay()
                                                         nullptr,
                                                         true,
                                                         local_topk,
-                                                        special_block_num_cross_edges);
+                                                        special_block_num_cross_edges,
+                                                        profile_inter_routes ? &query_distance_computations : nullptr);
                }
                else
                {
@@ -3366,8 +3882,10 @@ void UniNavGraph::build_special_edge_overlay()
                                                         &search_cache_list,
                                                         use_exact_scan,
                                                         local_topk,
-                                                        special_block_num_cross_edges);
+                                                        special_block_num_cross_edges,
+                                                        profile_inter_routes ? &query_distance_computations : nullptr);
                }
+               pair_distance_computations += query_distance_computations;
                if (profile_inter_no_output)
                {
                   inter_edges_added += static_cast<unsigned long long>(local_topk.size());
@@ -3403,6 +3921,7 @@ void UniNavGraph::build_special_edge_overlay()
                pair_profile.target_points = dst_points.size();
                pair_profile.pair_work = pair_work;
                pair_profile.edges = inter_edges_added;
+               pair_profile.distance_computations = pair_distance_computations;
                pair_profile.exact_scan = use_exact_scan;
                pair_profile.sampled = use_sampling;
                pair_profile.forced_graph = force_graph;
@@ -3431,6 +3950,7 @@ void UniNavGraph::build_special_edge_overlay()
                   inter_graph_queries += src_points.size();
                   inter_graph_pair_work += pair_work;
                   inter_graph_edges += inter_edges_added;
+                  inter_graph_distance_computations += pair_distance_computations;
                   inter_graph_ms += pair_ms;
                   inter_graph_setup_ms += setup_ms;
                   inter_graph_loop_ms += loop_ms;
@@ -3468,6 +3988,7 @@ void UniNavGraph::build_special_edge_overlay()
                 << " graph_queries=" << inter_graph_queries
                 << " graph_pair_work=" << inter_graph_pair_work
                 << " graph_edges=" << inter_graph_edges
+                << " graph_distance_computations=" << inter_graph_distance_computations
                 << " graph_ms=" << inter_graph_ms
                 << " graph_setup_ms=" << inter_graph_setup_ms
                 << " graph_loop_ms=" << inter_graph_loop_ms
@@ -3500,6 +4021,7 @@ void UniNavGraph::build_special_edge_overlay()
                    << " source_points=" << pair.source_points
                    << " target_points=" << pair.target_points
                    << " edges=" << pair.edges
+                   << " distance_computations=" << pair.distance_computations
                    << " route=" << (pair.sampled ? "sample" : (pair.exact_scan ? "exact" : "graph"))
                    << " forced_graph=" << (pair.forced_graph ? 1 : 0)
                    << std::endl;
@@ -3758,6 +4280,7 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
    _special_edges_csr.clear();
    _special_heavy_edges_csr.clear();
    _special_block_summary = {};
+   _upper_hnsw.reset();
    auto meta_it = meta_data.find("special_blocks_enabled");
    if (meta_it == meta_data.end() || meta_it->second != "1")
    {
@@ -4162,6 +4685,7 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
       throw std::runtime_error(
           "requested heavy special-edge binary is invalid and no CSV fallback exists: " +
           prefix + "special_heavy_edges.bin");
+   load_or_build_special_block_router_bounds(prefix);
    std::cout << "[special_blocks] loaded blocks=" << _special_block_summary.num_blocks
              << " trivial_blocks=" << _special_block_summary.trivial_blocks
              << " trie_nodes=" << _special_block_summary.trie_node_count
@@ -4173,6 +4697,35 @@ void UniNavGraph::load_special_blocks(const std::string &prefix,
              << " heavy_edges=" << heavy_edges_loaded
              << " heavy_pair_work_threshold=" << heavy_pair_work_threshold
              << std::endl;
+}
+
+bool UniNavGraph::has_upper_hnsw() const
+{
+   return _upper_hnsw && !_upper_hnsw->empty();
+}
+
+UpperHnswStats UniNavGraph::upper_hnsw_stats() const
+{
+   return has_upper_hnsw() ? _upper_hnsw->statistics() : UpperHnswStats{};
+}
+
+std::vector<UpperHnswCandidate> UniNavGraph::search_upper_hnsw(
+    const float *query, size_t top_n, size_t ef_search) const
+{
+   return has_upper_hnsw()
+              ? _upper_hnsw->search(query, top_n, ef_search)
+              : std::vector<UpperHnswCandidate>{};
+}
+
+IdxType UniNavGraph::bottom_block_for_original_point(IdxType original_point_id) const
+{
+   if (original_point_id >= _old_to_new_vec_ids.size() ||
+       _point_to_special_block_by_level.empty())
+      return 0;
+   const IdxType point_id = _old_to_new_vec_ids[original_point_id];
+   if (point_id >= _point_to_special_block_by_level.front().size())
+      return 0;
+   return _point_to_special_block_by_level.front()[point_id];
 }
 
 } // namespace ANNS

@@ -1,0 +1,17 @@
+{
+  "base_config": "../cpu_special_blocks/Amazon_config_Trie_block.json",
+  "timing_scope": "fresh_base_trie_and_block_index",
+  "result_root": "/home/dev/graphdb/FilterVectorResult/Amazon/intra_build_ablation",
+  "gpu": 0,
+  "repeat": 3,
+  "warmup": 1,
+  "streams": 4,
+  "batch_points": 65536,
+  "variants": [
+    {"name": "cpu", "gpu_intra": false, "load_balance": false, "optimized_topk": false},
+    {"name": "gpu_baseline", "gpu_intra": true, "load_balance": false, "optimized_topk": false},
+    {"name": "load_balance_only", "gpu_intra": true, "load_balance": true, "optimized_topk": false},
+    {"name": "topk_only", "gpu_intra": true, "load_balance": false, "optimized_topk": true},
+    {"name": "load_balance_topk", "gpu_intra": true, "load_balance": true, "optimized_topk": true}
+  ]
+}
